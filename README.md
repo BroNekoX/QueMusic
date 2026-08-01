@@ -216,6 +216,7 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
+- [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目早期框架参考
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
 - 所有贡献者与测试者 ❤️
