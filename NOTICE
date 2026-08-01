@@ -21,7 +21,11 @@ This software includes third-party components under their own licenses:
    Copyright (C) Stdware Collections (https://www.github.com/stdware)
    Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
 
-3. pako (https://github.com/nodeca/pako)
+3. Qt6_QWindowKit_QML_demo (https://github.com/qiuliw/Qt6_QWindowKit_QML_demo)
+   Used as the early framework basis for this project.
+   No license was specified by the original author.
+
+4. pako (https://github.com/nodeca/pako)
    Used as api/pako.mjs. Licensed under the MIT License.
    Copyright (C) 2014-2017 Vitaly Puzrin and Andrey Vitalev
 
