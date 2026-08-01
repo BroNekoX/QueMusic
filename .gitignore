@@ -1,0 +1,69 @@
+# =============================================
+# QueMusic — .gitignore
+# =============================================
+
+# --- Build Output ---
+build*/
+cmake-build-*/
+out/
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+.qtcreator/
+*.user
+*.user.*
+CMakeLists.txt.user*
+*.swp
+*.swo
+*~
+
+# --- OS Artifacts ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.bak
+
+# --- Qt Creator Specific ---
+*.autosave
+*.autosave.qml
+*.orig
+
+# --- Compiled Binaries ---
+*.exe
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+*.obj
+*.o
+
+# --- Archives ---
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# --- Temp & Logs ---
+*.log
+*.tmp
+temp/
+logs/
+
+# --- QML Cache ---
+.qmlc/
+*.qmlc
+*.jsc
+
+# --- Third-party build dirs ---
+ThirdParty/*/build/
+
+# --- Python / Node ---
+node_modules/
+__pycache__/
+*.pyc
+
+# --- External binary dependencies (user-provided) ---
+ffmpeg/

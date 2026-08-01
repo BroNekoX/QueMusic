@@ -1,0 +1,35 @@
+QueMusic
+Copyright (c) 2024-2026 QueMusic Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+--------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------
+
+This software includes third-party components under their own licenses:
+
+1. Qt 6 (https://www.qt.io/)
+   Used under the GNU Lesser General Public License v3.0 (LGPL-3.0).
+   - Qt Core, Qt Gui, Qt Qml, Qt Quick, Qt Network, Qt Multimedia,
+     Qt Concurrent, Qt Sql, Qt ShaderTools
+   Copyright (C) The Qt Company Ltd.
+
+2. QWindowKit (https://github.com/stdware/qwindowkit)
+   Licensed under the Apache License, Version 2.0.
+   Copyright (C) Stdware Collections (https://www.github.com/stdware)
+   Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
+
+3. pako (https://github.com/nodeca/pako)
+   Used as api/pako.mjs. Licensed under the MIT License.
+   Copyright (C) 2014-2017 Vitaly Puzrin and Andrey Vitalev
+
+4. Poppins font (https://github.com/itfoundry/Poppins)
+   Licensed under the SIL Open Font License 1.1.
+
+5. Feather Icons (https://feathericons.com/)
+   Licensed under the MIT License.
+   Copyright (c) 2013-2017 Cole Bemis
+
+For the full license texts, please refer to the respective projects.

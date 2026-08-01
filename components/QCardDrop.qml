@@ -1,0 +1,80 @@
+// QWideDrop.qml
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 QueMusic Contributors
+//
+import QtQuick
+import QtQuick.Layouts
+
+Rectangle {
+    id: root
+    width: 360
+    height: 108
+    color: "transparent"
+    radius: Style.settings.labelRadius
+    property var picModel: []
+    property list<string> model: ["Click1","Click2","Click3"]
+    property int number: 3
+    property int singleWidth: width / number - 16
+    property int choice: 0
+    signal transformed(int choiced)
+    Row {
+        x: 8
+        y: 0
+        width: root.width - 16
+        height: root.height
+        property int choiceIndex: 0
+        spacing: 16
+        Repeater {
+            model: root.model
+            delegate: Rectangle {
+                height: parent.height
+                width: root.singleWidth
+                color: root.choice == index ? Style.themes.themeColor : Style.themes.primaryColor
+                border.width: 2
+                border.color: Style.themes.secondaryColor
+                radius: Style.settings.labelRadius
+                Behavior on color { ColorAnimation { duration: 80 } }
+            
+                Rectangle {
+                    id: hover
+                    color: Style.themes.hoverColor
+                    anchors.fill: parent
+                    radius: root.radius
+                    opacity: 0
+                    Behavior on opacity { NumberAnimation { duration: 80 } }
+                }
+                
+                Image {
+                    x: 16
+                    y: 16
+                    width: parent.width - 32
+                    height: root.height - 52
+                    source: root.picModel[index]
+                    fillMode: Image.PreserveAspectFit
+                }
+            
+                Text {
+                    x: 0
+                    y: root.height - height
+                    height: 36
+                    width: parent.width
+                    text: modelData
+                    font.pixelSize: Style.settings.textmain
+                    color: root.choice == index ? Style.themes.primaryColor : Style.themes.textColor
+                    verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onEntered: hover.opacity = 1
+                    onExited: hover.opacity = 0
+                    onClicked: {
+                        //root.choice = index
+                        root.transformed(index)
+                    }
+                }
+            }
+        }
+    }
+}

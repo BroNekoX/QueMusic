@@ -1,0 +1,30 @@
+# =============================================
+# QueMusic — .gitattributes
+# =============================================
+
+# 统一 LF 换行符（文本文件）
+* text=auto eol=lf
+
+# C++ 源文件
+*.cpp   text diff=cpp
+*.h     text diff=cpp
+*.hpp   text diff=cpp
+
+# QML / JS
+*.qml   text
+*.mjs   text
+*.js    text
+
+# CMake
+CMakeLists.txt  text
+*.cmake         text
+
+# 标记为二进制的文件（禁止换行转换）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.ttf   binary
+*.svg   binary
+*.gif   binary
+*.qsb   binary
