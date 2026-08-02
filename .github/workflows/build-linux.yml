@@ -1,0 +1,91 @@
+name: Build Linux AppImage
+
+# 触发条件：
+#   - 手动触发（Actions 页面点 Run workflow）
+#   - 推送 v* 标签时（发布 Release 用）
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # Linux 构建 X11 无边框窗口依赖库 + FUSE（AppImage 需要）
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
+            libxcb-image0-dev libxcb-shm0-dev libxcb-util1-dev \
+            libxcb-cursor0 libxcb-cursor-dev libxcb-randr0-dev \
+            libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libgl1-mesa-dev libfuse2 ninja-build wget file
+
+      - name: Install Qt 6.9.3 (aqtinstall)
+        run: |
+          python3 -m pip install --break-system-packages aqtinstall
+          python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 -O "$HOME/Qt"
+          echo "$HOME/Qt/6.9.3/gcc_64/bin" >> "$GITHUB_PATH"
+
+      - name: Configure (CMake)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/gcc_64"
+
+      - name: Build
+        run: |
+          cmake --build build -j"$(nproc)"
+
+      - name: Download linuxdeploy tools
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
+      - name: Package AppImage
+        run: |
+          export QMAKE="$HOME/Qt/6.9.3/gcc_64/bin/qmake"
+          export QML_SOURCES_PATHS="$(pwd)"
+          export EXTRA_QT_MODULES="multimedia;sql;shadertools"
+          export QT_QPA_PLATFORM=minimal
+          # 准备 AppDir 目录结构
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp packaging/QueMusic.desktop AppDir/usr/share/applications/
+          cp resources/app/rainbowMusicIcon.png \
+            AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
+          # CI 无 FUSE，用 --appimage-extract-and-run 运行 linuxdeploy
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
+            --appdir AppDir \
+            --executable build/bin/QueMusic \
+            --desktop-file AppDir/usr/share/applications/QueMusic.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
+            --plugin qt \
+            --output appimage
+          # 统一产物命名
+          mv QueMusic-*.AppImage QueMusic-0.1.0-x86_64.AppImage 2>/dev/null || true
+          ls -la QueMusic-*.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueMusic-0.1.0-x86_64.AppImage
+          path: QueMusic-0.1.0-x86_64.AppImage
+
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: QueMusic-0.1.0-x86_64.AppImage
+          generate_release_notes: true
