@@ -19,13 +19,24 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concu
 
 qt_add_executable(${PROJECT_NAME}
     main.cpp
-    icon.rc
+    $<$<PLATFORM_ID:Windows>:icon.rc>
 )
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    WIN32_EXECUTABLE TRUE
-    MACOSX_BUNDLE FALSE
-)
+# 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+elseif(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "QueMusic"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.bronekox.quemusic"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_ICON_FILE "icon.icns"
+    )
+endif()
 
 set_source_files_properties(
     components/Style.qml

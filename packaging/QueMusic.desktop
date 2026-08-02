@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=QueMusic
+GenericName=Music Player
+GenericName[zh_CN]=音乐播放器
+Comment=Cross-platform music player based on Qt6/QML
+Comment[zh_CN]=基于 Qt6/QML 的跨平台音乐播放器
+Exec=QueMusic
+Icon=quemusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+Keywords=music;player;audio;qt;qml;mp3;
+StartupNotify=true
+StartupWMClass=QueMusic

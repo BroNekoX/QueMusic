@@ -1,0 +1,58 @@
+# Maintainer: BroNekoX <uihugd@outlook.com>
+# QueMusic - 跨平台音乐播放器 (Arch Linux 原生包)
+#
+# 注意:
+#   - 本包使用系统 Qt (6.11+), QWindowKit 需要针对系统 Qt 重新编译
+#   - 若遇到兼容问题, 请优先使用 AppImage (build-linux.sh)
+
+pkgname=quemusic
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A cross-platform music player based on Qt6/QML (支持网易云、酷狗等公开接口)"
+arch=('x86_64')
+url="https://github.com/BroNekoX/QueMusic"
+license=('Apache')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'qt6-multimedia'
+    'qt6-shadertools'
+    'qt6-svg'
+    'qt6-wayland'
+    'qt6-xcb-private-headers'
+    'libxcb'
+    'xcb-util-cursor'
+    'xcb-util-wm'
+)
+makedepends=('cmake' 'ninja' 'git')
+source=("${pkgname}-${pkgver}::git+https://github.com/BroNekoX/QueMusic.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    git describe --tags --abbrev=0 2>/dev/null || echo "${pkgver}"
+}
+
+prepare() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    # 拉取 QWindowKit 子模块
+    git submodule update --init --recursive
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    cmake -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build -j"$(nproc)"
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    install -Dm755 build/bin/QueMusic "${pkgdir}/usr/bin/QueMusic"
+    install -Dm644 packaging/QueMusic.desktop \
+        "${pkgdir}/usr/share/applications/QueMusic.desktop"
+    install -Dm644 resources/app/rainbowMusicIcon.png \
+        "${pkgdir}/usr/share/pixmaps/quemusic.png"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
