@@ -85,8 +85,8 @@
 ### 克隆（含子模块）
 
 ```bash
-git clone --recurse-submodules https://github.com/bronekox/quemusic.git
-cd quemusic
+git clone --recurse-submodules https://github.com/BroNekoX/QueMusic.git
+cd QueMusic
 ```
 
 > ⚠️ **重要**：本项目使用 QWindowKit 作为 git 子模块，务必加上 `--recurse-submodules`。  
@@ -95,7 +95,7 @@ cd quemusic
 > git submodule update --init --recursive
 > ```
 
-### 构建
+### 🪟 Windows 构建
 
 ```bash
 # 方式一：命令行
@@ -109,6 +109,38 @@ cmake --build build --parallel
 ```
 
 > 💡 **提示**：推荐使用 **Qt Creator** 打开本项目，配置、编译、调试一步到位。
+
+### 🐧 Linux 构建
+
+```bash
+# 方式一：AppImage 一键打包（推荐，自包含 Qt 6.9.3）
+bash packaging/build-linux.sh
+# 产物：QueMusic-x86_64.AppImage
+
+# 方式二：直接构建（使用系统 Qt 或已安装的 Qt 6.9+）
+cmake -B build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=~/Qt/6.9.3/gcc_64
+cmake --build build -j"$(nproc)"
+./build/bin/QueMusic
+
+# Arch / Nyarch 用户也可以用 PKGBUILD 打包：
+# cd packaging && makepkg -si
+```
+
+### 🍎 macOS 构建（无需 Mac，云端自动打包）
+
+本项目内置 GitHub Actions 工作流 `.github/workflows/build-macos.yml`，在 GitHub 的 macOS 虚拟机（Apple Silicon + Intel）上自动构建 `.dmg`：
+
+```bash
+# 方式一：手动触发
+# 仓库页面 → Actions → Build macOS → Run workflow → 下载 Artifacts 里的 .dmg
+
+# 方式二：打 tag 自动构建并挂到 Release
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+> 📦 三种平台的可执行安装包都会随 [Release](https://github.com/BroNekoX/QueMusic/releases) 发布。
 
 ---
 
