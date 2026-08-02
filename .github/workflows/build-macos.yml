@@ -50,15 +50,28 @@ jobs:
 
       - name: Configure (CMake)
         run: |
+          # 动态定位 Qt6Config.cmake 的真实位置（防止 aqtinstall 路径假设错误）
+          QT_PREFIX="$HOME/Qt/6.9.3/clang_64"
+          if [ ! -f "$QT_PREFIX/lib/cmake/Qt6/Qt6Config.cmake" ]; then
+            echo "!! Qt6Config.cmake not at expected path, searching..."
+            # 从 find 结果反推 Qt 前缀目录: .../lib/cmake/Qt6/Qt6Config.cmake
+            QT6_CFG=$(find "$HOME/Qt" -name "Qt6Config.cmake" 2>/dev/null | head -n1)
+            echo "!! Found: $QT6_CFG"
+            if [ -n "$QT6_CFG" ]; then
+              QT_PREFIX=$(dirname "$(dirname "$(dirname "$QT6_CFG")")")
+            fi
+          fi
+          echo "==> QT_PREFIX = $QT_PREFIX"
+          ls "$QT_PREFIX/lib/cmake/Qt6/" 2>/dev/null | head -5
           # 同时设置多个 Qt 查找变量，确保 qwindowkit 内部 qmsetup
-          # （独立 cmake 子进程）也能找到 Qt6Config.cmake
-          export QT_DIR="$HOME/Qt/6.9.3/clang_64"
-          export QTDIR="$HOME/Qt/6.9.3/clang_64"
+          # 和 find_package(QT NAMES Qt6 Qt5) 都能找到 Qt6Config.cmake
+          export QT_DIR="$QT_PREFIX"
+          export QTDIR="$QT_PREFIX"
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/clang_64" \
-            -DQT_DIR="$HOME/Qt/6.9.3/clang_64" \
-            -DQt6_DIR="$HOME/Qt/6.9.3/clang_64/lib/cmake/Qt6"
+            -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
+            -DQT_DIR="$QT_PREFIX" \
+            -DQt6_DIR="$QT_PREFIX/lib/cmake/Qt6"
 
       - name: Build
         run: |
