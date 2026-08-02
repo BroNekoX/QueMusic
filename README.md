@@ -1,5 +1,14 @@
 # 🎵 QueMusic — 全能跨平台音乐播放器
 
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue">
+  <img alt="Qt" src="https://img.shields.io/badge/Qt-6.9.3-41CD52">
+  <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B20%20%7C%20QML-orange">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
+  <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic">
+  <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic">
+</p>
+
 > **基于 Qt 6.9 / QML 与 GPU 加速 RHI 渲染，集网易云、QQ 音乐、酷狗等主流平台于一身的开源音乐播放器。**  
 > 动效美丽，性能出众，开发者坚持 **永久免费 & 开源**。
 >
