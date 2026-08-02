@@ -9,6 +9,20 @@ endif()
 # 2) fallback：ThirdParty 子模块
 message(STATUS "[MyApp] Using ThirdParty/qwindowkit")
 
+# 重要：qwindowkit 内部 qmsetup 通过 execute_process 启动独立 cmake 子进程
+# 查找 Qt，它不会自动继承主项目的 CMAKE_PREFIX_PATH。
+# 这里显式把 Qt 路径通过环境变量 QTDIR / QT_DIR 传给 qmsetup 子进程，
+# 并设置 CMake 变量，确保 find_package(QT) 能找到 Qt6Config.cmake。
+if(QT_DIR AND NOT DEFINED ENV{QTDIR})
+    set(ENV{QTDIR} "${QT_DIR}")
+endif()
+if(QT_DIR AND NOT DEFINED ENV{QT_DIR})
+    set(ENV{QT_DIR} "${QT_DIR}")
+endif()
+if(CMAKE_PREFIX_PATH AND NOT DEFINED QMSETUP_QT_PATH)
+    set(QMSETUP_QT_PATH "${CMAKE_PREFIX_PATH}" CACHE PATH "Path to Qt for qmsetup" FORCE)
+endif()
+
 set(QWINDOWKIT_BUILD_QUICK    ON  CACHE BOOL "" FORCE)
 set(QWINDOWKIT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(QWINDOWKIT_BUILD_TESTS    OFF CACHE BOOL "" FORCE)

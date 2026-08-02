@@ -50,9 +50,15 @@ jobs:
 
       - name: Configure (CMake)
         run: |
+          # 同时设置多个 Qt 查找变量，确保 qwindowkit 内部 qmsetup
+          # （独立 cmake 子进程）也能找到 Qt6Config.cmake
+          export QT_DIR="$HOME/Qt/6.9.3/clang_64"
+          export QTDIR="$HOME/Qt/6.9.3/clang_64"
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/clang_64"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/clang_64" \
+            -DQT_DIR="$HOME/Qt/6.9.3/clang_64" \
+            -DQt6_DIR="$HOME/Qt/6.9.3/clang_64/lib/cmake/Qt6"
 
       - name: Build
         run: |
