@@ -34,8 +34,14 @@ elseif(APPLE)
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.bronekox.quemusic"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-        MACOSX_BUNDLE_ICON_FILE "icon.icns"
     )
+    # CI 中由 workflow 生成 icon.icns；本地不存在也不影响配置
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/app/icon.icns")
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            MACOSX_BUNDLE_ICON_FILE "icon.icns"
+            RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/resources/app/icon.icns"
+        )
+    endif()
 endif()
 
 set_source_files_properties(
@@ -127,4 +133,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC QWindowKit::Quick
 )
 
-qt_deploy_runtime(${PROJECT_NAME})
+# macOS 上由 macdeployqt 统一部署，避免与 qt_deploy_runtime 冲突
+if(NOT APPLE)
+    qt_deploy_runtime(${PROJECT_NAME})
+endif()

@@ -27,9 +27,26 @@ jobs:
 
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |
-          python3 -m pip install --user aqtinstall
+          # PEP 668: Homebrew Python 禁止全局 pip 安装, 需加 --break-system-packages
+          python3 -m pip install --break-system-packages aqtinstall
           python3 -m aqt install-qt mac desktop 6.9.3 clang_64 -O "$HOME/Qt"
           echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
+
+      - name: Generate .icns app icon
+        run: |
+          mkdir -p icon.iconset
+          sips -z 16 16     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o resources/app/icon.icns
+          ls -la resources/app/icon.icns
 
       - name: Configure (CMake)
         run: |
