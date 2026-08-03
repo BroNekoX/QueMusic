@@ -19,7 +19,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # Linux 构建 X11 无边框窗口依赖库 + FUSE（AppImage 需要）
+      # Linux 构建 X11 无边框窗口依赖库 + PulseAudio（QtMultimedia 后端）+ FUSE（AppImage 需要）
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -29,7 +29,8 @@ jobs:
             libxcb-cursor0 libxcb-cursor-dev libxcb-randr0-dev \
             libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
-            libgl1-mesa-dev libfuse2 ninja-build wget file
+            libgl1-mesa-dev libfuse2 ninja-build wget file \
+            libpulse-dev
 
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |

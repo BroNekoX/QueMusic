@@ -32,8 +32,8 @@ for c in cmake ninja wget python3 pip pip3 git; do
 done
 if [ -n "$MISSING" ]; then
     echo "!! 缺少依赖:${MISSING}"
-    echo "    Arch:  sudo pacman -S --needed base-devel cmake ninja wget python-pip git fuse2"
-    echo "    Debian: sudo apt install build-essential cmake ninja-build wget python3-pip git fuse libfuse2"
+    echo "    Arch:  sudo pacman -S --needed base-devel cmake ninja wget python-pip git fuse2 libpulse"
+    echo "    Debian: sudo apt install build-essential cmake ninja-build wget python3-pip git fuse libfuse2 libpulse-dev"
     exit 1
 fi
 
