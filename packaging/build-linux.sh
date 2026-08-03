@@ -41,11 +41,13 @@ fi
 if [ ! -d "${QT_DIR}/${QT_VERSION}/gcc_64" ]; then
     echo "==> [1/5] 未找到 Qt ${QT_VERSION}，正在通过 aqtinstall 安装..."
     pip install --user aqtinstall 2>/dev/null || pip install aqtinstall
-    # -m 指定额外模块: qtmultimedia 是独立 addon(音频播放必需)
-    # 其余所需模块(Qml/Quick/Sql/ShaderTools)随基础安装自带
+    # -m 指定独立 addon 模块(空格分隔多个):
+    #   qtmultimedia  -> 音频播放必需
+    #   qtshadertools -> qt6_add_shaders 生成 QShader 必需
+    # 其余所需模块(Qml/Quick/Sql)随基础安装自带
     python3 -m aqt install-qt linux desktop "${QT_VERSION}" "${QT_ARCH}" \
         -O "${QT_DIR}" \
-        -m qtmultimedia
+        -m qtmultimedia qtshadertools
 else
     echo "==> [1/5] 检测到 Qt ${QT_VERSION}，跳过安装"
 fi
