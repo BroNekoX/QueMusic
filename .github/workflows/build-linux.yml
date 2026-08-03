@@ -80,7 +80,8 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           cp packaging/QueMusic.desktop AppDir/usr/share/applications/
-          cp resources/app/rainbowMusicIcon.png \
+          # 应用图标：从 resources/icon.png（由 icon.ico 转换，与 Windows 图标一致）
+          cp resources/icon.png \
             AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
           # CI 无 FUSE，用 --appimage-extract-and-run 运行 linuxdeploy
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \

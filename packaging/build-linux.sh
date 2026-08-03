@@ -78,8 +78,8 @@ echo "==> [4/5] 准备 AppDir 目录..."
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/usr/share/applications"
 mkdir -p "${APP_DIR}/usr/share/icons/hicolor/256x256/apps"
-# 应用图标 (Linux 需要 png, 这里用 rainbowMusicIcon.png)
-cp resources/app/rainbowMusicIcon.png \
+# 应用图标 (Linux 需要 png, 这里用 resources/icon.png，由 icon.ico 转换，与 Windows 图标一致)
+cp resources/icon.png \
     "${APP_DIR}/usr/share/icons/hicolor/256x256/apps/quemusic.png"
 cp packaging/QueMusic.desktop "${APP_DIR}/usr/share/applications/"
 
