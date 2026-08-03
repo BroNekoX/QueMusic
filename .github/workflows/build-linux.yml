@@ -40,10 +40,11 @@ jobs:
           # -m 指定独立 addon 模块(空格分隔多个):
           #   qtmultimedia  -> 音频播放必需
           #   qtshadertools -> qt6_add_shaders 生成 QShader 必需
+          #   qt5compat     -> QML 里用了 Qt5Compat.GraphicalEffects
           # 其余所需模块(Qml/Quick/Sql)随基础安装自带
           python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 \
             -O "$HOME/Qt" \
-            -m qtmultimedia qtshadertools
+            -m qtmultimedia qtshadertools qt5compat
           echo "$HOME/Qt/6.9.3/gcc_64/bin" >> "$GITHUB_PATH"
 
       - name: Configure (CMake)
@@ -68,6 +69,8 @@ jobs:
           export QML_SOURCES_PATHS="$(pwd)"
           export EXTRA_QT_MODULES="multimedia;sql;shadertools"
           export QT_QPA_PLATFORM=minimal
+          # 删除 CI 上无依赖的 Mimer SQL 驱动（libmimerapi.so 不存在，项目用不到）
+          rm -f "$HOME/Qt/6.9.3/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
           # 准备 AppDir 目录结构
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps

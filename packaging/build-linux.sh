@@ -44,10 +44,11 @@ if [ ! -d "${QT_DIR}/${QT_VERSION}/gcc_64" ]; then
     # -m 指定独立 addon 模块(空格分隔多个):
     #   qtmultimedia  -> 音频播放必需
     #   qtshadertools -> qt6_add_shaders 生成 QShader 必需
+    #   qt5compat     -> QML 里用了 Qt5Compat.GraphicalEffects
     # 其余所需模块(Qml/Quick/Sql)随基础安装自带
     python3 -m aqt install-qt linux desktop "${QT_VERSION}" "${QT_ARCH}" \
         -O "${QT_DIR}" \
-        -m qtmultimedia qtshadertools
+        -m qtmultimedia qtshadertools qt5compat
 else
     echo "==> [1/5] 检测到 Qt ${QT_VERSION}，跳过安装"
 fi
@@ -88,6 +89,9 @@ echo "==> [5/5] 打包 AppImage..."
 export QML_SOURCES_PATHS="$(pwd)"
 export EXTRA_QT_MODULES="multimedia;sql;shadertools"
 export QT_QPA_PLATFORM=minimal   # 打包阶段无需显示
+
+# 删除无依赖的 Mimer SQL 驱动（libmimerapi.so 通常不存在，且本项目用不到）
+rm -f "${QT_DIR}/${QT_VERSION}/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
 
 ./packaging/tools/linuxdeploy-x86_64.AppImage \
     --appdir "${APP_DIR}" \
