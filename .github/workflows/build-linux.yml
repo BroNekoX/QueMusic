@@ -30,7 +30,9 @@ jobs:
             libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libfuse2 ninja-build wget file \
-            libpulse-dev
+            libpulse-dev libpulse0
+          # 验证 PulseAudio 运行库已就位（QtMultimedia 链接依赖 libpulse.so.0）
+          ls -la /usr/lib/x86_64-linux-gnu/libpulse*
 
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |
