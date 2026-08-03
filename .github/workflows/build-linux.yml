@@ -1,10 +1,15 @@
 name: Build Linux AppImage
 
 # 触发条件：
-#   - 手动触发（Actions 页面点 Run workflow）
-#   - 推送 v* 标签时（发布 Release 用）
+#   - 手动触发（Actions 页面点 Run workflow，可填 release_tag 附加到指定 Release）
+#   - 推送 v* 标签时（发布 Release 用，自动附加到该 tag 的 Release）
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '要附加 AppImage 的 Release tag（如 v0.1.0-beta）。留空则只上传 artifact'
+        required: false
+        default: ''
   push:
     tags:
       - "v*"
@@ -96,8 +101,12 @@ jobs:
           path: QueMusic-0.1.0-x86_64.AppImage
 
       - name: Attach to Release
-        if: startsWith(github.ref, 'refs/tags/')
+        # 两种触发都生效：
+        #   1) 推送 v* 标签 → 附加到该 tag 的 Release
+        #   2) 手动触发时填了 release_tag → 附加到指定 Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.event.inputs.release_tag }}
           files: QueMusic-0.1.0-x86_64.AppImage
-          generate_release_notes: true
+          generate_release_notes: false
