@@ -34,7 +34,11 @@ jobs:
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
-          python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 -O "$HOME/Qt"
+          # -m 指定额外模块: qtmultimedia 是独立 addon(音频播放必需)
+          # 其余所需模块(Qml/Quick/Sql/ShaderTools)随基础安装自带
+          python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 \
+            -O "$HOME/Qt" \
+            -m qtmultimedia
           echo "$HOME/Qt/6.9.3/gcc_64/bin" >> "$GITHUB_PATH"
 
       - name: Configure (CMake)
