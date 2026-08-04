@@ -19,6 +19,8 @@ QtObject {
     property Settings settings: Settings {
         //id: settings
         category: "Style"
+        // 配置文件存放在软件目录下（统一使用 INI，不使用注册表/plist）
+        location: configDir + "/Style.ini"
         
         // 全局主题-参考设置页面
         property int theme: 0 //主题样式
@@ -70,6 +72,7 @@ QtObject {
         property bool premiumLyricAnime: true //高级逐行弹簧动画
         property int textWidth: 600
         property bool maskBlur: true
+        property bool lyricHideGui: false
 
         // 背景图片
         property string backgroundImage: "qrc:/QueMusic/resources/pic/back2.jpg"
@@ -78,6 +81,7 @@ QtObject {
     
     signal changeUi()
     signal changeTheme()
+    signal warned(string text,int type)
     onChangeTheme: {
         //var darkis = Style.darkis;
         var baseColor = settings.colorList[settings.color];
@@ -95,8 +99,8 @@ QtObject {
         themes.primaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.7) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.7);
         themes.secondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
         themes.secondaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.7) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.7);
-        themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.6) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.6);
-        themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.6) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.6);
+        themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.5) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.5);
+        themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.5) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.5);
         themes.shadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.05,0.20) : Qt.hsva(baseColor.hsvHue,1.0,0.14,0.16);
         themes.themeShadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.5,0.3) : Qt.hsva(baseColor.hsvHue,1.0,0.6,0.3);
     }

@@ -2,10 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Layouts
-import QtQuick.Effects
-import Qt5Compat.GraphicalEffects
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 
@@ -15,8 +11,11 @@ Item {
     property real toolsWindow: 0
     //property bool displaytop: flickable.contentY > 60 ? true : false
     Component.onCompleted: {
-        MusicApi.getPlaylistMenu(3);
-        MusicApi.getNewSongs(1, 1, 20);
+        if(!window.completedStart.playlistLoaded) {
+            MusicApi.getPlaylistMenu(3);
+            MusicApi.getNewSongs(1, 1, 20);
+            window.completedStart.playlistLoaded = true;
+        }
     }
 
     // 顶部标题

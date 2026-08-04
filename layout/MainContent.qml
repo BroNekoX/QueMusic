@@ -15,7 +15,7 @@ Rectangle {
     property var pages: [
         homePage,   // 0: 首页
         playlistPage,  // 1: 歌单页
-        nullPage,     // 2: 空页面
+        null,     // 2: 空页面
         favouritePage, // 3: 收藏页
         filePage,      // 4: 本地文件页
         downloadPage,   // 5: 下载页
@@ -26,109 +26,127 @@ Rectangle {
     //signal stackChange(int index)
     function contentIndexed(choice) {
         if(choice !== mainContent.pageIndex) {
-            pageAnine.stop()
-            pageAnimeo.target = mainContent.pages[choice]
-            pageAnimey.target = mainContent.pages[choice]
-            pageAnine.start()
-            mainContent.pages[mainContent.pageIndex].visible = false
-            mainContent.pages[choice].visible = true
-            mainContent.pageIndex = choice
+            mainContent.pages[mainContent.pageIndex].visible = false;
+            mainContent.pages[mainContent.pageIndex].active = false;
+            mainContent.pages[choice].active = true;
+            mainContent.pageIndex = choice;
         }
+    }
+    function finishedLoaderPage(choice) {
+        pageAnine.stop();
+        pageAnine.target = mainContent.pages[choice];
+        pageAnine.start();
     }
 
     ParallelAnimation {
         id: pageAnine
+        property var target
         NumberAnimation {
-            id: pageAnimeo
             property: "opacity"
+            target: pageAnine.target
             from: 0
             to: 1
-            duration: 300
+            duration: 320
             easing.type: Easing.OutExpo
         }
         NumberAnimation {
-            id: pageAnimey
             property: "y"
-            from: 180
+            target: pageAnine.target
+            from: 240
             to: 60
-            duration: 300
+            duration: 320
             easing.type: Easing.OutExpo
         }
     }
 
     // Home
-    HomePage {
+    Loader {
         id: homePage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: true
+        active: true
+        sourceComponent: HomePage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(0) }
     }
 
     // 分类
-    PlaylistPage {
+    Loader {
         id: playlistPage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
-    }
-
-    // null
-    Item {
-        id: nullPage
-        x: 0
-        y: 60
-        opacity: 1
-        visible: false
+        active: false
+        sourceComponent: PlaylistPage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(1) }
     }
 
     // 收藏
-    FavouritePage {
+    Loader {
         id: favouritePage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
+        active: false
+        sourceComponent: FavouritePage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(3) }
     }
 
 
     // 本地文件
-    FilePage {
+    Loader {
         id: filePage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
+        active: false
+        sourceComponent: FilePage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(4) }
     }
 
     // 下载
-    DownloadPage {
+    Loader {
         id: downloadPage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
+        active: false
+        sourceComponent: DownloadPage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(5) }
     }
     
     // 搜索页
-    SearchPage {
+    Loader {
         id: searchPage
         x: 0
         y: 60
         opacity: 1
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
+        active: false
+        sourceComponent: SearchPage {}
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(6) }
     }
 }

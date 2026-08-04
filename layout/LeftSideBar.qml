@@ -2,7 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 
@@ -169,21 +168,16 @@ Rectangle {
         }
 
         Rectangle {
-            x: 153
+            x: 150
             y: 20
-            width: 36
+            width: 40
             height: 20
             color: Style.themes.themeColor
             radius: 6
             Text {
-                y: 0
-                x: 0
-                height: 20
-                width: 36
-                text: "Dev"
+                anchors.centerIn: parent
+                text: "Beta"
                 font.pixelSize: 12
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
                 color:  Style.themes.primaryColor
 
             }

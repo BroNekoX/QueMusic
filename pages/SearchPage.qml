@@ -2,7 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 

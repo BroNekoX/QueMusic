@@ -3,7 +3,7 @@
 //
 pragma Singleton
 import QtQuick
-import QtCore
+import DownloadManager 1.0
 
 QtObject {
 
@@ -47,7 +47,6 @@ QtObject {
     signal loaded()
     signal finished()
     signal urlplay(string playurl,string title,string artist,string cover,string solve,string hash,int source)
-    signal download(string path,string name)
 
     function updateSearchResults(data) {
         searchResults = data.info || data.songs || [];
@@ -337,5 +336,14 @@ QtObject {
     function handlePlaylistResults(data) {
         // 处理歌单列表
         console.log("歌单列表:", data);
+    }
+
+    function download(path, name) {
+        downloader.addDownload(path, name);
+        Style.warned("已添加下载: " + name, 1);
+    }
+
+    property DownloadManager downloader: DownloadManager {
+        //id: downloader
     }
 }

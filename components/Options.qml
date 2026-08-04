@@ -13,6 +13,8 @@ QtObject {
     property Settings settings: Settings {
         //id: settings
         category: "Options"
+        // 配置文件存放在软件目录下（统一使用 INI，不使用注册表/plist）
+        location: configDir + "/Options.ini"
         
         //全局
         property real musicVolume: 0.6
@@ -54,6 +56,7 @@ QtObject {
     // 最后播放的歌曲（关闭软件时保存，下次打开首页显示）
     property Settings lastSongs: Settings {
         category: "LastMedia"
+        location: configDir + "/LastMedia.ini"
         property string name: ""
         property string artist: ""
         property string cover: ""

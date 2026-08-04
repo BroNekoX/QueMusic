@@ -17,7 +17,7 @@ Item {
     property rect rectXy: Qt.rect(root.x, root.y, root.width, root.height)
     property real blurMax: Style.settings.blurSize
     property real borderRadius: Style.settings.cubeRadius
-    property color cardColor: Style.themes.blurOverlayColor
+    property color cardColor: Style.themes.primaryBlurColor
     property color borderColor: Style.themes.primaryBlurColor
     property real borderWidth: 1
     property bool shadowEffect: false

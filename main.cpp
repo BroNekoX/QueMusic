@@ -9,12 +9,15 @@
 #include <QtQml/QQmlContext>
 #include <QtQuick/QQuickWindow>
 #include <QDebug>
+#include <QSettings>
 #include "cpp/CoverHelper.h"
 #include "cpp/ColorExtractor.h"
 #include "cpp/GetWave.h"
 #include "cpp/DownloadManager.h"
 #include "cpp/FolderModel.h"
 #include "cpp/Favorites.h"
+// Mesh Gradient 独立组件（AGPL-3.0，独立库 quemusic_meshgradient）
+#include "MeshGradientItem.h"
 #include <QWKQuick/qwkquickglobal.h>
 #include <qstylehints.h>
 
@@ -28,12 +31,12 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<ColorExtractor>("ColorExtractor", 1, 0, "ColorExtractor");
     qmlRegisterType<GetWave>("GetWave", 1, 0, "GetWave");
     qmlRegisterType<DownloadManager>("DownloadManager", 1, 0, "DownloadManager");
+    qmlRegisterType<MeshGradientItem>("MeshGradientItem", 1, 0, "MeshGradientItem");
 
     //qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
     //qputenv("QSG_RHI_BACKEND", "opengl"); // other options: d3d11, d3d12, vulkan
-    //qputenv("QSG_RHI_HDR", "scrgb"); // other options: hdr10, p3
-    //qputenv("QT_QPA_DISABLE_REDIRECTION_SURFACE", "1");
+    //qputenv("QSG_RHI_BACKEND", "d3d11"); // other options: d3d12, vulkan
 
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -50,6 +53,12 @@ int main(int argc, char *argv[]) {
     application.setOrganizationDomain("com.bronekox.quemusic");
     application.setWindowIcon(QIcon("qrc:/QPlayer/resources/icon.ico"));
     application.setApplicationName("QueMusic");
+
+    // 统一使用 INI 文件存储配置（不使用 Windows 注册表 / macOS XML 偏好设置）
+    // 配置文件存放在软件所在目录下
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
+                       QCoreApplication::applicationDirPath());
 
     // 创建模型实例
     FolderModel *myFolderModel = new FolderModel(&engine);
@@ -78,6 +87,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("favoritesSong", favSongModel);
     engine.rootContext()->setContextProperty("favoritesList", favPlaylistModel);
     engine.rootContext()->setContextProperty("favoritesArtist", favArtistModel);
+    // 软件所在目录，用于 Settings.location 将 ini 配置文件存放在软件目录下
+    engine.rootContext()->setContextProperty("configDir", QCoreApplication::applicationDirPath());
     const bool curveRenderingAvailable = true;
 
     engine.rootContext()->setContextProperty(QStringLiteral("$curveRenderingAvailable"), QVariant(curveRenderingAvailable));

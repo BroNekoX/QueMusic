@@ -2,8 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Layouts
 import QtQuick.Effects
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
@@ -16,21 +14,24 @@ Item {
 
 
     Component.onCompleted: {
-        MusicApi.getHotlistMenu.clear();
-        MusicApi.getHotPlaylistMenu(3);
-        MusicApi.getHotPlaylists(1);
-        var date = new Date();
-        var timeHour = date.getHours();
-        if(timeHour > 3 && timeHour < 9) {
-            homeText.text = "早上好"
-        } else if(timeHour > 8 && timeHour < 13) {
-            homeText.text = "上午好"
-        } else if(timeHour > 12 && timeHour < 19) {
-            homeText.text = "下午好"
-        } else if(timeHour > 18 && timeHour < 23) {
-            homeText.text = "晚上好"
-        } else {
-            //homeText.text = "晚安"
+        if(!window.completedStart.homeLoaded) {
+            MusicApi.getHotlistMenu.clear();
+            MusicApi.getHotPlaylistMenu(3);
+            MusicApi.getHotPlaylists(1);
+            var date = new Date();
+            var timeHour = date.getHours();
+            if(timeHour > 3 && timeHour < 9) {
+                homeText.text = "早上好"
+            } else if(timeHour > 8 && timeHour < 13) {
+                homeText.text = "上午好"
+            } else if(timeHour > 12 && timeHour < 19) {
+                homeText.text = "下午好"
+            } else if(timeHour > 18 && timeHour < 23) {
+                homeText.text = "晚上好"
+            } else {
+                //homeText.text = "晚安"
+            }
+            window.completedStart.homeLoaded = true;
         }
     }
     
@@ -185,8 +186,8 @@ Item {
                         MouseArea {
                             anchors.fill: parent
                             hoverEnabled: true
-                            onEntered: parent.y = -8
-                            onExited: parent.y = 0
+                            onEntered: parent.y = -8;
+                            onExited: parent.y = 0;
 
                             onClicked: {
                                 MusicApi.recommendSongs.clear();

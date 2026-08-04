@@ -11,7 +11,10 @@ Item {
     id: filePage
 
     property int folderNumber: 0
+    property int setMode: 0
+    property list<int> chooseIndex: []
     signal loaded()
+    signal cancelChoose()
 
     // 首页面
     Item {
@@ -37,6 +40,22 @@ Item {
                 text: "本地音乐"
                 font.pixelSize: Style.settings.pageTitle
                 color: Style.themes.fontColor
+            }
+            Rectangle {
+                x: parent.width - 128
+                y: 0
+                height: 36; width: 128
+                radius: 18
+                anchors.right: parent.right
+                color: Style.themes.containColor
+                opacity: filePage.setMode === 1 ? 1.0 : 0.0
+                Text {
+                    anchors.centerIn: parent
+                    text: "选择模式"
+                    color: Style.themes.fontColor
+                    font.pixelSize: Style.settings.textmain
+                }
+                Behavior on opacity { NumberAnimation { duration: 120 } }
             }
         }
 
@@ -104,7 +123,13 @@ Item {
                             buttonColor: "transparent"
                             hoverColor: Style.themes.hoverColor
                             onClicked: {
-
+                                if(filePage.setMode === 1) {
+                                    filePage.setMode = 0;
+                                    filePage.chooseIndex = [];
+                                    filePage.cancelChoose()
+                                } else {
+                                    filePage.setMode = 1;
+                                }
                             }
                         }
                         // 添加
@@ -124,9 +149,9 @@ Item {
                                 onConfirm: {
                                     if(input!=="") {
                                         myFolderModel.addFolder(input, "my", "");
-                                        mainWarn.tiped("成功添加一个文件夹",1);
+                                        Style.warned("成功添加一个文件夹",1);
                                     } else {
-                                        mainWarn.tiped("请输入文件名",0);
+                                        Style.warned("请输入文件名",0);
                                     }
                                 }
                             }
@@ -177,7 +202,13 @@ Item {
                         height: 64
                         width: folderView.width - 16
                         radius: Style.settings.labelRadius
-                        color: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
+                        color: "#00000000"//index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
+                        Connections {
+                            target: filePage
+                            function onCancelChoose() {
+                                listfolder.color = "#00000000"
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -228,10 +259,21 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                filePage.folderNumber = index
-                                window.exitIndex = 1
-                                songModel.folderId = model.folderId
-                                folderView.openFilePage(model.name,"")
+                                if(filePage.setMode === 1) {
+                                    var isChoose = false;
+                                    if(listfolder.color == "#00000000") {
+                                        listfolder.color = Style.themes.containColor;
+                                        filePage.chooseIndex.push(model.folderId);
+                                    } else {
+                                        listfolder.color = "#00000000";
+                                        filePage.chooseIndex = filePage.chooseIndex.filter(value => value !== model.folderId);
+                                    }
+                                } else {
+                                    filePage.folderNumber = index;
+                                    window.exitIndex = 1;
+                                    songModel.folderId = model.folderId;
+                                    folderView.openFilePage(model.name,"");
+                                }
                             }
                             Row {
                                 anchors.right: parent.right
@@ -267,7 +309,7 @@ Item {
                                             editDialog.folderId = model.folderId;
                                             editDialog.open();
                                         } else {
-                                            mainWarn.tiped("无法修改默认文件夹名称",0);
+                                            Style.warned("无法修改默认文件夹名称",0);
                                         }
                                     }
                                 }
@@ -282,8 +324,14 @@ Item {
                                     onClicked: {
                                         if(model.folderId !== 1) {
                                             //myfileModel.remove( index, 1 )
-                                            myFolderModel.deleteFolder(model.folderId);
-                                            mainWarn.tiped("成功删除一个我的文件夹",1);
+                                            globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
+                                                function() {
+                                                    myFolderModel.deleteFolder(model.folderId);
+                                                    Style.warned("成功删除一个我的文件夹",1);
+                                                }
+                                            );
+                                        } else {
+                                            Style.warned("无法删除默认文件夹",0);
                                         }
                                     }
                                 }
@@ -355,7 +403,13 @@ Item {
                             iconCharacter: "\uf09f"
                             buttonColor: "transparent"
                             onClicked: {
-
+                                if(filePage.setMode === 2) {
+                                    filePage.setMode = 0;
+                                    filePage.chooseIndex = [];
+                                    filePage.cancelChoose()
+                                } else {
+                                    filePage.setMode = 2;
+                                }
                             }
                         }
                         // 导入
@@ -408,7 +462,13 @@ Item {
                         height: 64
                         width: localFolderView.width - 16
                         radius: Style.settings.labelRadius
-                        color: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
+                        color: "#00000000"//index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
+                        Connections {
+                            target: filePage
+                            function onCancelChoose() {
+                                listfolder.color = "#00000000"
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -459,9 +519,20 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                localFileModel.folder = model.path;
-                                window.exitIndex = 1
-                                localFolderMusic.opened(model.name,"");
+                                if(filePage.setMode === 2) {
+                                    var isChoose = false;
+                                    if(listLocalfolder.color == "#00000000") {
+                                        listLocalfolder.color = Style.themes.containColor;
+                                        filePage.chooseIndex.push(model.folderId);
+                                    } else {
+                                        listLocalfolder.color = "#00000000";
+                                        filePage.chooseIndex = filePage.chooseIndex.filter(value => value !== model.folderId);
+                                    }
+                                } else {
+                                    localFileModel.folder = model.path;
+                                    window.exitIndex = 1
+                                    localFolderMusic.opened(model.name,"");
+                                }
                             }
 
                             Row {
@@ -506,8 +577,12 @@ Item {
                                     hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                     shadowEnabled: false
                                     onClicked: {
-                                        localFolderModel.deleteFolder(model.folderId);
-                                        mainWarn.tiped("成功删除一个本地文件夹",1);
+                                        globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
+                                            function() {
+                                                localFolderModel.deleteFolder(model.folderId);
+                                                Style.warned("成功删除一个本地文件夹",1);
+                                            }
+                                        );
                                     }
                                 }
                             }
@@ -989,6 +1064,100 @@ Item {
                         return -1; // 未找到返回 -1
                     }
                 }
+            }
+        }
+    }
+
+    // 选择模式
+    Rectangle {
+        id: chooseArea
+        x: 0
+        y: visible ? filePage.height - 60 : filePage.height
+        width: filePage.width
+        height: 60
+        visible: filePage.setMode
+        color: Style.themes.sideColor
+        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
+        Rectangle {
+            x: 16
+            y: 12
+            width: 92
+            height: 36
+            radius: 20
+            color: Style.themes.fullColor
+            Text {
+                anchors.centerIn: parent
+                text: "多选模式"
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.textmain
+            }
+        }
+        Rectangle {
+            x: 118
+            y: 12
+            width: 92
+            height: 36
+            radius: 20
+            color: "transparent"//Style.themes.fullColor
+            Text {
+                anchors.centerIn: parent
+                text: "已选择:" + filePage.chooseIndex.length + "项"
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.textmain
+            }
+        }
+        QButton {
+            y: 12
+            x: chooseArea.width - 210
+            shadowEnabled: false
+            width: 92
+            height: 36
+            radius: 20
+            buttonColor: "#fa4642"
+            text: "删除"
+            onClicked: {
+                switch(filePage.setMode) {
+                case 1:
+                    globalDialog.openSimpleDialog("删除", "这将删除这些文件夹，无法恢复，是否删除？",
+                        function() {
+                            for(var i=0;i<filePage.chooseIndex.length;i++) {
+                                myFolderModel.deleteFolder(filePage.chooseIndex[i]);
+                            }
+                            filePage.chooseIndex = [];
+                            Style.warned("成功删除" + filePage.chooseIndex.length + "个我的文件夹",1);
+                        }
+                    );
+                    break;
+                case 2:
+                    globalDialog.openSimpleDialog("删除", "这将删除这些文件夹，无法恢复，是否删除？",
+                        function() {
+                            for(var i=0;i<filePage.chooseIndex.length;i++) {
+                                localFolderModel.deleteFolder(localFolderModel[filePage.chooseIndex[i]].folderId);
+                            }
+                            filePage.chooseIndex = [];
+                            Style.warned("成功删除" + filePage.chooseIndex.length + "个本地文件夹",1);
+                        }
+                    );
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        QButton {
+            y: 12
+            x: chooseArea.width - 108
+            shadowEnabled: false
+            width: 92
+            height: 36
+            radius: 20
+            buttonColor: Style.themes.themeColor
+            textColor: Style.themes.primaryColor
+            text: "完成"
+            onClicked: {
+                filePage.setMode = 0;
+                filePage.chooseIndex = [];
+                filePage.cancelChoose()
             }
         }
     }

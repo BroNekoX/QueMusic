@@ -39,7 +39,12 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.1.0"
+    property string version: "Beta-0.1.5"
+
+    property QtObject completedStart: QtObject {
+        property bool homeLoaded: false
+        property bool playlistLoaded: false
+    }
 
     // 关闭前保存最后播放的歌曲
     function toClosing() {
@@ -55,9 +60,6 @@ Window {
         window.close();
     }
 
-    // 功能性信号
-    //signal musicTitle(string title) //音乐标题
-    //signal musicArtist(string artist) //音乐作曲家
     signal getKeys(var keys)
     signal exit() // 返回
 
@@ -207,7 +209,7 @@ Window {
                 onClicked: {
                     console.log("audiobufferoutput:",mainMedia.audioBufferOutput);
                     console.log("频谱模型：",getWave.spectrumData);
-                    mainMessage.dialog("Dialog","这是一个消息模型","\uf11a");
+                    mainMessage.dialog("Error Dialog","本功能未开发完成，无法使用。","\uf11a");
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(fullDesktopButton, true);
             }
@@ -269,16 +271,16 @@ Window {
 
         ParallelAnimation {
             id: maxedAnimation
-            NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: mainLayout.height - 78; to: 0; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+            NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: mainLayout.height; to: 0; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 30; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.blurOverlayColor; duration: 320 }
         }
         SequentialAnimation {
             id: minedAnimation
             ParallelAnimation {
-                NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height - 78; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+                NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
                 NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryColor; duration: 320 }
+                ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: 320 }
             }
             ScriptAction {
                 script: {
@@ -318,20 +320,20 @@ Window {
             Transition {
                 from: ""; to: "*"
                 ParallelAnimation {
-                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
                     NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
                 }
             },
             Transition {
                 from: "*"; to: ""
                 ParallelAnimation {
-                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
-                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
+                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
                     NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
                 }
             },
@@ -479,16 +481,18 @@ Window {
                 sourceSize: Qt.size(360, 360)
                 cache: false
             }
-            Item {
+            Rectangle {
                 id: maskpic
                 anchors.fill: musicpic
+                color: "#ff000000"
+                radius: musicpic.radius
                 layer.enabled: true
                 visible: false
-                Rectangle {
-                    anchors.fill: parent
-                    color: "#ff000000"
-                    radius: musicpic.radius
-                }
+                //Rectangle {
+                //    anchors.fill: parent
+                //    color: "#ff000000"
+                //    radius: musicpic.radius
+                //}
             }
             MouseArea {
                 anchors.fill: musicpic
@@ -688,7 +692,7 @@ Window {
     }
     MediaPlayer {
         property string noTitle
-        property string urlStr
+        property string urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
         property string album
         property string date
         property string type
@@ -802,12 +806,36 @@ Window {
         message: "呃呃呃呃呃呃呃？(>-<)"
         isInput: false
         //standardButtons: Dialog.Ok | Dialog.Cancel
+
+        // 简单确认对话框的回调存储（由 openSimpleDialog 使用）
+        property var dialogCallback: null
+
+        // 通用简单确认对话框：点击"确定"后执行 callBack 回调
+        function openSimpleDialog(title, text, callBack) {
+            globalDialog.title = title;
+            globalDialog.message = text;
+            globalDialog.isInput = false;
+            globalDialog.dialogCallback = callBack || null;
+            globalDialog.open();
+        }
+
         onConfirm: {
-            window.close();
+            // 若有回调则执行回调，否则保持原有默认行为（关闭窗口）
+            if (globalDialog.dialogCallback) {
+                var cb = globalDialog.dialogCallback;
+                globalDialog.dialogCallback = null;
+                cb();
+            }
         }
     }
     QWarn {
         id: mainWarn
+        Connections {
+            target: Style
+            function onWarned(text,type) {
+                mainWarn.tiped(text,type);
+            }
+        }
     }
     QMessage {
         id: mainMessage

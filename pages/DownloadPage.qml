@@ -3,10 +3,7 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Layouts
-import QtQuick.Effects
 import QueMusic 1.0
-import DownloadManager 1.0
 import 'qrc:/QueMusic/components'
 
 Item {
@@ -14,18 +11,7 @@ Item {
 
     property int downloadTab: 0
 
-    // 接收来自 MusicApi 的下载请求
-    Connections {
-        target: MusicApi
-        function onDownload(path, name) {
-            downloader.addDownload(path, name);
-            mainWarn.tiped("已添加下载: " + name, 1);
-        }
-    }
-
-    DownloadManager {
-        id: downloader
-    }
+    // 接收来自 MusicApi 的下载请求downloader
 
     // 顶部标题
     Item {
@@ -81,7 +67,7 @@ Item {
                 text: "没有下载任务"
                 color: Style.themes.textColor
                 font.pixelSize: 14
-                visible: downloader.taskCount === 0
+                visible: MusicApi.downloader.taskCount === 0
             }
 
             ListView {
@@ -89,7 +75,7 @@ Item {
                 anchors.fill: parent
                 anchors.topMargin: 72
                 anchors.bottomMargin: 24
-                model: downloader
+                model: MusicApi.downloader
                 clip: true
                 spacing: 4
                 reuseItems: true
@@ -100,12 +86,12 @@ Item {
                     anchors.bottom: activeList.bottom
                 }
                 // 只显示排队/下载中的任务
-                visible: downloader.hasActiveTasks || downloader.taskCount > 0
+                visible: MusicApi.downloader.hasActiveTasks || MusicApi.downloader.taskCount > 0
 
                 header: Item {
                     width: activeList.width
                     height: 32
-                    visible: downloader.taskCount > 0
+                    visible: MusicApi.downloader.taskCount > 0
                     Text {
                         x: 80
                         height: 32
@@ -284,7 +270,7 @@ Item {
                             buttonColor: "transparent"
                             hoverColor: Style.themes.hoverColor
                             shadowEnabled: false
-                            onClicked: downloader.removeTask(model.taskId)
+                            onClicked: MusicApi.downloader.removeTask(model.taskId)
                         }
 
                         // 重试
@@ -298,7 +284,7 @@ Item {
                             hoverColor: Style.themes.hoverColor
                             shadowEnabled: false
                             visible: model.status === 3
-                            onClicked: downloader.retryTask(model.taskId)
+                            onClicked: MusicApi.downloader.retryTask(model.taskId)
                         }
                     }
 
@@ -324,7 +310,7 @@ Item {
                 text: "没有已下载的文件"
                 color: Style.themes.textColor
                 font.pixelSize: 14
-                visible: downloader.completedCount === 0
+                visible: MusicApi.downloader.completedCount === 0
             }
 
             ListView {
@@ -332,7 +318,7 @@ Item {
                 anchors.fill: parent
                 anchors.topMargin: 72
                 anchors.bottomMargin: 24
-                model: downloader
+                model: MusicApi.downloader
                 clip: true
                 spacing: 4
                 reuseItems: true
@@ -342,7 +328,7 @@ Item {
                     anchors.right: completedList.right
                     anchors.bottom: completedList.bottom
                 }
-                visible: downloader.completedCount > 0
+                visible: MusicApi.downloader.completedCount > 0
 
                 header: Item {
                     width: completedList.width
@@ -502,7 +488,7 @@ Item {
                             buttonColor: "transparent"
                             hoverColor: Style.themes.hoverColor
                             shadowEnabled: false
-                            onClicked: downloader.removeTask(model.taskId)
+                            onClicked: MusicApi.downloader.removeTask(model.taskId)
                         }
                     }
 

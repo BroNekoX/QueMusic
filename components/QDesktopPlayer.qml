@@ -10,9 +10,9 @@ Popup {
     padding: 0
     margins: -1
     parent: Overlay.overlay
-    width: 320
+    width: 360
     height: parent.height - 180
-    x: parent.width - 340
+    x: parent.width - 380
     y: 80
     background: QBlurCard {
         anchors.fill: parent
@@ -95,7 +95,7 @@ Popup {
         }
     }
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 340; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
         NumberAnimation { property: "x"; duration: 210; to: playList.parent.width; easing.type: Easing.InCubic }

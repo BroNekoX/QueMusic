@@ -7,6 +7,7 @@ import QtQuick.Shapes
 import Qt5Compat.GraphicalEffects
 import QueMusic 1.0
 import GetWave 1.0
+import MeshGradientItem 1.0
 import 'qrc:/QueMusic/components'
 
 Item {
@@ -36,6 +37,7 @@ Item {
 
     Component.onCompleted: {
         rectcolorAnime.running = true;
+        lyricLayout.scrollTimeLyric();
     }
 
     Shape {
@@ -52,7 +54,7 @@ Item {
 
         ShapePath {
             id: wavePath
-            fillColor: Qt.rgba(musicControlMax.mainColor.r / 2 + 0.5,musicControlMax.mainColor.g / 2 + 0.5,musicControlMax.mainColor.b / 2 + 0.5,0.7)
+            fillColor: Qt.hsva(musicControlMax.mainColor.hsvHue,musicControlMax.mainColor.hsvSaturation,musicControlMax.mainColor.hsvValue * 0.7 + 0.3,0.7)
             //strokeColor: "#00ccff"
             //strokeWidth: 2
             strokeWidth: 0
@@ -78,46 +80,20 @@ Item {
         visible: Style.settings.waveDisplay
     }
 
-    // 动态背景着色器
-    ShaderEffect {
-        id: bgShader
+    // 动态背景：AMLL Mesh Gradient 移植（Bicubic Hermite Patch Mesh）
+    MeshGradientItem {
+        id: bgMesh
         anchors.fill: parent
-        //mainMedia.metaData
-        blending: false
-        opacity: 1.0
         visible: Style.settings.backFlowQuality !== 2
-
-        // 加载着色器文件
-        fragmentShader: "qrc:/shaders/resources/app/shaders/mesh.frag.qsb"
-        vertexShader: "qrc:/shaders/resources/app/shaders/mesh.vert.qsb"
-
-        // 映射自定义Uniform 变量
-        // 属性名必须与着色器中的 uniform 变量名完全一致
-        property real time: 0
-        readonly property vector2d resolution: Qt.vector2d(width/4, height/4)
-        readonly property variant albumColorMap: ShaderEffectSource {
-            id: colorMapTexture
-            sourceItem: gradientRect
-            hideSource: true
-            live: true
-            //wrapMode: ShaderEffectSource.Repeat
-            textureSize: Qt.size(128, 1)
-        }
-        layer.enabled: true
-        layer.smooth: true
-        layer.textureSize: Qt.size(width/4, height/4)
-        readonly property vector2d albumColorMapRes: Qt.vector2d(128, 1)
-        // 动画计时器
-        NumberAnimation on time {
-            from: 0
-            to: 500
-            duration: 500000
-            loops: Animation.Infinite
-            running: Style.settings.backFlowQuality === 0
-        }
-
-        //onWidthChanged: resolution = Qt.vector2d(width, height)
-        //onHeightChanged: resolution = Qt.vector2d(width, height)
+        coverUrl: mainMedia.urlStr
+        volume: 0
+        flowSpeed: 1.0
+        animating: true
+        subDivisions: 50
+        // 网格渐变主色：跟随封面的主色调（AMLL 流体感的来源）
+        color1: musicControlMax.mainColor
+        color2: musicControlMax.secondColor
+        color3: musicControlMax.thirdColor
     }
 
     LinearGradient {
@@ -134,33 +110,6 @@ Item {
                 position: 1.0
                 color: musicControlMax.secondColor
             }
-        }
-    }
-
-    // 渐变矩形
-    Rectangle {
-        id: gradientRect
-        width: 128
-        height: 1
-        visible: false
-
-        gradient: coverColor.thirdColors ? gradient : gradient2
-        Gradient {
-            id: gradient
-            orientation: Gradient.Horizontal
-            GradientStop { id: stop1;position: 0.0; color: musicControlMax.secondColor }
-            GradientStop { id: stop2;position: 0.32; color: musicControlMax.mainColor }
-            GradientStop { id: stop3;position: 0.68; color: musicControlMax.thirdColor }
-            GradientStop { id: stop4;position: 1.0; color: musicControlMax.secondColor }
-        }
-        Gradient {
-            id: gradient2
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: musicControlMax.mainColor }
-            GradientStop { position: 0.25; color: musicControlMax.secondColor }
-            GradientStop { position: 0.5; color: musicControlMax.mainColor }
-            GradientStop { position: 0.75; color: musicControlMax.secondColor }
-            GradientStop { position: 1.0; color: musicControlMax.mainColor }
         }
     }
 
@@ -191,10 +140,9 @@ Item {
         iconSize: Style.settings.texticonH
         shadowEnabled: false
         onClicked: {
-            window.playermined()
-            barLeftWidgets.visible = true
-            minedAnimation.start()
-            mainLayout.state = ""
+            window.playermined();
+            minedAnimation.start();
+            mainLayout.state = "";
         }
     }
     SButton {
@@ -212,7 +160,7 @@ Item {
         iconSize: Style.settings.texticon
         shadowEnabled: false
         onClicked: {
-            maxLyricsDialog.open()
+            maxLyricsDialog.open();
         }
     }
     SButton {
@@ -231,7 +179,7 @@ Item {
         iconSize: Style.settings.texticon
         shadowEnabled: false
         onClicked: {
-            lyricsView.openTranslate = !lyricsView.openTranslate
+            lyricsView.openTranslate = !lyricsView.openTranslate;
         }
         QTip {
             visible: parent.hovered
@@ -339,54 +287,51 @@ Item {
                     lyricsView.currentIndex = idx;
                     //lyricsView.positionViewAtIndex(idx, ListView.Center);
                     if(!lyricHandleAnime.running && notSame) {
-                        lyricListAnime.running = false;
-                        var animeHeight = lyricsView.currentItem.y - lyricsView.height * 0.32 - lyricsView.contentY;
-                        //if(lyricsView.currentItem.heightScale > 0) lyricListAnime.to = toY - lyricsView.height * 0.36 + musicControlMax.standHeight;
-                        //lyricsView.contentY = toY - lyricsView.height * 0.4
-                        var springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
-                        if(springValue < -0.50) {
-                            musicControlMax.springValue = -0.50;
-                        } else {
-                            musicControlMax.springValue = springValue;
-                        }
-                        if(lyricsView.isWaitOut) {
-                            lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 - musicControlMax.standHeight;
-                            lyricsView.isWaitOut = false;
-                        } else {
-                            lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32;
-                        }
-
-                        lyricListAnime.running = true;
-                        lyricsView.scrollToY = lyricListAnime.to;
+                        lyricLayout.scrollTimeLyric();
                         if(notSame) {
-                            console.log("lastHeight: ",lyricsView.lastHeight)
+                            var animeHeight = lyricsView.currentItem.y - lyricsView.height * 0.32 - lyricsView.contentY;
+                            console.log("lastHeight: ",lyricsView.lastHeight);
                             lyricLastAnime.running = false;
                             lyricsView.lastHeight = 0;
                             lyricLastAnime.to = animeHeight;
                             lyricLastAnime.running = true;
-                            if(MusicApi.lyricsData[idx].info) {
-                                var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
-                                waitLyricTimer.running = false;
-                                if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2000) {
-                                    waitLyricTimer.interval = lyricLastLineData.offset + lyricLastLineData.duration + MusicApi.lyricsData[idx].time - mainMedia.position;
-                                    console.log("开始运行等待动画。");
-                                    waitLyricTimer.running = true;
-                                }
+                        }
+                    }
+                    if(MusicApi.lyricsData[idx].info) {
+                        var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
+                        if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > MusicApi.lyricsData[idx].time + lyricLastLineData.offset + lyricLastLineData.duration) {
+                            if(lyricsView.currentItem.heightScale === 0.0) {
+                                console.log("开始运行等待动画。");
+                                lyricListAnime.running = false;
+                                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 + musicControlMax.standHeight;
+                                lyricsView.currentItem.waitOpenAnime.running = true;
+                                lyricListAnime.running = true;
                             }
                         }
                     }
                 }
             }
         }
-        Timer {
-            id: waitLyricTimer
-            running: false
-            onTriggered: {
-                lyricsView.currentItem.waitOpenAnime.running = true;
-                lyricListAnime.running = false;
-                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 + musicControlMax.standHeight;
-                lyricListAnime.running = true;
+        function scrollTimeLyric() {
+            lyricListAnime.running = false;
+            var animeHeight = lyricsView.currentItem.y - lyricsView.height * 0.32 - lyricsView.contentY;
+            //if(lyricsView.currentItem.heightScale > 0) lyricListAnime.to = toY - lyricsView.height * 0.36 + musicControlMax.standHeight;
+            //lyricsView.contentY = toY - lyricsView.height * 0.4
+            var springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
+            if(springValue < -0.50) {
+                musicControlMax.springValue = -0.50;
+            } else {
+                musicControlMax.springValue = springValue;
             }
+            if(lyricsView.isWaitOut) {
+                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 - musicControlMax.standHeight;
+                lyricsView.isWaitOut = false;
+            } else {
+                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32;
+            }
+
+            lyricListAnime.running = true;
+            lyricsView.scrollToY = lyricListAnime.to;
         }
 
         ListView {
@@ -628,10 +573,10 @@ Item {
                 SequentialAnimation {
                     id: waitOpenAnime
                     property int lightDuration: 1000
-                    ScriptAction { script: { waitSectionLoader.active = true; waitSectionLoader.lightState = 0; waitOpenAnime.lightDuration = MusicApi.lyricsData[index + 1].time - MusicApi.lyricsData[index].time - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].offset - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].duration } }
+                    ScriptAction { script: { waitSectionLoader.active = true; waitSectionLoader.lightState = 0; waitOpenAnime.lightDuration = MusicApi.lyricsData[index + 1].time - MusicApi.lyricsData[index].time - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].offset - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].duration - 420 } }
                     ParallelAnimation {
                         NumberAnimation { target: waitSectionLoader; property: "opacity"; from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: waitSectionLoader; property: "scale"; from: 0; to: 1; duration: 420; easing.type: Easing.OutExpo }
+                        NumberAnimation { target: waitSectionLoader; property: "scale"; from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
                     }
                     NumberAnimation { target: waitSectionLoader; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration }
                     //ScriptAction { script: console.log("动画完成:",waitOpenAnime.lightDuration); }
@@ -742,7 +687,7 @@ Item {
     QOptionDialog {
         id: maxLyricsDialog
         title: "播放器样式"
-        dialogContentHeight: 250
+        dialogContentHeight: 300
         options: Column {
             width: parent.width
             spacing: 16
@@ -810,6 +755,17 @@ Item {
                     anchors.right: parent.right
                     switchTrue: Style.settings.waveDisplay
                     onToggled: Style.settings.waveDisplay = !Style.settings.waveDisplay
+                }
+            }
+
+            SettingItem {
+                label: "自动进入沉浸模式"
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: Style.settings.lyricHideGui
+                    onToggled: Style.settings.lyricHideGui = !Style.settings.lyricHideGui
                 }
             }
         }

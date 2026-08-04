@@ -9,10 +9,12 @@
   <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic">
 </p>
 
+> **可能是桌面跨平台上UI最美丽丝滑，性能最强的开源音乐播放器？**
 > **基于 Qt 6.9 / QML 与 GPU 加速 RHI 渲染的开源跨平台音乐播放器，支持接入网易云、酷狗等平台的公开音乐服务接口。**  
 > 动效美丽，性能出众，开发者坚持 **永久免费 & 开源**。
 >
 > 🚧 项目正处于 **开发/预览阶段**，部分功能尚未完善, 仍存在部分问题，有一些功能无法使用，会持续更新，欢迎 Star & Fork 一起参与！
+ >  快速下载本应用及历史版本：[123网盘快速下载](https://1816090463.share.123pan.cn/123pan/0HQ5Vv-jfjld)
 
 <p align="center">
   <a href="#-核心特性">特性</a> •
@@ -161,6 +163,12 @@ QueMusic/
 │   ├── FolderModel.cpp/h       # 本地文件夹模型
 │   ├── DownloadManager.cpp/h   # 下载管理器
 │   └── Favorites.cpp/h         # 收藏管理
+├── meshgradient/               # 🧩 独立 Mesh Gradient 背景组件（AGPL-3.0）
+│   ├── CMakeLists.txt          # 独立库 target：quemusic_meshgradient
+│   ├── LICENSE                 # GNU AGPL v3.0 全文
+│   ├── README.md               # 组件说明 / 来源 / 修改记录
+│   ├── MeshGradientItem.cpp/h  # 网格渐变渲染（衍生自 AMLL）
+│   └── shaders/                # meshgradient.vert/.frag（衍生自 AMLL）
 ├── api/                        # JavaScript API 层
 │   ├── musicWorker.mjs         # 音乐 API 工作线程
 │   ├── necloudapi.mjs          # 网易云音乐 API
@@ -239,7 +247,7 @@ QueMusic/
 
 ## 📄 许可证
 
-本项目遵循 **Apache License 2.0** —— 欢迎自由使用、修改、分发，甚至商用（需保留版权声明与许可证副本）。
+本项目主体遵循 **Apache License 2.0** —— 欢迎自由使用、修改、分发，甚至商用（需保留版权声明与许可证副本）。
 
 ```
 Apache License
@@ -248,6 +256,17 @@ Copyright (c) 2024-2026 QueMusic Contributors
 ```
 
 > 💡 **Apache-2.0 要点**：允许商用、修改、分发；需在衍生作品中保留原始版权声明与 NOTICE；对专利授权有明确条款，为用户提供额外保护。
+
+### 🧩 第三方组件：Mesh Gradient 背景（AGPL-3.0）
+
+本项目中的 **`meshgradient/` 独立组件**（动态流体渐变背景）衍生自
+[AMLL (Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics)，
+以 **GNU Affero General Public License v3.0** 单独授权：
+
+- 该组件作为**独立库**（`quemusic_meshgradient`）编译，与主体保持"聚合"关系；
+- 组件许可证不影响 QueMusic 其余 Apache-2.0 代码；
+- 来源文件、修改内容详见 [`meshgradient/README.md`](meshgradient/README.md)；
+- 全部第三方组件声明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ---
 
@@ -281,6 +300,7 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
+- [AMLL (Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — Mesh Gradient 流体渐变背景算法（AGPL-3.0，见 `meshgradient/` 组件）
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源

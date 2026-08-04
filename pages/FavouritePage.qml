@@ -2,8 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Layouts
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 
@@ -38,12 +36,12 @@ Item {
 
         QBlurTapBar {
             x: 0
-            y: 10
+            y: 12
             z: 5
             model: ["歌曲","歌单","关注歌手","历史记录"]
             tabWidth: 90
             width: 364
-            rectXy: Qt.rect(0, 0, width, 40)
+            rectXy: Qt.rect(0, 12, width, 40)
             blurSource: favouriteChildPage.pageList[favouriteChildPage.lastIndex]
             onTabChange: (index) => {
                 favouriteChildPage.stack(index)

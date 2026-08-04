@@ -3,10 +3,7 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Layouts
-import QtQuick.Effects
 import QtQuick.Dialogs
-import Qt5Compat.GraphicalEffects
 import QueMusic 1.0
 
 Item {
@@ -310,15 +307,15 @@ Item {
                 property: "opacity"
                 from: 0
                 to: 1
-                duration: 300
+                duration: 320
                 easing.type: Easing.OutExpo
             }
             NumberAnimation {
                 id: setPageAnimey
                 property: "y"
-                from: 120
+                from: 180
                 to: 0
-                duration: 300
+                duration: 320
                 easing.type: Easing.OutExpo
             }
         }
@@ -862,6 +859,16 @@ Item {
                                 switchTrue: Style.settings.premiumLyricAnime
                                 onToggled: Style.settings.premiumLyricAnime = !Style.settings.premiumLyricAnime
                             }
+                        }
+
+                        SettingItemCard {
+                            label: "自动进入沉浸模式"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Style.settings.lyricHideGui
+                                onToggled: Style.settings.lyricHideGui = !Style.settings.lyricHideGui
+                            }
                             bottomLine: false
                         }
                     }
@@ -1057,14 +1064,15 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
+                    height: playerColumn.height
                     color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
                     radius: Style.settings.cubeRadius
                     border.color: Style.themes.secondaryColor
                     border.width: 1
                     Column {
+                        id: playerColumn
                         width: parent.width
                         padding: 0
-                        Component.onCompleted: parent.height = height
 
                         SettingItemCard {
                             label: "使用默认输出设备"
@@ -1079,7 +1087,7 @@ Item {
                         SettingItemCard {
                             label: "音频输出设备"
                             visible: Options.settings.useDefaultDevice === false
-                            height: visible ? implicitHeight : 0
+                            height: visible ? 56 : 0
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {
                                 useId: true
@@ -1742,7 +1750,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: 150
+                    height: 250
                     radius: 16
                     color: Style.themes.fullColor
                     border.color: Style.themes.secondaryColor
@@ -1778,6 +1786,19 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
+                            label: "AMLL Core"
+                            controlWidth: 120
+                            Text {
+                                anchors.right: parent.right
+                                height: 36
+                                text: "使用到了本项目的背景着色器代码"
+                                color: Style.themes.textColor
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        SettingItem {
+                            width: settingStack.standWidth - 32
                             label: "pako.js"
                             controlWidth: 120
                             Text {
@@ -1791,7 +1812,7 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
-                            label: "Poppins Feather font"
+                            label: "Poppins、Feather font"
                             controlWidth: 120
                             Text {
                                 anchors.right: parent.right

@@ -17,6 +17,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 add_subdirectory(cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
 
+# 独立 Mesh Gradient 组件（AGPL-3.0，衍生自 AMLL）：以独立库 target 聚合
+add_subdirectory(meshgradient)
+
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     $<$<PLATFORM_ID:Windows>:icon.rc>
@@ -112,9 +115,14 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
 qt6_add_shaders(${PROJECT_NAME} "effectshaders"
     PREFIX
         "/shaders"
+    # BATCHABLE 必须保留：Qt 渲染器对 QSGMaterialShader 材质使用 batchable 变体，
+    # 去掉会导致 D3D11 "No HLSL code found" 不渲染
+    BATCHABLE
     FILES
         resources/app/shaders/mesh.frag
         resources/app/shaders/mesh.vert
+        meshgradient/shaders/meshgradient.frag
+        meshgradient/shaders/meshgradient.vert
 )
 
 
@@ -130,6 +138,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
+        quemusic_meshgradient
     PUBLIC QWindowKit::Quick
 )
 

@@ -2,7 +2,6 @@
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
@@ -194,7 +193,7 @@ Rectangle {
             }
         }
         SButton {
-            x: 176
+            x: 174
             y: 5
             //iconSize:
             iconCharacter: "\uf011"
@@ -221,7 +220,7 @@ Rectangle {
         y: 16
         z: 3
         height: 46
-        spacing: 5
+        spacing: 4
         SButton {
             property var cycleModeIcon: ["\uf118","\uf115","\uf0e2","\uf03b"]
             iconCharacter: cycleModeIcon[musicControlMin.cycleIndex]
@@ -328,8 +327,8 @@ Rectangle {
     //右侧栏
     Row {
         anchors.right: parent.right
-        anchors.rightMargin: 30
-        spacing: 3
+        anchors.rightMargin: 24
+        spacing: 2
         y: 20
         z: 2
         height: 40
@@ -448,6 +447,10 @@ Rectangle {
         onClicked: {
             if(mainLayout.state === "") {
                 controlMaxLoader.active = true;
+            } else {
+                window.playermined();
+                minedAnimation.start();
+                mainLayout.state = "";
             }
         }
     }
@@ -511,7 +514,7 @@ Rectangle {
             borderRadius: 23
             blurSource: mainLayout
             shadowEffect: true
-            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 200, 46)
+            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 180, 40)
             //color: Style.themes.primaryBlurColor
         }
         contentItem: QSlider {
