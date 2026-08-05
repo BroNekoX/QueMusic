@@ -14,13 +14,16 @@ Popup {
     height: parent.height - 180
     x: parent.width - 380
     y: 80
+    // 当前桌面部件模式：0.无 1.灵动岛 2.小窗播放器 3.歌词栏
+    property int desktopPlayerMode: 0
+
     background: QBlurCard {
         anchors.fill: parent
         borderRadius: Style.settings.cubeRadius
         clip: false
         blurSource: mainLayout
         shadowEffect: true
-        rectXy: Qt.rect(desktopPlayer.x, desktopPlayer.y, 320, desktopPlayer.height)
+        rectXy: Qt.rect(desktopPlayer.x, desktopPlayer.y, 360, desktopPlayer.height)
         //color: Style.themes.primaryBlurColor
     }
     contentItem: Item {
@@ -46,6 +49,7 @@ Popup {
             hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
             shadowEnabled: false
             onClicked: {
+                desktopPlayer.close()
             }
         }
         Row {
@@ -65,28 +69,35 @@ Popup {
                 z: 5
                 Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                 QDrop {
-                    property int desktopPlayerMode: 0
                     height: 36; width: 120
                     anchors.right: parent.right
-                    choice: desktopPlayerMode
+                    choice: desktopPlayer.desktopPlayerMode
                     model: ["无","灵动岛","小窗播放器","歌词栏"]
                     onTransformed: (choiced) => {
+                        desktopPlayer.desktopPlayerMode = choiced;
                         switch(choiced) {
                             case 0:
-                                desktopPlayerMode = 0
-                                desktopSpot.active = false
+                                // 无：全部关闭
+                                desktopSpot.active = false;
+                                desktopPlayerLoader.active = false;
                                 break;
                             case 1:
-                                desktopPlayerMode = 1
-                                desktopSpot.active = true
+                                // 灵动岛：开启灵动岛，关闭小窗
+                                desktopSpot.active = true;
+                                desktopPlayerLoader.active = false;
                                 break;
                             case 2:
-                                desktopPlayerMode = 2
-                                desktopSpot.active = false
+                                // 小窗播放器：开启小窗，关闭灵动岛
+                                desktopSpot.active = false;
+                                desktopPlayerLoader.active = true;
+                                if (desktopPlayerLoader.status === Loader.Ready) {
+                                    desktopPlayerLoader.item.show();
+                                }
                                 break;
                             case 3:
-                                desktopPlayerMode = 3
-                                desktopSpot.active = false
+                                // 歌词栏：暂未实现
+                                desktopSpot.active = false;
+                                desktopPlayerLoader.active = false;
                                 break;
                         }
                     }
@@ -94,6 +105,17 @@ Popup {
             }
         }
     }
+
+    // 小窗播放器异步加载完成后自动显示（避免关闭按钮 hide 后无法再次出现）
+    Connections {
+        target: desktopPlayerLoader
+        function onStatusChanged() {
+            if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 2) {
+                desktopPlayerLoader.item.show()
+            }
+        }
+    }
+
     enter: Transition {
         NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
     }

@@ -46,7 +46,7 @@
 
 ## 🖼️ 截图预览
 
-> 项目正处于 **开发/预览阶段**，以下截图可能不是最新效果，UI 持续迭代中～
+> 项目正处于 **开发/预览阶段**，下面直接放效果（演示的歌曲仅供参考）
 
 <table>
   <tr>
@@ -212,11 +212,14 @@ QueMusic/
 ## 🎮 未来计划
 
 - **首要-功能完善**：补全设置、编辑、歌单管理等功能，增强稳定性
-- **极致性能**：持续优化内存 & GPU 占用，解决性能瓶颈
-- **沉浸播放**：参考 Folia / MineRadio 概念，引入 3D 可视化与高度自定义歌词
+- **品牌统一性**: 在名称以及宣传上计划使用一个新的名称或定义，统一形象
+- **优化性能**：持续优化内存 & GPU 占用，解决性能瓶颈
+- **加入沉浸播放**：参考 Folia / MineRadio 概念，引入 3D 可视化与高度自定义歌词
 - **UI 强化**：继续打磨自研 QML 组件库，统一设计语言
-- **国际化**：i18n 多语言支持
+- **国际化**：i18n 多语言支持，之后将更新多国语言
 - **更多**：自定义插件系统,自定义主题UI插件系统
+
+即使不断更新，QueMusic开发者始终保持开源，免费，没有付费内容，保持完全的免费，但是对于歌曲版权方面，请自费购买平台VIP或付费歌曲，登录平台账号进行收听（即将更新）。
 
 ---
 
@@ -231,7 +234,7 @@ QueMusic/
 | ⭐ **Star** | 点亮 GitHub Star，支持持续开发 |
 | 🧪 **测试** | 构建并试用，反馈兼容性问题 |
 | 🔧 **Pull Request** | 修复 Bug、优化代码、完善功能 —— **欢迎任何人** |
-| 📖 **利用** | Apache-2.0 协议，欢迎任何项目使用本项目的代码 |
+| 📖 **利用** | 基于Apache-2.0 协议，开发者欢迎任何项目使用本项目的代码 |
 
 ### 开发流程
 
@@ -260,7 +263,7 @@ Copyright (c) 2024-2026 QueMusic Contributors
 ### 🧩 第三方组件：Mesh Gradient 背景（AGPL-3.0）
 
 本项目中的 **`meshgradient/` 独立组件**（动态流体渐变背景）衍生自
-[AMLL (Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics)，
+[AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics)，
 以 **GNU Affero General Public License v3.0** 单独授权：
 
 - 该组件作为**独立库**（`quemusic_meshgradient`）编译，与主体保持"聚合"关系；
@@ -300,7 +303,7 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
-- [AMLL (Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — Mesh Gradient 流体渐变背景算法（AGPL-3.0，见 `meshgradient/` 组件）
+- [AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的算法（AGPL-3.0，见 `meshgradient/` 组件）
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
@@ -310,5 +313,5 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 <p align="center">
   <sub>Built with ❤️ by the QueMusic Team</sub><br/>
-  <sub>最后更新：2026-07-28</sub>
+  <sub>最后更新：2026-8-5</sub>
 </p>

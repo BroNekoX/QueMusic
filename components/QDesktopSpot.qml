@@ -7,14 +7,17 @@ import QtQuick.Controls.Basic
 
 Window {
     id: desktopSpot
-    width: 240
+    width: 320
     height: spotCard.height === 48 ? 48 : 120
     Component.onCompleted: x = Screen.width / 2 - 160
     y: 12
     visible: true
     color: "transparent"
     title: "DesktopSpot"
-    flags: Qt.Window | Qt.FramelessWindowHint
+    // 关键修复：显式置空 transientParent，避免 QML 自动把本窗口设为主窗口的依赖窗口，
+    // 否则主窗口最小化/隐藏时灵动岛会被系统一起隐藏；同时置顶常驻桌面。
+    transientParent: null
+    flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     Rectangle {
         id: spotCard
         //x: 30
@@ -30,15 +33,15 @@ Window {
         states: [
             State {
                 name: "spotNormal"
-                PropertyChanges { target: spotCard; x: 30; height: 48; width: 180 }
-                PropertyChanges { target: spotPlayButton; x: 140 }
+                PropertyChanges { target: spotCard; x: 40; height: 48; width: 240 }
+                PropertyChanges { target: spotPlayButton; x: 200 }
                 PropertyChanges { target: spotInfoPlayer; opacity: 0 }
 
             },
             State {
                 name: "spotInfo"
-                PropertyChanges { target: spotCard; x: 0; height: 120; width: 240 }
-                PropertyChanges { target: spotPlayButton; x: 104 }
+                PropertyChanges { target: spotCard; x: 0; height: 120; width: 320 }
+                PropertyChanges { target: spotPlayButton; x: 144 }
                 PropertyChanges { target: spotInfoPlayer; opacity: 1 }
             }
         ]
@@ -116,11 +119,11 @@ Window {
             id: spotInfoPlayer
             y: spotCard.height - 40
             height: 32
-            width: 220
-            x: 0
+            width: 104
+            anchors.horizontalCenter: parent.horizontalCenter
             z: 2
             SButton {
-                x: 68
+                x: 0
                 y: 0
                 iconCharacter: "\uf0dc"
                 width: 32
@@ -135,7 +138,7 @@ Window {
             }
 
             SButton {
-                x: 140
+                x: 72
                 y: 0
                 iconCharacter: "\uf0d9"
                 width: 32

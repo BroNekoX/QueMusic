@@ -84,8 +84,6 @@ public:
         auto *mat = static_cast<MeshGradientMaterial *>(newMaterial);
         if (binding == 1 && mat->texture) {
             *texture = mat->texture;
-            // 关键：必须调用 commitTextureOperations 将图像数据上传到 GPU，
-            // 否则纹理是空的，采样全 0 -> 全透明不显示
             mat->texture->commitTextureOperations(state.rhi(), state.resourceUpdateBatch());
         }
     }
@@ -946,7 +944,6 @@ ControlPointPreset MeshGradientItem::choosePreset()
 }
 
 // 网格生成（移植自 AMLL BHPMesh::updateMesh 双三次 Hermite 插值）
-// 放在文件末尾：需要使用上方匿名命名空间中的矩阵工具与 Hermite 基矩阵
 QSGGeometry *MeshGradientItem::buildGeometry(const ControlPointPreset &preset,
                                              float width, float height)
 {
@@ -954,6 +951,8 @@ QSGGeometry *MeshGradientItem::buildGeometry(const ControlPointPreset &preset,
         return nullptr;
     const float halfW = width * 0.5f;
     const float halfH = height * 0.5f;
+    // 窗口/Item 宽高比（对应 AMLL 顶点着色器的 u_aspect）
+    const float aspect = (height > 1.0f) ? (width / height) : 1.0f;
     const int subDiv = qMax(2, m_subDivisions);
 
     const int cpW = preset.width;
@@ -984,16 +983,16 @@ QSGGeometry *MeshGradientItem::buildGeometry(const ControlPointPreset &preset,
     QVector<float> vTanX(cpCount), vTanY(cpCount);
     const float uPower = 2.0f / (cpW - 1);
     const float vPower = 2.0f / (cpH - 1);
-    // 切线强度系数：减弱到 0.55，避免 Hermite 过冲/翻转导致 patch 渐变方向错乱
-    const float kTangentStrength = 0.55f;
+    // 切线强度：与 AMLL 原版一致（满强度 = uPower * cp.up / vPower * cp.vp），
+    // 形变更明显，流动曲线更接近原版（若出现 Hermite 过冲/翻转可适当回调）
     for (int i = 0; i < cpCount; ++i) {
         const ControlPointConf &c = preset.conf.at(i);
         locX[i] = c.x;
         locY[i] = c.y;
         const float uRot = qDegreesToRadians(c.ur);
         const float vRot = qDegreesToRadians(c.vr);
-        const float us = uPower * c.up * kTangentStrength;
-        const float vs = vPower * c.vp * kTangentStrength;
+        const float us = uPower * c.up;
+        const float vs = vPower * c.vp;
         uTanX[i] = std::cos(uRot) * us;
         uTanY[i] = std::sin(uRot) * us;
         vTanX[i] = -std::sin(vRot) * vs;
@@ -1083,8 +1082,19 @@ QSGGeometry *MeshGradientItem::buildGeometry(const ControlPointPreset &preset,
 
                     const int vi = (vxOffset + vy * vertexWidth) * 7;
                     // NDC (-1..1) -> item 本地坐标 (0..width, 0..height)
-                    vertices[vi + 0] = px * halfW + halfW;
-                    vertices[vi + 1] = py * halfH + halfH;
+                    // 对应 AMLL 顶点着色器的 aspect 补偿：
+                    //   if (u_aspect > 1.0) pos.y *= u_aspect; else pos.x /= u_aspect;
+                    // 使控制点网格在屏幕空间保持各向同性（正方形网格单元），
+                    // 渐变形状不受窗口宽高比拉伸，更接近 AMLL 原版观感
+                    float nx = px;
+                    float ny = py;
+                    if (aspect > 1.0f) {
+                        ny = py * aspect;
+                    } else if (aspect > 0.0f) {
+                        nx = px / aspect;
+                    }
+                    vertices[vi + 0] = (nx + 1.0f) * halfW;
+                    vertices[vi + 1] = (ny + 1.0f) * halfH;
                     // 顶点颜色：AMLL 原版为白色 (1,1,1)，颜色完全来自封面纹理，
                     // 靠高细分网格的 Hermite 插值保证几何平滑（无马赛克）
                     vertices[vi + 2] = 1.0f;

@@ -14,7 +14,7 @@ Item {
     id: musicControlMax
     //color: "black"
     //layer.enabled: true
-    readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 52
+    readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 54
     readonly property int infoWidth: lyricModeText.width / 2
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
@@ -42,7 +42,6 @@ Item {
 
     Shape {
         id: waveItem
-        y: musicControlMax.height - 158
         width: 512
         height: 80
         //z: 9
@@ -70,7 +69,7 @@ Item {
     }
     FastBlur {
         x: 0
-        y: musicControlMax.height - 158
+        y: musicControlMax.height - 158 + controlMaxLoader.hideHeight
         width: musicControlMax.width
         height: 80
         z: 9
@@ -83,6 +82,7 @@ Item {
     // 动态背景：AMLL Mesh Gradient 移植（Bicubic Hermite Patch Mesh）
     MeshGradientItem {
         id: bgMesh
+        clip: true
         anchors.fill: parent
         visible: Style.settings.backFlowQuality !== 2
         coverUrl: mainMedia.urlStr
@@ -123,12 +123,32 @@ Item {
         onDoubleClicked: function(mouse) { mouse.accepted = true }
         onWheel: function(wheel) { wheel.accepted = true }
         onClicked: function(mouse) { mouse.accepted = true }
+        onPositionChanged: {
+            if(Style.settings.lyricHideGui) {
+                controlMaxLoader.hideHeight = 0;
+                hideDelay.running = false;
+                hideDelay.running = true;
+            }
+        }
+    }
+
+    Timer {
+        id: hideDelay
+        interval: 2400
+        running: true
+        onTriggered: {
+            if(Style.settings.lyricHideGui) {
+                controlMaxLoader.hideHeight = 76;
+            } else {
+                controlMaxLoader.hideHeight = 0;
+            }
+        }
     }
 
     SButton {
         id: playerminedButton
         x: 20
-        y: 10
+        y: 10 - controlMaxLoader.hideHeight
         iconCharacter: "\uf096" // playermin icon
         width: 40
         height: 40
@@ -148,7 +168,7 @@ Item {
     SButton {
         id: centerStyleButton
         x: 70
-        y: 10
+        y: 10 - controlMaxLoader.hideHeight
         iconCharacter: "\uf116" // playermin icon
         width: 40
         height: 40
@@ -165,7 +185,7 @@ Item {
     }
     SButton {
         x: musicControlMax.width - 60
-        y: musicControlMax.height - 130
+        y: musicControlMax.height - 130 + controlMaxLoader.hideHeight
         z: 5
         iconCharacter: "\uf079"
         visible: MusicApi.lyricsTranslate.length !== 0
@@ -255,8 +275,8 @@ Item {
         id: lyricLayout
         x: controlMaxLoader.lyricsX
         y: 60
-        width: controlMaxLoader.lyricsType === 2 ? musicControlMax.width - 96 : musicControlMax.width / 2
-        height: parent.height - 138
+        width: controlMaxLoader.lyricsType === 2 ? musicControlMax.width - 96 : musicControlMax.width * 0.54
+        height: parent.height - 120
         clip: false
         visible: controlMaxLoader.lyricsType !== 1
         Label {
@@ -501,7 +521,7 @@ Item {
                                 id: lyricFlowText
                                 text: linesText.model[index].text
                                 y: lyricItem.nowPosition > linesText.model[index].offset ? -3 : 0
-                                font.weight: 600
+                                font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricsView.lyricHeight
                                 color: "#ffffffff"
                                 opacity: 0.4

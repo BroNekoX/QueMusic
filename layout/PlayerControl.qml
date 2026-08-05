@@ -9,7 +9,7 @@ import 'qrc:/QueMusic/components'
 //底部控制栏
 Rectangle {
     id: musicControlMin
-    anchors.bottom: parent.bottom
+    y: parent.height - 78 + controlMaxLoader.hideHeight
     height: 78
     color: Style.themes.primaryColor
     clip: false
@@ -39,7 +39,7 @@ Rectangle {
         id: sliderControl
         visible: mainMedia.onMedia
         x: 0
-        y: -12
+        y: -11
         z: 6
         width: musicControlMin.width
         height: 24
@@ -222,8 +222,7 @@ Rectangle {
         height: 46
         spacing: 4
         SButton {
-            property var cycleModeIcon: ["\uf118","\uf115","\uf0e2","\uf03b"]
-            iconCharacter: cycleModeIcon[musicControlMin.cycleIndex]
+            iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][musicControlMin.cycleIndex]
             width: 46
             height: 46
             radius: 46
@@ -475,6 +474,14 @@ Rectangle {
     function randomMedia() {
         playListModel.playListIndex = Math.floor( Math.random() * playListModel.count );
         musicControlMin.refreshMusicPlay();
+    }
+    // 切换播放列表显示
+    function togglePlayList() {
+        if(playList.visible) {
+            playList.close();
+        } else {
+            playList.open();
+        }
     }
 
     // 刷新音乐播放数据

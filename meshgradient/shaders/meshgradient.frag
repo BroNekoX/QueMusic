@@ -51,7 +51,8 @@ void main() {
 
     float dither = INV_255 * gradientNoise(gl_FragCoord.xy) - HALF_INV_255;
 
-    vec2 centeredUV = v_uv - vec2(0.5);
+    // 旋转中心
+    vec2 centeredUV = v_uv - vec2(0.3);
 
     vec2 rotatedUV = vec2(
         ubuf.u_cosAngle * centeredUV.x - ubuf.u_sinAngle * centeredUV.y,

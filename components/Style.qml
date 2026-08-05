@@ -72,7 +72,7 @@ QtObject {
         property bool premiumLyricAnime: true //高级逐行弹簧动画
         property int textWidth: 600
         property bool maskBlur: true
-        property bool lyricHideGui: false
+        property bool lyricHideGui: true
 
         // 背景图片
         property string backgroundImage: "qrc:/QueMusic/resources/pic/back2.jpg"

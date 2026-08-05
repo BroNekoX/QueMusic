@@ -39,7 +39,7 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.1.5"
+    property string version: "Beta-0.2.0"
 
     property QtObject completedStart: QtObject {
         property bool homeLoaded: false
@@ -57,6 +57,9 @@ Window {
             Options.lastSongs.source = e.source;
             console.log("保存当前音乐记录。");
         }
+        // 清理桌面悬浮窗（灵动岛 / 小窗播放器）
+        desktopSpot.active = false;
+        desktopPlayerLoader.active = false;
         window.close();
     }
 
@@ -101,7 +104,7 @@ Window {
     function playermined() { barLeftWidgets.y = 12 }//{ barLeftWidgets.visible = true }
     function playermaxed() { barLeftWidgets.y = -48 }//{ barLeftWidgets.visible = false }
 
-    // 顶部栏 - 与qwindowkit和window耦合，!难抽为组件
+    // 顶部栏 - 与qwindowkit和window耦合，难抽为组件
     Rectangle {
         id: titleBar
         x: sidebar.width
@@ -190,9 +193,10 @@ Window {
             anchors {
                 right: parent.right // 靠右
                 rightMargin: 16
-                verticalCenter: titleBar.verticalCenter // 内容居中
             }
             spacing: 0
+            y: 10 - controlMaxLoader.hideHeight
+            height: 40
 
             //QWKButton {
                 //id: accountButton
@@ -267,7 +271,7 @@ Window {
         anchors.fill: parent
         z: 5
         property int maxLyricType: 0
-        readonly property int piclong: mainLayout.height < 1000 ? mainLayout.height / 2 - 100 : 400
+        readonly property int piclong: mainLayout.width < 1280 ? mainLayout.height / 3 + mainLayout.width / 8 - 100 : mainLayout.height / 3 + 60
 
         ParallelAnimation {
             id: maxedAnimation
@@ -286,6 +290,7 @@ Window {
                 script: {
                     controlMaxLoader.visible = false;
                     controlMaxLoader.active = false;
+                    controlMaxLoader.hideHeight = 0;
                 }
             }
         }
@@ -298,14 +303,14 @@ Window {
             },
             State {
                 name: "MaxedCover"
-                PropertyChanges { target: musicpic; x: mainLayout.width / 2 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
-                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width; lyricsType: 1; infoX: mainLayout.width / 2 - (mainLayout.piclong / 2) }
+                PropertyChanges { target: musicpic; x: mainLayout.width * 0.5 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
+                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width; lyricsType: 1; infoX: mainLayout.width * 0.5 - (mainLayout.piclong / 2) }
                 PropertyChanges { target: musicpicShadow; visible: true }
             },
             State {
                 name: "MaxedNormal"
-                PropertyChanges { target: musicpic; x: mainLayout.width / 4 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
-                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width / 2; lyricsType: 0; infoX: mainLayout.width / 4 - (mainLayout.piclong / 2) }
+                PropertyChanges { target: musicpic; x: mainLayout.width * 0.23 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
+                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width * 0.46; lyricsType: 0; infoX: mainLayout.width * 0.23 - (mainLayout.piclong / 2) }
                 PropertyChanges { target: musicpicShadow; visible: true }
             },
             State {
@@ -439,7 +444,7 @@ Window {
         PlayerControl {
             id: musicControlMin
             x: 0
-            y: parent.height - 78
+            //y: parent.height - 78
             width: parent.width
             height: 78
             z: 4
@@ -478,7 +483,7 @@ Window {
                 fillMode: Image.PreserveAspectCrop
                 visible: false
                 source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
-                sourceSize: Qt.size(360, 360)
+                sourceSize: Qt.size(512, 512)
                 cache: false
             }
             Rectangle {
@@ -516,9 +521,12 @@ Window {
             z: 3
             visible: false
             active: false
-            property int lyricsX: mainLayout.width / 2
+            property int lyricsX: mainLayout.width * 0.46
             property int lyricsType: 0// 0. normal 1. Cover 2. Lyrics
-            property int infoX: mainLayout.width / 4 - (mainLayout.piclong / 2)
+            property int infoX: mainLayout.width * 0.23 - (mainLayout.piclong / 2)
+            property bool isHideGui: false
+            property int hideHeight: 0
+            Behavior on hideHeight { enabled: controlMaxLoader.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
             onLoaded: {
                 window.playermaxed()
                 minedAnimation.stop()
@@ -799,6 +807,14 @@ Window {
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/QDesktopSpot.qml"
+    }
+    // 桌面小窗播放器（Loader 动态加载，切换模式时才创建实例）
+    Loader {
+        id: desktopPlayerLoader
+        active: false
+        asynchronous: true
+        visible: status == Loader.Ready
+        source: "qrc:/QueMusic/components/QDesktopPlayerWindow.qml"
     }
     QAlertDialog {
         id: globalDialog
