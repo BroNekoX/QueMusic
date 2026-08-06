@@ -18,7 +18,7 @@ DownloadManager::~DownloadManager()
     abortCurrentDownload();
 }
 
-// ── QAbstractListModel ──────────────────────────────────────────────────────
+// QAbstractListModel
 
 int DownloadManager::rowCount(const QModelIndex &parent) const
 {
@@ -70,7 +70,7 @@ QHash<int, QByteArray> DownloadManager::roleNames() const
     };
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
+// Public API
 
 void DownloadManager::addDownload(const QString &url, const QString &fileName)
 {
@@ -183,7 +183,7 @@ void DownloadManager::cancelCurrent()
     }
 }
 
-// ── Internal ────────────────────────────────────────────────────────────────
+// Internal
 
 void DownloadManager::startNextTask()
 {
@@ -294,7 +294,7 @@ int DownloadManager::completedCount() const
     return count;
 }
 
-// ── Network slots ───────────────────────────────────────────────────────────
+// Network slots
 
 void DownloadManager::onReadyRead()
 {

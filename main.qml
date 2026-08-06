@@ -39,7 +39,7 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.2.0"
+    property string version: "Beta-0.2.0.1"
 
     property QtObject completedStart: QtObject {
         property bool homeLoaded: false
@@ -470,7 +470,7 @@ Window {
                 offset.x: 2
                 offset.y: 12
                 radius: 24
-                blur: 36
+                blur: 32
                 //spread: 10
                 visible: false
                 opacity: visible ? 1 : 0

@@ -69,7 +69,7 @@ private:
 	void createTableIfNeeded();
 	QSqlDatabase m_db;
 	QVector<FavoriteItem> m_items;
-	QString m_filterType;   // 空字符串表示显示所有类型
+    QString m_filterType;
 };
 
 #endif // FAVORITES_H

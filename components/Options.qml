@@ -13,7 +13,6 @@ QtObject {
     property Settings settings: Settings {
         //id: settings
         category: "Options"
-        // 配置文件存放在软件目录下（统一使用 INI，不使用注册表/plist）
         location: configDir + "/Options.ini"
         
         //全局

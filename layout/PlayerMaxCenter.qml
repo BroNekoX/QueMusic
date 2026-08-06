@@ -14,7 +14,7 @@ Item {
     id: musicControlMax
     //color: "black"
     //layer.enabled: true
-    readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 54
+    readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 56
     readonly property int infoWidth: lyricModeText.width / 2
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
@@ -85,11 +85,11 @@ Item {
         clip: true
         anchors.fill: parent
         visible: Style.settings.backFlowQuality !== 2
-        coverUrl: mainMedia.urlStr
+        coverUrl: colorExtractor.renderUrl || mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
         volume: 0
         flowSpeed: 1.0
         animating: true
-        subDivisions: 50
+        subDivisions: 42
         // 网格渐变主色：跟随封面的主色调（AMLL 流体感的来源）
         color1: musicControlMax.mainColor
         color2: musicControlMax.secondColor
@@ -230,7 +230,7 @@ Item {
             radius: 12.0
             samples: 16
             fast: true
-            color: "#36000000"
+            color: "#32000000"
             source: titleMax // 阴影绑定到主内容区域
         }
     }
@@ -297,10 +297,18 @@ Item {
             onTriggered: {
                 if(!lyricsView.moving) {
                     var idx = 0;
-                    for (var i = 0; i < MusicApi.lyricsData.length; i++) {
-                        if (mainMedia.position + 240 >= MusicApi.lyricsData[i].time)
-                            idx = i;
-                        else break;
+                    if(mainMedia.position + 240 > MusicApi.lyricsData[lyricsView.currentIndex].time) {
+                        for (var i = lyricsView.currentIndex; i < MusicApi.lyricsData.length; i++) {
+                            if (mainMedia.position + 240 > MusicApi.lyricsData[i].time)
+                                idx = i;
+                            else break;
+                        }
+                    } else {
+                        for (var i = lyricsView.currentIndex; i >= 0; i--) {
+                            if (mainMedia.position + 240 < MusicApi.lyricsData[i].time)
+                                idx = i;
+                            else break;
+                        }
                     }
                     var notSame = (lyricsView.currentIndex !== idx);
 
@@ -367,7 +375,7 @@ Item {
             //reuseItems: true
             reuseItems: true
             currentIndex: 1
-            cacheBuffer: contentHeight
+            cacheBuffer: contentHeight//height * 2
             maximumFlickVelocity: 10000
             synchronousDrag: true
             readonly property int lyricHeight: musicControlMax.standHeight / 2
@@ -375,18 +383,6 @@ Item {
             property bool openTranslate: true
             property real lastHeight: 0
             property bool isWaitOut: false
-
-
-            SpringAnimation {
-                id: lyricListAnime2
-                target: lyricsView
-                property: "contentY"
-                duration: 450
-                damping: musicControlMax.damping
-                mass: musicControlMax.mass
-                spring: musicControlMax.spring
-                //velocity: 3000
-            }
 
             // 驱动歌词滚动动画
             NumberAnimation {
@@ -396,18 +392,6 @@ Item {
                 duration: 450
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: [ 0.24, 0.06, musicControlMax.springValue, 1.04, 1, 1 ]
-            }
-
-            SpringAnimation {
-                id: lyricLastAnime2
-                target: lyricsView
-                property: "lastHeight"
-                from: 0
-                duration: 450
-                damping: musicControlMax.damping
-                mass: musicControlMax.mass
-                spring: musicControlMax.spring
-                //velocity: 3000
             }
 
             //驱动弹簧抵消动画
@@ -446,6 +430,16 @@ Item {
                 //ScriptAction {
                     //script: lyricsView.moving = false
                 //}
+            }
+
+            onCurrentIndexChanged: {
+                if (lyricHandleAnime.running) return;
+                var toIndex = currentIndex;
+                for (var i = toIndex - 4; i < toIndex + 8; i++) {
+                    if (i < 0 || i >= model.count) continue;
+                    var item = itemAtIndex(i);
+                    if (item) item.handleIndexChanged(toIndex);
+                }
             }
 
             //Behavior on contentY { NumberAnimation { duration: 440; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.00, 1, 1 ] } }
@@ -610,32 +604,21 @@ Item {
                     ScriptAction { script: waitSectionLoader.active = false }
                 }
 
-                Connections {
-                    target: lyricsView
-                    enabled: Style.settings.premiumLyricAnime// && (index > lyricsView.currentIndex - 4) && (index < lyricsView.currentIndex + 10)
-                    function onCurrentIndexChanged() {
-                        var toIndex = lyricsView.currentIndex;
-                        //var downOut = lyricsView.currentIndex - lyricsView.lastIndex + 5;
-                        //if(downOut < 0) {
-                        //    upIndex = lyricsView.currentIndex;
-                        //    downOut = lyricsView.lastIndex - lyricsView.currentIndex + 5;
-                        //}
-                        if(!lyricHandleAnime.running && index > toIndex - 4 && index < toIndex + 7) {
-                            //lyricItem.border.color = "red";
-                            var startY = -lyricsView.contentY;
-                            lyricAnime.byteY = 0;
-                            lyricsText.y = Qt.binding(function() { return (lyricsView.lastHeight + lyricAnime.byteY) });
-                            lyricYAnime.duration = 450 + (index - toIndex + 4) * 32;
-                            lyricAnime.duration = (index - toIndex + 4) ** 1.2 * 24;
-                            lyricYAnime.to = lyricsView.contentY + lyricsView.height * 0.32 - lyricsView.currentItem.y;//-startY - lyricsView.currentItem.y + lyricsView.height * 0.36;
-                            //console.log("弹簧动画运行");
-                            lyricAnime.running = false;
-                            lyricAnime.running = true;
-                            if(waitSectionLoader.active) {
-                                lyricsView.isWaitOut = true;
-                                waitOpenAnime.running = false;
-                                waitOutAnime.running = true;
-                            }
+                function handleIndexChanged(toIndex) {
+                    if (index > toIndex - 4 && index < toIndex + 7) {
+                        var startY = -lyricsView.contentY;
+                        lyricAnime.byteY = 0;
+                        lyricsText.y = Qt.binding(function() { return (lyricsView.lastHeight + lyricAnime.byteY) });
+                        lyricYAnime.duration = 450 + (index - toIndex + 4) * 32;
+                        lyricAnime.duration = (index - toIndex + 4) ** 1.2 * 24;
+                        lyricYAnime.to = lyricsView.contentY + lyricsView.height * 0.32 - lyricsView.currentItem.y;//-startY - lyricsView.currentItem.y + lyricsView.height * 0.36;
+                        //console.log("弹簧动画运行");
+                        lyricAnime.running = false;
+                        lyricAnime.running = true;
+                        if(waitSectionLoader.active) {
+                            lyricsView.isWaitOut = true;
+                            waitOpenAnime.running = false;
+                            waitOutAnime.running = true;
                         }
                     }
                 }

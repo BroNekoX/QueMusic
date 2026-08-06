@@ -39,9 +39,7 @@
 #include <QVector>
 #include <QPointer>
 
-// ---------------------------------------------------------------------------
 // 控制点配置（对应 AMLL cp-presets.ts 的 ControlPointConf / ControlPointPreset）
-// ---------------------------------------------------------------------------
 struct ControlPointConf
 {
     int cx = 0;
@@ -61,9 +59,7 @@ struct ControlPointPreset
     QVector<ControlPointConf> conf;
 };
 
-// ---------------------------------------------------------------------------
 // 材质（渲染线程使用）
-// ---------------------------------------------------------------------------
 class MeshGradientMaterial : public QSGMaterial
 {
 public:
@@ -102,9 +98,7 @@ public:
     float time     = 0.0f;
 };
 
-// ---------------------------------------------------------------------------
 // 渲染状态（对应 AMLL 的 MeshState）
-// ---------------------------------------------------------------------------
 struct MeshState
 {
     QSGGeometryNode *node = nullptr;
@@ -113,9 +107,7 @@ struct MeshState
     float alpha = 0.0f;   // 淡入淡出过渡用
 };
 
-// ---------------------------------------------------------------------------
 // 网格渐变渲染 Item
-// ---------------------------------------------------------------------------
 class MeshGradientItem : public QQuickItem
 {
     Q_OBJECT
@@ -155,6 +147,16 @@ public:
     QColor color3() const { return m_color3; }
     void setColor3(const QColor &c);
 
+    // -- 封面处理（公开静态方法，供 ColorExtractor 复用）--
+    // 将原始封面缩放到 32x32 并做对比度/饱和度/亮度/模糊处理，
+    // 结果即为 MeshGradient 使用的最终纹理。ColorExtractor 下载封面后
+    // 调用本方法处理并缓存为 data URI，避免 MeshGradientItem 重复下载/处理。
+    static QImage processCoverImage(const QImage &src);
+
+    // 生成默认兜底渐变图（32x32，用 color1/2/3 主题色绘制）。
+    // 当 coverUrl 为空/无效时使用，保证背景永不透明。
+    static QImage defaultGradientImage(const QColor &c1, const QColor &c2, const QColor &c3);
+
 signals:
     void coverUrlChanged();
     void volumeChanged();
@@ -183,7 +185,6 @@ private:
     QSGGeometry *buildGeometry(const ControlPointPreset &preset, float width, float height);
 
     // -- 封面处理 --
-    static QImage processCoverImage(const QImage &src);
     static void blurImage(QImage &img, int radius, int iterations);
 
     // -- 渲染辅助 --

@@ -14,8 +14,6 @@ Window {
     visible: true
     color: "transparent"
     title: "DesktopSpot"
-    // 关键修复：显式置空 transientParent，避免 QML 自动把本窗口设为主窗口的依赖窗口，
-    // 否则主窗口最小化/隐藏时灵动岛会被系统一起隐藏；同时置顶常驻桌面。
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     Rectangle {

@@ -41,12 +41,11 @@ public:
         ProgressRole,
         StatusRole,
         ErrorStringRole,
-        // QListView-compatible aliases
-        TitleRole,       // → fileName
-        ArtistRole,      // → filePath
-        CoverRole,       // → "" (default icon)
-        DurationRole,    // → 0
-        HashRole         // → taskId
+        TitleRole,
+        ArtistRole,
+        CoverRole,
+        DurationRole,
+        HashRole
     };
 
     explicit DownloadManager(QObject *parent = nullptr);

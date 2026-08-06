@@ -31,6 +31,8 @@
 #include <QQuickItem>
 #include <QSGRendererInterface>
 #include <QNetworkReply>
+#include <QPainter>
+#include <QRadialGradient>
 #include <QtConcurrent>
 #include <QRandomGenerator>
 #include <QtMath>
@@ -197,6 +199,39 @@ QImage MeshGradientItem::processCoverImage(const QImage &src)
     return img;
 }
 
+// 默认兜底渐变图：用三个主题色绘制 32x32 彩色渐变。
+// 当 coverUrl 为空/无效时作为 MeshGradient 纹理使用，保证背景永不透明。
+QImage MeshGradientItem::defaultGradientImage(const QColor &c1, const QColor &c2, const QColor &c3)
+{
+    QImage img(32, 32, QImage::Format_RGBA8888);
+    img.fill(Qt::black);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    // 三个径向光斑叠加，模拟封面处理后的柔和色彩分布
+    QRadialGradient g1(10, 8, 20);
+    g1.setColorAt(0.0, c1);
+    g1.setColorAt(1.0, QColor(0, 0, 0, 0));
+    p.fillRect(0, 0, 32, 32, g1);
+
+    QRadialGradient g2(24, 22, 18);
+    g2.setColorAt(0.0, c2);
+    g2.setColorAt(1.0, QColor(0, 0, 0, 0));
+    p.fillRect(0, 0, 32, 32, g2);
+
+    QRadialGradient g3(16, 28, 14);
+    g3.setColorAt(0.0, c3);
+    g3.setColorAt(1.0, QColor(0, 0, 0, 0));
+    p.fillRect(0, 0, 32, 32, g3);
+
+    p.end();
+
+    // 轻微模糊让光斑融合更自然
+    blurImage(img, 2, 2);
+    return img;
+}
+
 // MeshGradientItem 实现（网格生成 buildGeometry 见文件末尾）
 MeshGradientItem::MeshGradientItem(QQuickItem *parent)
     : QQuickItem(parent)
@@ -204,9 +239,9 @@ MeshGradientItem::MeshGradientItem(QQuickItem *parent)
     setFlag(ItemHasContents, true);
     m_net = new QNetworkAccessManager(this);
 
-    // 持续动画驱动：QTimer 每 16ms 请求重绘，确保动画循环稳定运行
+    // 持续动画驱动：QTimer 每 33ms 请求重绘，确保动画循环稳定运行
     m_animTimer = new QTimer(this);
-    m_animTimer->setInterval(16);
+    m_animTimer->setInterval(33);
     connect(m_animTimer, &QTimer::timeout, this, &MeshGradientItem::update);
     if (m_animating)
         m_animTimer->start();
@@ -306,6 +341,17 @@ void MeshGradientItem::loadCover()
 {
     const QUrl url = m_coverUrl;
     if (url.isEmpty()) {
+        // 无封面/无歌曲：用主题色渐变兜底，保证背景不透明。
+        // 直接走处理完成路径，等价于"已就绪的默认封面"。
+        const QImage fallback = MeshGradientItem::defaultGradientImage(m_color1, m_color2, m_color3);
+        if (!fallback.isNull()) {
+            m_lastImage = fallback;
+            m_pendingImage = fallback;
+            m_pendingCover = true;
+            m_hasCover = true;
+            update();
+            return;
+        }
         m_hasCover = false;
         m_pendingCover = false;
         update();
@@ -326,6 +372,25 @@ void MeshGradientItem::loadCover()
             }
             handleCoverDownloaded(reply->readAll(), true);
         });
+    } else if (url.scheme() == QLatin1String("data")) {
+        // data URI：ColorExtractor 已调用 processCoverImage 处理好的 32x32 渲染图，
+        // 直接解码作为最终纹理使用，不再走下载/后台处理链路（避免二次处理）。
+        // 32x32 PNG 解码为微秒级，同步执行即可。
+        const QString s = url.toString();
+        const int comma = s.indexOf(QLatin1Char(','));
+        if (comma >= 0) {
+            const QByteArray payload = s.mid(comma + 1).toLatin1();
+            const QByteArray raw = QByteArray::fromBase64(payload);
+            QImage img;
+            img.loadFromData(raw);
+            if (!img.isNull()) {
+                onCoverProcessed(img);
+                return;
+            }
+        }
+        m_hasCover = false;
+        m_pendingCover = false;
+        update();
     } else {
         QString path;
         if (url.scheme() == QLatin1String("qrc"))

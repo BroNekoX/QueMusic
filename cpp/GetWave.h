@@ -68,7 +68,7 @@ private:
     mutable QMutex      m_mutex;
 
     int                 m_bands = 96;
-    int                 m_fftSize = 4096;   // 固定FFT点数
+    int                 m_fftSize = 4096;
     bool                m_enabled = true;
 
     qreal               m_smoothFactor = 0.6;

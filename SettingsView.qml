@@ -1469,7 +1469,7 @@ Item {
                         width: 240
                         height: 50
                         radius: 25
-                        color: Qt.rgba(1, 1, 1, 0.3)
+                        color: Qt.rgba(1, 1, 1, 0.4)
                         border.width: 1
                         border.color: Qt.rgba(1, 1, 1, 0.6)
 
@@ -1479,7 +1479,7 @@ Item {
                             Label {
                                 text: "版本: " + window.version
                                 font.pixelSize: Style.settings.textmain
-                                color: "white"
+                                color: "black"
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             QButton {
@@ -1564,7 +1564,7 @@ Item {
                             x: 80
                             y: 15
                             height: 50
-                            text: "BroNekoX"
+                            text: "BroNekoX Studio"
                             color: Style.themes.fontColor
                             verticalAlignment: Text.AlignVCenter
                             font.bold: true

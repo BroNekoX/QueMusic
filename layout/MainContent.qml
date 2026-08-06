@@ -65,7 +65,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: true
@@ -80,7 +80,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -95,7 +95,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -111,7 +111,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -126,7 +126,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -141,7 +141,7 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        asynchronous: true
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false

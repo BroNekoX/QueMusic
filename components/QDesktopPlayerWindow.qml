@@ -5,8 +5,6 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 
-// 桌面小窗播放器
-// 由 main.qml 中的 desktopPlayerLoader (Loader) 动态加载，模式切换时才创建实例
 Window {
     id: desktopPlayerWindow
     width: 340
@@ -16,8 +14,6 @@ Window {
     visible: true
     color: "transparent"
     title: "QueMusic桌面播放器"
-    // 关键：置空 transientParent，避免 QML 自动建立依赖关系，
-    // 否则主窗口最小化/隐藏时小窗会被系统一起隐藏；同时置顶常驻桌面。
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property bool topWindow: true
@@ -40,7 +36,6 @@ Window {
         border.width: 2
         border.color: Style.themes.sideColor
 
-        // 拖动区域（最底层，按钮在上层可正常点击）
         MouseArea {
             anchors.fill: parent
             z: 0

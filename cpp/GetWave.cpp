@@ -90,7 +90,7 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
     const QAudioFormat &fmt = buffer.format();
     const int sampleRate = fmt.sampleRate();
 
-    // ---- 第一阶段：快速追加数据，并复制一份当前完整样本（加锁） ----
+    // 快速追加数据，并复制一份当前完整样本（加锁）
     QVector<float> samplesCopy;
     {
         QMutexLocker locker(&m_mutex);
@@ -115,12 +115,10 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
         if (m_rawBuffer.size() > maxSamples) {
             m_rawBuffer.remove(0, m_rawBuffer.size() - maxSamples);
         }
-
-        // 复制当前数据用于异步处理（避免后续锁竞争）
         samplesCopy = m_rawBuffer;
-    } // 锁释放，音频线程不再阻塞
+    }
 
-    // ---- 第二阶段：异步进行FFT和频谱计算 ----
+    // 第二阶段：异步进行FFT/频谱计算
     QtConcurrent::run([this, samplesCopy, sampleRate]() {
         // 加锁保护共享成员 m_spectrumData / m_wavePath
         {

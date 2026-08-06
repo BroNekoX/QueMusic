@@ -3,10 +3,12 @@
 //
 // ColorExtractor.cpp
 #include "ColorExtractor.h"
+#include "MeshGradientItem.h"
 #include <QPainter>
 #include <QRgb>
 #include <QMap>
 #include <QVector>
+#include <QBuffer>
 #include <algorithm>
 #include <QDebug>
 #include <QColor>
@@ -17,6 +19,36 @@ ColorExtractor::ColorExtractor(QObject *parent)
 {
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, &ColorExtractor::onImageDownloaded);
+    // 预制默认渲染图，保证 renderUrl 从创建起就非空，
+    // 无歌曲/封面时 MeshGradient 背景不至于透明。
+    ensureDefaultRenderUrl();
+}
+
+// 预制默认渲染图：把主项目默认封面图处理成 32x32 data URI 作为兜底。
+// 之后任何 extractColorsFromUrl 成功都会覆盖 m_renderUrl；
+// 若从未播放歌曲/封面 URL 无效，则一直使用这个预设值。
+void ColorExtractor::ensureDefaultRenderUrl()
+{
+    if (!m_renderUrl.isEmpty())
+        return;
+
+    // 主项目默认封面（应用图标图），打包在 qrc 中
+    QImage defaultImage(QStringLiteral(":/QueMusic/resources/app/musicpic.png"));
+    if (defaultImage.isNull())
+        return;
+
+    QImage render = MeshGradientItem::processCoverImage(defaultImage);
+    if (render.isNull())
+        return;
+
+    QByteArray ba;
+    QBuffer buffer(&ba);
+    buffer.open(QIODevice::WriteOnly);
+    render.save(&buffer, "PNG");
+    buffer.close();
+    m_renderUrl = QUrl(QStringLiteral("data:image/png;base64,")
+                       + QString::fromLatin1(ba.toBase64()));
+    // 构造阶段 QML 绑定尚未建立，无需 emit；getter 直接返回该预设值
 }
 
 QUrl ColorExtractor::imageSource() const
@@ -40,6 +72,11 @@ QVector<QColor> ColorExtractor::dominantColors() const
 	return m_dominantColors;
 }
 
+QUrl ColorExtractor::renderUrl() const
+{
+	return m_renderUrl;
+}
+
 void ColorExtractor::extractColors()
 {
 	if (m_imageSource.isEmpty()) {
@@ -60,6 +97,9 @@ void ColorExtractor::extractColors()
 		colorStrings.append(color.name());
 	}
 	emit colorsExtractedAsString(colorStrings);
+
+	// 渲染图缓存（MeshGradient 背景使用）
+	processAndCacheRenderImage(m_imageSource, image);
 }
 
 void ColorExtractor::onImageDownloaded(QNetworkReply *reply)
@@ -88,6 +128,9 @@ void ColorExtractor::onImageDownloaded(QNetworkReply *reply)
         colorStrings.append(color.name());
     }
     emit colorsExtractedAsString(colorStrings);
+
+    // 渲染图缓存（MeshGradient 背景使用）
+    processAndCacheRenderImage(reply->url(), image);
 }
 
 void ColorExtractor::extractColorsFromUrl(const QUrl &url)
@@ -101,6 +144,33 @@ void ColorExtractor::extractColorsFromUrl(const QUrl &url)
         QNetworkRequest request(url);
         m_networkManager->get(request);
     }
+}
+
+// 处理封面为 32x32 渲染图并缓存，生成 data URI 供 MeshGradient 直接使用。
+// 同一封面 URL 只处理一次；MeshGradientItem 加载 data URI 时无需再下载/处理。
+void ColorExtractor::processAndCacheRenderImage(const QUrl &key, const QImage &image)
+{
+    if (image.isNull())
+        return;
+
+    // 命中缓存则直接复用，避免重复的 32x32 缩放 + 像素处理 + 模糊
+    QImage render = m_renderCache.value(key);
+    if (render.isNull()) {
+        render = MeshGradientItem::processCoverImage(image);
+        if (render.isNull())
+            return;
+        m_renderCache.insert(key, render);
+    }
+
+    // 编码为 data URI（32x32 PNG，仅数 KB，完全内存化）
+    QByteArray ba;
+    QBuffer buffer(&ba);
+    buffer.open(QIODevice::WriteOnly);
+    render.save(&buffer, "PNG");
+    buffer.close();
+    m_renderUrl = QUrl(QStringLiteral("data:image/png;base64,")
+                       + QString::fromLatin1(ba.toBase64()));
+    emit renderUrlChanged();
 }
 
 double ColorExtractor::calculateColorDistance(const QColor &c1, const QColor &c2)
