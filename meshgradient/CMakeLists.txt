@@ -17,11 +17,20 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick Network Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick Network Concurrent Qml)
 
-qt6_add_library(quemusic_meshgradient STATIC
-    MeshGradientItem.cpp
-    MeshGradientItem.h
+# 独立 QML 模块（URI: MeshGradientItem），与主项目 QueMusic 模块相互独立。
+# MeshGradientItem 使用 QML_ELEMENT 注册，由 qt6_add_qml_module 自动生成
+# qmldir/typeinfo/静态插件（quemusic_meshgradientplugin），主项目链接该插件即可。
+qt6_add_library(quemusic_meshgradient STATIC)
+
+qt6_add_qml_module(quemusic_meshgradient
+    URI MeshGradientItem
+    VERSION 1.0
+    SOURCES
+        MeshGradientItem.cpp
+        MeshGradientItem.h
+    RESOURCE_PREFIX /
 )
 
 target_include_directories(quemusic_meshgradient PUBLIC

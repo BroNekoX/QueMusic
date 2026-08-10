@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 import QueMusic 1.0
@@ -91,7 +91,7 @@ Item {
                     iconCharacter: "\uf0f8"
                     text: "更多"
                     onClicked: {
-                        if(!MusicApi.loadState && MusicApi.searchSongsResults.count % 10 === 0) {
+                        if(!MusicApi.loadState && MusicApi.searchSongsResults.count % 20 === 0) {
                             MusicApi.searchSongs(mainSearchInput.text,0,MusicApi.searchSongsResults.count / 20 + 1,20)
                         } else {
                             mainWarn.tiped("没有更多了",0);
@@ -202,32 +202,133 @@ Item {
                 }
             }
         }
-        Item {
+        QListView {
             id: searchAlbum
-            visible: false
-            width: searchChildPage.width
+            width: searchChildPage.width + 16
             height: searchChildPage.height
-            Text {
-                anchors.fill: parent
-                text: "专辑搜索"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Style.themes.textColor
-                font.pixelSize: 14
+            model: MusicApi.searchSongsResults
+            clip: true
+            visible: false
+            topMargin: 72
+            bottomMargin: 24
+            isList: true
+
+            footer: Item {
+                height: 60
+                width: searchAlbum.width
+                QButton {
+                    anchors.centerIn: parent
+                    height: 40; width: 120
+                    radius: 20
+                    iconCharacter: "\uf0f8"
+                    text: "更多"
+                    onClicked: {
+                        if(!MusicApi.loadState && MusicApi.searchSongsResults.count % 20 === 0) {
+                            MusicApi.searchSongs(mainSearchInput.text,2,Math.floor(MusicApi.searchSongsResults.count / 20) + 1,20)
+                        } else {
+                            mainWarn.tiped("没有更多了",0);
+                        }
+                    }
+                }
+            }
+            onClicked: (index) => {
+                MusicApi.getMusicInfo(model.get(index).hash);
+            }
+            onToolClicked: (index,tool) => {
+                switch(tool) {
+                case 0:
+                    var listIndex = -1;
+                    var indexHash = model.get(index).hash;
+                    for(var i = 0;i < playListModel.count;i++) {
+                        var forUrl = playListModel.get(i).path;
+                        if(forUrl === indexHash) {
+                            listIndex = i;
+                        }
+                    }
+                    if (listIndex == -1) {
+                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
+                        mainWarn.tiped("成功加入播放列表",1);
+                    }
+                    break;
+                }
             }
         }
-        Item {
+        QListView {
             id: searchLyrics
-            visible: false
-            width: searchChildPage.width
+            width: searchChildPage.width + 16
             height: searchChildPage.height
-            Text {
-                anchors.fill: parent
-                text: "歌词搜索"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Style.themes.textColor
-                font.pixelSize: 14
+            model: MusicApi.searchSongsResults
+            clip: true
+            visible: false
+            topMargin: 72
+            bottomMargin: 24
+
+            footer: Item {
+                height: 60
+                width: searchLyrics.width
+                QButton {
+                    anchors.centerIn: parent
+                    height: 40; width: 120
+                    radius: 20
+                    iconCharacter: "\uf0f8"
+                    text: "更多"
+                    onClicked: {
+                        if(!MusicApi.loadState && MusicApi.searchSongsResults.count % 20 === 0) {
+                            MusicApi.searchSongs(mainSearchInput.text,3,Math.floor(MusicApi.searchSongsResults.count / 20) + 1,20)
+                        } else {
+                            mainWarn.tiped("没有更多了",0);
+                        }
+                    }
+                }
+            }
+            onClicked: (index) => {
+                if(Options.settings.soundQuality === 0) {
+                    MusicApi.getMusicInfo(model.get(index).hash);
+                } else if(Options.settings.soundQuality === 1) {
+                    MusicApi.getMusicInfo(model.get(index).hashhq);
+                } else {
+                    MusicApi.getMusicInfo(model.get(index).hashsq);
+                }
+            }
+            onToolClicked: (index,tool) => {
+                switch(tool) {
+                case 0:
+                    var listIndex = -1;
+                    var indexHash = model.get(index).hash;
+                    for(var i = 0;i < playListModel.count;i++) {
+                        var forUrl = playListModel.get(i).path;
+                        if(forUrl === indexHash) {
+                            listIndex = i;
+                        }
+                    }
+                    if (listIndex == -1) {
+                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
+                        mainWarn.tiped("成功加入播放列表",1);
+                    }
+                    break;
+                case 1:
+                    if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
+                        favoritesSong.removeFavorite(model.get(index).hash, "song");
+                        mainWarn.tiped("取消收藏",0);
+                    } else {
+                        favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                        mainWarn.tiped("成功收藏",1);
+                    }
+                    break;
+                }
+            }
+            onMenuClicked: (index,choice) => {
+                switch(choice) {
+                case 0:
+                    if(Options.settings.soundQuality === 0) {
+                        MusicApi.getMusicInfo(model.get(index).hash,1);
+                    } else if(Options.settings.soundQuality === 1) {
+                        MusicApi.getMusicInfo(model.get(index).hashhq,1);
+                    } else {
+                        MusicApi.getMusicInfo(model.get(index).hashsq,1);
+                    }
+                    break;
+                }
             }
         }
     }

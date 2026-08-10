@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 #ifndef DOWNLOADMANAGER_H
 #define DOWNLOADMANAGER_H
@@ -12,6 +12,7 @@
 #include <QUrl>
 #include <QList>
 #include <QString>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 struct DownloadTask {
     enum Status { Queued, Downloading, Completed, Error };
@@ -27,10 +28,12 @@ struct DownloadTask {
 class DownloadManager : public QAbstractListModel
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(int currentTaskId READ currentTaskId NOTIFY currentTaskIdChanged)
     Q_PROPERTY(bool hasActiveTasks READ hasActiveTasks NOTIFY hasActiveTasksChanged)
     Q_PROPERTY(int completedCount READ completedCount NOTIFY completedCountChanged)
     Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged)
+    Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
 
 public:
     enum Roles {
@@ -67,12 +70,15 @@ public:
     bool hasActiveTasks() const { return m_currentTaskId >= 0; }
     int completedCount() const;
     int taskCount() const { return m_tasks.size(); }
+    QString downloadPath() const { return m_downloadPath; }
+    void setDownloadPath(const QString &path);
 
 signals:
     void currentTaskIdChanged();
     void hasActiveTasksChanged();
     void completedCountChanged();
     void taskCountChanged();
+    void downloadPathChanged();
 
 private slots:
     void onReadyRead();
@@ -93,6 +99,7 @@ private:
     QList<DownloadTask> m_tasks;
     int m_currentTaskId = -1;
     int m_nextId = 1;
+    QString m_downloadPath;
 };
 
 #endif // DOWNLOADMANAGER_H

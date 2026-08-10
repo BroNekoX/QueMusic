@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 pragma Singleton
 import QtQuick
@@ -49,6 +49,7 @@ QtObject {
         property int gpuRenderMode: 0 //0.默认平台 1.OpenGL 2.Vulkan
         property bool displayFps: false //显示帧率
         property bool debug: false //使用调试模式
+        property bool timerAnimator: false //使用Timer动画引擎
         property bool displayDebugControl //显示控制台
     }
 

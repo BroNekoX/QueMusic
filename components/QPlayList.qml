@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Layouts
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 
 // 播放列表
@@ -60,7 +60,6 @@ Popup {
             radius: 18
             iconSize: Style.settings.texticon + 2
             buttonColor: "transparent"
-            hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
             shadowEnabled: false
             onClicked: {
                 playList.close()
@@ -175,7 +174,7 @@ Popup {
                         width: 56
                         height: 40
                         color: Style.themes.textColor
-                        text: model.local == "true" ? "本地" : "在线"
+                        text: model.source == -1 ? "本地" : "在线"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Style.settings.text
@@ -197,13 +196,14 @@ Popup {
                             var sourcename = model.name;
                             mainMedia.source = sourcePath;
                             mainMedia.noTitle = sourcename;
+                            MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
                             mainMedia.play();
                         } else {
                             mainMedia.urlLocal = false;
                             playListModel.playListIndex = index;
                             MusicApi.getMusicInfo(model.path,0,model.source);
                         }
-                        
+                        console.log("name:",model.name," path:",model.path," source:",model.source," artist:",model.songer)
                     }
                     Rectangle {
                         id: listHover

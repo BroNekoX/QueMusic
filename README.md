@@ -1,12 +1,12 @@
 # 🎵 QueMusic — 全能跨平台音乐播放器
 
 <p align="center">
-  <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue">
-  <img alt="Qt" src="https://img.shields.io/badge/Qt-6.9.3-41CD52">
-  <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B20%20%7C%20QML-orange">
-  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
-  <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic">
-  <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic">
+  <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
+  <img alt="Qt" src="https://img.shields.io/badge/Qt-6.9.3-41CD52?style=flat-square">
+  <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B20%20%7C%20QML-orange?style=flat-square">
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square">
+  <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic?style=flat-square">
+  <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic?style=flat-square">
 </p>
 
 > **可能是桌面跨平台上UI最美丽丝滑，性能最强的开源音乐播放器？**
@@ -321,6 +321,13 @@ Copyright (c) 2024-2026 QueMusic Contributors
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
 - 所有贡献者与测试者 ❤️
+
+---
+
+##   联系开发者
+
+- QQ：2414122517
+- 邮箱：uihugd@outlook.com
 
 ---
 

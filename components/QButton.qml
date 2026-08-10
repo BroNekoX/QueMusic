@@ -1,6 +1,6 @@
 // QButton.qml
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -32,7 +32,7 @@ Button {
     // ==== 尺寸控制 ====
     //horizontalPadding: 16
     implicitHeight: 36
-    implicitWidth: 120//layout.width + horizontalPadding * 2
+    implicitWidth: rowItem.implicitWidth + 32//layout.width + horizontalPadding * 2
     
     Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
     onPressed: scale = pressedScale
@@ -70,6 +70,7 @@ Button {
     contentItem: Item {
         anchors.fill: parent
         Row {
+            id: rowItem
             anchors.centerIn: parent
             spacing: root.textBetween
             Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }

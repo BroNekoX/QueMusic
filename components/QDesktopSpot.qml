@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Layouts
@@ -88,6 +88,7 @@ Window {
             clip: true
             verticalAlignment: Text.AlignVCenter
         }
+        // 主控制按钮，常驻
         SButton {
             id: spotPlayButton
             //x: 104
@@ -112,17 +113,55 @@ Window {
             }
         }
 
+        // 控制
         Item {
             visible: opacity !== 0
             id: spotInfoPlayer
-            y: spotCard.height - 40
+            y: spotCard.height - 64
             height: 32
             width: 104
             anchors.horizontalCenter: parent.horizontalCenter
             z: 2
+            // 进度条
+            Slider {
+                id: seekSlider
+                y: 0
+                width: parent.width
+                height: 16
+                from: 0
+                to: mainMedia.duration > 0 ? mainMedia.duration : 1
+                value: pressed ? null : mainMedia.position
+                live: true
+                onMoved: mainMedia.position = value
+                padding: 0
+                background: Rectangle {
+                    y: (seekSlider.height - 4) / 2
+                    width: seekSlider.availableWidth
+                    height: 4
+                    radius: 2
+                    color: Style.themes.secondaryColor
+                    Rectangle {
+                        width: seekSlider.visualPosition * parent.width
+                        height: parent.height
+                        radius: 2
+                        color: Style.themes.themeColor
+                    }
+                }
+                handle: Rectangle {
+                    x: seekSlider.leftPadding + seekSlider.visualPosition * (seekSlider.availableWidth - width)
+                    y: (seekSlider.height - 12) / 2
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: Style.themes.primaryColor
+                    border.width: 2
+                    border.color: Style.themes.themeColor
+                    visible: seekSlider.hovered || seekSlider.pressed
+                }
+            }
             SButton {
                 x: 0
-                y: 0
+                y: 24
                 iconCharacter: "\uf0dc"
                 width: 32
                 height: 32
@@ -137,7 +176,7 @@ Window {
 
             SButton {
                 x: 72
-                y: 0
+                y: 24
                 iconCharacter: "\uf0d9"
                 width: 32
                 height: 32

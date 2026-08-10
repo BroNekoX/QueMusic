@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -57,7 +57,7 @@ Popup {
         ScrollView {
             id: dialogContent
             width: contentCol.width + 10
-            height: dialog.dialogContentHeight > dialog.parent.height - 320 ? dialog.parent.height - 320 : dialog.dialogContentHeight
+            height: dialog.dialogContentHeight > window.height - 320 ? window.height - 320 : dialog.dialogContentHeight
             contentWidth: contentCol.width
             contentHeight: dialog.dialogContentHeight
             clip: true

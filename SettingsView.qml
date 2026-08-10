@@ -1,13 +1,157 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
+import QtQuick.Window
+import QtCore
 import QueMusic 1.0
 
 Item {
     id: settingsView
+
+    // 账号登录面板展开状态
+    property bool neteaseShowLogin: false
+    property bool kugouShowLogin: false
+    property string neteaseLoginStatus: "等待登录…"
+    property string kugouLoginStatus: "等待登录…"
+
+    // 登录成功自动收起面板
+    Connections {
+        target: accountManager
+        function onNeteaseLoginChanged() {
+            if (accountManager.neteaseLoggedIn) {
+                settingsView.neteaseShowLogin = false;
+                neteaseQrDialog.close();
+            }
+        }
+        function onKugouLoginChanged() {
+            if (accountManager.kugouLoggedIn) {
+                settingsView.kugouShowLogin = false;
+                kugouQrDialog.close();
+            }
+        }
+    }
+
+    // 网易云扫码登录弹窗（QOptionDialog + QRCodeView）
+    QOptionDialog {
+        id: neteaseQrDialog
+        title: "网易云音乐 - 扫码登录"
+        cancelText: "取消"
+        confirmText: "关闭"
+        dialogContentHeight: 330
+        blurSource: settingsView
+        onCancel: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onConfirm: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onClosed: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+
+        Column {
+            width: parent.width
+            spacing: 14
+            Rectangle {
+                width: parent.width
+                height: 232
+                radius: 12
+                color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
+                border.color: Style.themes.secondaryColor
+                border.width: 1
+                QRCodeView {
+                    id: neteaseQrCode
+                    width: 212
+                    height: 212
+                    anchors.centerIn: parent
+                    qrText: accountManager.neteaseQrText
+                }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: accountManager.neteaseQrMessage
+                color: Style.themes.fontColor
+                font.pixelSize: Style.settings.textmain
+                elide: Text.ElideRight
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+            }
+            QButton {
+                visible: accountManager.neteaseQrState === 3 || accountManager.neteaseQrState === 4
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "重新获取二维码"
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                buttonColor: Style.themes.themeColor
+                onClicked: accountManager.startNeteaseQrLogin()
+            }
+        }
+    }
+
+    // 酷狗扫码登录弹窗（QOptionDialog + QRCodeView）
+    QOptionDialog {
+        id: kugouQrDialog
+        title: "酷狗音乐 - 扫码登录"
+        cancelText: "取消"
+        confirmText: "关闭"
+        dialogContentHeight: 330
+        blurSource: settingsView
+        onCancel: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+        onConfirm: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+        onClosed: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+
+        Column {
+            width: parent.width
+            spacing: 14
+            Rectangle {
+                width: parent.width
+                height: 232
+                radius: 12
+                color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
+                border.color: Style.themes.secondaryColor
+                border.width: 1
+                QRCodeView {
+                    id: kugouQrCode
+                    width: 212
+                    height: 212
+                    anchors.centerIn: parent
+                    qrText: accountManager.kugouQrText
+                }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: accountManager.kugouQrMessage
+                color: Style.themes.fontColor
+                font.pixelSize: Style.settings.textmain
+                elide: Text.ElideRight
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+            }
+            QButton {
+                visible: accountManager.kugouQrState === 3 || accountManager.kugouQrState === 4
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "重新获取二维码"
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                buttonColor: Style.themes.themeColor
+                onClicked: accountManager.startKugouQrLogin()
+            }
+        }
+    }
+
+    FolderDialog {
+        id: downloadFolderDialog
+        title: "选择默认下载目录"
+        currentFolder: Options.settings.downloadFolder || StandardPaths.writableLocation(StandardPaths.MusicLocation)
+        onAccepted: {
+            var p = downloadFolderDialog.selectedFolder.toString();
+            if (p.indexOf("file:///") === 0)
+                p = p.substring(8);
+            Options.settings.downloadFolder = p;
+            mainWarn.tiped("已设置默认下载目录", 1);
+        }
+    }
 
     Rectangle {
         id: leftSidebarSettings
@@ -486,6 +630,165 @@ Item {
                     }
                 }
 
+                QHead { text: "账号与登录" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    radius: Style.settings.cubeRadius
+                    border.color: Style.themes.secondaryColor
+                    border.width: 1
+                    Column {
+                        width: parent.width
+                        padding: 0
+                        Component.onCompleted: parent.height = height
+
+                        // 合规说明
+                        Rectangle {
+                            width: parent.width - 32
+                            height: 46
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: Style.themes.hoverColor
+                            radius: Style.settings.labelRadius
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 30
+                                text: "\uf0b6"
+                                font.family: iconFont.name
+                                color: Style.themes.textColor
+                                font.pixelSize: Style.settings.texticon
+                            }
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 44
+                                anchors.right: parent.right
+                                anchors.rightMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "扫码登录：用你自己的账号在应用内登录（账号即能力），登录后自动读取登录态，仅保存在本机，随时可退出。"
+                                color: Style.themes.textColor
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        // 网易云音乐
+                        SettingItemCard {
+                            label: "网易云音乐账号"
+                            controlWidth: 400
+                            controlItem: Item {
+                                anchors.fill: parent
+                                Row {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 10
+                                    Rectangle {
+                                        width: 28
+                                        height: 28
+                                        radius: 14
+                                        clip: true
+                                        visible: accountManager.neteaseLoggedIn && accountManager.neteaseAvatar !== ""
+                                        Image {
+                                            anchors.fill: parent
+                                            source: accountManager.neteaseAvatar
+                                            fillMode: Image.PreserveAspectCrop
+                                        }
+                                    }
+                                    Text {
+                                        visible: accountManager.neteaseLoggedIn
+                                        text: accountManager.neteaseNickname
+                                        color: Style.themes.fontColor
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: Style.settings.textmain
+                                        elide: Text.ElideRight
+                                        width: 150
+                                    }
+                                    QButton {
+                                        text: accountManager.neteaseLoggedIn ? "退出登录" : "扫码登录"
+                                        width: 110
+                                        height: 32
+                                        radius: 16
+                                        shadowEnabled: false
+                                        buttonColor: Style.themes.themeColor
+                                        textColor: Style.themes.secondaryColor
+                                        onClicked: {
+                                            if (accountManager.neteaseLoggedIn) {
+                                                globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                                    function() {
+                                                        accountManager.logoutNetease();
+                                                    }
+                                                )
+                                            } else {
+                                                settingsView.neteaseShowLogin = true;
+                                                neteaseQrDialog.open();
+                                                accountManager.startNeteaseQrLogin();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 酷狗音乐
+                        SettingItemCard {
+                            label: "酷狗音乐账号"
+                            controlWidth: 400
+                            controlItem: Item {
+                                anchors.fill: parent
+                                Row {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 10
+                                    Rectangle {
+                                        width: 28
+                                        height: 28
+                                        radius: 14
+                                        clip: true
+                                        visible: accountManager.kugouLoggedIn && accountManager.kugouAvatar !== ""
+                                        Image {
+                                            anchors.fill: parent
+                                            source: accountManager.kugouAvatar
+                                            fillMode: Image.PreserveAspectCrop
+                                        }
+                                    }
+                                    Text {
+                                        visible: accountManager.kugouLoggedIn
+                                        text: accountManager.kugouNickname
+                                        color: Style.themes.fontColor
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: Style.settings.textmain
+                                        elide: Text.ElideRight
+                                        width: 150
+                                    }
+                                    QButton {
+                                        text: accountManager.kugouLoggedIn ? "退出登录" : "扫码登录"
+                                        width: 110
+                                        height: 32
+                                        radius: 16
+                                        shadowEnabled: false
+                                        buttonColor: Style.themes.themeColor
+                                        textColor: Style.themes.secondaryColor
+                                        onClicked: {
+                                            if (accountManager.kugouLoggedIn) {
+                                                globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                                    function() {
+                                                        accountManager.logoutKugou();
+                                                    }
+                                                )
+                                            } else {
+                                                settingsView.kugouShowLogin = true;
+                                                kugouQrDialog.open();
+                                                accountManager.startKugouQrLogin();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 QHead { text: "应用程序" }
 
                 Rectangle {
@@ -516,12 +819,14 @@ Item {
 
                         SettingItemCard {
                             label: "默认下载目录"
-                            controlItem: QInput {
+                            controlItem: QButton {
                                 anchors.fill: parent
-                                inputText: "选择目录"
-                                onEntered: {
-                                    Options.settings.downloadFolder = inputText
-                                }
+                                shadowEnabled: false
+                                radius: Style.settings.labelRadius
+                                borderWidth: 2
+                                text: Options.settings.downloadFolder ? "自定义目录" : "系统音乐文件夹"
+                                fontSize: Style.settings.text
+                                onClicked: downloadFolderDialog.open()
                             }
                         }
 
@@ -815,6 +1120,24 @@ Item {
                                 onMoved: {
                                     Style.settings.textWidth = value
                                 }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "歌词字体"
+                            controlItem: QButton {
+                                anchors.fill: parent
+                                shadowEnabled: false
+                                radius: Style.settings.labelRadius
+                                borderWidth: 2
+                                text: Style.settings.fontFamily ? Style.settings.fontFamily : "系统默认"
+                                fontSize: Style.settings.text
+                                onClicked: lyricFontDialog.open()
+                            }
+                            FontDialog {
+                                id: lyricFontDialog
+                                currentFont.family: Style.settings.fontFamily || null
+                                onAccepted: Style.settings.fontFamily = lyricFontDialog.selectedFont.family
                             }
                         }
 
@@ -1538,38 +1861,37 @@ Item {
                     }
                 }
 
+                QHead { text: "软件信息" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: description.implicitHeight + 48
+                    radius: 16
+                    color: Style.themes.fullColor
+                    border.color: Style.themes.secondaryColor
+                    border.width: 2
+                    Text {
+                        id: description
+                        anchors.centerIn: parent
+                        width: settingStack.standWidth - 48
+                        text: "QueMusic是一个基于Qt QML开发的全能音乐播放器，旨在让听歌变得更简单，让每个操作变得简单，QueMusic拥有行业领先的性能，在Qt RHI * QML * C++强大组合下，性能卓越，UI美观丝滑，基于C++的在线音源使其拥有强大的稳定在线体验，QueMusic让听歌变得更简单。"
+                        wrapMode: Text.Wrap
+                        color: Style.themes.textColor
+                        font.pixelSize: 13
+                    }
+                }
+
                 QHead { text: "开发者" }
-                Row {
+
+                Grid {
                     spacing: 24
+                    rows: 2
                     width: settingStack.standWidth
                     height: 80
-                    Rectangle {
-                        width: settingStack.standWidth / 2 - 12
-                        height: 80
-                        radius: 16
-                        color: Style.themes.fullColor
-                        border.color: Style.themes.secondaryColor
-                        border.width: 2
-                        Image {
-                            x: 15
-                            y: 15
-                            source: "qrc:/QueMusic/resources/app/header.png"
-                            width: 50
-                            height: 50
-                            sourceSize.width: 50
-                            sourceSize.height: 50
-                            fillMode: Image.PreserveAspectFit
-                        }
-                        Text {
-                            x: 80
-                            y: 15
-                            height: 50
-                            text: "BroNekoX Studio"
-                            color: Style.themes.fontColor
-                            verticalAlignment: Text.AlignVCenter
-                            font.bold: true
-                            font.pixelSize: 18
-                        }
+                    AccountCard {
+                        source: "qrc:/QueMusic/resources/app/icons/bronekox.jpg"
+                        title: "BroNekoX Studio"
+                        text: "本项目的主要开发负责人"
                     }
                 }
 
@@ -1748,81 +2070,32 @@ Item {
 
                 QHead { text: "使用第三方项目与库" }
 
-                Rectangle {
+                Grid {
+                    spacing: 24
+                    rows: 2
                     width: settingStack.standWidth
-                    height: 250
-                    radius: 16
-                    color: Style.themes.fullColor
-                    border.color: Style.themes.secondaryColor
-                    border.width: 2
-                    Column {
-                        spacing: 8
-                        padding: 16
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "QWindowKit"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "实现完美和贴近系统的无边框窗口管理"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "Qt6.9.3-Community(开源版)"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "UI和软件框架及后端和媒体都来源于它"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "AMLL Core"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "使用到了本项目的背景着色器代码"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "pako.js"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "用于解码一些加密的歌词"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "Poppins、Feather font"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "分别用于字体和图标的font渲染"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
+                    AccountCard {
+                        source: "qrc:/QueMusic/resources/app/icons/qwk.png"
+                        title: "QWindowKit"
+                        text: "实现全平台完美的无边框窗口"
+                        openUrl: "https://github.com/stdware/qwindowkit"
+                    }
+                    AccountCard {
+                        source: "qrc:/QueMusic/resources/app/icons/qticon.png"
+                        title: "Qt Community"
+                        text: "强大的开源软件包框架"
+                        openUrl: "https://github.com/qt"
+                    }
+                    AccountCard {
+                        source: "qrc:/QueMusic/resources/app/icons/amll.svg"
+                        title: "AMLL Core"
+                        text: "使用了AMLL的背景效果部分来实现炫酷的歌词界面背景，使用AGPL-3.0授权"
+                        openUrl: "https://github.com/amll-dev/applemusic-like-lyrics"
+                    }
+                    AccountCard {
+                        source: ""
+                        title: "Poppins ，Feather"
+                        text: "Font库，提供字体与图标的库"
                     }
                 }
 
@@ -1830,7 +2103,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: 200
+                    height: 150
                     color: Style.themes.fullColor
                     radius: 16
                     border.color: Style.themes.secondaryColor
@@ -1871,20 +2144,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "?????"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "????"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "?????"
+                                text: "695207057"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -1901,7 +2161,6 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        width: 140
                         text: "Source"
                         iconCharacter: "\uf060"
                         onClicked: {
@@ -1912,8 +2171,7 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        width: 140
-                        text: "Website(未推出)"
+                        text: "QueMusic网站(未推出)"
                         iconCharacter: "\uf0d7"
                         onClicked: {
                             Qt.openUrlExternally("example.com");
@@ -1923,11 +2181,20 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        width: 140
                         text: "Bug反馈"
                         iconCharacter: "\uf117"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic/issues");
+                        }
+                    }
+
+                    QButton {
+                        height: 40
+                        radius: 20
+                        text: "开源许可"
+                        iconCharacter: "\uf117"
+                        onClicked: {
+                            Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/blob/main/LICENSE");
                         }
                     }
                 }
@@ -1956,7 +2223,7 @@ Item {
                     font.pixelSize: Style.settings.pageTitle
                 }
 
-                Text { text: "目前本页的设置项无法使用,请等待更新"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请将BroNekoX/Quemusic.ini删除"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
 
                 QHead { text: "渲染" }
 
@@ -1977,18 +2244,35 @@ Item {
                                 anchors.fill: parent
                                 letRight: true
                                 switchTrue: Options.settings.noWindowKit
-                                onToggled: Options.settings.noWindowKit = !Options.settings.noWindowKit
+                                onToggled: {
+                                    Options.settings.noWindowKit = !Options.settings.noWindowKit;
+                                    mainMessage.openSimpleDialog("提示", "重启本应用以生效更改.", null);
+                                }
                             }
                         }
 
                         SettingItemCard {
-                            label: "界面渲染引擎"
+                            label: "界面渲染引擎(重启生效)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Options.settings.gpuRenderMode
-                                model: ["系统偏好","OpenGL","Vulkan","软件"]
+                                model: ["系统偏好","OpenGL","Vulkan","DirectX12","Software"]
                                 onTransformed: (choiced) => {
-                                    Options.settings.gpuRenderMode = choiced
+                                    Options.settings.gpuRenderMode = choiced;
+                                    mainMessage.openSimpleDialog("提示", "重启本应用以生效更改.", null);
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "不使用Vsync而使用Timer来驱动界面"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Options.settings.timerAnimator
+                                onToggled: {
+                                    Options.settings.timerAnimator = !Options.settings.timerAnimator;
+                                    mainMessage.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
                                 }
                             }
                             bottomLine: false

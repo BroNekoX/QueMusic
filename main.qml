@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Window
 import QueMusic 1.0
 import QtCore
 import QtMultimedia
-import QWindowKit
+import QWindowKit 1.0
 import QtQuick.Effects
-import CoverHelper 1.0
-import ColorExtractor 1.0
-import GetWave 1.0
 
 //import 'qrc:/QueMusic/components'
 //import 'qrc:/QueMusic/layout'
@@ -28,7 +25,14 @@ Window {
     Component.onCompleted: {
         windowAgent.setup(window);
         windowAgent.setWindowAttribute("dark-mode", false);
-        //dwm-blur acrylic-material mica mica-alt extra-margins
+        if(!Options.settings.noWindowKit) {
+            //dwm-blur acrylic-material mica mica-alt extra-margins
+        } else {
+            windowAgent.setWindowAttribute("extra-margins", 3);
+            windowAgent.setWindowAttribute("title-bar-height", 40);
+        }
+        MusicApi.songSource = Options.settings.mainMusicSource;
+        MusicApi.downloadPath = Options.settings.downloadFolder;
 
         window.visible = true;
         // 更新设置项
@@ -36,11 +40,26 @@ Window {
         Style.changeTheme();
     }
 
+    Connections {
+        target: Options.settings
+        function onDownloadFolderChanged() {
+            MusicApi.downloadPath = Options.settings.downloadFolder;
+        }
+    }
+
+    onClosing: (close) => {
+        if(Options.settings.closeToManage) {
+            close.accepted = false;
+            window.showMinimized();
+        }
+    }
+
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
     property string version: "Beta-0.2.0.1"
 
+    // 首次加载内容临时存储，防止重新加载浪费内存
     property QtObject completedStart: QtObject {
         property bool homeLoaded: false
         property bool playlistLoaded: false
@@ -48,6 +67,10 @@ Window {
 
     // 关闭前保存最后播放的歌曲
     function toClosing() {
+        if(Options.settings.closeToManage) {
+            window.showMinimized();
+            return;
+        }
         if(playListModel.count > 0 && playListModel.playListIndex >= 0) {
             var e = playListModel.get(playListModel.playListIndex);
             Options.lastSongs.name = window.musicTitle;
@@ -325,30 +348,21 @@ Window {
             Transition {
                 from: ""; to: "*"
                 ParallelAnimation {
-                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
                     NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
                 }
             },
             Transition {
                 from: "*"; to: ""
                 ParallelAnimation {
-                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
-                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }
+                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
                     NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
                 }
             },
             Transition {
                 from: "*"; to: "*"
                 ParallelAnimation {
-                    NumberAnimation { target: musicpic; property: "x"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
-                    NumberAnimation { target: musicpic; property: "y"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "width"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
+                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
                     NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
                     NumberAnimation { target: controlMaxLoader; property: "lyricsX"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
                     NumberAnimation { target: controlMaxLoader; property: "infoX"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
@@ -357,9 +371,7 @@ Window {
             }
         ]
 
-        //Component.onCompleted: {
-        //    mainLayout.state = "Playermined"
-        //}
+        // Style变化信号统一
         Connections {
             target: Style
             function onChangeTheme() {
@@ -458,11 +470,13 @@ Window {
             height: 50
             clip: false
             x: 30
+            opacity: controlMaxLoader.basicCd && controlMaxLoader.visible ? 0 : 1
             y: mainLayout.height - 64
             property int radius: 12
             scale: mainMedia.playing ? 1.0 : 0.84
             //layer.enabled: true
             Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.20, 0.04, 0.00, 1.64, 1, 1 ] } }
+            Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             RectangularShadow {
                 id: musicpicShadow
                 anchors.fill: musicpic
@@ -471,7 +485,6 @@ Window {
                 offset.y: 12
                 radius: 24
                 blur: 32
-                //spread: 10
                 visible: false
                 opacity: visible ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
@@ -493,11 +506,6 @@ Window {
                 radius: musicpic.radius
                 layer.enabled: true
                 visible: false
-                //Rectangle {
-                //    anchors.fill: parent
-                //    color: "#ff000000"
-                //    radius: musicpic.radius
-                //}
             }
             MouseArea {
                 anchors.fill: musicpic
@@ -526,6 +534,7 @@ Window {
             property int infoX: mainLayout.width * 0.23 - (mainLayout.piclong / 2)
             property bool isHideGui: false
             property int hideHeight: 0
+            property bool basicCd: false
             Behavior on hideHeight { enabled: controlMaxLoader.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
             onLoaded: {
                 window.playermaxed()
@@ -602,12 +611,52 @@ Window {
         active: false
         visible: false
         z: 6
-        source: "qrc:/QueMusic/SettingsView.qml"
+        source: "qrc:/QueMusic/SettingsView.qml"//"qrc:/QueMusic/SettingsView.qml"
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
         onLoaded: {
             visible = true;
             settingAnime.running = true;
+        }
+    }
+
+    Item {
+        id: fpsCounter
+        visible: Options.settings.displayFps
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 68
+        anchors.rightMargin: 16
+        z: 99
+        property int frames: 0
+        property real fps: 0
+        width: 78
+        height: 24
+        Rectangle {
+            anchors.fill: parent
+            radius: 12
+            color: Style.themes.shadowColor
+            opacity: 0.75
+        }
+        Text {
+            anchors.centerIn: parent
+            text: fpsCounter.fps.toFixed(0) + " FPS"
+            color: Style.themes.fontColor
+            font.pixelSize: 11
+            font.bold: true
+        }
+        Timer {
+            interval: 500
+            repeat: true
+            running: fpsCounter.visible
+            onTriggered: {
+                fpsCounter.fps = fpsCounter.frames * 2;
+                fpsCounter.frames = 0;
+            }
+        }
+        Connections {
+            target: window
+            function onAfterRendering() { fpsCounter.frames++ }
         }
     }
 
@@ -685,6 +734,10 @@ Window {
             }
 
         }
+        // C++ 下载/提示信号
+        function onWarned(text,type) {
+            mainWarn.tiped(text,type);
+        }
     }
 
 
@@ -711,7 +764,7 @@ Window {
         //audioBufferOutput: getWave.audioBufferOutput
 
         source: ""
-        autoPlay: true
+        autoPlay: Options.settings.autoPlay
         onMetaDataChanged: {
             console.log("QML: MediaPlayer created, audioBufferOutput =",audioBufferOutput)
             if(urlLocal) {
@@ -821,6 +874,7 @@ Window {
         title: "Dialog"
         message: "呃呃呃呃呃呃呃？(>-<)"
         isInput: false
+        blurSource: mainLayout.visible ? mainLayout : settingsView
         //standardButtons: Dialog.Ok | Dialog.Cancel
 
         // 简单确认对话框的回调存储（由 openSimpleDialog 使用）
@@ -855,6 +909,10 @@ Window {
     }
     QMessage {
         id: mainMessage
+        function openSimpleDialog(title, text, callBack) {
+            //mainMessage.dialogCallback = callBack || null;
+            mainMessage.dialog(title,text,"\uf11a");
+        }
     }
     QOptionDialog {
         id: picWatch

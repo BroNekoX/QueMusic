@@ -1,10 +1,11 @@
 // AnimatorWindow.qml
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
+import QueMusic 1.0
 
 Item {
     id: root
@@ -215,14 +216,14 @@ Item {
         Rectangle {
             id: playInfoRectangle
             height: 36
-            width: playCountRow.implicitWidth + 16
+            width: playCountRow.implicitWidth + 20
             x: root.width - playCountRow.implicitWidth - 83
             y: 100
             radius: Style.settings.labelRadius
             color: Style.themes.sideColor
             Row {
                 id: playCountRow
-                x: 8
+                x: 10
                 width: parent.width
                 height: 36
                 spacing: 8

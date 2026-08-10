@@ -30,3 +30,17 @@
 - Qt 6.9.3（Core, Gui, Qml, Quick, Network, Multimedia, Concurrent, Sql, ShaderTools）
 - QWindowKit（Apache-2.0）
 - pako.js（MIT）
+
+
+### [0.2.5] - 2026-08-10
+
+！重大更新
+
+### 新增
+- 全面将在线api转到c++提升性能，稳定性，为之后接入QCloudMusicApi以及QQ音乐做好准备
+- 全面重做歌词界面，背景效果由AMLL Core移植，歌词组件抛弃ListView转用自定义排列，效果大更新
+- 增加更多功能，在歌词界面，本地文件夹，设置调节功能，界面功能都有大量更新
+
+### 其他
+- 修复大量Bug，大量之前一直存在的一些小问题，部分优化性能
+- 规范部分代码，规范协议

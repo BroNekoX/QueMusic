@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 pragma Singleton
 import QtQuick
@@ -72,6 +72,7 @@ QtObject {
         property int textWidth: 600
         property bool maskBlur: true
         property bool lyricHideGui: true
+        property string fontFamily
 
         // 背景图片
         property string backgroundImage: "qrc:/QueMusic/resources/pic/back2.jpg"
@@ -100,7 +101,7 @@ QtObject {
         themes.secondaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.7) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.7);
         themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.5) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.5);
         themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.5) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.5);
-        themes.shadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.05,0.20) : Qt.hsva(baseColor.hsvHue,1.0,0.14,0.16);
+        themes.shadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.05,0.18) : Qt.hsva(baseColor.hsvHue,1.0,0.14,0.15);
         themes.themeShadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.5,0.3) : Qt.hsva(baseColor.hsvHue,1.0,0.6,0.3);
     }
 

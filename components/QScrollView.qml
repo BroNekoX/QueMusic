@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -40,16 +40,14 @@ ScrollView {
     }
 
     WheelHandler {
-        property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: (event) => {
-                     var wheelheight = event.angleDelta.y / 4 * scrollMultiplier / view.contentHeight
-                     viewBar.active = true
-
-                     view.scrollToPosition = Math.max(0, Math.min(view.scrollToPosition - wheelheight, 1 - viewBar.size))
+                     var wheelheight = event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines / view.contentHeight;
+                     viewBar.active = true;
+                     view.scrollToPosition = Math.max(0, Math.min(view.scrollToPosition - wheelheight, 1 - viewBar.size));
                      //viewBar.position = scrollToPosition
-                     viewAnime.stop()
-                     viewAnime.start()
+                     viewAnime.stop();
+                     viewAnime.start();
                  }
     }
 }

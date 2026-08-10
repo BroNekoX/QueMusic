@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 #include "GetWave.h"
 #include <QDebug>
+#include <QThreadPool>
 #include <cmath>
 #include <algorithm>
 
@@ -13,14 +14,9 @@ GetWave::GetWave(QObject *parent) : QObject(parent)
     for (int i = 0; i < m_bands; ++i)
         m_spectrumData.append(0.0);
 
-    // 预分配FFT缓冲区，固定大小4096
+    // 预分配 FFT 缓冲区，固定大小 4096
     m_fftData.resize(m_fftSize);
     m_magnitudes.resize(m_fftSize / 2);
-}
-
-GetWave::~GetWave()
-{
-    // bufferOutput 的 parent 是 this，自动释放
 }
 
 void GetWave::setBands(int b)
@@ -39,6 +35,9 @@ void GetWave::setBands(int b)
 
 void GetWave::setEnabled(bool e)
 {
+    m_enabled = e;
+    emit enabledChanged();
+
     QMutexLocker locker(&m_mutex);
     m_rawBuffer.clear();
     m_spectrumData.fill(0.0);
@@ -118,8 +117,8 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
         samplesCopy = m_rawBuffer;
     }
 
-    // 第二阶段：异步进行FFT/频谱计算
-    QtConcurrent::run([this, samplesCopy, sampleRate]() {
+    // 第二阶段：异步进行 FFT/频谱计算
+    QThreadPool::globalInstance()->start([this, samplesCopy, sampleRate]() {
         // 加锁保护共享成员 m_spectrumData / m_wavePath
         {
             QMutexLocker locker(&m_mutex);

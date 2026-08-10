@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 #ifndef GETWAVE_H
 #define GETWAVE_H
@@ -14,13 +14,15 @@
 #include <QtConcurrent>
 #include <QtMath>
 #include <complex>
-#include <algorithm>   // 为 std::fill
+#include <algorithm>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 using Complex = std::complex<float>;
 
 class GetWave : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(QMediaPlayer* mediaPlayer READ mediaPlayer WRITE setMediaPlayer NOTIFY mediaPlayerChanged)
     Q_PROPERTY(QList<qreal> spectrumData READ spectrumData NOTIFY spectrumChanged)
     Q_PROPERTY(int bands READ bands WRITE setBands NOTIFY bandsChanged)
@@ -29,7 +31,6 @@ class GetWave : public QObject
 
 public:
     explicit GetWave(QObject *parent = nullptr);
-    ~GetWave();
 
     QMediaPlayer* mediaPlayer() const { return m_mediaPlayer; }
     void setMediaPlayer(QMediaPlayer *player);

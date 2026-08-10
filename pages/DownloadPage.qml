@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -436,6 +436,7 @@ Item {
                                 mainMedia.urlLocal = true;
                                 mainMedia.source = model.filePath;
                                 mainMedia.noTitle = model.fileName;
+                                MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
                                 mainMedia.play();
 
                                 // 加入播放列表

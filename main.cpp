@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 // Portions based on QWindowKit example code:
 // Copyright (C) 2023-2024 Stdware Collections (https://www.github.com/stdware)
@@ -8,35 +8,36 @@
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
 #include <QtQuick/QQuickWindow>
-#include <QDebug>
 #include <QSettings>
-#include "cpp/CoverHelper.h"
-#include "cpp/ColorExtractor.h"
-#include "cpp/GetWave.h"
-#include "cpp/DownloadManager.h"
+#include <QFileInfo>
 #include "cpp/FolderModel.h"
 #include "cpp/Favorites.h"
-// Mesh Gradient 独立组件（AGPL-3.0，独立库 quemusic_meshgradient）
-#include "MeshGradientItem.h"
+#include "cpp/AccountManager.h"
+#include "api/MusicApiService.h"
+#include "meshgradient/MeshGradientItem.h"
 #include <QWKQuick/qwkquickglobal.h>
-#include <qstylehints.h>
 
+#include <QtQml/QQmlExtensionPlugin>
+Q_IMPORT_QML_PLUGIN(MeshGradientItemPlugin)
 
-int main(int argc, char *argv[]) {
-    //qputenv("QSG_RENDER_LOOP", "windows");
+extern void qml_register_types_QueMusic();
+extern void qml_register_types_MeshGradientItem();
+
+int main(int argc, char *argv[])
+{
+    // 从Options.ini读取设置，设置一些高级项喵~
+    QSettings opt(QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath()
+                  + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
+    switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
+    case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
+    case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
+    case 3: qputenv("QSG_RHI_BACKEND", "d3d12"); break;
+    case 4: qputenv("QT_QUICK_BACKEND", "software"); break;
+    }
+    if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
+        qputenv("QSG_NO_VSYNC", "1");
     qputenv("QSG_INFO", "1");
-    //qputenv("QSG_NO_VSYNC", "1");
     qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
-    qmlRegisterType<CoverHelper>("CoverHelper", 1, 0, "CoverHelper");
-    qmlRegisterType<ColorExtractor>("ColorExtractor", 1, 0, "ColorExtractor");
-    qmlRegisterType<GetWave>("GetWave", 1, 0, "GetWave");
-    qmlRegisterType<DownloadManager>("DownloadManager", 1, 0, "DownloadManager");
-    qmlRegisterType<MeshGradientItem>("MeshGradientItem", 1, 0, "MeshGradientItem");
-
-    //qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-
-    //qputenv("QSG_RHI_BACKEND", "opengl"); // other options: d3d11, d3d12, vulkan
-    //qputenv("QSG_RHI_BACKEND", "d3d11"); // other options: d3d12, vulkan
 
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -45,17 +46,16 @@ int main(int argc, char *argv[]) {
     QQuickWindow::setDefaultAlphaBuffer(true);
     QQmlApplicationEngine engine;
 
-    // settings
-    //qDebug()<<avcodec_version();
-    //qDebug()<<avcodec_license();
+    // 显式注册QML_ELEMENT 类型
+    qml_register_types_QueMusic();
+    qml_register_types_MeshGradientItem();
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");
     application.setWindowIcon(QIcon("qrc:/QPlayer/resources/icon.ico"));
     application.setApplicationName("QueMusic");
 
-    // 统一使用 INI 文件存储配置（不使用 Windows 注册表 / macOS XML 偏好设置）
-    // 配置文件存放在软件所在目录下
+    // 配置统一使用软件目录下的 INI 文件
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
                        QCoreApplication::applicationDirPath());
@@ -63,22 +63,15 @@ int main(int argc, char *argv[]) {
     // 创建模型实例
     FolderModel *myFolderModel = new FolderModel(&engine);
     myFolderModel->setFilterType("my");
-
     FolderModel *localFolderModel = new FolderModel(&engine);
     localFolderModel->setFilterType("local");
-
     SongModel *songModel = new SongModel(&engine);
-
     FavoritesModel *favSongModel = new FavoritesModel(&engine);
-    favSongModel->setFilterType("song");    // 仅显示歌曲收藏
-
+    favSongModel->setFilterType("song");
     FavoritesModel *favPlaylistModel = new FavoritesModel(&engine);
     favPlaylistModel->setFilterType("playlist");
-
     FavoritesModel *favArtistModel = new FavoritesModel(&engine);
     favArtistModel->setFilterType("artist");
-    //int wheelLine = application.styleHints();
-    //int recommendedLines = QGuiApplication::styleHints()->wheelScrollLines();
 
     // 暴露给 QML
     engine.rootContext()->setContextProperty("myFolderModel", myFolderModel);
@@ -87,11 +80,13 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("favoritesSong", favSongModel);
     engine.rootContext()->setContextProperty("favoritesList", favPlaylistModel);
     engine.rootContext()->setContextProperty("favoritesArtist", favArtistModel);
-    // 软件所在目录，用于 Settings.location 将 ini 配置文件存放在软件目录下
+    AccountManager *accountManager = new AccountManager(&engine);
+    engine.rootContext()->setContextProperty("accountManager", accountManager);
+    // 在线音乐 API 单例
+    MusicApiService::setSharedAccountManager(accountManager);
     engine.rootContext()->setContextProperty("configDir", QCoreApplication::applicationDirPath());
-    const bool curveRenderingAvailable = true;
+    engine.rootContext()->setContextProperty("$curveRenderingAvailable", true);
 
-    engine.rootContext()->setContextProperty(QStringLiteral("$curveRenderingAvailable"), QVariant(curveRenderingAvailable));
     QWK::registerTypes(&engine);
     engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));
     return application.exec();

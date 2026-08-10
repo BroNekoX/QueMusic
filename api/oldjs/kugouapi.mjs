@@ -6,9 +6,11 @@ import { inflate, inflateRaw } from './pako.mjs';
 
 // 模块级 sendMessage 引用，由 kugouHandler 注入
 let _sendMessage = null;
+let _cookie = ''; // 登录态 Cookie（来自 AccountManager）
 
 export function kugouHandler(message) {
     _sendMessage = message.sendMessage || WorkerScript.sendMessage;
+    _cookie = message.cookie || '';
     switch(message.action) {
         case "searchSongs":        searchSongs(message.keyword, message.type, message.page, message.pageSize); break;
         case "getPlaylistMenu":    getPlaylistMenu(message.type); break;
@@ -36,6 +38,11 @@ function makeRequest(url, callback) {
         xhr.open("GET", url, true);
         xhr.responseType = "text";
         console.log("url: ",url)
+        // 登录后携带用户自己的 Cookie（合规：用自己账号的授权身份访问）
+        if (_cookie) {
+            console.log("Cookie:",_cookie)
+            xhr.setRequestHeader("Cookie", _cookie);
+        }
         xhr.onload = function() {
             if (xhr.status === 200) {
                 try {

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Shapes
 import Qt5Compat.GraphicalEffects
 import QueMusic 1.0
-import GetWave 1.0
+// GetWave 已注册到 QueMusic 模块；MeshGradientItem 为独立模块（C++ QML_ELEMENT）
 import MeshGradientItem 1.0
 import 'qrc:/QueMusic/components'
 
@@ -16,10 +16,10 @@ Item {
     //layer.enabled: true
     readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 56
     readonly property int infoWidth: lyricModeText.width / 2
+    property bool basicCd: false
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
     property color thirdColor: "#9d4edd"
-    property real springValue: 0.00
     Connections {
         target: colorExtractor
         function onColorExtractFinished() {
@@ -37,7 +37,6 @@ Item {
 
     Component.onCompleted: {
         rectcolorAnime.running = true;
-        lyricLayout.scrollTimeLyric();
     }
 
     Shape {
@@ -134,7 +133,7 @@ Item {
 
     Timer {
         id: hideDelay
-        interval: 2400
+        interval: 3000
         running: true
         onTriggered: {
             if(Style.settings.lyricHideGui) {
@@ -189,17 +188,17 @@ Item {
         z: 5
         iconCharacter: "\uf079"
         visible: MusicApi.lyricsTranslate.length !== 0
-        width: 40
-        height: 40
-        radius: 10
+        width: 36
+        height: 36
+        radius: 18
         //visible: false
-        buttonColor: "transparent"
-        hoverColor: Qt.rgba(0,0,0,0.2)
-        iconColor: lyricsView.openTranslate ? Style.themes.containColor : "#eeeeee"
+        buttonColor: lyricContent.openTranslate ? "#99ffffff" : "#00ffffff"
+        hoverColor: "#42000000"
+        iconColor: lyricContent.openTranslate ? "#555555" : "#eeeeee"
         iconSize: Style.settings.texticon
         shadowEnabled: false
         onClicked: {
-            lyricsView.openTranslate = !lyricsView.openTranslate;
+            lyricContent.openTranslate = !lyricContent.openTranslate;
         }
         QTip {
             visible: parent.hovered
@@ -216,7 +215,7 @@ Item {
         font.weight: 600
         width: mainLayout.piclong
         elide: Text.ElideRight
-        visible: x !== -400
+        visible: x !== -400 && !controlMaxLoader.basicCd
         font.pixelSize: musicControlMax.standHeight / 2
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: controlMaxLoader.lyricsType === 1 ? Text.AlignHCenter : Text.AlignLeft
@@ -246,7 +245,7 @@ Item {
         font.bold: false
         font.pixelSize: musicControlMax.standHeight / 3.6
         verticalAlignment: Text.AlignVCenter
-        visible: x !== -400
+        visible: x !== -400 && !controlMaxLoader.basicCd
         color: Qt.rgba(1,1,1,0.7)
         //Behavior on opacity { NumberAnimation { duration: 300 } }
     }
@@ -264,250 +263,310 @@ Item {
         //horizontalAlignment: Text.AlignRight
         color: Qt.rgba(1,1,1,0.8)
         visible: controlMaxLoader.lyricsType === 2
-        opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 300 } }
+        opacity: 0.8
+    }
+
+    Loader {
+        active: controlMaxLoader.basicCd
+        visible: controlMaxLoader.basicCd
+        sourceComponent: CdAlbum {
+            width: mainLayout.piclong
+            height: mainLayout.piclong
+            y: (musicControlMax.height - height) * 0.5
+            x: controlMaxLoader.infoX
+            rotation: mainMedia.playing
+            source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+        }
     }
 
 
-
-    // 歌词部分
+    // 歌词部分，之后可能会将部分算法移到c++处理。
     Item {
-        id: lyricLayout
+        id: lyricContent
         x: controlMaxLoader.lyricsX
         y: 60
-        width: controlMaxLoader.lyricsType === 2 ? musicControlMax.width - 96 : musicControlMax.width * 0.54
+        width: controlMaxLoader.lyricsType === 2 ? musicControlMax.width - 96 : musicControlMax.width * 0.5
         height: parent.height - 120
-        clip: false
         visible: controlMaxLoader.lyricsType !== 1
-        Label {
-            anchors.fill: parent
-            text: "加载中"
-            visible: false
-            font.bold: true
-            font.pixelSize: 18
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment: Text.AlignHCenter
-            color: Qt.rgba(1,1,1,0.8)
-            //Behavior on opacity { NumberAnimation { duration: 300 } }
+        layer.enabled: true
+        layer.effect: ShaderEffect {
+            property real fadeTop: 0.15
+            property real fadeBottom: 0.3
+            property real blurTop: 0.3
+            property real blurBottom: 0.5
+            property real blurRadius: Style.settings.maskBlur ? 8 : 0
+            property vector2d srcSize: Qt.vector2d(lyricContent.width, lyricContent.height)
+            fragmentShader: "qrc:/shaders/resources/app/shaders/lyricfade.frag.qsb"
         }
+
+        readonly property int lyricHeight: musicControlMax.standHeight / 2
+        property real alignPos: 0.32        // 当前行停在视口高度比例
+        property real lineSpacing: musicControlMax.standHeight / 1.6  // 行间距
+        //readonly property int overscan: 8
+        property int currentLine: 0         // currentIndex
+        property int springValue: 0.0
+        property bool openTranslate: true   // 是否显示翻译
+        property bool isUserScrolling: false// 滚轮
+        property int scrollOffset: 0       // 用户手动滚动的额外偏移量
+        property real fixedH: 0
+        property real finalH: 0
+
+        property list<int> heights: [] //高度缓存
+        property list<int> prefixSum: [] //y缓存
+
+        // 固定融合动画
+        SequentialAnimation {
+            id: fixedAnime
+            property int to: 0
+            NumberAnimation {
+                target: lyricContent
+                property: "fixedH"
+                duration: 460
+                to: fixedAnime.to
+                easing.type: Easing.Bezier
+                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+            }
+            NumberAnimation {
+                target: lyricContent
+                property: "finalH"
+                duration: 460
+                to: fixedAnime.to
+                easing.type: Easing.Bezier
+                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+            }
+        }
+
+
+
+
         Timer {
-            interval: 240
+            interval: 320
             running: mainMedia.onMedia
             repeat: true
             onTriggered: {
-                if(!lyricsView.moving) {
-                    var idx = 0;
-                    if(mainMedia.position + 240 > MusicApi.lyricsData[lyricsView.currentIndex].time) {
-                        for (var i = lyricsView.currentIndex; i < MusicApi.lyricsData.length; i++) {
-                            if (mainMedia.position + 240 > MusicApi.lyricsData[i].time)
-                                idx = i;
-                            else break;
-                        }
+                var data = MusicApi.lyricsData;
+                if (!data || data.length === 0) return;
+                var pos = mainMedia.position + 320;
+                var idx = lyricContent.currentLine;
+                while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
+                while (idx > 0 && pos < data[idx].time) idx--;
+                if (lyricContent.isUserScrolling) {
+                    lyricContent.currentLine = idx;
+                    return;
+                }
+                if (lyricContent.scrollOffset !== 0) {
+                    scrollAnime.running = false;
+                    scrollAnime.to = 0;
+                    scrollAnime.running = true;
+                }
+                if (idx !== lyricContent.currentLine)  {
+                    if(waitAnimeSection.visible) {
+                        waitOpenAnime.running = false;
+                        waitOutAnime.running = true;
+                    }
+                    var animeHeight = lyricContent.prefixSum[idx] - lyricContent.prefixSum[lyricContent.currentLine];
+                    var springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
+                        if(springValue < -0.50) {
+                        lyricContent.springValue = -0.50;
                     } else {
-                        for (var i = lyricsView.currentIndex; i >= 0; i--) {
-                            if (mainMedia.position + 240 < MusicApi.lyricsData[i].time)
-                                idx = i;
-                            else break;
-                        }
+                        lyricContent.springValue = springValue;
                     }
-                    var notSame = (lyricsView.currentIndex !== idx);
-
-                    lyricsView.currentIndex = idx;
-                    //lyricsView.positionViewAtIndex(idx, ListView.Center);
-                    if(!lyricHandleAnime.running && notSame) {
-                        lyricLayout.scrollTimeLyric();
-                        if(notSame) {
-                            var animeHeight = lyricsView.currentItem.y - lyricsView.height * 0.32 - lyricsView.contentY;
-                            console.log("lastHeight: ",lyricsView.lastHeight);
-                            lyricLastAnime.running = false;
-                            lyricsView.lastHeight = 0;
-                            lyricLastAnime.to = animeHeight;
-                            lyricLastAnime.running = true;
-                        }
+                    lyricContent.currentLine = idx;
+                    fixedAnime.running = false;
+                    fixedAnime.to = -animeHeight;
+                    for (var i = 0; i < lyricRep.count; i++) {
+                        var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine];
+                        if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
                     }
-                    if(MusicApi.lyricsData[idx].info) {
-                        var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
-                        if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > MusicApi.lyricsData[idx].time + lyricLastLineData.offset + lyricLastLineData.duration) {
-                            if(lyricsView.currentItem.heightScale === 0.0) {
-                                console.log("开始运行等待动画。");
-                                lyricListAnime.running = false;
-                                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 + musicControlMax.standHeight;
-                                lyricsView.currentItem.waitOpenAnime.running = true;
-                                lyricListAnime.running = true;
+                    lyricContent.fixedH = 0;
+                    lyricContent.finalH = 0;
+                    fixedAnime.running = true;
+                }
+                if(MusicApi.lyricsData[idx].info) {
+                    var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
+                    if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > MusicApi.lyricsData[idx].time + lyricLastLineData.offset + lyricLastLineData.duration) {
+                        if(!waitAnimeSection.visible) {
+                            console.log("开始运行等待动画。");
+                            waitOpenAnime.running = false;
+                            waitOutAnime.running = false;
+                            waitOpenAnime.running = true;
+                            for (var i = 0; i <= idx; i++) {
+                                var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
+                            }
+                            for (var i = idx + 1; i < lyricRep.count; i++) {
+                                var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos + musicControlMax.standHeight), false);
                             }
                         }
                     }
                 }
             }
         }
-        function scrollTimeLyric() {
-            lyricListAnime.running = false;
-            var animeHeight = lyricsView.currentItem.y - lyricsView.height * 0.32 - lyricsView.contentY;
-            //if(lyricsView.currentItem.heightScale > 0) lyricListAnime.to = toY - lyricsView.height * 0.36 + musicControlMax.standHeight;
-            //lyricsView.contentY = toY - lyricsView.height * 0.4
-            var springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
-            if(springValue < -0.50) {
-                musicControlMax.springValue = -0.50;
-            } else {
-                musicControlMax.springValue = springValue;
-            }
-            if(lyricsView.isWaitOut) {
-                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32 - musicControlMax.standHeight;
-                lyricsView.isWaitOut = false;
-            } else {
-                lyricListAnime.to = lyricsView.currentItem.y - lyricsView.height * 0.32;
-            }
 
-            lyricListAnime.running = true;
-            lyricsView.scrollToY = lyricListAnime.to;
+        Connections {
+            target: MusicApi
+            function onLyricsDataChanged() {
+                console.log("更换源，重排新歌词");
+                lyricContent.heights = [];
+                lyricContent.prefixSum = [];
+                lyricContent.currentLine = 0;
+                lyricContent.scrollOffset = 0;
+                Qt.callLater(lyricContent.rebuild);
+            }
         }
 
-        ListView {
-            id: lyricsView
-            anchors.fill: parent
-            spacing: musicControlMax.standHeight / 1.6
-            opacity: 0
-            model: MusicApi.lyricsData || [{time: 0,text: "纯音乐，请欣赏"}]
-            //property int lyricHeight: musicControlMax.standHeight / 2
-            topMargin: 360
-            bottomMargin: 420
-            leftMargin: 10
-            //reuseItems: true
-            reuseItems: true
-            currentIndex: 1
-            cacheBuffer: contentHeight//height * 2
-            maximumFlickVelocity: 10000
-            synchronousDrag: true
-            readonly property int lyricHeight: musicControlMax.standHeight / 2
-            property int scrollToY: lyricsView.contentY
-            property bool openTranslate: true
-            property real lastHeight: 0
-            property bool isWaitOut: false
 
-            // 驱动歌词滚动动画
-            NumberAnimation {
-                id: lyricListAnime
-                target: lyricsView
-                property: "contentY"
-                duration: 450
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: [ 0.24, 0.06, musicControlMax.springValue, 1.04, 1, 1 ]
+        function rebuild() {
+            var sum = 0, arr = [];
+            for (var i = 0; i < lyricRep.count; i++) {
+                arr.push(sum);
+                var it = lyricRep.itemAt(i);
+                var h = it ? it.height : 0;
+                heights[i] = h;
+                sum += h; // 累加下一行起点
             }
-
-            //驱动弹簧抵消动画
-            NumberAnimation {
-                id: lyricLastAnime
-                target: lyricsView
-                property: "lastHeight"
-                from: 0
-                duration: 450
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: [ 0.24, 0.06, musicControlMax.springValue, 1.04, 1, 1 ]
+            prefixSum = arr;
+            for (var i = 0; i < lyricRep.count; i++) {
+                var basicIndexY = prefixSum[currentLine];
+                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).standY = Math.floor(prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos);
             }
+        }
 
-            WheelHandler {
-                property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines
+        Component.onCompleted: Qt.callLater(rebuild)
 
-                onWheel: (event) => {
-
-                             lyricsView.scrollToY = Math.max( -360, Math.min( lyricsView.scrollToY - (event.angleDelta.y / 4 * scrollMultiplier), lyricsView.contentHeight - lyricsView.height + 420))
-                             lyricHandleAnime.running = false
-                             lyricHandleAnime.running = true
-
-                             event.accepted = true
-                         }
-            }
-            // 驱动滚轮动画
-            SequentialAnimation {
-                id: lyricHandleAnime
-                NumberAnimation {
-                    target: lyricsView
-                    property: "contentY"
-                    duration: 360
-                    to: lyricsView.scrollToY
-                    easing.type: Easing.OutCubic
-                }
-                //ScriptAction {
-                    //script: lyricsView.moving = false
-                //}
-            }
-
-            onCurrentIndexChanged: {
-                if (lyricHandleAnime.running) return;
-                var toIndex = currentIndex;
-                for (var i = toIndex - 4; i < toIndex + 8; i++) {
-                    if (i < 0 || i >= model.count) continue;
-                    var item = itemAtIndex(i);
-                    if (item) item.handleIndexChanged(toIndex);
-                }
-            }
-
-            //Behavior on contentY { NumberAnimation { duration: 440; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.00, 1, 1 ] } }
-            //signal turnlyriced(int toIndex)
+        Repeater {
+            id: lyricRep
+            model: MusicApi.lyricsData ? MusicApi.lyricsData : [{time: 0, text: "纯音乐，请欣赏"}]
 
             delegate: Item {
-                //color: "transparent"
-                //border.color: "green"
-                //border.width: 1
                 id: lyricItem
-                width: lyricsView.width - 10
-                height: lyricsText.implicitHeight + lyricTransText.height + heightScale
-                readonly property int heightScale: musicControlMax.standHeight * waitSectionLoader.scale
-                readonly property int nowPosition: mainMedia.position - MusicApi.lyricsData[index].time
-                readonly property int isFlowLyric: (index === lyricsView.currentIndex) || (index === lyricsView.currentIndex - 1)
-                readonly property int isCurrentIndex: index === lyricsView.currentIndex
-                //Behavior on height { NumberAnimation { duration: 460; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.00, 1, 1 ] } }
-                property alias waitOpenAnime: waitOpenAnime
+                x: 10
+                width: lyricContent.width - 20
+                height: lyricsText.implicitHeight + lyricTransText.height + lyricContent.lineSpacing
+                //visible: Math.abs(index - lyricContent.currentLine) <= lyricContent.overscan
+
+                readonly property bool isCurrent: index === lyricContent.currentLine
+                readonly property bool isPrev: index === lyricContent.currentLine - 1
+                readonly property bool isFlowActive: MusicApi.lyricsData[index].info ? (isCurrent || isPrev) : false
+                readonly property int nowPosition: isFlowActive ? mainMedia.position - MusicApi.lyricsData[index].time : 0
+                property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
+                Behavior on opacityAnime { NumberAnimation { duration: 320 } }
+                property real standY: 0.0
+                y: standY + lyricContent.scrollOffset
+
+                //y: displayY
+                SequentialAnimation {
+                    id: lyricAnime
+                    property int pauseMs: 0
+                    property int animeMs: 460
+                    property int toY
+                    PauseAnimation { duration: lyricAnime.pauseMs }
+                    NumberAnimation {
+                        target: lyricItem
+                        property: "standY"
+                        duration: lyricAnime.animeMs
+                        to: lyricAnime.toY
+                        easing.type: Easing.Bezier
+                        easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+                    }
+                }
+
+                function animeTo(ty, instant) {
+                    lyricAnime.running = false;
+                    var d = index - lyricContent.currentLine;
+                    var durationMs;
+                    lyricItem.standY = lyricItem.standY;
+                    // 不使用弹簧动画的外部区域（非index>-3至7)，使用融合动画：绑定至统一的动画值，提升性能喵~
+                    if(d < -3) {
+                        // 检测防止动画乱跑，检测稳定即融合
+                        if(ty - lyricItem.standY - fixedAnime.to == 0) {
+                            var nowY = lyricItem.standY;
+                            lyricItem.standY = Qt.binding(function() { return (lyricContent.fixedH + nowY) });
+                            return;
+                        } else {
+                            durationMs = 0;
+                        }
+                    } else if(d > 7) {
+                        if(ty - lyricItem.standY - fixedAnime.to == 0) {
+                            var nowY = lyricItem.standY;
+                            lyricItem.standY = Qt.binding(function() { return (lyricContent.finalH + nowY) });
+                            return;
+                        } else {
+                            //预计算： 12 ** 1.2 * 24
+                            durationMs = 460;
+                        }
+                    } else {
+                        durationMs = (d + 4) ** 1.2 * 24;
+                    }
+                    lyricAnime.toY = ty;
+                    lyricAnime.pauseMs = durationMs;
+                    lyricAnime.animeMs = d < -3 ? 460 : 460 + (d + 4) * 32;
+                    lyricAnime.running = true;
+                }
+
+                onHeightChanged: {
+                    lyricContent.heights[index] = height;
+                    Qt.callLater(lyricContent.rebuild);
+                }
+                Component.onCompleted: {
+                    lyricContent.heights[index] = height;
+                    Qt.callLater(lyricContent.rebuild);
+                    if(Style.settings.fontFamily) {
+                        lyricsText.font.family = Style.settings.fontFamily;
+                        lyricTransText.font.family = Style.settings.fontFamily;
+
+                    }
+                }
+
                 Text {
                     z: 0
                     id: lyricsText
-                    //width: lyricsView.width
-                    width: lyricItem.width - lyricsView.lyricHeight / 4
-                    //height: musicControlMax.standHeight / 2
-                    text: MusicApi.lyricsData[index].text || model.text
+                    width: lyricItem.width - lyricContent.lyricHeight / 4
+                    text: MusicApi.lyricsData[index].text || ""
                     font.weight: Style.settings.textWidth
-                    font.pixelSize: lyricsView.lyricHeight
+                    font.pixelSize: lyricContent.lyricHeight
                     color: "#ffffffff"
+                    transformOrigin: Item.BottomLeft
                     wrapMode: Text.Wrap
-                    //opacity: 0.4
-                    opacity: MusicApi.lyricsData[index].info ? 0.4 : (lyricItem.isCurrentIndex ? 0.9 : 0.4)
-                    visible: MusicApi.lyricsData[index].info ? !lyricItem.isFlowLyric : true
-
-                    Behavior on opacity { NumberAnimation { duration: 320 } }
+                    scale: lyricItem.isCurrent && !MusicApi.lyricsData[index].info ? 1.02 : 1.00
+                    opacity: MusicApi.lyricsData[index].info ? 0.4 : (0.4 + lyricItem.opacityAnime * 0.5)
+                    visible: MusicApi.lyricsData[index].info ? !lyricItem.isFlowActive : true
                     horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : Text.AlignLeft
-
+                    Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                 }
+
                 Text {
                     id: lyricTransText
                     anchors.top: lyricsText.bottom
+                    transformOrigin: Item.TopLeft
+                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     visible: text !== ""
-                    height: visible ? implicitHeight * 2 : 0
-                    text: MusicApi.lyricsTranslate.length !== 0 && lyricsView.openTranslate ? (MusicApi.lyricsTranslate[index] || "") : ""
+                    height: visible ? implicitHeight * 1.5 : 0
+                    text: MusicApi.lyricsTranslate.length !== 0 && lyricContent.openTranslate ? (MusicApi.lyricsTranslate[index] || "") : ""
                     width: parent.width
                     horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.settings.textWidth
                     color: "#ffffffff"
-                    opacity: lyricItem.isCurrentIndex && lyricItem.heightScale === 0 ? 0.6 : 0.4
-
-                    Behavior on opacity { NumberAnimation { duration: 320 } }
-                    font.pixelSize: lyricsView.lyricHeight / 1.5
+                    opacity: 0.4 + lyricItem.opacityAnime * 0.2
+                    Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
+                    font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
 
                 Flow {
                     id: lyricFlow
                     width: lyricItem.width
                     height: lyricItem.height
-                    y: lyricsText.y
+                    transformOrigin: Item.BottomLeft
+                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     x: controlMaxLoader.lyricsType === 2 ? (width - implicitWidth) / 2 : 0
-                    //spacing: 10
-                    //opacity: index === lyricsView.currentIndex ? 1 : 0
-                    visible: MusicApi.lyricsData[index].info ? lyricItem.isFlowLyric : false
+                    visible: lyricItem.isFlowActive
                     z: 1
-                    //Behavior on opacity { NumberAnimation { duration: 320 } }
+                    Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     Repeater {
                         id: linesText
-                        model: lyricItem.isFlowLyric || index === lyricsView.currentIndex + 1 ? (MusicApi.lyricsData[index].info || 0) : 0
+                        model: lyricItem.isFlowActive ? (MusicApi.lyricsData[index].info || 0) : 0
                         delegate: Item {
                             width: lyricFlowText.width
                             height: lyricFlowText.height
@@ -516,19 +575,18 @@ Item {
                                 text: linesText.model[index].text
                                 y: lyricItem.nowPosition > linesText.model[index].offset ? -3 : 0
                                 font.weight: Style.settings.textWidth
-                                font.pixelSize: lyricsView.lyricHeight
+                                font.pixelSize: lyricContent.lyricHeight
+                                font.family: lyricsText.font.family
                                 color: "#ffffffff"
                                 opacity: 0.4
-                                //visible: true
-                                Behavior on y { enabled: lyricItem.isFlowLyric; NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
+                                Behavior on y { NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
                             }
                             LinearGradient {
                                 property int countToWidth: linesText.model[index].duration !== 0 ? (lyricItem.nowPosition - linesText.model[index].offset) / linesText.model[index].duration * width : (lyricItem.nowPosition - linesText.model[index].offset) * width
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y
-                                opacity: lyricItem.isCurrentIndex && lyricItem.heightScale === 0 ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 320 } }
+                                opacity: lyricItem.opacityAnime
                                 source: lyricFlowText
                                 start: Qt.point(countToWidth - 16, 0)
                                 end: Qt.point(countToWidth, 0)
@@ -540,160 +598,120 @@ Item {
                         }
                     }
                 }
-
-                // 等待伴奏动画
-                Loader {
-                    id: waitSectionLoader
-                    opacity: 0
-                    property real scale: 0
-                    property int lightState: 0
-                    active: false
-                    visible: active
-                    sourceComponent: Item {
-                        id: waitAnimeSection
-                        x: 20
-                        //opacity: waitSectionLoader.opacity
-                        scale: waitSectionLoader.scale
-                        transformOrigin: Popup.TopLeft
-                        y: lyricsText.implicitHeight + lyricTransText.height + lyricsView.lyricHeight
-                        width: lyricsView.lyricHeight * 4
-                        height: lyricsView.lyricHeight
-                        Rectangle {
-                            width: waitAnimeSection.height
-                            height: waitAnimeSection.height
-                            radius: waitAnimeSection.height / 2
-                            color: waitSectionLoader.lightState > 0 ? "#ffffffff" : "#99ffffff"
-                            Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        }
-                        Rectangle {
-                            x: waitAnimeSection.height * 1.5
-                            width: waitAnimeSection.height
-                            height: waitAnimeSection.height
-                            radius: waitAnimeSection.height / 2
-                            color: waitSectionLoader.lightState > 1 ? "#ffffffff" : "#99ffffff"
-                            Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        }
-                        Rectangle {
-                            x: waitAnimeSection.height * 3
-                            width: waitAnimeSection.height
-                            height: waitAnimeSection.height
-                            radius: waitAnimeSection.height / 2
-                            color: waitSectionLoader.lightState > 2 ? "#ffffffff" : "#99ffffff"
-                            Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        }
-                    }
-                }
-
-                SequentialAnimation {
-                    id: waitOpenAnime
-                    property int lightDuration: 1000
-                    ScriptAction { script: { waitSectionLoader.active = true; waitSectionLoader.lightState = 0; waitOpenAnime.lightDuration = MusicApi.lyricsData[index + 1].time - MusicApi.lyricsData[index].time - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].offset - MusicApi.lyricsData[index].info[MusicApi.lyricsData[index].info.length - 1].duration - 420 } }
-                    ParallelAnimation {
-                        NumberAnimation { target: waitSectionLoader; property: "opacity"; from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: waitSectionLoader; property: "scale"; from: 0; to: 1; duration: 420; easing.type: Easing.OutCubic }
-                    }
-                    NumberAnimation { target: waitSectionLoader; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration }
-                    //ScriptAction { script: console.log("动画完成:",waitOpenAnime.lightDuration); }
-                }
-                SequentialAnimation {
-                    id: waitOutAnime
-                    ParallelAnimation {
-                        NumberAnimation { target: waitSectionLoader; property: "opacity"; from: 1; to: 0; duration: 320 }
-                        NumberAnimation { target: waitSectionLoader; property: "scale"; from: 1; to: 0; duration: 320 }
-                    }
-                    ScriptAction { script: waitSectionLoader.active = false }
-                }
-
-                function handleIndexChanged(toIndex) {
-                    if (index > toIndex - 4 && index < toIndex + 7) {
-                        var startY = -lyricsView.contentY;
-                        lyricAnime.byteY = 0;
-                        lyricsText.y = Qt.binding(function() { return (lyricsView.lastHeight + lyricAnime.byteY) });
-                        lyricYAnime.duration = 450 + (index - toIndex + 4) * 32;
-                        lyricAnime.duration = (index - toIndex + 4) ** 1.2 * 24;
-                        lyricYAnime.to = lyricsView.contentY + lyricsView.height * 0.32 - lyricsView.currentItem.y;//-startY - lyricsView.currentItem.y + lyricsView.height * 0.36;
-                        //console.log("弹簧动画运行");
-                        lyricAnime.running = false;
-                        lyricAnime.running = true;
-                        if(waitSectionLoader.active) {
-                            lyricsView.isWaitOut = true;
-                            waitOpenAnime.running = false;
-                            waitOutAnime.running = true;
-                        }
-                    }
-                }
-
-                SequentialAnimation {
-                    id: lyricAnime
-                    property int duration: 0
-                    property real byteY: 0
-                    NumberAnimation {
-                        duration: lyricAnime.duration
-                    }
-                    NumberAnimation {
-                        id: lyricYAnime
-                        target: lyricAnime
-                        property: "byteY"
-                        duration: 450
-                        easing.type: Easing.Bezier
-                        easing.bezierCurve: [ 0.24, 0.06, musicControlMax.springValue, 1.04, 1, 1 ]
-                    }
-                    ScriptAction {
-                        script: {
-                            lyricsText.y = 0;
-                            //lyricItem.border.color = "green";
-                        }
-                    }
-                }
             }
         }
-        LinearGradient {
-            id: lyricsGradient
-            anchors.fill: lyricsView
-            //source: lyricLayout
+
+        Item {
+            id: waitAnimeSection
+            //opacity: waitSectionLoader.opacity
+            scale: 0.0
+            transformOrigin: Popup.BottomLeft
+            y: lyricContent.height * lyricContent.alignPos + lyricContent.lyricHeight * 0.2 + lyricContent.scrollOffset
+            x: 10
             visible: false
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 0.2; color: "white" }
-                GradientStop { position: 0.6; color: "white" }
-                GradientStop { position: 1.0; color: "transparent" }
+            width: lyricContent.lyricHeight * 2
+            height: lyricContent.lyricHeight * 0.5
+            property int lightState: 0
+            Rectangle {
+                width: waitAnimeSection.height
+                height: waitAnimeSection.height
+                radius: waitAnimeSection.height / 2
+                color: waitAnimeSection.lightState > 0 ? "#ffffffff" : "#99ffffff"
+                Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
+            }
+            Rectangle {
+                x: waitAnimeSection.height * 1.5
+                width: waitAnimeSection.height
+                height: waitAnimeSection.height
+                radius: waitAnimeSection.height / 2
+                color: waitAnimeSection.lightState > 1 ? "#ffffffff" : "#99ffffff"
+                Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
+            }
+            Rectangle {
+                x: waitAnimeSection.height * 3
+                width: waitAnimeSection.height
+                height: waitAnimeSection.height
+                radius: waitAnimeSection.height / 2
+                color: waitAnimeSection.lightState > 2 ? "#ffffffff" : "#99ffffff"
+                Behavior on color { ColorAnimation { duration: 320; easing.type: Easing.OutCubic } }
             }
         }
-        LinearGradient {
-            id: lyricsBlur
-            anchors.fill: lyricsView
-            //source: lyricLayout
-            visible: false
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "white" }
-                GradientStop { position: 0.32; color: "transparent" }
-                GradientStop { position: 0.45; color: "transparent" }
-                GradientStop { position: 1.0; color: "white" }
+
+        SequentialAnimation {
+            id: waitOpenAnime
+            property int lightDuration: 2500
+            ScriptAction { script: { waitAnimeSection.visible = true; waitAnimeSection.lightState = 0; waitOpenAnime.lightDuration = MusicApi.lyricsData[lyricContent.currentLine + 1].time - MusicApi.lyricsData[lyricContent.currentLine].time - MusicApi.lyricsData[lyricContent.currentLine].info[MusicApi.lyricsData[lyricContent.currentLine].info.length - 1].offset - MusicApi.lyricsData[lyricContent.currentLine].info[MusicApi.lyricsData[lyricContent.currentLine].info.length - 1].duration - 420 } }
+            PauseAnimation { duration: 100 }
+            ParallelAnimation {
+                NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
+                NumberAnimation { target: waitAnimeSection; property: "scale"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
+            }
+            NumberAnimation { target: waitAnimeSection; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration }
+            //ScriptAction { script: console.log("动画完成:",waitOpenAnime.lightDuration); }
+        }
+        SequentialAnimation {
+            id: waitOutAnime
+            ParallelAnimation {
+                NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 1; to: 0; duration: 320 }
+                NumberAnimation { target: waitAnimeSection; property: "scale"; from: 1; to: 0; duration: 320 }
+            }
+            ScriptAction { script: waitAnimeSection.visible = false }
+        }
+
+        // 滚动动画区
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: (event) => {
+                lyricContent.isUserScrolling = true;
+                scrollAnime.running = false;
+                var to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
+                scrollAnime.to = to;
+                scrollAnime.running = true;
+                event.accepted = true;
             }
         }
-        MaskedBlur {
-            id: lyricBlurSource
-            anchors.fill: lyricsView
-            source: lyricsView
-            maskSource: lyricsBlur
-            radius: Style.settings.maskBlur ? 12 : 0
-            samples: Style.settings.maskBlur ? 18 : 0
-            visible: false
-        }
-        OpacityMask {
-            anchors.fill: lyricsView
-            source: lyricBlurSource
-            maskSource: lyricsGradient
+
+        SequentialAnimation {
+            id: scrollAnime
+            property int to: 0
+            NumberAnimation {
+                target: lyricContent
+                property: "scrollOffset"
+                duration: 640
+                to: scrollAnime.to
+                easing.type: Easing.OutExpo
+            }
+            ScriptAction {
+                script: lyricContent.isUserScrolling = false;
+            }
         }
     }
+
 
     QOptionDialog {
         id: maxLyricsDialog
         title: "播放器样式"
-        dialogContentHeight: 300
+        dialogContentHeight: 460
         options: Column {
             width: parent.width
             spacing: 16
+            SettingItem {
+                label: "封面模式"
+                isBigItem: true
+                width: parent.width
+                height: 156
+                QBigDrop {
+                    x: 0
+                    y: 36
+                    width: parent.width
+                    picModel: ["qrc:/QueMusic/resources/app/musicpic.png","qrc:/QueMusic/resources/app/cd.png"]
+                    model: ["封面卡片","经典黑胶"]
+                    choice: controlMaxLoader.basicCd ? 1 : 0
+                    onTransformed: (choiced) => {
+                        controlMaxLoader.basicCd = (choiced === 1);
+                    }
+                }
+            }
             SettingItem {
                 label: "设置主题模式"
                 isBigItem: true

@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 QueMusic Contributors
 //
+// MusicApi — 在线音乐 API 门面（过渡层）
+// 数据请求已全部迁移到 C++ 端 MusicApiService（api/MusicApiService.h），
+// 本文件仅做参数转发 + 结果分发，保持对 QML 旧调用点完全兼容。
 pragma Singleton
 import QtQuick
 import DownloadManager 1.0
 
 QtObject {
+    id: root
 
     //存储预显示的区域
     property ListModel searchSongsResults: ListModel{}//搜索结果
@@ -14,15 +18,15 @@ QtObject {
     property ListModel musicPlaylists: ListModel{}//歌单存储区
     property ListModel playlistSong: ListModel{}//歌单内详细歌曲
     property ListModel allMusicSong: ListModel{}//全部歌曲
-    property list<string> allPlaylistMenu: []//全部歌单分类项
+    property var allPlaylistMenu: []//全部歌单分类项
     property ListModel hotPlayLists: ListModel{}
     property ListModel getHotlistMenu: ListModel{}//热门歌单分类
-    property list<string> playlistmenuInfo: []//歌单分类获取信息
+    property var playlistmenuInfo: []//歌单分类获取信息
     property ListModel musicToplist: ListModel{}//歌曲排行榜存储
     //property ListModel emptyList: ListModel{}
     property var lyricsData: []
     property var lyricsTranslate: []
-    property int songSource: 0
+    property int songSource: Options.settings.mainMusicSource
     property bool loadState: false
     property var globalid
     property var globaltagid
@@ -48,39 +52,74 @@ QtObject {
     signal finished()
     signal urlplay(string playurl,string title,string artist,string cover,string solve,string hash,int source)
 
-    function updateSearchResults(data) {
-        searchResults = data.info || data.songs || [];
-        // 触发UI更新
-        searchResultsChanged();
+    // C++ 单例总部（main.cpp 注册的 context property）
+    property QtObject service: musicApiService
+
+    // 默认源与 C++ 总部保持同步
+    onSongSourceChanged: service.songSource = MusicApi.songSource
+
+    // ---- 字段归一化：统一字段兜底 + 旧字段名别名（兼容旧 QML 页面）----
+    function normalizeItem(it) {
+        var item = it || {};
+        // 统一字段（旧字段 → 新字段，防 undefined）
+        item.title     = item.title !== undefined ? item.title : (item.specialname || item.songname || "");
+        item.artist    = item.artist !== undefined ? item.artist : (item.username || item.singername || item.author_name || "");
+        item.cover     = item.cover !== undefined ? item.cover : (item.imgurl || item.album_img || "");
+        item.hash      = item.hash !== undefined ? item.hash : String(item.specialid || item.albumid || item.id || "");
+        item.duration  = item.duration !== undefined ? item.duration : 0;
+        item.album     = item.album !== undefined ? item.album : (item.intro || item.album_name || "");
+        item.playcount = item.playcount !== undefined ? item.playcount : 0;
+        item.paytype   = item.paytype !== undefined ? item.paytype : 0;
+        if (item.hashhq === undefined) item.hashhq = item.hash;
+        if (item.hashsq === undefined) item.hashsq = item.hash;
+        // 旧字段名别名（部分 QML 页面直接读酷狗旧字段）
+        if (item.specialname === undefined) item.specialname = item.title;
+        if (item.username   === undefined) item.username   = item.artist;
+        if (item.imgurl     === undefined) item.imgurl     = item.cover;
+        if (item.songname   === undefined) item.songname   = item.title;
+        if (item.singername === undefined) item.singername = item.artist;
+        if (item.intro      === undefined) item.intro      = item.album;
+        if (item.album_name === undefined) item.album_name = item.album;
+        if (item.specialid  === undefined) item.specialid  = item.hash;
+        if (item.albumid    === undefined) item.albumid    = item.hash;
+        return item;
+    }
+    function normalizeList(list) {
+        var out = [];
+        if (!list) return out;
+        for (var i = 0; i < list.length; i++)
+            out.push(MusicApi.normalizeItem(list[i]));
+        return out;
     }
 
-    function updatePlaylistResults(data) {
-        playlistResults = data.info || data.special || [];
-        playlistResultsChanged();
-    }
-
-    property WorkerScript musicWorker: WorkerScript {
-        source: "qrc:/QueMusic/api/musicWorker.mjs"
-
-        onMessage: function(messageObject) {
-            console.log("musicWorker消息:", messageObject.type, "source:", messageObject.source);
-            var actionType = messageObject.type;
-            var data = messageObject.data;
-            var src = messageObject.source !== undefined ? messageObject.source : MusicApi.songSource;
-
-            switch(actionType) {
+    // 接收 C++ 总部统一结果（协议与旧 musicWorker 完全一致）
+    property Connections connectService: Connections {
+        target: root.service
+        function onResultReady(action, data, src) {
+            console.log("MusicApiService消息:", action, "source:", src);
+            switch(action) {
                 // 搜索歌曲
                 case "searchSongs":
                     // 酷狗: data.info; 网易云: data 直接是数组
-                    var items = data.info || data;
-                    if (Array.isArray(items)) {
+                    var items = MusicApi.normalizeList(data.info || data);
+                    if (items.length) {
                         MusicApi.searchSongsResults.append(items);
                     }
                     break;
 
-                // 歌单分类
+                // 歌单分类（兼容 modelData 字符串显示 + .id 访问）
                 case "getPlaylistMenu":
-                    MusicApi.allPlaylistMenu = data.info || [];
+                    var menuRaw = data.info || [];
+                    var menu = [];
+                    for (var i = 0; i < menuRaw.length; i++) {
+                        var it = MusicApi.normalizeItem(menuRaw[i]);
+                        var s = new String(it.title || it.category || "");
+                        s.id = it.id;
+                        s.category = it.category;
+                        s.title = it.title;
+                        menu.push(s);
+                    }
+                    MusicApi.allPlaylistMenu = menu;
                     break;
 
                 // 分类信息
@@ -95,39 +134,39 @@ QtObject {
 
                 // 歌单列表
                 case "getMusicPlaylists":
-                    MusicApi.musicPlaylists.append(data.info);
+                    MusicApi.musicPlaylists.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 歌单内歌曲
                 case "getPlaylistSongs":
-                    MusicApi.playlistSong.append(data.info);
+                    MusicApi.playlistSong.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 推荐歌曲
                 case "getRecommendSongs":
-                    MusicApi.recommendSongs.append(data.info);
+                    MusicApi.recommendSongs.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 热门歌单分类
                 case "getHotPlaylistMenu":
                     MusicApi.getHotlistMenu.clear();
-                    MusicApi.getHotlistMenu.append(data.info);
+                    MusicApi.getHotlistMenu.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 热门歌单
                 case "getHotPlaylists":
-                    MusicApi.hotPlayLists.append(data.info);
+                    MusicApi.hotPlayLists.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 新歌
                 case "getNewSongs":
-                    MusicApi.newSongs.append(data.info);
+                    MusicApi.newSongs.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 排行榜
                 case "getMusicToplist":
                     MusicApi.musicToplist.clear();
-                    MusicApi.musicToplist.append(data.info);
+                    MusicApi.musicToplist.append(MusicApi.normalizeList(data.info));
                     break;
 
                 // 歌曲播放/下载信息
@@ -162,180 +201,83 @@ QtObject {
                     break;
 
                 default:
-                    console.log("musicWorker: 未知消息类型:", actionType);
+                    console.log("MusicApiService: 未知消息类型:", action);
             }
             MusicApi.loadState = false;
         }
     }
 
+    // 统一转发到 C++ 总部（src < 0 时用当前默认源）
+    function _src(src) { return src === undefined || src < 0 ? MusicApi.songSource : src }
+
     // 搜索 type: 0:歌曲 1. 歌单 2. 专辑 3. 歌词
     function searchSongs(keyword, type = 0, page = 1, pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "searchSongs",
-            source: source,
-            keyword: keyword,
-            type: type,
-            page: page,
-            pageSize: pageSize
-        });
+        service.searchSongs(keyword, type, page, pageSize, _src(src));
     }
 
     // 获取歌单的分类项
     function getPlaylistMenu(type = 2, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getPlaylistMenu",
-            source: source,
-            type: type
-        });
+        service.getPlaylistMenu(type, _src(src));
     }
 
     // 获取歌单分类信息及tagid
     function getMenuInfo(id, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getMenuInfo",
-            source: source,
-            id: id
-        });
+        service.getMenuInfo(id, _src(src));
     }
 
     // 获取分类中的歌单列表
     function getMusicPlaylists(tagid,page = 1,pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getMusicPlaylists",
-            source: source,
-            tagid: tagid,
-            page: page,
-            pageSize: pageSize
-        });
+        service.getMusicPlaylists(tagid, page, pageSize, _src(src));
     }
 
     // 获取歌单内的详细歌曲
     function getPlaylistSongs(listid, page = 1, pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getPlaylistSongs",
-            source: source,
-            listid: listid,
-            page: page,
-            pageSize: pageSize
-        });
+        service.getPlaylistSongs(listid, page, pageSize, _src(src));
     }
 
     // 获取推荐歌曲
     function getRecommendSongs(page = 1, pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getRecommendSongs",
-            source: source,
-            page: page,
-            pageSize: pageSize
-        });
+        service.getRecommendSongs(page, pageSize, _src(src));
     }
 
     // 获取热门推荐分类
     function getHotPlaylistMenu(type = 3, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getHotPlaylistMenu",
-            source: source,
-            type: type
-        });
+        service.getHotPlaylistMenu(type, _src(src));
     }
 
     //获取热门歌单
     function getHotPlaylists(page = 1,pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getHotPlaylists",
-            source: source,
-            page: page,
-            pageSize: pageSize
-        });
+        service.getHotPlaylists(page, pageSize, _src(src));
     }
 
     // 获取新歌 type：1.华语新歌 2.欧美新歌 3.日韩新歌
     function getNewSongs(type = 1, page = 1, pageSize = 20, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getNewSongs",
-            source: source,
-            type: type,
-            page: page,
-            pageSize: pageSize
-        });
+        service.getNewSongs(type, page, pageSize, _src(src));
     }
 
     // 获取排行榜
     function getMusicToplist(dateTime = 1, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getMusicToplist",
-            source: source,
-            dateTime: dateTime
-        });
+        service.getMusicToplist(dateTime, _src(src));
     }
 
     //获取歌曲数据源 type: 0.播放 1.下载 2.收藏
     function getMusicInfo(hash,type = 0, src = -1) {
         MusicApi.loadState = true;
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getMusicInfo",
-            source: source,
-            id: hash,
-            type: type
-        });
+        service.getMusicInfo(hash, type, _src(src));
     }
     // 获取歌词
     function getLyricInfo(hash,duration, src = -1) {
-        var source = songSource;
-        if(src !== -1) source = src;
-        musicWorker.sendMessage({
-            action: "getLyricInfo",
-            source: source,
-            id: hash,
-            duration: duration
-        });
-    }
-
-
-    // 处理搜索结果的函数
-    function handleSearchResults(data) {
-        // 解析并显示搜索结果
-        console.log("搜索结果:", data);
-
-        // 这里可以将数据传递给UI组件显示
-        // 例如：mainContent.updateSearchResults(data);
-    }
-
-    function handlePlaylistResults(data) {
-        // 处理歌单列表
-        console.log("歌单列表:", data);
+        service.getLyricInfo(hash, duration, _src(src));
     }
 
     function download(path, name) {
@@ -344,6 +286,6 @@ QtObject {
     }
 
     property DownloadManager downloader: DownloadManager {
-        //id: downloader
+        downloadPath: Options.settings.downloadFolder
     }
 }

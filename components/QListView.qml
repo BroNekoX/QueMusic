@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -85,14 +85,13 @@ ListView {
         }
     }
     WheelHandler {
-        property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: (event) => {
-            view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y / 4 * scrollMultiplier), view.contentHeight - view.height + view.bottomMargin))
-            listViewAnime.running = false
-            listViewAnime.running = true
-            script: viewBar.active = true
-            event.accepted = true
+            view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines), view.contentHeight - view.height + view.bottomMargin));
+            listViewAnime.running = false;
+            listViewAnime.running = true;
+            script: viewBar.active = true;
+            event.accepted = true;
         }
     }
     SequentialAnimation {

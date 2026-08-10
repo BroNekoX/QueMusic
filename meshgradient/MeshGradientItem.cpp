@@ -34,6 +34,7 @@
 #include <QPainter>
 #include <QRadialGradient>
 #include <QtConcurrent>
+#include <QThreadPool>
 #include <QRandomGenerator>
 #include <QtMath>
 #include <algorithm>
@@ -404,7 +405,7 @@ void MeshGradientItem::loadCover()
 void MeshGradientItem::handleCoverDownloaded(const QByteArray &data, bool fromNetwork)
 {
     QPointer<MeshGradientItem> self(this);
-    QtConcurrent::run([self, data, fromNetwork]() {
+    QThreadPool::globalInstance()->start([self, data, fromNetwork]() {
         QImage raw;
         if (fromNetwork)
             raw.loadFromData(data);
@@ -999,12 +1000,9 @@ ControlPointPreset MeshGradientItem::generateControlPoints(int width, int height
 // 选择控制点预设（80% 用预设，20% 随机生成）
 ControlPointPreset MeshGradientItem::choosePreset()
 {
-    if (rand01() > 0.8) {
-        qDebug() << "idx:" << 6;
+    if (rand01() > 0.8)
         return generateControlPoints(6, 6);
-    }
     const int idx = int(rand01() * kPresetCount);
-    qDebug() << "idx:" << idx;
     return *kPresets[qBound(0, idx, kPresetCount - 1)];
 }
 

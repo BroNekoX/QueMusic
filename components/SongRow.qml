@@ -1,6 +1,6 @@
-// SongRow.qml — 紧凑歌曲行（用于主页卡片列表）
+// SongRow.qml
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 

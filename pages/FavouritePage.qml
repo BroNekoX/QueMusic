@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QueMusic 1.0
@@ -196,7 +196,11 @@ Item {
                                 if(MusicApi.songSource === 1) {
                                     MusicApi.getPlaylistSongs(tagid,Math.floor(MusicApi.playlistSong.count / 10) + 1,10,playListSongsWindow.songSource);
                                 } else {
-                                    MusicApi.getPlaylistSongs(tagid,Math.floor(MusicApi.playlistSong.count / 20) + 1,20,playListSongsWindow.songSource);
+                                    if(MusicApi.playlistSong.count % 20 === 0) {
+                                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
+                                    } else {
+                                        mainWarn.tiped("没有更多了",0);
+                                    }
                                 }
                             }
                         }

@@ -38,6 +38,7 @@
 #include <QNetworkAccessManager>
 #include <QVector>
 #include <QPointer>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 // 控制点配置（对应 AMLL cp-presets.ts 的 ControlPointConf / ControlPointPreset）
 struct ControlPointConf
@@ -111,6 +112,7 @@ struct MeshState
 class MeshGradientItem : public QQuickItem
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(QUrl coverUrl READ coverUrl WRITE setCoverUrl NOTIFY coverUrlChanged)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(qreal flowSpeed READ flowSpeed WRITE setFlowSpeed NOTIFY flowSpeedChanged)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Layouts
@@ -16,6 +16,7 @@ Popup {
     y: 80
     // 当前桌面部件模式：0.无 1.灵动岛 2.小窗播放器 3.歌词栏
     property int desktopPlayerMode: 0
+    property bool openTool: false
 
     background: QBlurCard {
         anchors.fill: parent
@@ -52,7 +53,7 @@ Popup {
                 desktopPlayer.close()
             }
         }
-        Row {
+        Column {
             id: desktopSet
             x: 12
             y: 60
@@ -60,14 +61,30 @@ Popup {
             width: parent.width - 24
             height: parent.height - 60
             spacing: 16
-            clip: true
 
             SettingItem {
-                label: "桌面歌词模式"
+                label: "启用桌面部件"
+                controlWidth: 120
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: desktopPlayer.openTool
+                    onToggled: {
+                        desktopSpot.active = false;
+                        desktopPlayerLoader.active = false;
+                        desktopPlayer.openTool = !desktopPlayer.openTool;
+                        desktopPlayer.desktopPlayerMode = 0;
+                    }
+                }
+            }
+
+            SettingItem {
+                label: "桌面部件"
                 controlWidth: 120
                 width: parent.width
                 z: 5
-                Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
+                opacity: desktopPlayer.openTool ? 1.0 : 0.5
                 QDrop {
                     height: 36; width: 120
                     anchors.right: parent.right

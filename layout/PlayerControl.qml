@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -11,11 +11,11 @@ Rectangle {
     id: musicControlMin
     y: parent.height - 78 + controlMaxLoader.hideHeight
     height: 78
-    color: Style.themes.primaryColor
+    color: Style.themes.primaryBlurColor
     clip: false
     property int musicInfoX: 100
     property int cycleIndex: 0
-    property real playerRateIndex: 2
+    property int playerRateIndex: 2
 
     readonly property string mediaTime: (Math.floor(mainMedia.position / 60000)) + ":" + (Math.floor(mainMedia.position / 1000) % 60)
     function formatTime(ms) {
@@ -493,6 +493,7 @@ Rectangle {
             var sourcename = playListModel.get(playListModel.playListIndex).name;
             mainMedia.source = sourcePath;
             mainMedia.noTitle = sourcename;
+            MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
             mainMedia.play();
         } else {
             mainMedia.urlLocal = false;
@@ -566,33 +567,35 @@ Rectangle {
                 controlWidth: 120
                 width: parent.width
                 QDrop {
-                    property int desktopPlayerMode: 0
                     height: 36; width: 120
                     anchors.right: parent.right
                     choice: musicControlMin.playerRateIndex
-                    model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x"]
+                    model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                     onTransformed: (choiced) => {
-                        switch(choiced) {
-                        case 0:
-                            mainMedia.playbackRate = 0.5;
-                            break;
-                        case 1:
-                            mainMedia.playbackRate = 0.75;
-                            break;
-                        case 2:
-                            mainMedia.playbackRate = 1.0;
-                            break;
-                        case 3:
-                            mainMedia.playbackRate = 1.25;
-                            break;
-                        case 4:
-                            mainMedia.playbackRate = 1.5;
-                            break;
-                        case 5:
-                            mainMedia.playbackRate = 2.0;
-                            break;
-                        }
+                        mainMedia.playbackRate = [0.5,0.75,1.0,1.25,1.5,2.0,1.0][choiced];
                         musicControlMin.playerRateIndex = choiced;
+                    }
+                }
+            }
+
+            SettingItem {
+                label: "播放倍速调节"
+                controlWidth: 120
+                width: parent.width
+                opacity: musicControlMin.playerRateIndex === 6 ? 1 : 0.5
+                QSlider {
+                    height: 36; width: 160
+                    anchors.right: parent.right
+                    from: 0.1
+                    to: 4.0
+                    stepSize: 0.1
+                    leftText: true
+                    valueText: value.toFixed(1)
+                    value: mainMedia.playbackRate
+                    onMoved: {
+                        if(musicControlMin.playerRateIndex === 6) {
+                            mainMedia.playbackRate = value;
+                        }
                     }
                 }
             }
@@ -652,7 +655,7 @@ Rectangle {
                 label: "自定输出设备"
                 controlWidth: 120
                 width: parent.width
-                opacity: Options.settings.useDefaultDevice ? 0.6 : 1
+                opacity: Options.settings.useDefaultDevice ? 0.5 : 1
                 QDrop {
                     height: 36; width: 160
                     anchors.right: parent.right
@@ -666,26 +669,14 @@ Rectangle {
             }
 
             SettingItem {
-                label: "场景音乐效果"
-                controlWidth: 120
-                width: parent.width
-                QDrop {
-                    height: 36; width: 120
-                    anchors.right: parent.right
-                    choice: 0
-                    model: ["原声","生动","室内","森林","舒适","自定义"]
-                }
-            }
-
-            SettingItem {
-                label: "自定义均衡器"
+                label: "均衡器"
                 controlWidth: 120
                 width: parent.width
                 QButton {
                     height: 36; width: 120
                     radius: Style.settings.labelRadius
                     anchors.right: parent.right
-                    text: "均衡器"
+                    text: "默认"
                     shadowEnabled: false
                     //onClicked: FileDialog.open()
                 }

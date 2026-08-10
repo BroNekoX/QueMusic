@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Controls.Basic
@@ -621,8 +621,7 @@ Item {
                         var fileUrl = fileUrls[i];
                         var filePath = fileUrl.toString();
                         if (filePath.startsWith("file:///")) {
-                            filePath = filePath.substring(8); // 在Windows上通常是 file:///C:/...，需要去掉前8个字符
-                            // 对于 Linux/macOS，可能是 file:///home/...，同样适用
+                            filePath = filePath.substring(8);// 去前8字符：file:///
                         }
 
                         // 从完整路径中提取纯文件名（例如从 'C:/Users/me/doc.txt' 提取 'doc.txt'）
@@ -770,6 +769,7 @@ Item {
                             mainMedia.source = model.path;
                             mainMedia.noTitle = model.name;
                             console.log("url:", model.path);
+                            MusicApi.setLocalLyrics();
                             mainMedia.play();
                             var musicName = model.name;
                             var musicPath = model.path;
@@ -995,9 +995,10 @@ Item {
                             mainMedia.source = model.fileUrl;
                             mainMedia.noTitle = model.fileName;
                             console.log("url:", model.fileUrl);
+                            MusicApi.setLocalLyrics();
                             mainMedia.play();
                             var musicName = model.fileName;
-                            var musicPath = model.fileUrl;
+                            var musicPath = model.fileUrl.toString();
                             var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
                             if (listIndex == -1) {
                                 playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
@@ -1021,7 +1022,7 @@ Item {
                                 shadowEnabled: false
                                 onClicked: {
                                     var musicName = model.fileName;
-                                    var musicPath = model.fileUrl;
+                                    var musicPath = model.fileUrl.toString();
                                     var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });

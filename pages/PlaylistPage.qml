@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QueMusic 1.0
@@ -296,7 +296,8 @@ Item {
 
                         Text {
                             anchors.fill: parent
-                            text: modelData
+                            // map 数组需用 modelData.title（旧版是字符串数组）
+                            text: modelData.title
                             elide: Text.ElideRight
                             z: 2
                             font.pixelSize: Style.settings.text
@@ -310,6 +311,8 @@ Item {
                             anchors.fill: parent
                             onClicked: {
                                 musicMenuPage.musicMenuIndex = index
+                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[index].id
+                                MusicApi.musicPlaylists.clear()
                                 MusicApi.getMenuInfo(MusicApi.allPlaylistMenu[index].id)
                             }
                         }
@@ -336,6 +339,11 @@ Item {
                         iconCharacter: "\uf0f8"
                         text: "更多"
                         onClicked: {
+                            if(!MusicApi.loadState && MusicApi.musicPlaylists.count % 20 === 0) {
+                                MusicApi.getMusicPlaylists(MusicApi.globaltagid, MusicApi.musicPlaylists.count / 20 + 1, 20);
+                            } else {
+                                mainWarn.tiped("没有更多了",0);
+                            }
                         }
                     }
                 }
@@ -478,7 +486,11 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-
+                            MusicApi.playlistSong.clear();
+                            MusicApi.globalid = model.hash;
+                            MusicApi.getPlaylistSongs(model.hash, 1, 20);
+                            playListSongsWindow.opened(model);
+                            window.exitIndex = 2;
                         }
                     }
                 }
@@ -489,13 +501,86 @@ Item {
             visible: false
             width: playlistChildPage.width
             height: playlistChildPage.height
-            Text {
-                anchors.fill: parent
+            Component.onCompleted: {
+                MusicApi.musicToplist.clear();
+                MusicApi.getAllToplist(MusicApi.songSource);
+            }
+            QHead {
                 text: "排行榜"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Style.themes.textColor
-                font.pixelSize: 14
+                y: 68
+                width: parent.width - 24
+            }
+            ListView {
+                id: toplistView
+                y: 116
+                width: parent.width
+                height: parent.height - 116
+                model: MusicApi.musicToplist
+                clip: true
+                bottomMargin: 24
+                delegate: Rectangle {
+                    id: toplistDel
+                    height: 64
+                    width: toplistView.width - 24
+                    radius: Style.settings.labelRadius
+                    color: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Style.settings.labelRadius
+                        color: Style.themes.hoverColor
+                        opacity: toplistArea.containsMouse ? 1 : 0
+                        z: 1
+                        Behavior on opacity { NumberAnimation { duration: 80 } }
+                    }
+                    QPicture {
+                        y: 8
+                        x: 8
+                        z: 4
+                        width: 48
+                        height: 48
+                        radius: 10
+                        source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                    }
+                    Text {
+                        x: 80
+                        y: 0
+                        z: 3
+                        width: toplistView.width - 200
+                        height: 64
+                        text: model.title
+                        color: Style.themes.fontColor
+                        font.bold: true
+                        elide: Text.ElideRight
+                        font.pixelSize: Style.settings.textmain
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Text {
+                        x: toplistView.width - 160
+                        y: 0
+                        z: 3
+                        width: 120
+                        height: 64
+                        text: model.artist || ""
+                        color: Style.themes.textColor
+                        elide: Text.ElideRight
+                        font.pixelSize: Style.settings.text
+                        horizontalAlignment: Text.AlignRight
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        id: toplistArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            MusicApi.playlistSong.clear();
+                            MusicApi.globalid = model.hash;
+                            MusicApi.getMusicToplist(Number(model.hash), MusicApi.songSource);
+                            playListSongsWindow.opened(model);
+                            window.exitIndex = 2;
+                        }
+                    }
+                }
             }
         }
         Item {
@@ -503,13 +588,123 @@ Item {
             visible: false
             width: playlistChildPage.width
             height: playlistChildPage.height
-            Text {
-                anchors.fill: parent
-                text: "歌手"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Style.themes.textColor
-                font.pixelSize: 14
+            Component.onCompleted: {
+                MusicApi.singerList.clear();
+                MusicApi.getHotSingers(1, 20, MusicApi.songSource);
+            }
+            QHead {
+                text: "热门歌手"
+                y: 68
+                width: parent.width - 24
+            }
+            Flow {
+                y: 116
+                spacing: 20
+                width: parent.width
+                Repeater {
+                    model: MusicApi.singerList
+                    delegate: Item {
+                        id: singerDel
+                        width: 96
+                        height: 132
+                        scale: singerArea.containsMouse ? 1.06 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
+                        QPicture {
+                            width: 96
+                            height: 96
+                            radius: 48
+                            source: model.cover.replace("{size}","256") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            y: 100
+                            width: parent.width
+                            text: model.title
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: Style.settings.text
+                            color: Style.themes.textColor
+                        }
+                        MouseArea {
+                            id: singerArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                MusicApi.playlistSong.clear();
+                                MusicApi.globalid = model.hash;
+                                MusicApi.getSingerSongs(model.hash, 1, 20, MusicApi.songSource);
+                                playListSongsWindow.opened(model);
+                                window.exitIndex = 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 歌单/榜单/歌手歌曲共用窗口
+    PlayListWindow {
+        id: playListSongsWindow
+        mainTarget: playlistChildPage
+        winIndex: 2
+        content: Item {
+            QListView {
+                id: playListsView
+                x: 24
+                y: 184
+                width: playListSongsWindow.width - 32
+                height: playListSongsWindow.height - 184
+                model: MusicApi.playlistSong
+                clip: true
+                topMargin: 8
+                bottomMargin: 24
+                onClicked: (index) => {
+                    if(Options.settings.soundQuality === 0) {
+                        MusicApi.getMusicInfo(model.get(index).hash);
+                    } else if(Options.settings.soundQuality === 1) {
+                        MusicApi.getMusicInfo(model.get(index).hashhq);
+                    } else {
+                        MusicApi.getMusicInfo(model.get(index).hashsq);
+                    }
+                }
+                onToolClicked: (index,tool) => {
+                    switch(tool) {
+                    case 0:
+                        var listIndex = -1;
+                        var indexHash = model.get(index).hash;
+                        for(var i = 0;i < playListModel.count;i++) {
+                            var forUrl = playListModel.get(i).path;
+                            if(forUrl === indexHash) {
+                                listIndex = i;
+                            }
+                        }
+                        if (listIndex == -1) {
+                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
+                            mainWarn.tiped("成功加入播放列表",1);
+                        }
+                        break;
+                    }
+                }
+                footer: Item {
+                    height: 60
+                    width: playListsView.width
+                    QButton {
+                        anchors.centerIn: parent
+                        height: 40; width: 120
+                        radius: 20
+                        iconCharacter: "\uf0f8"
+                        text: "更多"
+                        onClicked: {
+                            if(!MusicApi.loadState && MusicApi.playlistSong.count % 20 === 0) {
+                                var tagid = MusicApi.globalid;
+                                MusicApi.getPlaylistSongs(tagid, MusicApi.playlistSong.count / 20 + 1, 20, MusicApi.songSource);
+                            } else {
+                                mainWarn.tiped("没有更多了",0);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

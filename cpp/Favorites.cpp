@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 #include "Favorites.h"
 #include <QSqlQuery>
@@ -61,16 +61,16 @@ QVariant FavoritesModel::data(const QModelIndex &index, int role) const
 
 QHash<int, QByteArray> FavoritesModel::roleNames() const
 {
-	return {
-{IdRole,        "favId"},
-	{TitleRole,     "title"},
-	{ArtistRole,    "artist"},
-	{CoverRole,     "cover"},
-	{SourceRole,    "source"},
-	{DurationRole,  "duration"},
-	{TypeRole,      "type"},
-	{CreatedAtRole, "createdAt"}
-};
+    return {
+        {IdRole,        "favId"},
+        {TitleRole,     "title"},
+        {ArtistRole,    "artist"},
+        {CoverRole,     "cover"},
+        {SourceRole,    "source"},
+        {DurationRole,  "duration"},
+        {TypeRole,      "type"},
+        {CreatedAtRole, "createdAt"}
+    };
 }
 
 void FavoritesModel::createTableIfNeeded()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
 import QtQuick.Effects
@@ -419,15 +419,15 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 onClicked: {
-                                    MusicApi.musicPlaylists.clear()
-                                    MusicApi.globaltagid = model.tagid
-                                    MusicApi.getMusicPlaylists(model.tagid,1,20)
-                                    var image = model.cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png"
-                                    var title = model.title
-                                    recommendWindow.opened(title,image)
-                                    window.exitIndex = 1
+                                    MusicApi.musicPlaylists.clear();
+                                    MusicApi.globaltagid = model.tagid;
+                                    MusicApi.getMusicPlaylists(model.tagid,1,20);
+                                    var image = model.cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
+                                    var title = model.title;
+                                    recommendWindow.opened(title,image);
+                                    window.exitIndex = 1;
                                 }
-                                onPressed: hotlistDel.scale = hotlistDel.pressScale
+                                onPressed: hotlistDel.scale = 0.92
                                 onReleased: hotlistDel.scale = 1.0
                                 onCanceled: hotlistDel.scale = 1.0
                             }

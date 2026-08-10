@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
 #include "DownloadManager.h"
 #include <QStandardPaths>
@@ -16,6 +16,14 @@ DownloadManager::DownloadManager(QObject *parent)
 DownloadManager::~DownloadManager()
 {
     abortCurrentDownload();
+}
+
+void DownloadManager::setDownloadPath(const QString &path)
+{
+    if (m_downloadPath == path)
+        return;
+    m_downloadPath = path;
+    emit downloadPathChanged();
 }
 
 // QAbstractListModel
@@ -209,7 +217,9 @@ void DownloadManager::startNextTask()
     emit hasActiveTasksChanged();
 
     // 准备保存路径
-    QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    QString downloadDir = m_downloadPath;
+    if (downloadDir.isEmpty())
+        downloadDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
     QDir().mkpath(downloadDir);
 
     // 如果文件已存在，添加数字后缀避免覆盖

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2024-2026 QueMusic Contributors
+// Copyright (c) 2025-2026 QueMusic Contributors
 //
 #ifndef COVERHELPER_H
 #define COVERHELPER_H
@@ -8,10 +8,12 @@
 #include <QImage>
 #include <QVariant>
 #include <QString>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class CoverHelper : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(QString currentCoverUrl READ currentCoverUrl NOTIFY currentCoverUrlChanged)
 
 public:

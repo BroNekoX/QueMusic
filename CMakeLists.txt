@@ -25,6 +25,14 @@ qt_add_executable(${PROJECT_NAME}
     $<$<PLATFORM_ID:Windows>:icon.rc>
 )
 
+# QML_ELEMENT / QML_SINGLETON 类型（CoverHelper/ColorExtractor/GetWave/DownloadManager
+# 在 cpp/，MusicApiService 在 api/）的头文件，qmltyperegistrar 生成的注册代码以
+# <XXX.h> 形式 include，需要把对应目录加入 include 路径才能正确解析。
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/api
+)
+
 # 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -50,7 +58,6 @@ endif()
 set_source_files_properties(
     components/Style.qml
     components/Options.qml
-    components/MusicApi.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
@@ -72,10 +79,7 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         pages/FilePage.qml
         pages/DownloadPage.qml
         pages/SearchPage.qml
-        api/musicWorker.mjs
-        api/kugouapi.mjs
-        api/necloudapi.mjs
-        api/pako.mjs
+        api/qrcode.js
         ${QML_COMPONENTS}
 
     RESOURCES
@@ -84,6 +88,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         resources/window-bar/maximize.svg resources/window-bar/maximized.svg
         resources/window-bar/minimize.svg resources/window-bar/minimized.svg
         resources/window-bar/restore.svg resources/window-bar/restored.svg
+        resources/window-bar/return.svg resources/window-bar/returnd.svg
+        resources/window-bar/setting.svg resources/window-bar/settingd.svg
         resources/icon.ico
         resources/loader.gif
         resources/pic/back1.jpg
@@ -94,9 +100,13 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         resources/app/rainbowMusicIcon.png
         resources/fonts/feather.ttf
         resources/fonts/poppins.ttf
-        resources/window-bar/return.svg resources/window-bar/returnd.svg
-        resources/window-bar/setting.svg resources/window-bar/settingd.svg
         resources/app/musicpic.png
+        resources/app/cd.png
+        resources/app/cdpoint.png
+        resources/app/icons/bronekox.jpg
+        resources/app/icons/amll.svg
+        resources/app/icons/qticon.png
+        resources/app/icons/qwk.png
     SOURCES
         cpp/CoverHelper.cpp
         cpp/CoverHelper.h
@@ -110,21 +120,30 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/DownloadManager.h
         cpp/Favorites.cpp
         cpp/Favorites.h
+        cpp/WeCrypto.cpp
+        cpp/WeCrypto.h
+        cpp/AccountManager.cpp
+        cpp/AccountManager.h
+        api/MusicApiService.cpp
+        api/MusicApiService.h
+        api/OnlineListModel.cpp
+        api/OnlineListModel.h
+        api/NeteaseApi.cpp
+        api/NeteaseApi.h
+        api/KugouApi.cpp
+        api/KugouApi.h
+        api/ApiCommon.h
 )
 
 qt6_add_shaders(${PROJECT_NAME} "effectshaders"
     PREFIX
         "/shaders"
-    # BATCHABLE 必须保留：Qt 渲染器对 QSGMaterialShader 材质使用 batchable 变体，
-    # 去掉会导致 D3D11 "No HLSL code found" 不渲染
     BATCHABLE
     FILES
-        resources/app/shaders/mesh.frag
-        resources/app/shaders/mesh.vert
+        resources/app/shaders/lyricfade.frag
         meshgradient/shaders/meshgradient.frag
         meshgradient/shaders/meshgradient.vert
 )
-
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
@@ -138,7 +157,10 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
-        quemusic_meshgradient
+        # 链接 MeshGradientItem 模块的静态 QML 插件（由 qt6_add_qml_module 生成），
+        # 插件内部链接 quemusic_meshgradient 静态库本体。
+        quemusic_meshgradientplugin
+        z
     PUBLIC QWindowKit::Quick
 )
 

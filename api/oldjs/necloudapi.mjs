@@ -6,9 +6,11 @@
 
 // 模块级 sendMessage 引用，由 neteaseHandler 注入
 let _sendMessage = null;
+let _cookie = ''; // 登录态 Cookie（来自 AccountManager）
 
 export function neteaseHandler(message) {
     _sendMessage = message.sendMessage || WorkerScript.sendMessage;
+    _cookie = message.cookie || '';
     switch(message.action) {
     case "searchSongs":        searchSongs(message.keyword, message.type, message.page, message.pageSize); break;
     case "getPlaylistMenu":    getPlaylistMenu(); break;
@@ -35,6 +37,10 @@ function makeGet(url, callback) {
         xhr.open("GET", url, true);
         xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
         xhr.setRequestHeader("Referer", "https://music.163.com/");
+        // 登录后携带用户自己的 Cookie（合规：用自己账号的授权身份访问）
+        if (_cookie) {
+            xhr.setRequestHeader("Cookie", _cookie);
+        }
         xhr.onload = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 200) {
