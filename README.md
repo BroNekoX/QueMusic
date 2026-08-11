@@ -338,7 +338,7 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 ##   联系开发者
 
-- QQ：2414122517
+- QQ：241422517
 - 邮箱：uihugd@outlook.com
 
 ---
