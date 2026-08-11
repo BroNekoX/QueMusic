@@ -19,13 +19,20 @@
 ---
 
 > [!WARNING]
-> 本项目仅供用户学习与研究使用，禁止将本项目用于任何非法用途。
+> 免责声明
 >
-> 本项目开发者不接受任何形式的赞助，打赏，捐赠行为，禁止任何用户向本开发者赞助，打赏，捐赠。
+> 1.本项目仅供用户学习与研究使用，禁止将本项目用于任何非法用途。
 >
-> 本项目完全免费并且开源，没有任何付费内容，如果用户发现有付费内容或付费得到的软件，请联系开发者，虽然该项目使用Apache 2.0开源，但如果使用本项目进行商业化，开发者建议请仅仅使用部分代码来优化你的项目。
+> 2.本项目开发者不接受任何形式的赞助，打赏，捐赠行为，禁止任何用户向本开发者赞助，打赏，捐赠。
 >
-> QueMusic并不提供公共云端曲库与媒体分发服务，在线音频获取的能力均使用第三方平台个人账号授权获取，付费内容，会员内容，受限制的内容请遵循第三方平台版权。
+> 3.本项目的使用者出现的任何侵权、盗用、版权问题等违规情况，与本项目无关。
+>
+> 4.本项目并不提供公共云端曲库与媒体分发服务，在线音频获取的能力均使用第三方平台个人账号授权获取，付费内容，会员内容，受限制的内容请遵循第三方平台版权。
+>
+> 5.如果音乐平台发现本项目包含侵权或有问题的行为，可联系开发者进行更改或移除。
+>
+> 6.本项目使用了一些第三方模块，如果你认为本项目违反了部分协议，可联系开发者进行更改或移除。
+>
 
 ---
 
@@ -317,10 +324,15 @@ Copyright (c) 2024-2026 QueMusic Contributors
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
 - [AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的算法（AGPL-3.0，见 `meshgradient/` 组件）
+
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
+- [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 使用了本项目api服务，以实现在线音乐网易云音乐平台部分
+
+- 以下虽然可能没有使用到他们的代码，但是我仍然致谢他们所带来的精神。
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
-- 所有贡献者与测试者 ❤️
+
+- 所有贡献者与测试者
 
 ---
 
@@ -333,5 +345,5 @@ Copyright (c) 2024-2026 QueMusic Contributors
 
 <p align="center">
   <sub>Built with ❤️ by the QueMusic Team</sub><br/>
-  <sub>最后更新：2026-8-5</sub>
+  <sub>最后更新：2026-8-11</sub>
 </p>

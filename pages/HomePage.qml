@@ -60,7 +60,7 @@ Item {
                 x: parent.width - 128
                 y: 0
                 height: 36; width: 128
-                radius: 18
+                //radius: 18
                 anchors.right: parent.right
                 choice: MusicApi.songSource
                 model: ["酷狗音乐","网易云音乐","QQ音乐","自定义源"]

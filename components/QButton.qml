@@ -21,7 +21,7 @@ Button {
     property int textBetween: 6                   // 图标与文字间距
     property int borderWidth: 0   // 边框大小，0即无
     property color borderColor: Style.themes.sideColor   // 边框颜色
-    property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 18
+    property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
     property real pressedScale: 0.92                 // 按下缩放比例
     property color shadowColor: Style.themes.shadowColor    // 阴影颜色
     property color hoverColor: Style.themes.hoverColor
@@ -31,8 +31,9 @@ Button {
 
     // ==== 尺寸控制 ====
     //horizontalPadding: 16
-    implicitHeight: 36
-    implicitWidth: rowItem.implicitWidth + 32//layout.width + horizontalPadding * 2
+    height: 36
+    width: rowItem.width + 32//layout.width + horizontalPadding * 2
+    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     
     Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
     onPressed: scale = pressedScale
@@ -43,6 +44,7 @@ Button {
         width: root.width
         height: root.height
         color: root.buttonColor
+        Behavior on color { ColorAnimation { duration: 120 } }
         radius: root.radius
         border.width: root.borderWidth
         border.color: root.borderColor
@@ -69,12 +71,11 @@ Button {
     
     contentItem: Item {
         anchors.fill: parent
+        clip: true
         Row {
             id: rowItem
             anchors.centerIn: parent
             spacing: root.textBetween
-            Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-        
         
             Text {
                 width: root.iconSize

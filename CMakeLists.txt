@@ -16,6 +16,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
 add_subdirectory(cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
+#add_subdirectory(api)
+#include_directories(api)
 
 # 独立 Mesh Gradient 组件（AGPL-3.0，衍生自 AMLL）：以独立库 target 聚合
 add_subdirectory(meshgradient)
@@ -25,9 +27,6 @@ qt_add_executable(${PROJECT_NAME}
     $<$<PLATFORM_ID:Windows>:icon.rc>
 )
 
-# QML_ELEMENT / QML_SINGLETON 类型（CoverHelper/ColorExtractor/GetWave/DownloadManager
-# 在 cpp/，MusicApiService 在 api/）的头文件，qmltyperegistrar 生成的注册代码以
-# <XXX.h> 形式 include，需要把对应目录加入 include 路径才能正确解析。
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/api
@@ -157,8 +156,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
-        # 链接 MeshGradientItem 模块的静态 QML 插件（由 qt6_add_qml_module 生成），
-        # 插件内部链接 quemusic_meshgradient 静态库本体。
+        #QCloudMusicApi
         quemusic_meshgradientplugin
         z
     PUBLIC QWindowKit::Quick

@@ -1,11 +1,11 @@
 QueMusic
-Copyright (c) 2024-2026 QueMusic Contributors
+Copyright (c) 2025-2026 QueMusic Contributors
 
 This product is licensed under the Apache License, Version 2.0.
 See the LICENSE file for the full license text.
 
 --------------------------------------------------------------------
-Third-party components
+Third-party components ( 第三方组件使用 )
 --------------------------------------------------------------------
 
 This software includes third-party components under their own licenses:
@@ -22,17 +22,18 @@ This software includes third-party components under their own licenses:
    Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
 
 3. Qt6_QWindowKit_QML_demo (https://github.com/qiuliw/Qt6_QWindowKit_QML_demo)
-   Used as the early framework basis for this project.
+   Used as the framework basis for this project.
    No license was specified by the original author.
 
-4. pako (https://github.com/nodeca/pako)
-   Used as api/pako.mjs. Licensed under the MIT License.
-   Copyright (C) 2014-2017 Vitaly Puzrin and Andrey Vitalev
+4. AMLL Core (https://github.com/amll-dev/applemusic-like-lyrics)
+   Licensed under the AGPL License, Version 3.0.
+   More information watch 'THIRD_PARTY_NOTICES.md'
+   Copyright (C) 2021-2026 AMLL Project.
 
-4. Poppins font (https://github.com/itfoundry/Poppins)
+6. Poppins font (https://github.com/itfoundry/Poppins)
    Licensed under the SIL Open Font License 1.1.
 
-5. Feather Icons (https://feathericons.com/)
+7. Feather Icons (https://feathericons.com/)
    Licensed under the MIT License.
    Copyright (c) 2013-2017 Cole Bemis
 

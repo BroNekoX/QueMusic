@@ -48,6 +48,19 @@ Item {
             }
         }
 
+        // 右侧操作区
+        Row {
+            x: parent.width - width
+            y: 13
+            z: 2
+            spacing: 8
+            QButton {
+                height: 38
+                text: "选择"
+                iconCharacter: "\uf09f"
+            }
+        }
+
         QListView {
             id: songs
             width: favouriteChildPage.width + 16
@@ -74,6 +87,10 @@ Item {
                         playListModel.append({ name: model.get(index).title, path: model.get(index).id, songer: model.get(index).artist, source: playListSongsWindow.songSource });
                         mainWarn.tiped("成功加入播放列表",1);
                     }
+                    break;
+                case 1:
+                    favoritesSong.removeFavorite(model.get(index).id, "song");
+                    mainWarn.tiped("取消收藏",0);
                 }
             }
             onMenuClicked: (index,choice) => {
@@ -82,6 +99,13 @@ Item {
                     MusicApi.getMusicInfo(model.get(index).id,1,model.get(index).source);
                     break;
                 }
+            }
+            Text {
+                anchors.centerIn: parent
+                visible: favoritesSong.count === 0
+                text: "没有收藏的内容？快去收藏一些歌曲吧"
+                color: Style.themes.textColor
+                font.pixelSize: 14
             }
         }
         QListView {
@@ -103,7 +127,17 @@ Item {
             }
             onToolClicked: (index,tool) => {
                 switch(tool) {
+                case 1:
+                    favoritesList.removeFavorite(model.get(index).id, "playlist");
+                    mainWarn.tiped("取消收藏",0);
                 }
+            }
+            Text {
+                anchors.centerIn: parent
+                visible: favoritesList.count === 0
+                text: "没有收藏的内容？快去收藏一些歌单吧"
+                color: Style.themes.textColor
+                font.pixelSize: 14
             }
         }
         Item {
@@ -112,10 +146,8 @@ Item {
             width: favouriteChildPage.width
             height: favouriteChildPage.height
             Text {
-                anchors.fill: parent
+                anchors.centerIn: parent
                 text: "喜欢的歌手"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
                 color: Style.themes.textColor
                 font.pixelSize: 14
             }
@@ -126,10 +158,8 @@ Item {
             width: favouriteChildPage.width
             height: favouriteChildPage.height
             Text {
-                anchors.fill: parent
+                anchors.centerIn: parent
                 text: "历史记录"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
                 color: Style.themes.textColor
                 font.pixelSize: 14
             }

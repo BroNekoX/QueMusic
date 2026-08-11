@@ -17,9 +17,6 @@
 #include "ApiCommon.h"
 
 // zlib 手动声明
-// 不用 #include <zlib.h>：Qt 头文件内部已包含 zlib（include guard ZLIB_H 被占用），
-// 直接 include 会被跳过导致类型不可见。这里手动声明所需接口，
-// 链接 MinGW 自带 libz.a（CMakeLists 已 target_link_libraries z）。
 extern "C" {
 typedef unsigned char Bytef;
 typedef unsigned long uLong;
@@ -162,7 +159,7 @@ QString KugouApi::decodeKrc(const QByteArray &base64)
         decrypted[i] = char(uchar(bytes.at(i)) ^ kKrcKey[i % 16]);
     qDebug() << "[krc] XOR解密后, 前16字节hex:" << decrypted.left(16).toHex();
 
-    //   偏移4/2 兼容旧格式（带版本标记）
+    // 偏移4/2 兼容旧格式（带版本标记）
     const int offsets[] = {0, 4, 2};
     for (int skip : offsets) {
         if (decrypted.size() <= skip + 4)
@@ -682,7 +679,7 @@ void KugouApi::getNewSongs(int type, int page, int pageSize)
     });
 }
 
-// 榜单列表（本地固定，与 oldjs getAllToplist 一致）
+// 榜单列表
 void KugouApi::getAllToplist()
 {
     QVariantList info;
@@ -694,7 +691,7 @@ void KugouApi::getAllToplist()
                      ApiCommon::listResult(info), Source);
 }
 
-// 榜单歌曲（rankid: 6666 酷狗飙升榜 / 8888 TOP500）
+// 榜单歌曲
 void KugouApi::getMusicToplist(int rankid)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));

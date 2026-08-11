@@ -41,22 +41,6 @@ Item {
                 font.pixelSize: Style.settings.pageTitle
                 color: Style.themes.fontColor
             }
-            Rectangle {
-                x: parent.width - 128
-                y: 0
-                height: 36; width: 128
-                radius: 18
-                anchors.right: parent.right
-                color: Style.themes.containColor
-                opacity: filePage.setMode === 1 ? 1.0 : 0.0
-                Text {
-                    anchors.centerIn: parent
-                    text: "选择模式"
-                    color: Style.themes.fontColor
-                    font.pixelSize: Style.settings.textmain
-                }
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
         }
 
         QBlurTapBar {
@@ -69,7 +53,8 @@ Item {
             rectXy: Qt.rect(0, 12, 244, 40)
             blurSource: fileChildPage
             onTabChange: (index) => {
-                fileChildPage.stack(index)
+                filePage.setMode = 0;
+                fileChildPage.stack(index);
             }
         }
 
@@ -87,76 +72,48 @@ Item {
                 height: fileChildPage.height
                 visible: true
 
-                QBlurCard {
-                    x: myFile.width - 128
-                    y: 10
-                    z: 1
-                    width: 112
-                    height: 40
-                    //cardColor: Style.themes.primaryBlurColor
-                    borderRadius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
-                    rectXy: Qt.rect(x, 10, 112, 40)
-                    blurSource: folderView
-                    shadowEffect: true
-
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: 2
-                        // 列表
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf074"
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            onClicked: {
-
+                // 右侧操作区
+                Row {
+                    x: parent.width - width - 16
+                    y: 11
+                    z: 2
+                    spacing: 8
+                    QButton {
+                        height: 38
+                        text: filePage.setMode === 1 ? "取消选择" : "选择"
+                        iconCharacter: "\uf09f"
+                        buttonColor: filePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
+                        onClicked: {
+                            if(filePage.setMode === 1) {
+                                filePage.setMode = 0;
+                                filePage.chooseIndex = [];
+                                filePage.cancelChoose()
+                            } else {
+                                filePage.setMode = 1;
                             }
                         }
-                        // 选择
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf09f"
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            onClicked: {
-                                if(filePage.setMode === 1) {
-                                    filePage.setMode = 0;
-                                    filePage.chooseIndex = [];
-                                    filePage.cancelChoose()
+                    }
+                    // 添加
+                    QButton {
+                        height: 38
+                        text: "新建文件夹"
+                        iconCharacter: "\uf0f8"
+                        QAlertDialog {
+                            id: dialog
+                            title: "新建文件夹"
+                            message: "为文件夹设定一个名称："
+                            isInput: true
+                            //standardButtons: Dialog.Ok | Dialog.Cancel
+                            onConfirm: {
+                                if(input!=="") {
+                                    myFolderModel.addFolder(input, "my", "");
+                                    Style.warned("成功添加一个文件夹",1);
                                 } else {
-                                    filePage.setMode = 1;
+                                    Style.warned("请输入文件名",0);
                                 }
                             }
                         }
-                        // 添加
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf0f8"
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            QAlertDialog {
-                                id: dialog
-                                title: "新建文件夹"
-                                message: "为文件夹设定一个名称："
-                                isInput: true
-                                //standardButtons: Dialog.Ok | Dialog.Cancel
-                                onConfirm: {
-                                    if(input!=="") {
-                                        myFolderModel.addFolder(input, "my", "");
-                                        Style.warned("成功添加一个文件夹",1);
-                                    } else {
-                                        Style.warned("请输入文件名",0);
-                                    }
-                                }
-                            }
-                            onClicked: dialog.open()
-                        }
+                        onClicked: dialog.open()
                     }
                 }
 
@@ -369,59 +326,34 @@ Item {
                     }
                 }
 
-                QBlurCard {
-                    x: localFile.width - 128
-                    y: 10
-                    z: 1
-                    width: 112
-                    height: 40
-                    //cardColor: Style.themes.primaryBlurColor
-                    borderRadius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
-                    rectXy: Qt.rect(x, 10, 112, 40)
-                    blurSource: localFolderView
-                    shadowEffect: true
-
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: 2
-                        // 列表
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf074"
-                            buttonColor: "transparent"
-                            onClicked: {
-
+                // 右侧操作区
+                Row {
+                    x: parent.width - width - 16
+                    y: 11
+                    z: 2
+                    spacing: 8
+                    QButton {
+                        height: 38
+                        text: filePage.setMode === 2 ? "取消选择" : "选择"
+                        iconCharacter: "\uf09f"
+                        buttonColor: filePage.setMode === 2 ? Style.themes.containColor : Style.themes.fullColor
+                        onClicked: {
+                            if(filePage.setMode === 2) {
+                                filePage.setMode = 0;
+                                filePage.chooseIndex = [];
+                                filePage.cancelChoose()
+                            } else {
+                                filePage.setMode = 2;
                             }
                         }
-                        // 选择
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf09f"
-                            buttonColor: "transparent"
-                            onClicked: {
-                                if(filePage.setMode === 2) {
-                                    filePage.setMode = 0;
-                                    filePage.chooseIndex = [];
-                                    filePage.cancelChoose()
-                                } else {
-                                    filePage.setMode = 2;
-                                }
-                            }
-                        }
-                        // 导入
-                        SButton {
-                            width: 36
-                            height: 36
-                            radius: 18
-                            iconCharacter: "\uf00a"
-                            buttonColor: "transparent"
-                            onClicked: {
-                                folderDialog.open();
-                            }
+                    }
+                    // 添加
+                    QButton {
+                        height: 38
+                        text: "导入目录"
+                        iconCharacter: "\uf0f1"
+                        onClicked: {
+                            folderDialog.open();
                         }
                     }
                 }
@@ -466,7 +398,7 @@ Item {
                         Connections {
                             target: filePage
                             function onCancelChoose() {
-                                listfolder.color = "#00000000"
+                                listLocalfolder.color = "#00000000"
                             }
                         }
 
@@ -636,7 +568,7 @@ Item {
                         //musics.push({name:fileName,path:filePath,songer:""});
                         //myfileModel.get(filePage.folderNumber).music.append(musics);
                         songModel.addSong(songModel.folderId, fileName, filePath, "");
-                        mainWarn.tiped("成功导入音乐",1);
+                        Style.warned("成功导入音乐",1);
                         //filePage.loaded()
                     }
                 }
@@ -684,12 +616,12 @@ Item {
             }
 
             QButton {
-                x: folderMusic.width - 136
+                x: folderMusic.width - 144
                 y: 44
                 height: 40; width: 120
                 radius: 20
                 z: 10
-                iconCharacter: "\uf0f8"
+                iconCharacter: "\uf10d"
                 text: "导入"
                 onClicked: {
                     onClicked: musicfileDialog.open();
@@ -801,7 +733,7 @@ Item {
                                     var listIndex = listfile.findIndexByValue(playListModel, "name", musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
-                                        mainWarn.tiped("成功加入播放列表",1);
+                                        Style.warned("成功加入播放列表",1);
                                     }
                                 }
                             }
@@ -829,7 +761,7 @@ Item {
                                 onClicked: {
                                     //myfileModel.get(filePage.folderNumber).music.remove(index)
                                     songModel.deleteSong(model.songId);
-                                    mainWarn.tiped("成功删除一个音乐",1);
+                                    Style.warned("成功删除一个音乐",1);
                                 }
                             }
                         }
@@ -1078,7 +1010,7 @@ Item {
         height: 60
         visible: filePage.setMode
         color: Style.themes.sideColor
-        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
+        Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutExpo } }
         Rectangle {
             x: 16
             y: 12
