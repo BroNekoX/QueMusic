@@ -57,7 +57,7 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.2.0.1"
+    property string version: "Beta-0.2.5"
 
     // 首次加载内容临时存储，防止重新加载浪费内存
     property QtObject completedStart: QtObject {
