@@ -1,4 +1,4 @@
-# 🎵 QueMusic — 全能跨平台音乐播放器
+# 🎵 QueMusic — QML跨平台音乐播放器
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
