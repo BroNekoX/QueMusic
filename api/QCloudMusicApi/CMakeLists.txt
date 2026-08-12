@@ -5,7 +5,7 @@ project(QCloudMusicApiProject VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
-option(QCLOUDMUSICAPI_BUILD_TEST "Build QCloudMusicApi tests" OFF)
+option(QCLOUDMUSICAPI_BUILD_TEST "Build QCloudMusicApi tests" ON)
 option(QCLOUDMUSICAPI_BUILD_SHARED "Build QCloudMusicApi as a shared library" ON)
 
 # 设置第三方仓库
