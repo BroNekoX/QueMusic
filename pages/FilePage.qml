@@ -53,8 +53,10 @@ Item {
             rectXy: Qt.rect(0, 12, 244, 40)
             blurSource: fileChildPage
             onTabChange: (index) => {
-                filePage.setMode = 0;
                 fileChildPage.stack(index);
+                filePage.setMode = 0;
+                filePage.chooseIndex = [];
+                filePage.cancelChoose();
             }
         }
 
@@ -87,7 +89,7 @@ Item {
                             if(filePage.setMode === 1) {
                                 filePage.setMode = 0;
                                 filePage.chooseIndex = [];
-                                filePage.cancelChoose()
+                                filePage.cancelChoose();
                             } else {
                                 filePage.setMode = 1;
                             }
@@ -217,7 +219,6 @@ Item {
                             hoverEnabled: true
                             onClicked: {
                                 if(filePage.setMode === 1) {
-                                    var isChoose = false;
                                     if(listfolder.color == "#00000000") {
                                         listfolder.color = Style.themes.containColor;
                                         filePage.chooseIndex.push(model.folderId);
@@ -1008,7 +1009,7 @@ Item {
         y: visible ? filePage.height - 60 : filePage.height
         width: filePage.width
         height: 60
-        visible: filePage.setMode
+        visible: filePage.setMode !== 0
         color: Style.themes.sideColor
         Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutExpo } }
         Rectangle {
@@ -1041,7 +1042,7 @@ Item {
         }
         QButton {
             y: 12
-            x: chooseArea.width - 210
+            x: chooseArea.width - 208
             shadowEnabled: false
             width: 92
             height: 36

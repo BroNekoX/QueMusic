@@ -12,6 +12,7 @@ ListView {
     property int scrollToY: view.contentY
     property list<string> headerModel: isList ? ["标题","创建者","曲目","操作"] : ["标题","歌手","时长","操作"]//text,x
     property list<string> menuModel: ["下载到本地","分享","歌曲信息"]
+    property list<int> selectedIndices: []
     property bool isList: false
     property int artistX: width / 2 - 50
     property int toolX: width - 210
@@ -191,10 +192,12 @@ ListView {
         }
     }
 
-    delegate: Item {
+    delegate: Rectangle {
         id: listDel
         height: 64
         width: view.width - 16
+        color: view.selectedIndices.indexOf(index) !== -1 ? Style.themes.containColor : "#00000000"
+        radius: Style.settings.labelRadius
 
         //radius: Style.settings.labelRadius
         //color: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"

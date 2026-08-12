@@ -10,29 +10,27 @@
 </p>
 
 > **可能是桌面跨平台上UI最美丽丝滑，性能最强的开源音乐播放器？**
-> **基于 Qt 6.9 / QML 与 GPU 加速 RHI 渲染的开源跨平台音乐播放器，支持接入网易云、酷狗等平台的公开音乐服务接口。**  
+> **基于 Qt 6.9 / QML 与 GPU 加速 RHI 渲染的开源跨平台音乐播放器，支持接入网易云、酷狗等平台的公开音乐服务接口。**
 > 动效美丽，性能出众，开发者坚持 **永久免费 & 开源**。
->
+> 
 > 🚧 项目正处于 **开发/预览阶段**，部分功能尚未完善, 仍存在部分问题，有一些功能无法使用，会持续更新，欢迎 Star & Fork 一起参与！
- >  快速下载本应用及历史版本：[123网盘快速下载](https://1816090463.share.123pan.cn/123pan/0HQ5Vv-jfjld)
+> 快速下载本应用及历史版本：[123网盘快速下载](https://1816090463.share.123pan.cn/123pan/0HQ5Vv-jfjld)
 
 ---
 
 > [!WARNING]
-> 免责声明
->
+> 
 > 1.本项目仅供用户学习与研究使用，禁止将本项目用于任何非法用途。
->
+> 
 > 2.本项目开发者不接受任何形式的赞助，打赏，捐赠行为，禁止任何用户向本开发者赞助，打赏，捐赠。
->
+> 
 > 3.本项目的使用者出现的任何侵权、盗用、版权问题等违规情况，与本项目无关。
->
+> 
 > 4.本项目并不提供公共云端曲库与媒体分发服务，在线音频获取的能力均使用第三方平台个人账号授权获取，付费内容，会员内容，受限制的内容请遵循第三方平台版权。
->
+> 
 > 5.如果音乐平台发现本项目包含侵权或有问题的行为，可联系开发者进行更改或移除。
->
+> 
 > 6.本项目使用了一些第三方模块，如果你认为本项目违反了部分协议，可联系开发者进行更改或移除。
->
 
 ---
 
@@ -87,11 +85,10 @@
 |------|------|
 | **框架** | Qt 6.9.3 Community |
 | **构建** | CMake ≥ 3.24 / Ninja |
-| **语言** | C++20 / JavaScript / QML |
-| **音频** | Qt Multimedia (FFmpeg 后端) |
-| **渲染** | Qt Quick (RHI) — GPU 原生加速 |
+| **语言** | C++17 / JavaScript / QML |
+| **音频** | Qt Multimedia (FFmpeg7.1.1 后端) |
+| **渲染** | QtRHI — 基于平台原生GPU渲染器 |
 | **数据库** | Qt SQL / SQLite |
-| **无边框窗口** | [QWindowKit](https://github.com/stdware/qwindowkit) (submodule) |
 | **工具链** | MSVC 2022 / GCC 13+ / MinGW 13+ |
 
 ---
@@ -100,7 +97,7 @@
 
 ### 前置条件
 
-- Qt **6.9+**（含 Qt Multimedia, Qt SQL, Qt ShaderTools）
+- Qt **6.9+**（含 Qt Multimedia, Qt SQL, Qt ShaderTools等基础Qt库）
 - CMake ≥ **3.24**
 - 编译器：MSVC 2022 / GCC 13+ / MinGW 13+
 
@@ -111,8 +108,9 @@ git clone --recurse-submodules https://github.com/BroNekoX/QueMusic.git
 cd QueMusic
 ```
 
-> ⚠️ **重要**：本项目使用 QWindowKit 作为 git 子模块，务必加上 `--recurse-submodules`。  
+> ⚠️ **重要**：本项目使用 QWindowKit 作为 git 子模块，务必加上 `--recurse-submodules`。
 > 如果已经 clone 但忘记拉子模块，运行：
+> 
 > ```bash
 > git submodule update --init --recursive
 > ```
@@ -127,7 +125,7 @@ cmake --build build --parallel
 ./build/bin/QueMusic
 
 # 方式二：Qt Creator
-# 直接用 Qt Creator 打开项目根目录的 CMakeLists.txt，配置后运行即可
+# 本项目就是QueMusic的源代码，直接用 Qt Creator 打开项目根目录的 CMakeLists.txt，配置后运行即可
 ```
 
 > 💡 **提示**：推荐使用 **Qt Creator** 打开本项目，配置、编译、调试一步到位。
@@ -145,7 +143,10 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release \
 cmake --build build -j"$(nproc)"
 ./build/bin/QueMusic
 
-# Arch / Nyarch 用户也可以用 PKGBUILD 打包：
+#方式三：使用KDevelop或Qt Creator
+使用KDevelop或Qt Creator都可以进行快速构建和测试
+
+# Arch Linux 用户也可以用 PKGBUILD 打包：
 # cd packaging && makepkg -si
 ```
 
@@ -172,10 +173,10 @@ git push origin v0.1.0
 QueMusic/
 ├── CMakeLists.txt              # 顶层构建配置
 ├── cmake/                      # CMake 模块
-│   ├── external/qwindowkit.cmake   # QWindowKit 子模块集成
+│   ├── external/qwindowkit.cmake # QWindowKit 子模块集成
 │   └── qtruntime.cmake
-├── main.cpp                    # C++ 入口
-├── main.qml                    # QML 入口
+├── main.cpp                    # C++ 程序入口
+├── main.qml                    # QML 主入口
 ├── cpp/                        # C++ 后端模块
 │   ├── CoverHelper.cpp/h       # 封面图片处理
 │   ├── ColorExtractor.cpp/h    # 颜色提取（自适应主题色）
@@ -190,13 +191,13 @@ QueMusic/
 │   ├── MeshGradientItem.cpp/h  # 网格渐变渲染（衍生自 AMLL）
 │   └── shaders/                # meshgradient.vert/.frag（衍生自 AMLL）
 ├── api/                        # JavaScript API 层
-│   ├── musicWorker.mjs         # 音乐 API 工作线程
-│   ├── necloudapi.mjs          # 网易云音乐 API
-│   ├── kugouapi.mjs            # 酷狗音乐 API
-│   └── pako.mjs                # 压缩/解压工具
+│   ├── MusicApiService.cpp/h   # 在线音乐 API总部
+│   ├── KugouApi.cpp/h          # 酷狗音乐 API
+│   ├── NeteaseApi.cpp/h        # 网易云音乐 API
+│   └── OnlinelistModel.cpp/h   # 在线api的列表模型自定义组件
 ├── components/                 # QML 组件库（自研 UI 库）
-│   ├── Q***.qml                 # 各自控件，QueMusic由它们组成
-│   ├── MusicApi.qml           # 在线音乐整合单例
+│   ├── Q***.qml                # 各自控件，QueMusic由它们组成
+│   ├── MusicApi.qml            # 在线音乐整合单例
 │   ├── Style.qml               # 全局单例样式
 │   ├── Options.qml             # 设置文件
 │   └── ...
@@ -219,7 +220,7 @@ QueMusic/
 │   ├── pic/                    # 背景图片
 │   └── app/shaders/            # GLSL 着色器
 ├── ThirdParty/
-│   └── qwindowkit/             # 🧩 Git Submodule — 无边框窗口框架
+│   └── qwindowkit/             # Git Submodule — 无边框窗口框架
 ├── .gitignore
 ├── .gitattributes
 ├── .gitmodules
@@ -233,6 +234,7 @@ QueMusic/
 
 - **首要-功能完善**：补全设置、编辑、歌单管理等功能，增强稳定性
 - **品牌统一性**: 在名称以及宣传上计划使用一个新的名称或定义，统一形象
+- **推动发展**: 后面计划推出QueMusic网站，建立QQ群，与社区共建生态
 - **优化性能**：持续优化内存 & GPU 占用，解决性能瓶颈
 - **加入沉浸播放**：参考 Folia / MineRadio 概念，引入 3D 可视化与高度自定义歌词
 - **UI 强化**：继续打磨自研 QML 组件库，统一设计语言
@@ -245,7 +247,7 @@ QueMusic/
 
 ## 🤝 贡献指南
 
-欢迎任何形式的贡献！💪
+欢迎任何形式的贡献！
 
 | 方式 | 说明 |
 |------|------|
@@ -264,7 +266,7 @@ QueMusic/
 4. 推送：`git push origin feat/your-feature`
 5. 发起 Pull Request
 
-> 代码风格请参考现有文件，遵循 **C++20 / Qt6 / QML best practices**。
+> 代码风格请参考现有文件，遵循 **C++17 / Qt6 / QML best practices**。
 
 ---
 
@@ -275,7 +277,7 @@ QueMusic/
 ```
 Apache License
 Version 2.0, January 2004
-Copyright (c) 2024-2026 QueMusic Contributors
+Copyright (c) 2025-2026 QueMusic Contributors
 ```
 
 > 💡 **Apache-2.0 要点**：允许商用、修改、分发；需在衍生作品中保留原始版权声明与 NOTICE；对专利授权有明确条款，为用户提供额外保护。
@@ -324,26 +326,24 @@ Copyright (c) 2024-2026 QueMusic Contributors
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
 - [AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的算法（AGPL-3.0，见 `meshgradient/` 组件）
-
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 使用了本项目api服务，以实现在线音乐网易云音乐平台部分
-
 - 以下虽然可能没有使用到他们的代码，但是我仍然致谢他们所带来的精神。
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
-
 - 所有贡献者与测试者
 
 ---
 
-##   联系开发者
+## 联系开发者
 
 - QQ：241422517
 - 邮箱：uihugd@outlook.com
+- Bilibili: 695207057
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ by the QueMusic Team</sub><br/>
-  <sub>最后更新：2026-8-11</sub>
+  <sub>Built with ❤️ by the QueMusic</sub><br/>
+  <sub>最后更新：2026-8-12</sub>
 </p>

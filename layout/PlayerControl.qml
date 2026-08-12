@@ -181,7 +181,7 @@ Rectangle {
                         mainWarn.tiped("取消收藏",0);
                         iconColor = Style.themes.textColor;
                     } else {
-                        favoritesSong.addFavorite(playListModel.get(playListModel.playListIndex).path, window.musicTitle, window.musicArtist, mainMedia.urlStr, playListModel.get(playListModel.playListIndex).source, mainMedia.duration, "song");
+                        favoritesSong.addFavorite(playListModel.get(playListModel.playListIndex).path, window.musicTitle, window.musicArtist, mainMedia.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(mainMedia.duration / 1000), "song");
                         mainWarn.tiped("成功收藏",1);
                         iconColor = Style.themes.themeColor;
                     }

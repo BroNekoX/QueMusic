@@ -7,6 +7,8 @@ import 'qrc:/QueMusic/components'
 
 Item {
     id: favouritePage
+    property int setMode: 0
+    property list<int> chooseIndex: []
 
     QPages {
         id: favouriteChildPage
@@ -44,7 +46,9 @@ Item {
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: favouriteChildPage.pageList[favouriteChildPage.lastIndex]
             onTabChange: (index) => {
-                favouriteChildPage.stack(index)
+                favouriteChildPage.stack(index);
+                favouritePage.setMode = 0;
+                favouritePage.chooseIndex = [];
             }
         }
 
@@ -56,8 +60,17 @@ Item {
             spacing: 8
             QButton {
                 height: 38
-                text: "选择"
+                text: favouritePage.setMode === 1 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
+                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
+                onClicked: {
+                    if(favouritePage.setMode === 1) {
+                        favouritePage.setMode = 0;
+                        favouritePage.chooseIndex = [];
+                    } else {
+                        favouritePage.setMode = 1;
+                    }
+                }
             }
         }
 
@@ -68,9 +81,19 @@ Item {
             model: favoritesSong
             clip: true
             topMargin: 72
+            selectedIndices: favouritePage.chooseIndex
 
             onClicked: (index) => {
-                MusicApi.getMusicInfo(model.get(index).id,0,model.get(index).source);
+                if (favouritePage.setMode === 1) {
+                    var idx = favouritePage.chooseIndex.indexOf(index);
+                    if (idx === -1) {
+                        favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                    } else {
+                        favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                    }
+                } else {
+                    MusicApi.getMusicInfo(model.get(index).id, 0, model.get(index).source);
+                }
             }
             onToolClicked: (index,tool) => {
                 switch(tool) {
@@ -84,7 +107,7 @@ Item {
                         }
                     }
                     if (listIndex == -1) {
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).id, songer: model.get(index).artist, source: playListSongsWindow.songSource });
+                        playListModel.append({ name: model.get(index).title, path: model.get(index).id, songer: model.get(index).artist, source: model.get(index).source });
                         mainWarn.tiped("成功加入播放列表",1);
                     }
                     break;
@@ -116,14 +139,24 @@ Item {
             clip: true
             topMargin: 72
             visible: false
+            selectedIndices: favouritePage.chooseIndex
 
             onClicked: (index) => {
-                MusicApi.playlistSong.clear();
-                MusicApi.globalid = model.get(index).id;
-                MusicApi.getPlaylistSongs(model.get(index).id,1,20,model.get(index).source);
-                playListSongsWindow.songSource = model.get(index).source;
-                playListSongsWindow.opened(model.get(index));
-                window.exitIndex = 1;
+                if (favouritePage.setMode === 1) {
+                    var idx = favouritePage.chooseIndex.indexOf(index);
+                    if (idx === -1) {
+                        favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                    } else {
+                        favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                    }
+                } else {
+                    MusicApi.playlistSong.clear();
+                    MusicApi.globalid = model.get(index).id;
+                    MusicApi.getPlaylistSongs(model.get(index).id,1,20,model.get(index).source);
+                    playListSongsWindow.songSource = model.get(index).source;
+                    playListSongsWindow.opened(model.get(index));
+                    window.exitIndex = 1;
+                }
             }
             onToolClicked: (index,tool) => {
                 switch(tool) {
@@ -162,6 +195,130 @@ Item {
                 text: "历史记录"
                 color: Style.themes.textColor
                 font.pixelSize: 14
+            }
+        }
+
+        // 选择模式
+        Rectangle {
+            id: chooseArea
+            x: -24
+            y: visible ? favouriteChildPage.height - 60 : favouriteChildPage.height
+            width: favouritePage.width
+            height: 60
+            visible: favouritePage.setMode !== 0
+            color: Style.themes.sideColor
+            Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutExpo } }
+            Rectangle {
+                x: 16
+                y: 12
+                width: 92
+                height: 36
+                radius: 20
+                color: Style.themes.fullColor
+                Text {
+                    anchors.centerIn: parent
+                    text: "多选模式"
+                    color: Style.themes.textColor
+                    font.pixelSize: Style.settings.textmain
+                }
+            }
+            Rectangle {
+                x: 118
+                y: 12
+                width: 92
+                height: 36
+                radius: 20
+                color: "transparent"//Style.themes.fullColor
+                Text {
+                    anchors.centerIn: parent
+                    text: "已选择:" + favouritePage.chooseIndex.length + "项"
+                    color: Style.themes.textColor
+                    font.pixelSize: Style.settings.textmain
+                }
+            }
+            Row {
+                y: 12
+                x: chooseArea.width - width - 16
+                spacing: 8
+                QButton {
+                    shadowEnabled: false
+                    height: 36
+                    radius: 20
+                    buttonColor: "#fa4642"
+                    text: "取消收藏"
+                    onClicked: {
+                        switch(favouritePage.setMode) {
+                        case 1:
+                            globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌曲",
+                                function() {
+                                    for(var i=0;i<favouritePage.chooseIndex.length;i++) {
+                                        favoritesSong.removeFavorite(favoritesSong.get(favouritePage.chooseIndex[i]).id, "song");
+                                    }
+                                    favouritePage.chooseIndex = [];
+                                    Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌曲",1);
+                                }
+                            );
+                            break;
+                        case 2:
+                            globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌单",
+                                function() {
+                                    for(var i=0;i<favouritePage.chooseIndex.length;i++) {
+                                        favoritesList.removeFavorite(favoritesList.get(favouritePage.chooseIndex[i]).id, "playlist");
+                                    }
+                                    favouritePage.chooseIndex = [];
+                                    Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌单",1);
+                                }
+                            );
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+                QButton {
+                    shadowEnabled: false
+                    height: 36
+                    radius: 20
+                    text: "加入播放列表"
+                    onClicked: {
+                        switch(favouritePage.setMode) {
+                        case 1:
+                            var playlist = [];
+                            for(var i = 0;i < playListModel.count;i++) {
+                                playlist.push(playListModel.get(i).path);
+                            }
+                            for(var a = 0;a < favouritePage.chooseIndex.length;a++) {
+                                var listIndex = -1;
+                                for(var b = 0;b < playlist.length;b++) {
+                                    if(favoritesSong.get(favouritePage.chooseIndex[a]).id == playlist[b]) {
+                                        listIndex = b;
+                                        break;
+                                    }
+                                }
+                                if (listIndex == -1) {
+                                    playListModel.append({ name: favoritesSong.get(favouritePage.chooseIndex[a]).title, path: favoritesSong.get(favouritePage.chooseIndex[a]).id, songer: favoritesSong.get(favouritePage.chooseIndex[a]).artist, source: playListSongsWindow.songSource });
+                                    mainWarn.tiped("成功加入播放列表",1);
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+                QButton {
+                    shadowEnabled: false
+                    width: 92
+                    height: 36
+                    radius: 20
+                    buttonColor: Style.themes.themeColor
+                    textColor: Style.themes.primaryColor
+                    text: "完成"
+                    onClicked: {
+                        favouritePage.setMode = 0;
+                        favouritePage.chooseIndex = [];
+                    }
+                }
             }
         }
     }
@@ -208,6 +365,16 @@ Item {
                             playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: playListSongsWindow.songSource });
                             mainWarn.tiped("成功加入播放列表",1);
                         }
+                        break;
+                    case 1:
+                        if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
+                            favoritesSong.removeFavorite(model.get(index).hash, "song");
+                            mainWarn.tiped("取消收藏",0);
+                        } else {
+                            favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, playListSongsWindow.songSource, model.get(index).duration, "song");
+                            mainWarn.tiped("成功收藏",1);
+                        }
+                        break;
                     }
                 }
 

@@ -365,6 +365,16 @@ Item {
                     case 0:
                         playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
                         mainWarn.tiped("成功加入播放列表",1);
+                        break;
+                    case 1:
+                        if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
+                            favoritesSong.removeFavorite(model.get(index).hash, "song");
+                            mainWarn.tiped("取消收藏",0);
+                        } else {
+                            favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                            mainWarn.tiped("成功收藏",1);
+                        }
+                        break;
                     }
                 }
 

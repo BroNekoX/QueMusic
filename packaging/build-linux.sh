@@ -112,38 +112,3 @@ echo "============================================="
 echo " ✅ 打包完成: ${OUTPUT_APPIMAGE}"
 echo "    试运行:  chmod +x ${OUTPUT_APPIMAGE} && ./${OUTPUT_APPIMAGE}"
 echo "============================================="
-
-# 创建并上传至release
-VERSION=${VERSION:-"0.2.5"}
-RELEASE_NAME="QueMusic-v${VERSION}"
-TAG_NAME="v${VERSION}"
-
-# ---- 2. 重命名 AppImage 为带版本的文件名 ----
-mv "$OUTPUT_APPIMAGE" "${RELEASE_NAME}-x86_64.AppImage"
-OUTPUT_WITH_VERSION="${RELEASE_NAME}-x86_64.AppImage"
-
-echo "==> 版本号: ${VERSION}"
-echo "==> 产物: ${OUTPUT_WITH_VERSION}"
-
-# ---- 3. 检查 gh 是否可用 ----
-if ! command -v gh &>/dev/null; then
-    echo "!! gh (GitHub CLI) 未安装，无法自动创建 Release。"
-    echo "   请手动上传 ${OUTPUT_WITH_VERSION} 到 GitHub Releases。"
-    exit 1
-fi
-
-# ---- 4. 创建 Release 并上传资产 ----
-echo "==> 正在创建 Release: ${RELEASE_NAME} (tag: ${TAG_NAME}) ..."
-
-# 如果 tag 已存在，会失败；你也可以用 --force 覆盖，但建议先判断
-if gh release view "$TAG_NAME" &>/dev/null; then
-    echo "!! Tag ${TAG_NAME} 已存在，跳过创建，仅更新资产..."
-    gh release upload "$TAG_NAME" "$OUTPUT_WITH_VERSION" --clobber
-else
-    gh release create "$TAG_NAME" \
-        --title "$RELEASE_NAME" \
-        --notes "自动构建于 $(date '+%Y-%m-%d %H:%M:%S')" \
-        "$OUTPUT_WITH_VERSION"
-fi
-
-echo "✅ Release 已发布: https://github.com/<owner>/<repo>/releases/tag/${TAG_NAME}"

@@ -68,8 +68,8 @@ Popup {
             spacing: 10
 
             QButton {
-                implicitWidth: 108
-                implicitHeight: 36
+                width: 108
+                height: 36
                 text: dialog.cancelText
                 iconCharacter: dialog.cancelIcon // X 图标
                 radius: Style.settings.labelRadius
@@ -77,8 +77,8 @@ Popup {
                 onClicked: { dialog.cancel(); dialog.close() }
             }
             QButton {
-                implicitWidth: 108
-                implicitHeight: 36
+                width: 108
+                height: 36
                 text: dialog.confirmText
                 buttonColor: Style.themes.themeColor
                 textColor: Style.themes.primaryColor
