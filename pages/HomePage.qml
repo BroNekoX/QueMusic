@@ -66,8 +66,17 @@ Item {
                 choice: MusicApi.songSource
                 model: ["酷狗音乐","网易云音乐","QQ音乐","自定义源"]
                 onTransformed: (choiced) => {
-                                   MusicApi.songSource = choiced
-                               }
+                    MusicApi.songSource = choiced;
+                    if(MusicApi.songSource === 0) {
+                        MusicApi.hotPlayLists.clear();
+                    }
+                    if(MusicApi.hotPlayLists.count % 20 === 0) {
+                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                    } else {
+                        MusicApi.hotPlayLists.clear();
+                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                    }
+                }
             }
         }
 
