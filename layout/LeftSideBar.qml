@@ -13,22 +13,22 @@ Rectangle {
     property color baseColor: "transparent"
     property color choiceColor: Style.themes.hoverColor
     property color choiceTextColor: Style.themes.fontColor
-    color: Style.settings.sidebarColor ? Style.themes.secondaryBlurColor : baseColor
+    color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor) : baseColor
     //layer.enabled: true
     //layer.smooth: true
     Connections {
         target: Style
         function onChangeTheme() {
             if(Style.settings.sidebarStyle === 0) {
-                sidebar.choiceColor = Style.themes.hoverColor
-                sidebar.choiceTextColor = Style.themes.fontColor
-                choicebar.x = 16
-                choicebar.radius = 2
+                sidebar.choiceColor = Style.themes.hoverColor;
+                sidebar.choiceTextColor = Style.themes.fontColor;
+                choicebar.x = 18;
+                choicebar.radius = 2;
             } else if(Style.settings.sidebarStyle === 1) {
-                sidebar.choiceColor = Style.themes.themeColor
-                sidebar.choiceTextColor = Style.themes.primaryColor
-                choicebar.x = 0
-                choicebar.radius = 0
+                sidebar.choiceColor = Style.themes.themeColor;
+                sidebar.choiceTextColor = Style.themes.primaryColor;
+                choicebar.x = 0;
+                choicebar.radius = 0;
             }
         }
     }
@@ -70,7 +70,7 @@ Rectangle {
     // 选择动画条
     Rectangle {
         id: choicebar
-        x: 16
+        x: 18
         width: 4
         height: barBottom - y//22
         radius: 2 //Style.settings.labelRadius
@@ -197,9 +197,9 @@ Rectangle {
 
     Column {
         id: navlistview
-        x: 10
+        x: 15
         y: 70
-        width: 190
+        width: 180
         height: sidebar.height - 78
         property int choiceIndex: 0
 
@@ -235,7 +235,7 @@ Rectangle {
                 }
 
                 Text {
-                    x: 12
+                    x: 8
                     y: 0
                     z: 1
                     width: 42
@@ -251,7 +251,7 @@ Rectangle {
                 }
 
                 Text {
-                    x: 60
+                    x: 56
                     y: 0
                     z: 2
                     width: 140

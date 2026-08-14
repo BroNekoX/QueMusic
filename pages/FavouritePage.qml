@@ -31,6 +31,7 @@ Item {
                 height: 40
                 verticalAlignment: Text.AlignVCenter
                 text: "收藏内容"
+                font.weight: Font.DemiBold
                 font.pixelSize: Style.settings.pageTitle
                 color: Style.themes.fontColor
             }
@@ -137,6 +138,7 @@ Item {
             height: favouriteChildPage.height
             model: favoritesList
             clip: true
+            isList: true
             topMargin: 72
             visible: false
             selectedIndices: favouritePage.chooseIndex

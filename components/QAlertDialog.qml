@@ -33,7 +33,7 @@ Popup {
         anchors.fill: parent
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
-        cardColor: Style.themes.blurSecondaryColor
+        //cardColor: Style.themes.primaryBlurColor
         borderRadius: Style.settings.cubeRadius
     }
 
@@ -94,6 +94,9 @@ Popup {
                 text: dialog.cancelText
                 iconCharacter: "\uf025" // X 图标
                 radius: Style.settings.labelRadius
+                buttonColor: Style.themes.secondaryColor
+                borderColor: Style.themes.sideColor
+                borderWidth: 1
                 onClicked: { dialog.cancel(); dialog.close() }
             }
             QButton {

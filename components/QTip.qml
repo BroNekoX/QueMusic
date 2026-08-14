@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 
 ToolTip {
     id: root
@@ -16,10 +15,10 @@ ToolTip {
     //属性: parent visible text
     background: Rectangle {
         anchors.fill: parent
-        color: Style.themes.primaryColor
+        color: "#fffafbfd"
         border.width: 2
         radius: height
-        border.color: Style.themes.sideColor
+        border.color: "#ffeaebed"
 
     }
 }

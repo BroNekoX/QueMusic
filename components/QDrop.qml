@@ -15,7 +15,7 @@ Rectangle {
     property color buttonColor: Style.themes.primaryColor
     color: mouseArea.containsMouse ? Qt.darker(Style.themes.primaryColor, 1.2) : Style.themes.primaryColor
     border.width: 2
-    border.color: Style.themes.secondaryColor
+    border.color: Style.themes.borderColor
     property string text: model[choice]
     property bool useId: false
     property string icon: "\uf096"
@@ -78,13 +78,13 @@ Rectangle {
         //radius: 12
         enter: Transition {
             NumberAnimation { property: "opacity"; duration: 240; from: 0.0; to: 1.0; easing.type: Easing.OutExpo }
-            NumberAnimation { property: "scale"; duration: 240; from: 0.3; to: 1.0; easing.type: Easing.OutExpo }
+            NumberAnimation { property: "scale"; duration: 240; from: 0.5; to: 1.0; easing.type: Easing.OutExpo }
         }
         exit: Transition {
             NumberAnimation { property: "opacity"; duration: 120; to: 0.0 }
-            NumberAnimation { property: "scale"; duration: 120; to: 0.5 }
+            NumberAnimation { property: "scale"; duration: 120; to: 0.7 }
         }
-        transformOrigin: Popup.TopLeft
+        transformOrigin: Popup.Top
         //color: Style.themes.primaryColor
 
         background: Item {

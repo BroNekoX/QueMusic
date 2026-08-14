@@ -152,7 +152,7 @@ Item {
         height: 160
         z: 10
         radius: Style.settings.cubeRadius
-        color: Style.themes.fullColor
+        color: Style.themes.primaryColor
         RectangularShadow {
             anchors.fill: parent
             z: -1

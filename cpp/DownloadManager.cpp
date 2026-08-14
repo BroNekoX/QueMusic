@@ -69,7 +69,6 @@ QHash<int, QByteArray> DownloadManager::roleNames() const
         { ProgressRole,    "progress" },
         { StatusRole,      "status" },
         { ErrorStringRole, "errorString" },
-        // QListView-compatible aliases
         { TitleRole,       "title" },
         { ArtistRole,      "artist" },
         { CoverRole,       "cover" },

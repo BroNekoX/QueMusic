@@ -13,6 +13,11 @@
 #include <QRegularExpression>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QCryptographicHash>
+#include <QJsonValue>
+#include <QRandomGenerator>
+#include <QStringList>
+#include <vector>
 
 #include "ApiCommon.h"
 
@@ -103,6 +108,124 @@ QByteArray inflateSmart(const QByteArray &data)
 }
 } // namespace
 
+namespace {
+// 简易大整数，仅用于将 MD5 摘要转为十进制字符串（生成 kugou mid）
+class BigUint {
+public:
+    static BigUint fromBytes(const QByteArray &bytes)
+    {
+        BigUint v;
+        v.digits.clear();
+        v.digits.push_back(0);
+        for (unsigned char c : bytes) {
+            mulSmall(v, 256);
+            addSmall(v, c);
+        }
+        return v;
+    }
+
+    QString toDecimalString() const
+    {
+        QString out;
+        BigUint tmp = *this;
+        while (!tmp.isZero()) {
+            quint32 rem = 0;
+            divSmall(tmp, 1000000000u, rem);
+            out.prepend(QString::number(rem).rightJustified(9, QLatin1Char('0')));
+        }
+        QString s = out;
+        s.remove(QRegularExpression("^0+(?=\\d)"));
+        return s.isEmpty() ? QStringLiteral("0") : s;
+    }
+
+private:
+    std::vector<quint32> digits;
+
+    static void mulSmall(BigUint &a, quint32 m)
+    {
+        quint64 carry = 0;
+        for (size_t i = 0; i < a.digits.size(); ++i) {
+            quint64 cur = (quint64)a.digits[i] * m + carry;
+            a.digits[i] = (quint32)(cur & 0xFFFFFFFFu);
+            carry = cur >> 32;
+        }
+        if (carry)
+            a.digits.push_back((quint32)carry);
+    }
+
+    static void addSmall(BigUint &a, quint32 m)
+    {
+        quint64 carry = m;
+        for (size_t i = 0; i < a.digits.size() && carry; ++i) {
+            quint64 cur = (quint64)a.digits[i] + carry;
+            a.digits[i] = (quint32)(cur & 0xFFFFFFFFu);
+            carry = cur >> 32;
+        }
+        if (carry)
+            a.digits.push_back((quint32)carry);
+    }
+
+    static void divSmall(BigUint &a, quint32 d, quint32 &rem)
+    {
+        quint64 r = 0;
+        for (size_t i = a.digits.size(); i-- > 0; ) {
+            quint64 cur = (r << 32) | a.digits[i];
+            a.digits[i] = (quint32)(cur / d);
+            r = cur % d;
+        }
+        while (!a.digits.empty() && a.digits.back() == 0)
+            a.digits.pop_back();
+        rem = (quint32)r;
+    }
+
+    bool isZero() const
+    {
+        return digits.empty() || (digits.size() == 1 && digits[0] == 0);
+    }
+};
+
+QByteArray md5Hex(const QByteArray &data)
+{
+    return QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex();
+}
+} // namespace
+
+QByteArray KugouApi::kugouWebSignature(const QJsonObject &params)
+{
+    const QByteArray salt = "NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt";
+    QStringList keyValues;
+    for (const QString &k : params.keys()) {
+        const QString v = QJsonValue(params.value(k)).toVariant().toString();
+        keyValues << (k + QLatin1Char('=') + v);
+    }
+    keyValues.sort();
+    const QByteArray paramsStr = keyValues.join(QString()).toUtf8();
+    return md5Hex(salt + paramsStr + salt);
+}
+
+QString KugouApi::randomGuid()
+{
+    const char *hexChars = "0123456789abcdef";
+    auto rndHex = [&](int len) {
+        QString s;
+        s.reserve(len);
+        for (int i = 0; i < len; ++i)
+            s.append(hexChars[QRandomGenerator::global()->bounded(16)]);
+        return s;
+    };
+    const QString p3 = QStringLiteral("4") + rndHex(3);
+    const QString p4 = QString::number(8 + QRandomGenerator::global()->bounded(4)) + rndHex(3);
+    return rndHex(8) + QLatin1Char('-') + rndHex(4) + QLatin1Char('-') + p3
+           + QLatin1Char('-') + p4 + QLatin1Char('-') + rndHex(12);
+}
+
+QString KugouApi::kugouMidFromGuid(const QString &guid)
+{
+    const QByteArray digest = QCryptographicHash::hash(guid.toUtf8(), QCryptographicHash::Md5);
+    const BigUint v = BigUint::fromBytes(digest);
+    return v.toDecimalString();
+}
+
 KugouApi::KugouApi(QObject *parent)
     : QObject(parent)
 {
@@ -142,37 +265,26 @@ void KugouApi::get(const QString &url, const Callback &cb)
 // KRC 歌词解码（替代 pako.mjs：Base64 → 跳4 → XOR → 跳2 → raw inflate）
 QString KugouApi::decodeKrc(const QByteArray &base64)
 {
-    qDebug() << "[krc] 开始解码, base64 长度:" << base64.size();
     QByteArray bytes = QByteArray::fromBase64(base64);
-    qDebug() << "[krc] base64 解码后字节数:" << bytes.size();
     if (bytes.size() <= 4) {
         qWarning() << "[krc] 数据太短，无法解码";
         return {};
     }
     bytes = bytes.mid(4); // 跳过前 4 字节（krc1 magic 头）
-    qDebug() << "[krc] 跳过4字节后，剩余:" << bytes.size() << "字节, 前8字节hex:"
-             << bytes.left(8).toHex();
 
     // XOR 解密（酷狗固定 16 字节密钥）
     QByteArray decrypted(bytes.size(), Qt::Uninitialized);
     for (int i = 0; i < bytes.size(); ++i)
         decrypted[i] = char(uchar(bytes.at(i)) ^ kKrcKey[i % 16]);
-    qDebug() << "[krc] XOR解密后, 前16字节hex:" << decrypted.left(16).toHex();
 
     // 偏移4/2 兼容旧格式（带版本标记）
     const int offsets[] = {0, 4, 2};
     for (int skip : offsets) {
         if (decrypted.size() <= skip + 4)
             continue;
-        qDebug() << "[krc] 尝试偏移" << skip << "字节...";
-        const QByteArray piece = decrypted.mid(skip);
-        qDebug() << "[krc] 偏移" << skip << "后前8字节hex:" << piece.left(8).toHex();
-        const QByteArray inflated = inflateSmart(piece);
-        if (!inflated.isEmpty()) {
-            qDebug() << "[krc] 偏移" << skip << "解压成功, 长度:" << inflated.size()
-                     << "内容前100字节:" << QString::fromUtf8(inflated.left(100)).simplified();
+        const QByteArray inflated = inflateSmart(decrypted.mid(skip));
+        if (!inflated.isEmpty())
             return QString::fromUtf8(inflated);
-        }
     }
 
     qWarning() << "[krc] 所有偏移都解压失败！";
@@ -859,11 +971,9 @@ void KugouApi::getMusicInfo(const QString &hash, int type)
 // 歌词（两步：搜索候选 → 下载 KRC → 解码）
 void KugouApi::getLyricInfo(const QString &hash, int duration)
 {
-    qDebug() << "[lyric] ===== 开始获取歌词, hash:" << hash << "原始duration:" << duration;
     // 歌词搜索接口期望 duration 是"秒"。QML 侧可能传毫秒（如 245000），这里归一化成秒
     if (duration > 10000)
         duration = duration / 1000;
-    qDebug() << "[lyric] 归一化后 duration(秒):" << duration;
 
     QUrl url(QStringLiteral("http://lyrics.kugou.com/search"));
     QUrlQuery q;
@@ -873,11 +983,9 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
     q.addQueryItem(QStringLiteral("duration"), QString::number(duration));
     q.addQueryItem(QStringLiteral("hash"), hash);
     url.setQuery(q);
-    qDebug() << "[lyric] 搜索歌词候选 URL:" << url.toString();
 
     get(url.toString(), [this, hash](const QJsonObject &json) {
         const QJsonArray candidates = json.value(QStringLiteral("candidates")).toArray();
-        qDebug() << "[lyric] 找到候选歌词数:" << candidates.size();
         if (candidates.isEmpty()) { // 无歌词
             qWarning() << "[lyric] 没有找到歌词候选（可能是歌曲没有歌词，或 hash/duration 不对）";
             QVariantMap empty;
@@ -889,7 +997,6 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
         const QJsonObject first = candidates.first().toObject();
         const QString id = QString::number(first.value(QStringLiteral("id")).toVariant().toLongLong());
         const QString accesskey = first.value(QStringLiteral("accesskey")).toString();
-        qDebug() << "[lyric] 选中候选 id:" << id << "accesskey:" << accesskey;
 
         QUrl url2(QStringLiteral("http://lyrics.kugou.com/download"));
         QUrlQuery q2;
@@ -900,21 +1007,14 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
         q2.addQueryItem(QStringLiteral("fmt"), QStringLiteral("krc"));
         q2.addQueryItem(QStringLiteral("charset"), QStringLiteral("utf8"));
         url2.setQuery(q2);
-        qDebug() << "[lyric] 下载歌词 URL:" << url2.toString();
 
         get(url2.toString(), [this](const QJsonObject &json2) {
-            qDebug() << "[lyric] 完成, 响应字段:" << json2.keys();
             QVariantMap data;
             const QString content = json2.value(QStringLiteral("content")).toString();
-            qDebug() << "[lyric] content(base64) 长度:" << content.size();
             if (!content.isEmpty()) {
                 const QString krc = decodeKrc(content.toLatin1());
                 const QVariantList info = krcToLyrics(krc);
                 const QVariantList trans = krcTranslations(krc);
-                qDebug() << "[lyric] 解码完成, 歌词行数:" << info.size()
-                         << "翻译行数:" << trans.size()
-                         << "首行:" << (info.isEmpty() ? QStringLiteral("(空)")
-                                                        : info.first().toMap().value(QStringLiteral("text")).toString());
                 data.insert(QStringLiteral("info"), info);
                 data.insert(QStringLiteral("translate"), trans);
             } else {

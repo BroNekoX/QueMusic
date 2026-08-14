@@ -34,6 +34,12 @@ Rectangle {
         }
     }
 
+    Rectangle {
+        width: musicControlMin.width
+        height: 1
+        color: Style.themes.sideColor
+    }
+
     //控制条
     Item {
         id: sliderControl
@@ -98,7 +104,7 @@ Rectangle {
                 width: musicControlMin.width
                 height: progressSlider.hovered ? 6 : 2
                 radius: 0
-                color: progressSlider.hovered ? Style.themes.secondaryColor : Style.themes.secondaryBlurColor
+                color: Style.themes.sideColor
 
                 // 已完成部分
                 Rectangle {
@@ -119,7 +125,7 @@ Rectangle {
                 radius: 18
                 color: Style.themes.primaryColor
                 border.color: Style.themes.containColor
-                border.width: 2
+                border.width: 3
             }
         }
     }

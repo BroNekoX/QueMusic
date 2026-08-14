@@ -50,8 +50,9 @@ Item {
             width: parent.width
             spacing: 14
             Rectangle {
-                width: parent.width
+                width: 232
                 height: 232
+                anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
                 color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
                 border.color: Style.themes.secondaryColor
@@ -82,6 +83,7 @@ Item {
                 radius: 17
                 shadowEnabled: false
                 buttonColor: Style.themes.themeColor
+                textColor: Style.themes.primaryColor
                 onClicked: accountManager.startNeteaseQrLogin()
             }
         }
@@ -103,8 +105,9 @@ Item {
             width: parent.width
             spacing: 14
             Rectangle {
-                width: parent.width
+                width: 232
                 height: 232
+                anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
                 color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
                 border.color: Style.themes.secondaryColor
@@ -135,6 +138,7 @@ Item {
                 radius: 17
                 shadowEnabled: false
                 buttonColor: Style.themes.themeColor
+                textColor: Style.themes.primaryColor
                 onClicked: accountManager.startKugouQrLogin()
             }
         }
@@ -163,7 +167,7 @@ Item {
         opacity: 1
         property color choiceColor: Style.themes.hoverColor
         property color choiceTextColor: Style.themes.fontColor
-        color: Style.settings.sidebarColor ? Style.themes.secondaryBlurColor : Style.themes.primaryBlurColor
+        color: Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor
         Connections {
             target: Style
             function onChangeTheme() {
@@ -185,7 +189,7 @@ Item {
             if(Style.settings.sidebarStyle === 0) {
                 leftSidebarSettings.choiceColor = Style.themes.hoverColor;
                 leftSidebarSettings.choiceTextColor = Style.themes.fontColor;
-                choicebar1.x = 16;
+                choicebar1.x = 18;
                 choicebar1.radius = 2;
             } else if(Style.settings.sidebarStyle === 1) {
                 leftSidebarSettings.choiceColor = Style.themes.themeColor;
@@ -211,7 +215,7 @@ Item {
 
         Rectangle {
             id: choicebar1
-            x: 16
+            x: 18
             width: 4
             height: barBottom - y
             y: 80
@@ -325,9 +329,9 @@ Item {
 
         Column {
             id: navListViewSettings
-            x: 10
+            x: 15
             y: 70
-            width: 190
+            width: 180
             height: settingsView.height - 80
             property int setChoiceIndex: 0
 
@@ -359,7 +363,7 @@ Item {
                     }
 
                     Text {
-                        x: 12
+                        x: 8
                         y: 0
                         z: 1
                         width: 42
@@ -374,7 +378,7 @@ Item {
                     }
 
                     Text {
-                        x: 60
+                        x: 56
                         y: 0
                         z: 2
                         width: 140
@@ -407,17 +411,12 @@ Item {
     }
 
     Rectangle {
-        anchors.fill: parent
-        color: Style.themes.primaryColor
-    }
-
-    Item {
         id: settingStack
-        x: 210; y: 60
+        x: 210; y: 0
         width: parent.width - 210
-        height: parent.height - 60
+        height: parent.height
         z: 2
-        clip: true
+        color: Style.themes.secondaryColor
         property var setPages: [
             themeset,
             uiset,
@@ -457,8 +456,8 @@ Item {
             NumberAnimation {
                 id: setPageAnimey
                 property: "y"
-                from: 180
-                to: 0
+                from: 240
+                to: 60
                 duration: 320
                 easing.type: Easing.OutExpo
             }
@@ -470,12 +469,10 @@ Item {
         QScrollView {
             id: themeset
             width: settingStack.width
-            height: settingStack.height
-
+            height: settingStack.height - 60
+            y: 60
             visible: true
-
             opacity: 1
-            y: 0
             Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
             Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
 
@@ -490,6 +487,8 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "通用"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 QHead { text: "全局主题" }
@@ -497,10 +496,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: globalThemeCard.height
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         id: globalThemeCard
                         width: parent.width
@@ -516,6 +513,7 @@ Item {
                                 choice: Style.settings.theme
                                 onTransformed: (choiced) => {
                                     Style.settings.theme = choiced;
+                                    Style.changeTheme();
                                 }
                             }
                         }
@@ -634,25 +632,22 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
-                        padding: 0
+                        topPadding: 12
                         Component.onCompleted: parent.height = height
 
                         // 合规说明
                         Rectangle {
+                            x: 16
                             width: parent.width - 32
                             height: 46
-                            anchors.horizontalCenter: parent.horizontalCenter
                             color: Style.themes.hoverColor
                             radius: Style.settings.labelRadius
                             Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
+                                x: 12
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 30
                                 text: "\uf0b6"
@@ -661,10 +656,8 @@ Item {
                                 font.pixelSize: Style.settings.texticon
                             }
                             Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 44
-                                anchors.right: parent.right
-                                anchors.rightMargin: 12
+                                x: 44
+                                width: parent.width - 56
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "扫码登录：用你自己的账号在应用内登录（账号即能力），登录后自动读取登录态，仅保存在本机，随时可退出。"
                                 color: Style.themes.textColor
@@ -734,6 +727,7 @@ Item {
                         SettingItemCard {
                             label: "酷狗音乐账号"
                             controlWidth: 400
+                            bottomLine: false
                             controlItem: Item {
                                 anchors.fill: parent
                                 Row {
@@ -756,7 +750,7 @@ Item {
                                         visible: accountManager.kugouLoggedIn
                                         text: accountManager.kugouNickname
                                         color: Style.themes.fontColor
-                                        verticalAlignment: Text.AlignVCenter
+                                        anchors.verticalCenter: parent.verticalCenter
                                         font.pixelSize: Style.settings.textmain
                                         elide: Text.ElideRight
                                         width: 150
@@ -793,10 +787,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -871,7 +863,7 @@ Item {
         QScrollView {
             id: uiset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
 
             visible: false
 
@@ -887,15 +879,15 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "界面"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
                 QHead { text: "界面样式" }
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -903,7 +895,7 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "显示左栏背景"
+                            label: "左栏融合背景"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -974,10 +966,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1055,10 +1045,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1081,10 +1069,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1201,10 +1187,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1229,7 +1213,7 @@ Item {
         QScrollView {
             id: toolset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
 
             visible: false
 
@@ -1245,16 +1229,16 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "功能"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 QHead { text: "通用" }
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -1307,10 +1291,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -1365,7 +1347,7 @@ Item {
         QScrollView {
             id: playerset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
 
             visible: false
 
@@ -1381,6 +1363,8 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "播放"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 QHead { text: "播放器" }
@@ -1388,10 +1372,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: playerColumn.height
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         id: playerColumn
                         width: parent.width
@@ -1462,10 +1444,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -1508,7 +1488,7 @@ Item {
         QScrollView {
             id: shortcutset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
 
             visible: false
 
@@ -1524,6 +1504,8 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "快捷键"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 Text { text: "目前本页的设置项无法使用,请等待更新"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
@@ -1532,10 +1514,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -1557,10 +1537,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     height: 400
                     clip: true
 
@@ -1648,7 +1626,7 @@ Item {
         Item {
             id: modset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
             visible: false
 
             Text {
@@ -1660,6 +1638,8 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "插件"
                 font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
             }
 
             Text { text: "目前本页的设置项无法使用,请等待更新"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
@@ -1734,7 +1714,7 @@ Item {
         QScrollView {
             id: aboutset
             width: parent.width
-            height: parent.height
+            height: settingStack.height - 60
             visible: false
             clip: false
 
@@ -1751,6 +1731,8 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "关于应用"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 QPicture {
@@ -1822,17 +1804,17 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: warnText.implicitHeight + 48
-                    color: Style.darkis ? "#888826" : "#fafaaa"
+                    color: Style.themes.containColor
                     radius: Style.settings.cubeRadius
-                    border.color: "#bbbb38"
-                    border.width: 2
+                    border.color: Style.themes.sideColor
+                    border.width: 1
                     Text {
                         x: 24
                         y: 24
                         font.family: iconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themes.textColor
+                        color: Style.themes.themeColor
                         font.pixelSize: Style.settings.texticon
                     }
                     Text {
@@ -1866,10 +1848,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: description.implicitHeight + 48
-                    radius: 16
-                    color: Style.themes.fullColor
-                    border.color: Style.themes.secondaryColor
-                    border.width: 2
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
                     Text {
                         id: description
                         anchors.centerIn: parent
@@ -1892,6 +1872,7 @@ Item {
                         source: "qrc:/QueMusic/resources/app/icons/bronekox.jpg"
                         title: "BroNekoX Studio"
                         text: "本项目的主要开发负责人"
+                        openUrl: "https://github.com/bronekox"
                     }
                 }
 
@@ -1900,10 +1881,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 244
-                    radius: 16
-                    color: Style.themes.fullColor
-                    border.color: Style.themes.secondaryColor
-                    border.width: 2
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
                         padding: 16
@@ -1980,10 +1959,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 288
-                    radius: 16
-                    color: Style.themes.fullColor
-                    border.color: Style.themes.secondaryColor
-                    border.width: 2
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
                         padding: 16
@@ -2072,7 +2049,8 @@ Item {
 
                 Grid {
                     spacing: 24
-                    rows: 2
+                    columns: 2
+                    rows: 3
                     width: settingStack.standWidth
                     AccountCard {
                         source: "qrc:/QueMusic/resources/app/icons/qwk.png"
@@ -2097,6 +2075,12 @@ Item {
                         title: "Poppins ，Feather"
                         text: "Font库，提供字体与图标的库"
                     }
+                    AccountCard {
+                        source: ""
+                        title: "QCloudMusicApi"
+                        text: "网易云音乐第三方API服务框架"
+                        openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
+                    }
                 }
 
                 QHead { text: "联系开发者" }
@@ -2104,10 +2088,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 150
-                    color: Style.themes.fullColor
-                    radius: 16
-                    border.color: Style.themes.secondaryColor
-                    border.width: 2
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
                         padding: 16
@@ -2205,7 +2187,7 @@ Item {
         QScrollView {
             id: debugset
             width: settingStack.width
-            height: settingStack.height
+            height: settingStack.height - 60
 
             visible: false
 
@@ -2221,6 +2203,8 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: "DeBug"
                     font.pixelSize: Style.settings.pageTitle
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: -0.3
                 }
 
                 Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请将BroNekoX/Quemusic.ini删除"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
@@ -2229,10 +2213,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0
@@ -2277,6 +2259,21 @@ Item {
                             }
                             bottomLine: false
                         }
+
+                        SettingItemCard {
+                            label: "QML动画引擎"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                text: switchTrue ? "VsyncGui" : "QETimer"
+                                switchTrue: Options.settings.qmlAnimator
+                                onToggled: {
+                                    Options.settings.qmlAnimator = !Options.settings.qmlAnimator;
+                                    mainMessage.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
+                                }
+                            }
+                            bottomLine: false
+                        }
                     }
                 }
 
@@ -2284,10 +2281,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.darkis ? Style.themes.secondaryColor : Style.themes.fullColor
+                    color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.secondaryColor
-                    border.width: 1
                     Column {
                         width: parent.width
                         padding: 0

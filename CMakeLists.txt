@@ -119,16 +119,14 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/DownloadManager.h
         cpp/Favorites.cpp
         cpp/Favorites.h
-        cpp/WeCrypto.cpp
-        cpp/WeCrypto.h
         cpp/AccountManager.cpp
         cpp/AccountManager.h
         api/MusicApiService.cpp
         api/MusicApiService.h
         api/OnlineListModel.cpp
         api/OnlineListModel.h
-        api/NeteaseApi.cpp
-        api/NeteaseApi.h
+        api/NeteaseCloudApi.cpp
+        api/NeteaseCloudApi.h
         api/KugouApi.cpp
         api/KugouApi.h
         api/ApiCommon.h
@@ -146,6 +144,13 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
+# QCloudMusicApi：第三方网易云音乐在线接口
+set(QCLOUDMUSICAPI_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(QCLOUDMUSICAPI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+add_subdirectory(api/QCloudMusicApi)
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi/QCloudMusicApi)
+
 target_link_libraries(${PROJECT_NAME}
     PRIVATE 
         Qt6::Core
@@ -156,7 +161,8 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
-        #QCloudMusicApi
+        QCloudMusicApi
+        cryptopp::cryptopp
         quemusic_meshgradientplugin
         z
     PUBLIC QWindowKit::Quick

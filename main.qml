@@ -8,6 +8,7 @@ import QtCore
 import QtMultimedia
 import QWindowKit 1.0
 import QtQuick.Effects
+import QtQuick.Controls.Basic
 
 //import 'qrc:/QueMusic/components'
 //import 'qrc:/QueMusic/layout'
@@ -163,51 +164,52 @@ Window {
                     }
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(returnButton, true);
-            }
-            Rectangle {
-                id: search
+            }   
+
+            TextField {
+                id: mainSearchInput
+                x: 20
+                y: 0
                 height: 36
-                width: 200
-                opacity: 0.8
-                radius: 18
-                color: Style.themes.secondaryColor
-
-                Text {
-                    x: 160
-                    y: 0
-                    width: 36
-                    height: 36
-                    text: "\uf100"
-                    font.family: iconFont.name
-                    font.pixelSize: Style.settings.texticon
-                    color: Style.themes.textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                width: 150
+                //displayText: "搜索"
+                leftPadding: 16
+                placeholderText: "搜索"
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.textmain
+                verticalAlignment: Text.AlignVCenter
+                focus: false
+                //clip: true
+                //onTextEdited: parent.border.color = Style.themes.themeColor
+                //onEditingFinished: parent.border.color = "transparent"
+                onAccepted: {
+                    MusicApi.searchSongsResults.clear();
+                    mainContent.contentIndexed(6);
+                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
+                    window.exitIndex = 1;
                 }
-
-                TextInput {
-                    id: mainSearchInput
-                    x: 20
-                    y: 0
-                    width: 142
-                    height: parent.height
-                    //displayText: "搜索"
-                    color: Style.themes.textColor
-                    font.pixelSize: Style.settings.textmain
-                    verticalAlignment: Text.AlignVCenter
-                    focus: false
-                    clip: true
-                    //onTextEdited: parent.border.color = Style.themes.themeColor
-                    //onEditingFinished: parent.border.color = "transparent"
-                    onAccepted: {
-                        MusicApi.searchSongsResults.clear();
-                        mainContent.contentIndexed(6);
-                        MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
-                        window.exitIndex = 1;
-                    }
-                }
-
                 Component.onCompleted: windowAgent.setHitTestVisible(mainSearchInput, true);
+                background: Rectangle {
+                    height: 36
+                    width: 191
+                    radius: 18
+                    color: Style.themes.primaryColor//Style.themes.secondaryColor
+                }
+            }
+            SButton {
+                id: searchButton
+                width: 36
+                height: 36
+                radius: 18
+                iconCharacter: "\uf100"
+                buttonColor: "transparent"
+                onClicked: {
+                    MusicApi.searchSongsResults.clear();
+                    mainContent.contentIndexed(6);
+                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
+                    window.exitIndex = 1;
+                }
+                Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
             }
         }
 
@@ -380,7 +382,7 @@ Window {
                     backGround.visible = false;
                     sidebar.baseColor = Style.themes.primaryColor;
                     window.color = Style.themes.primaryColor;
-                    mainContent.color = Style.themes.primaryColor;
+                    mainContent.color = Style.themes.secondaryColor;
                 } else if(Style.settings.backmode === 1) {
                     backGround.visible = false;
                     sidebar.baseColor = Style.themes.primaryBlurColor;

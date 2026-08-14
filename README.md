@@ -1,4 +1,8 @@
-# 🎵 QueMusic — QML跨平台音乐播放器
+# 🎵 QueMusic Project
+
+<p align="center"><img alt="Logo" src="doc/example/logo.png"></p>
+
+<p align="center"><b>基于 C++/Qt/QML 构建的强大高性能跨平台音乐播放器</b></p>
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
@@ -115,7 +119,7 @@ cd QueMusic
 > git submodule update --init --recursive
 > ```
 
-### 🪟 Windows 构建
+### Windows 构建
 
 ```bash
 # 方式一：命令行
@@ -130,7 +134,7 @@ cmake --build build --parallel
 
 > 💡 **提示**：推荐使用 **Qt Creator** 打开本项目，配置、编译、调试一步到位。
 
-### 🐧 Linux 构建
+### Linux 构建
 
 ```bash
 # 方式一：AppImage 一键打包（推荐，自包含 Qt 6.9.3）
@@ -144,13 +148,13 @@ cmake --build build -j"$(nproc)"
 ./build/bin/QueMusic
 
 #方式三：使用KDevelop或Qt Creator
-使用KDevelop或Qt Creator都可以进行快速构建和测试
+#使用KDevelop或Qt Creator都可以进行快速构建和测试
 
 # Arch Linux 用户也可以用 PKGBUILD 打包：
 # cd packaging && makepkg -si
 ```
 
-### 🍎 macOS 构建（无需 Mac，云端自动打包）
+### MacOS 构建
 
 本项目内置 GitHub Actions 工作流 `.github/workflows/build-macos.yml`，在 GitHub 的 macOS 虚拟机（Apple Silicon + Intel）上自动构建 `.dmg`：
 
@@ -191,6 +195,7 @@ QueMusic/
 │   ├── MeshGradientItem.cpp/h  # 网格渐变渲染（衍生自 AMLL）
 │   └── shaders/                # meshgradient.vert/.frag（衍生自 AMLL）
 ├── api/                        # JavaScript API 层
+│   ├── QCloudMusicApi/         # 存放QCloudMusicApi第三方项目
 │   ├── MusicApiService.cpp/h   # 在线音乐 API总部
 │   ├── KugouApi.cpp/h          # 酷狗音乐 API
 │   ├── NeteaseApi.cpp/h        # 网易云音乐 API
@@ -238,7 +243,7 @@ QueMusic/
 - **优化性能**：持续优化内存 & GPU 占用，解决性能瓶颈
 - **加入沉浸播放**：参考 Folia / MineRadio 概念，引入 3D 可视化与高度自定义歌词
 - **UI 强化**：继续打磨自研 QML 组件库，统一设计语言
-- **国际化**：i18n 多语言支持，之后将更新多国语言
+- **国际化**：可选计划，由于使用国内音乐平台，不一定更新
 - **更多**：自定义插件系统,自定义主题UI插件系统
 
 即使不断更新，QueMusic开发者始终保持开源，免费，没有付费内容，保持完全的免费，但是对于歌曲版权方面，请自费购买平台VIP或付费歌曲，登录平台账号进行收听（即将更新）。
@@ -344,6 +349,6 @@ Copyright (c) 2025-2026 QueMusic Contributors
 ---
 
 <p align="center">
-  <sub>Built with ❤️ by the QueMusic</sub><br/>
-  <sub>最后更新：2026-8-12</sub>
+  <sub>Built with ❤️ by the QueMusic Project</sub><br/>
+  <sub>最后更新：2026-8-14</sub>
 </p>

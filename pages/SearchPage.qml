@@ -34,6 +34,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "搜索结果"
                 font.pixelSize: Style.settings.pageTitle
+                font.weight: Font.DemiBold
                 color: Style.themes.fontColor
                 QLoadSign {
                     id: searchLoad
@@ -51,8 +52,11 @@ Item {
                 choice: MusicApi.songSource
                 model: ["酷狗音乐","网易云音乐","QQ音乐","自定义源"]
                 onTransformed: (choiced) => {
-                                   MusicApi.songSource = choiced
-                               }
+                    MusicApi.songSource = choiced;
+                    MusicApi.searchSongsResults.clear();
+                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
+                    window.exitIndex = 1;
+                }
             }
         }
 
@@ -389,12 +393,8 @@ Item {
                         text: "更多"
                         onClicked: {
                             if(!MusicApi.loadState && MusicApi.playlistSong.count % 10 === 0) {
-                                var tagid = playListSongsWindow.id
-                                if(MusicApi.songSource === 1) {
-                                    MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 10 + 1,10);
-                                } else {
-                                    MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
-                                }
+                                var tagid = playListSongsWindow.id;
+                                MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
                             } else {
                                 mainWarn.tiped("没有更多了",0);
                             }

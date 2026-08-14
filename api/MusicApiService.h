@@ -10,7 +10,7 @@
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include "KugouApi.h"
-#include "NeteaseApi.h"
+#include "NeteaseCloudApi.h"   // 基于 QCloudMusicApi 的网易云实现（替代旧 NeteaseApi）
 #include "OnlineListModel.h"
 #include "../cpp/DownloadManager.h"
 
@@ -155,7 +155,7 @@ private:
     void handleMusicInfo(const QVariantMap &d, int source);
 
     int m_source = 0;
-    NeteaseApi m_netease;
+    NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
     KugouApi m_kugou;
     AccountManager *m_account = nullptr;
     static AccountManager *s_accountManager; // create() 使用，main.cpp 注入

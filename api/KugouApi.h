@@ -25,6 +25,11 @@ public:
 
     void setCookie(const QString &cookie) { m_cookie = cookie; }
 
+    // 酷狗扫码登录鉴权辅助（原 WeCrypto；QCloudMusicApi 仅含网易云，不含酷狗签名）
+    static QByteArray kugouWebSignature(const QJsonObject &params);
+    static QString randomGuid();
+    static QString kugouMidFromGuid(const QString &guid);
+
     // 与 QML 侧 action 一一对应的方法
     void searchSongs(const QString &keyword, int type, int page, int pageSize);
     void getPlaylistMenu(int type);

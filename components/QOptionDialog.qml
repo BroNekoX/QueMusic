@@ -35,7 +35,7 @@ Popup {
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
         shadowEffect: true
-        cardColor: Style.themes.blurSecondaryColor
+        //cardColor: Style.themes.blurSecondaryColor
         borderRadius: Style.settings.cubeRadius
     }
 
@@ -73,6 +73,9 @@ Popup {
                 text: dialog.cancelText
                 iconCharacter: dialog.cancelIcon // X 图标
                 radius: Style.settings.labelRadius
+                buttonColor: Style.themes.secondaryColor
+                borderColor: Style.themes.sideColor
+                borderWidth: 1
                 iconSize: Style.settings.texticon - 2
                 onClicked: { dialog.cancel(); dialog.close() }
             }

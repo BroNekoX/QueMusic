@@ -119,44 +119,49 @@ ListView {
     }
     header: Item {
         width: view.width
-        height: 32
+        height: 36
         Text {
             x: 80
-            height: 32
+            height: 36
             text: view.headerModel[0]
             color: Style.themes.textColor
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.settings.textTip
+            font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Text {
             x: view.artistX
-            height: 32
+            height: 36
             text: view.headerModel[1]
             color: Style.themes.textColor
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.settings.textTip
+            font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Text {
             x: view.toolX + 16
-            height: 32
+            height: 36
             text: view.headerModel[2]
             color: Style.themes.textColor
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.settings.textTip
+            font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Text {
             x: view.toolX + 70
-            height: 32
+            height: 36
             text: view.headerModel[3]
             color: Style.themes.textColor
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.settings.textTip
+            font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Rectangle {
             width: parent.width - 16
             height: 1
             color: Style.themes.sideColor
-            y: 31
+            opacity: 0.5
+            y: 35
         }
     }
 
@@ -194,7 +199,7 @@ ListView {
 
     delegate: Rectangle {
         id: listDel
-        height: 64
+        height: 60
         width: view.width - 16
         color: view.selectedIndices.indexOf(index) !== -1 ? Style.themes.containColor : "#00000000"
         radius: Style.settings.labelRadius
@@ -208,15 +213,15 @@ ListView {
             color: Style.themes.hoverColor
             opacity: listArea.containsMouse ? 1 : 0
             z: 1
-            Behavior on opacity { NumberAnimation { duration: 80 } }
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
 
         QPicture {
             y: 8
             x: 8
             z: 4
-            width: 48
-            height: 48
+            width: 44
+            height: 44
             radius: 10
             source: model.cover.replace("{size}","64") || "qrc:/QueMusic/resources/app/musicpic.png"
         }
@@ -228,10 +233,10 @@ ListView {
             y: 16
             z: 3
             width: view.artistX - 110
-            height: 32
+            height: 28
             text: model.title || "Unknown"
             color: Style.themes.fontColor
-            font.bold: true
+            font.weight: Font.DemiBold
             elide: Text.ElideRight
             font.pixelSize: Style.settings.textmain
             verticalAlignment: Text.AlignVCenter
@@ -239,20 +244,19 @@ ListView {
             Behavior on color { ColorAnimation { duration: 120 } }
         }
         Rectangle {
-            color: "transparent"
-            border.color: "#fcbd55"
-            border.width: 2
+            color: Style.themes.containColor
             x: title.implicitWidth > title.width ? title.width + 75 : title.implicitWidth + 85
-            y: 22
+            y: 20
             width: 32
-            height: 20
-            radius: 8
+            height: 18
+            radius: 9
             visible: model.paytype === 3
             Text {
                 text: "VIP"
                 anchors.centerIn: parent
-                color: Style.themes.textColor
-                font.pixelSize: 12
+                color: Style.themes.themeColor
+                font.pixelSize: 9
+                font.weight: Font.DemiBold
             }
         }
         Text {
@@ -260,10 +264,10 @@ ListView {
             y: 16
             z: 3
             width: view.artistX - 100
-            height: 32
+            height: 28
             text: model.artist || "Unknown"
             color: Style.themes.textColor
-            font.bold: true
+            font.weight: Font.Normal
             elide: Text.ElideRight
             font.pixelSize: Style.settings.text
             verticalAlignment: Text.AlignVCenter
@@ -275,7 +279,7 @@ ListView {
             y: 16
             z: 3
             width: 60
-            height: 32
+            height: 28
             text: model.duration + "首"
             color: Style.themes.textColor
             font.bold: false
@@ -311,8 +315,10 @@ ListView {
                 anchors.right: parent.right
                 anchors.rightMargin: 16
                 spacing: 2
-                y: 14
+                y: 12
                 height: 36
+                opacity: listArea.containsMouse ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
                 SButton {
                     iconCharacter: "\uf050"
                     width: 36

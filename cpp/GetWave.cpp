@@ -232,7 +232,7 @@ void GetWave::computeSpectrumFromFFT(const QVector<float> &samples, float sample
         rawBands[b] = qBound(0.0, scaled, 1.0);
     }
 
-    // 平滑 + 镜像输出（更新 m_spectrumData，调用者已加锁）
+    // 平滑 + 镜像输出
     for (int i = 0; i < halfBands; ++i) {
         int leftIdx  = halfBands - 1 - i;
         int rightIdx = halfBands + i;

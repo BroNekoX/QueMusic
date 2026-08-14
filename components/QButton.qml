@@ -20,12 +20,12 @@ Button {
     property bool shadowEnabled: true              // 是否显示阴影
     property int textBetween: 6                   // 图标与文字间距
     property int borderWidth: 0   // 边框大小，0即无
-    property color borderColor: Style.themes.sideColor   // 边框颜色
+    property color borderColor: Style.themes.borderColor   // 边框颜色
     property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
     property real pressedScale: 0.92                 // 按下缩放比例
     property color shadowColor: Style.themes.shadowColor    // 阴影颜色
     property color hoverColor: Style.themes.hoverColor
-    property color buttonColor: Style.themes.fullColor
+    property color buttonColor: Style.themes.primaryColor
     property int iconSize: Style.settings.texticon
     property int fontSize: Style.settings.text
 

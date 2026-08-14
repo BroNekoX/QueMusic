@@ -323,7 +323,7 @@ Item {
                 property: "fixedH"
                 duration: 460
                 to: fixedAnime.to
-                easing.type: Easing.Bezier
+                easing.type: Easing.BezierSpline
                 easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
             }
             NumberAnimation {
@@ -331,7 +331,7 @@ Item {
                 property: "finalH"
                 duration: 460
                 to: fixedAnime.to
-                easing.type: Easing.Bezier
+                easing.type: Easing.BezierSpline
                 easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
             }
         }
@@ -467,7 +467,7 @@ Item {
                         property: "standY"
                         duration: lyricAnime.animeMs
                         to: lyricAnime.toY
-                        easing.type: Easing.Bezier
+                        easing.type: Easing.BezierSpline
                         easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
                     }
                 }

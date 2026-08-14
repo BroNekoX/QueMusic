@@ -53,6 +53,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "推荐"
                 font.pixelSize: Style.settings.pageTitle
+                font.weight: Font.DemiBold
                 color: Style.themes.fontColor
             }
             //QButton { x: parent.width - 120; y: 0; height: 40; width: 120; iconCharacter: "\uf10c"; text: "刷新" }
@@ -85,17 +86,17 @@ Item {
                 Rectangle {
                     width: homeView.standWidth
                     height: warnText.implicitHeight + 48
-                    color: Style.darkis ? "#888826" : "#fafaaa"
+                    color: Style.themes.containColor
                     radius: Style.settings.cubeRadius
-                    border.color: "#bbbb38"
-                    border.width: 2
+                    border.color: Style.themes.sideColor
+                    border.width: 1
                     Text {
                         x: 24
                         y: 24
                         font.family: iconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themes.textColor
+                        color: Style.themes.themeColor
                         font.pixelSize: Style.settings.texticon
                     }
                     Text {
@@ -127,68 +128,89 @@ Item {
                 Item {
                     height: 256
                     width: homeView.standWidth
-                    readonly property int halfWidth: homeView.standWidth / 2
+                    readonly property int leftWidth: homeView.standWidth * 0.6
+                    readonly property int rightWidth: homeView.standWidth * 0.4
 
                     // 每日推荐大卡片
-                    QPicture {
-                        x: 8
-                        width: parent.halfWidth - 16
+                    QFloatCard {
+                        width: parent.leftWidth - 8
                         height: 256
-                        source: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
-                        //color: "blue"
-                        sourceSize: Qt.size(256,256)
-                        radius: Style.settings.cubeRadius
-                        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        RectangularShadow {
-                            anchors.fill: parent
-                            opacity: parent.y / -8
-                            z: -1
-                            offset.x: 3
-                            offset.y: -parent.y
-                            radius: Style.settings.cubeRadius
-                            blur: 24
-                            spread: 0
-                            color: Style.themes.shadowColor
-                        }
 
-                        // 底部渐变遮罩
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 116
-                            radius: Style.settings.cubeRadius
-
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: "transparent" }
-                                GradientStop { position: 1.0; color: Qt.rgba(0,0,0,0.55) }
-                            }
-                        }
                         // 大标题
                         Text {
-                            anchors.left: parent.left
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: 20
-                            anchors.bottomMargin: 14
-                            text: "每日推荐"
-                            font.pixelSize: 28
+                            x: 16
+                            y: 64
+                            text: "DAILY RECOMMEND"
+                            width: parent.width
+                            font.pixelSize: Style.settings.textmain
                             font.bold: true
-                            color: "#ffffff"
+                            elide: Text.ElideRight
+                            color: Style.themes.themeColor
                         }
                         Text {
-                            anchors.left: parent.left
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: 20
-                            anchors.bottomMargin: 54
-                            text: "根据你的口味每天更新"
-                            font.pixelSize: Style.settings.text
-                            color: "#d9ffffff"
+                            x: 16
+                            y: 100
+                            text: "每日推荐"
+                            width: parent.width
+                            elide: Text.ElideRight
+                            font.pixelSize: 32
+                            font.bold: true
+                            color: Style.themes.fontColor
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: parent.y = -8;
-                            onExited: parent.y = 0;
+                        Text {
+                            x: 16
+                            y: 160
+                            text: "那些你反复循环的节奏，长成了今天的模样。"
+                            width: parent.width
+                            wrapMode: Text.Wrap
+                            font.pixelSize: Style.settings.textmain
+                            color: Style.themes.textColor
+                        }
+                        Rectangle {
+                            x: parent.width - 152
+                            y: 64
+                            width: 128
+                            height: 128
+                            radius: Style.settings.cubeRadius
+                            color: Style.themes.secondaryColor
+                            QPicture {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                sourceSize: Qt.size(128,128)
+                                source: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
+                                radius: Style.settings.cubeRadius - 2
+                            }
 
+                            RectangularShadow {
+                                anchors.fill: parent
+                                z: -1
+                                offset.x: 5
+                                offset.y: 5
+                                radius: Style.settings.cubeRadius
+                                blur: 24
+                                color: Style.themes.shadowColor
+                            }
+                        }
+
+                        onClicked: {
+                            MusicApi.recommendSongs.clear();
+                            MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
+                            var image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
+                            var title = "每日推荐";
+                            dailyRecomWindow.opened(title,image);
+                            window.exitIndex = 1;
+                        }
+                        controlItem: QButton {
+                            x: 16
+                            y: 200
+                            height: 32
+                            radius: 16
+                            iconCharacter: "\uf0e7"
+                            text: "前往查看"
+                            shadowEnabled: false
+                            buttonColor: Style.themes.themeColor
+                            textColor: Style.themes.fullColor
+                            iconColor: Style.themes.fullColor
                             onClicked: {
                                 MusicApi.recommendSongs.clear();
                                 MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
@@ -200,24 +222,10 @@ Item {
                         }
                     }
 
-                    Rectangle {
-                        x: parent.halfWidth + 8
-                        width: parent.halfWidth - 16
+                    QFloatCard {
+                        x: parent.leftWidth + 8
+                        width: parent.rightWidth - 8
                         height: 120
-                        radius: Style.settings.cubeRadius
-                        color: Style.themes.secondaryColor
-                        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        RectangularShadow {
-                            anchors.fill: parent
-                            opacity: parent.y / -8
-                            z: -1
-                            offset.x: 3
-                            offset.y: -parent.y
-                            radius: Style.settings.cubeRadius
-                            blur: 24
-                            spread: 0
-                            color: Style.themes.shadowColor
-                        }
 
                         Text {
                             x: 16; y: 16
@@ -235,23 +243,19 @@ Item {
                             font.pixelSize: Style.settings.text
                             color: Style.themes.textColor
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: parent.y = -8
-                            onExited: parent.y = 0
-                            onClicked: {
-                                if(Options.lastSongs.hash !== "") {
-                                    MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
-                                }
+                        onClicked: {
+                            if(Options.lastSongs.hash !== "") {
+                                MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
                             }
+                        }
+                        controlItem: [
                             QPicture {
                                 y: 56
                                 x: 16
                                 width: 52; height: 52
                                 radius: 12
                                 source: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
-                            }
+                            },
                             Text {
                                 x: 78
                                 y: 60
@@ -263,7 +267,7 @@ Item {
                                 color: Style.themes.fontColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
-                            }
+                            },
                             Text {
                                 x: 78
                                 y: 83
@@ -274,7 +278,7 @@ Item {
                                 color: Style.themes.textColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
-                            }
+                            },
                             QButton {
                                 x: parent.width - 84
                                 y: 10
@@ -291,7 +295,7 @@ Item {
                                         MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
                                     }
                                 }
-                            }
+                            },
                             SButton {
                                 x: parent.width - 120
                                 y: 10
@@ -303,7 +307,7 @@ Item {
                                 buttonColor: Style.themes.sideColor
                                 onClicked: {
                                 }
-                            }
+                            },
                             //  加入播放列表
                             SButton {
                                 x: parent.width - 52
@@ -330,31 +334,16 @@ Item {
                                     }
                                 }
                             }
-                        }
+                        ]
                     }
 
                     // 我的收藏歌单
-                    Rectangle {
-                        x: parent.halfWidth + 8
+                    QFloatCard {
+                        x: parent.leftWidth + 8
                         y: 136
-                        width: parent.halfWidth - 16
+                        width: parent.rightWidth - 8
                         height: 120
-                        radius: Style.settings.cubeRadius
                         color: Style.themes.containColor
-                        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        RectangularShadow {
-                            id: favorCardShadow
-                            anchors.fill: parent
-                            opacity: 0
-                            z: -1
-                            offset.x: 3
-                            offset.y: -parent.y + 136
-                            radius: Style.settings.cubeRadius
-                            blur: 24
-                            spread: 0
-                            color: Style.themes.shadowColor
-                            Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                        }
 
                         Row {
                             anchors.centerIn: parent
@@ -381,116 +370,235 @@ Item {
                                 }
                             }
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: {
-                                parent.y = 128;
-                                favorCardShadow.opacity = 1.0;
-                            }
-                            onExited: {
-                                parent.y = 136;
-                                favorCardShadow.opacity = 0.0;
-                            }
-                            onClicked: {
-                                sidebar.indexed(3);
-                                mainContent.contentIndexed(3);
-                            }
+                        onClicked: {
+                            sidebar.indexed(3);
+                            mainContent.contentIndexed(3);
                         }
                     }
                 }
 
-                QHead { text: "推荐分类" }
-                Row {
-                    height: 128
-                    spacing: 24
+                QHead { text: "私人专属" }
+
+                Item {
+                    height: 180
                     width: homeView.standWidth
-                    Repeater {
-                        model: MusicApi.getHotlistMenu
-                        delegate: Item {
-                            id: hotlistDel
-                            height: 128
-                            width: 128
-                            property int radius: Style.settings.labelRadius
+                    readonly property int leftWidth: homeView.standWidth * 0.5 - 8
+                    readonly property int rightWidth: homeView.standWidth * 0.5 - 8
+                    Rectangle {
+                        x: 0
+                        y: 0
+                        width: parent.leftWidth
+                        height: 180
+                        color: Style.themes.primaryColor
+                        radius: Style.settings.cubeRadius
+                        Text {
+                            x: 12
+                            y: 16
+                            height: 24
+                            text: "歌单分类"
+                            font.pixelSize: Style.settings.textH2
+                            font.bold: true
+                            color: Style.themes.fontColor
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        RectangularShadow {
+                            anchors.fill: parent
+                            z: -1
+                            offset.x: 3
+                            offset.y: 5
+                            radius: Style.settings.cubeRadius
+                            blur: 10
+                            spread: 0
+                            color: Style.themes.shadowColor
+                        }
 
-                            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
+                        ListView {
+                            id: categoryList
+                            y: 56
+                            width: parent.width
+                            height: 96
+                            orientation: ListView.Horizontal
+                            spacing: 20
+                            leftMargin: 16
+                            rightMargin: 16
+                            clip: true
+                            model: MusicApi.getHotlistMenu
 
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    MusicApi.musicPlaylists.clear();
-                                    MusicApi.globaltagid = model.tagid;
-                                    MusicApi.getMusicPlaylists(model.tagid,1,20);
-                                    var image = model.cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
-                                    var title = model.title;
-                                    recommendWindow.opened(title,image);
-                                    window.exitIndex = 1;
-                                }
-                                onPressed: hotlistDel.scale = 0.92
-                                onReleased: hotlistDel.scale = 1.0
-                                onCanceled: hotlistDel.scale = 1.0
-                            }
-                            Item {
-                                width: hotlistDel.width
-                                height: hotlistDel.width
+                            // 隐藏系统滚动条，用惯性和鼠标拖拽
+                            interactive: true
+                            boundsBehavior: Flickable.DragOverBounds
 
-                                // 原始图像，隐藏
-                                Image {
-                                    id: sourceItem
-                                    source: model.cover.replace("{size}", "128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                            delegate: Item {
+                                id: catDel
+                                width: 96
+                                height: 96
+                                property int radius: Style.settings.cubeRadius
+                                //scale: catMouse.containsMouse ? 1.06 : 1.0
+                                //Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+
+                                QPicture {
+                                    id: card
                                     anchors.fill: parent
-                                    sourceSize.width: parent.width
-                                    sourceSize.height: parent.height
-                                    fillMode: Image.PreserveAspectCrop
-                                    visible: false
-                                }
+                                    radius: catDel.radius
+                                    source: (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png"
+                                    sourceSize: Qt.size(256,256)
 
-                                MultiEffect {
-                                    id: multiEffect
-                                    source: sourceItem
-                                    anchors.fill: parent
-                                    maskEnabled: true
-                                    maskSource: mask
-                                    // 下面两个属性抗锯齿
-                                    maskThresholdMin: 0.5
-                                    maskSpreadAtMin: 1.0
-
-                                }
-
-                                // 圆形黑色矩形（用于遮罩）
-                                Item {
-                                    id: mask
-                                    width: sourceItem.width
-                                    height: sourceItem.height
-                                    layer.enabled: true
-                                    visible: false
-
-
+                                    // 底部渐变遮罩 —— 保证标题永远可读
                                     Rectangle {
-                                        anchors.fill: parent
-                                        radius: hotlistDel.radius
-                                        color: "black" // 黑色用于掩码：纯黑表示完全不透明
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.bottom: parent.bottom
+                                        height: 48
+                                        radius: catDel.radius
+                                        gradient: Gradient {
+                                            GradientStop { position: 0.0; color: "transparent" }
+                                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.72) }
+                                        }
+                                    }
+
+                                    // 分类标题
+                                    Text {
+                                        y: 60
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: model.title || ""
+                                        font.pixelSize: 16
+                                        font.weight: Font.Bold
+                                        color: "#FFFFFF"
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                    }
+
+                                    // hover 时浮现的箭头
+                                    Text {
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: 14
+                                        text: "\uf0e7"
+                                        font.family: iconFont.name
+                                        font.pixelSize: 18
+                                        color: "#FFFFFF"
+                                        opacity: catMouse.containsMouse ? 1 : 0
+                                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: catMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onPressed: catDel.scale = 0.96
+                                    onReleased: catDel.scale = 1.0
+                                    onCanceled: catDel.scale = 1.0
+
+                                    onClicked: {
+                                        MusicApi.musicPlaylists.clear();
+                                        MusicApi.globaltagid = model.tagid;
+                                        MusicApi.getMusicPlaylists(model.tagid, 1, 20);
+                                        var image = (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
+                                        recommendWindow.opened(model.title, image);
+                                        window.exitIndex = 1;
                                     }
                                 }
                             }
-
-                            Text {
-                                id: text
-                                width: hotlistDel.width - 32
-                                height: 32
-                                x: 12
-                                y: hotlistDel.height - height
-                                text: model.title
-                                font.pixelSize: 15
-                                font.bold: true
-                                opacity: 0.8
-                                color: Style.themes.primaryColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
+                        }
+                    }
+                    QFloatCard {
+                        x: parent.leftWidth + 16
+                        y: 0
+                        width: parent.rightWidth
+                        height: 82
+                        Text {
+                            x: 20
+                            y: 20
+                            width: 42
+                            height: 42
+                            text: "\uf104"
+                            font.family: iconFont.name
+                            font.pixelSize: 32
+                            color: Style.themes.themeColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        Text {
+                            x: 70
+                            y: 20
+                            height: 22
+                            text: "私人漫游"
+                            color: Style.themes.fontColor
+                            font.pixelSize: Style.settings.textmain
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        Text {
+                            x: 70
+                            y: 42
+                            height: 20
+                            text: "全网播放量最高的热门单曲合集"
+                            color: Style.themes.textColor
+                            font.pixelSize: Style.settings.text
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        controlItem: SButton {
+                            x: parent.width - 50
+                            y: 23
+                            iconCharacter: "\uf0e7"
+                            width: 36
+                            height: 36
+                            radius: 18
+                            //visible: false
+                            buttonColor: "transparent"
+                            shadowEnabled: false
+                        }
+                    }
+                    QFloatCard {
+                        x: parent.leftWidth + 16
+                        y: 98
+                        width: parent.rightWidth
+                        height: 82
+                        Text {
+                            x: 20
+                            y: 20
+                            width: 42
+                            height: 42
+                            text: "\uf109"
+                            font.family: iconFont.name
+                            font.pixelSize: 32
+                            color: Style.themes.themeColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        Text {
+                            x: 70
+                            y: 20
+                            height: 22
+                            text: "私人雷达"
+                            color: Style.themes.fontColor
+                            font.pixelSize: Style.settings.textmain
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        Text {
+                            x: 70
+                            y: 42
+                            height: 20
+                            text: "最新发行高赞潮流流行歌曲"
+                            color: Style.themes.textColor
+                            font.pixelSize: Style.settings.text
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        controlItem: SButton {
+                            x: parent.width - 50
+                            y: 23
+                            iconCharacter: "\uf0e7"
+                            width: 36
+                            height: 36
+                            radius: 18
+                            //visible: false
+                            buttonColor: "transparent"
+                            shadowEnabled: false
                         }
                     }
                 }
+
 
                 QHead { text: "热门歌单" }
 
@@ -538,6 +646,7 @@ Item {
                                 source: model.cover.replace("{size}", "128")
                                 radius: Style.settings.labelRadius
                                 //cache: true
+                                sourceSize: Qt.size(128,128)
                                 radius3: 0
                                 radius4: 0
                             }

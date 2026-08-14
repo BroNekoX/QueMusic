@@ -29,7 +29,7 @@ Rectangle {
                 width: root.singleWidth
                 color: root.choice == index ? Style.themes.themeColor : Style.themes.primaryColor
                 border.width: 2
-                border.color: Style.themes.secondaryColor
+                border.color: Style.themes.borderColor
                 radius: Style.settings.labelRadius
                 Behavior on color { ColorAnimation { duration: 80 } }
             

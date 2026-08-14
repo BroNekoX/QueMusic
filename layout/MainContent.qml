@@ -8,7 +8,7 @@ import 'qrc:/QueMusic/pages'
 // 主体内容区域
 Rectangle {
     id: mainContent
-    color: Style.themes.primaryColor //Style.themes.blurOverlayColor
+    color: Style.themes.secondaryColor //Style.themes.blurOverlayColor
     readonly property int pageHeight: height - 60
 
     // 页面数组，便于管理

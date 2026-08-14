@@ -17,6 +17,10 @@
 class QNetworkAccessManager;
 class QNetworkReply;
 
+#include <QAtomicInt>
+
+class ApiHelper;
+
 class AccountManager : public QObject
 {
     Q_OBJECT
@@ -93,14 +97,20 @@ signals:
     void message(const QString &text, int type);
 
 private:
-    void weapiPost(const QString &path, const QJsonObject &json);
     void kugouGet(const QString &baseUrl, const QString &path, const QJsonObject &customParams);
     void pollNetease();
     void pollKugou();
 
-    void onNeteaseUnikey(QNetworkReply *reply);
-    void onNeteasePoll(QNetworkReply *reply);
     void onNeteaseProfile(QNetworkReply *reply);
+
+    // 网易云二维码登录（基于 QCloudMusicApi 的 login_qr_* 接口，后台线程执行避免卡 UI）
+    void neteaseFetchQrWorker();
+    void neteasePollWorker(const QString &key);
+    Q_INVOKABLE void onNeteaseQrFetched(const QString &unikey, const QString &qrurl);
+    Q_INVOKABLE void onNeteasePollResult(int code, const QString &cookie,
+                                        const QString &nickname, const QString &msg);
+    Q_INVOKABLE void onNeteaseFetchError(const QString &msg);
+    void storeNeteaseCookieString(const QString &cookieStr);
     void onKugouKey(QNetworkReply *reply);
     void onKugouPoll(QNetworkReply *reply);
 
@@ -136,6 +146,11 @@ private:
     QTimer *m_kugouPollTimer = nullptr;
     QString m_neteaseUnikey;
     QString m_kugouKey;
+
+    // 网易云登录走 QCloudMusicApi（login_qr_* 接口），由其内部维护 cookie
+    ApiHelper *m_api = nullptr;
+    QAtomicInt m_neteaseBusy{0};      // 防止并发调用阻塞的 invoke
+    QAtomicInt m_neteaseCancelled{0}; // 取消/退出登录时置位
 
     // 酷狗设备信息
     QString m_kugouGuid;

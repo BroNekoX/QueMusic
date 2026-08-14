@@ -22,13 +22,13 @@ Slider {
         height: 6
         width: slider.availableWidth
         radius: height / 2
-        color: Style.themes.secondaryColor
+        color: Style.themes.borderColor
 
         Rectangle {
             // slider.visualPosition 可视比例
             width: slider.visualPosition * parent.width
             height: parent.height
-            color: Style.themes.containColor
+            color: Style.themes.themeColor
             radius: height /2
         }
     }

@@ -38,6 +38,7 @@ Item {
                 height: 40
                 verticalAlignment: Text.AlignVCenter
                 text: "本地音乐"
+                font.weight: Font.DemiBold
                 font.pixelSize: Style.settings.pageTitle
                 color: Style.themes.fontColor
             }

@@ -2,9 +2,11 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "AccountManager.h"
-#include "WeCrypto.h"
+#include "KugouApi.h"
+#include "apihelper.h"
 
 #include <QCoreApplication>
+#include <QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
 #include <QJsonArray>
@@ -33,6 +35,9 @@ AccountManager::AccountManager(QObject *parent)
     m_neteasePollTimer->setInterval(2000);
     connect(m_neteasePollTimer, &QTimer::timeout, this, &AccountManager::pollNetease);
 
+    // 网易云登录统一走 QCloudMusicApi（login_qr_* 接口），由其内部维护 cookie
+    m_api = new ApiHelper();
+
     m_kugouPollTimer = new QTimer(this);
     m_kugouPollTimer->setInterval(3000);
     connect(m_kugouPollTimer, &QTimer::timeout, this, &AccountManager::pollKugou);
@@ -42,57 +47,33 @@ AccountManager::AccountManager(QObject *parent)
     loadPersisted();
 }
 
-AccountManager::~AccountManager() = default;
-
-// 通用：网易云 weapi POST
-
-void AccountManager::weapiPost(const QString &path, const QJsonObject &json)
+AccountManager::~AccountManager()
 {
-    WeCrypto::WeapiPayload payload = WeCrypto::makeWeapi(json);
-    QUrl url(QStringLiteral("https://music.163.com") + path + QStringLiteral("?csrf_token="));
-    QNetworkRequest req(url);
-    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/x-www-form-urlencoded"));
-    req.setRawHeader("User-Agent", kUa);
-    req.setRawHeader("Referer", "https://music.163.com/");
-    req.setRawHeader("Origin", "https://music.163.com");
-    req.setRawHeader("Accept", "*/*");
-    req.setRawHeader("Accept-Encoding", "identity"); // 避免 gzip，方便直接解析 JSON
-    req.setRawHeader("Sec-Fetch-Site", "same-origin");
-    req.setRawHeader("Sec-Fetch-Mode", "cors");
-    req.setRawHeader("Sec-Fetch-Dest", "empty");
-    req.setRawHeader("sec-ch-ua", "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"120\", \"Chromium\";v=\"120\"");
-    req.setRawHeader("sec-ch-ua-mobile", "?0");
-    req.setRawHeader("sec-ch-ua-platform", "\"Windows\"");
-    req.setRawHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+    m_neteaseCancelled = 1;
+    if (m_neteasePollTimer)
+        m_neteasePollTimer->stop();
+    if (m_kugouPollTimer)
+        m_kugouPollTimer->stop();
+    // m_api 由进程退出时自然释放，这里不主动 delete 以免与后台线程的阻塞 invoke 竞争
+}
 
-    // 手动拼完整 Cookie 链（jar 里的 NMTID 等 + os=pc），避免被风控拦截
-    QString cookieStr;
+// 通用：把 cookie 字符串写回 QNAM 的 jar，供后续搜索/播放等请求带上登录态
+void AccountManager::storeNeteaseCookieString(const QString &cookieStr)
+{
     const QList<QNetworkCookie> cookies =
-        m_jar->cookiesForUrl(QUrl(QStringLiteral("https://music.163.com")));
+        QNetworkCookie::parseCookies(cookieStr.toUtf8());
+    QUrl url(QStringLiteral("https://music.163.com"));
     for (const QNetworkCookie &c : cookies) {
         if (c.name().isEmpty())
             continue;
-        cookieStr += QString::fromLatin1(c.name()) + QLatin1Char('=') +
-                     QString::fromLatin1(c.value()) + QStringLiteral("; ");
+        QNetworkCookie cc = c;
+        if (cc.domain().isEmpty()) {
+            cc.setDomain(QStringLiteral(".music.163.com"));
+            cc.setPath(QStringLiteral("/"));
+        }
+        m_jar->setCookiesFromUrl(QList<QNetworkCookie>() << cc, url);
     }
-    if (!cookieStr.contains(QStringLiteral("os=pc")))
-        cookieStr += QStringLiteral("os=pc; ");
-    if (!cookieStr.contains(QStringLiteral("appver=")))
-        cookieStr += QStringLiteral("appver=8.9.1; ");
-    req.setRawHeader("Cookie", cookieStr.toUtf8());
-
-    QByteArray body = "params=" + payload.params.toUtf8() + "&encSecKey=" + payload.encSecKey.toUtf8();
-    qDebug() << "[weapi] POST" << url.toString()
-             << "cookie:" << cookieStr
-             << "params len:" << payload.params.size();
-    QNetworkReply *reply = m_nam->post(req, body);
-    if (path.contains(QStringLiteral("unikey"))) {
-        connect(reply, &QNetworkReply::finished, this,
-                [this, reply] { onNeteaseUnikey(reply); });
-    } else {
-        connect(reply, &QNetworkReply::finished, this,
-                [this, reply] { onNeteasePoll(reply); });
-    }
+    m_neteaseCookie = cookieStr;
 }
 
 // 通用：酷狗 web 签名 GET
@@ -113,7 +94,7 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
     for (const QString &k : customKeys)
         params.insert(k, customParams.value(k).toVariant().toString());
 
-    QByteArray sig = WeCrypto::kugouWebSignature(params);
+    QByteArray sig = KugouApi::kugouWebSignature(params);
     params.insert(QStringLiteral("signature"), QString::fromLatin1(sig));
 
     QUrlQuery query;
@@ -151,43 +132,67 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
 void AccountManager::startNeteaseQrLogin()
 {
     m_neteasePollTimer->stop();
+    m_neteaseCancelled = 0;
     m_neteaseUnikey.clear();
     setNeteaseQr(QrWaiting, QStringLiteral("正在获取二维码…"));
 
-    // 种下 os=pc 基础 Cookie（weapi 风控要求，让 QNAM 自动附带）
-    QList<QNetworkCookie> baseCookies;
-    QNetworkCookie osCookie(QStringLiteral("os").toUtf8(), QStringLiteral("pc").toUtf8());
-    osCookie.setDomain(QStringLiteral(".music.163.com"));
-    osCookie.setPath(QStringLiteral("/"));
-    baseCookies << osCookie;
-    QNetworkCookie verCookie(QStringLiteral("appver").toUtf8(), QStringLiteral("8.9.1").toUtf8());
-    verCookie.setDomain(QStringLiteral(".music.163.com"));
-    verCookie.setPath(QStringLiteral("/"));
-    baseCookies << verCookie;
-    m_jar->setCookiesFromUrl(baseCookies, QUrl(QStringLiteral("https://music.163.com")));
+    // 登录走 QCloudMusicApi 的 login_qr_* 接口（同步阻塞），放到线程池执行避免卡 UI
+    (void)QtConcurrent::run([this]() { neteaseFetchQrWorker(); });
+}
 
-    // 先访问主页，让 cookieJar 收集 NMTID 等基础 Cookie（weapi 缺少会被风控拦截返回空）
-    QNetworkRequest pre(QUrl(QStringLiteral("https://music.163.com")));
-    pre.setRawHeader("User-Agent", kUa);
-    pre.setRawHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-    QNetworkReply *reply = m_nam->get(pre);
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
-        reply->deleteLater();
-        const int httpCode =
-            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        qDebug() << "[netease] 预热主页完成 http:" << httpCode
-                 << "错误:" << reply->errorString();
-        if (reply->error() != QNetworkReply::NoError) {
-            setNeteaseQr(QrError, QStringLiteral("访问网易云失败：%1").arg(reply->errorString()));
-            return;
-        }
-        weapiPost(QStringLiteral("/weapi/login/qrcode/unikey"),
-                  QJsonObject{{QStringLiteral("type"), QStringLiteral("1")}});
-    });
+void AccountManager::neteaseFetchQrWorker()
+{
+    if (m_neteaseCancelled.loadAcquire())
+        return;
+    if (!m_neteaseBusy.testAndSetAcquire(0, 1))
+        return;
+
+    // 1) 获取 unikey
+    QVariantMap keyRes = m_api->invoke(QStringLiteral("login_qr_key"), QVariantMap());
+    QString unikey;
+    if (keyRes[QStringLiteral("status")].toInt() == 200 &&
+        keyRes[QStringLiteral("body")].toMap()[QStringLiteral("code")].toInt() == 200) {
+        unikey = keyRes[QStringLiteral("body")].toMap()
+                     [QStringLiteral("unikey")].toString();
+    }
+    if (unikey.isEmpty()) {
+        m_neteaseBusy.storeRelease(0);
+        QMetaObject::invokeMethod(this, "onNeteaseFetchError", Qt::QueuedConnection,
+                                  Q_ARG(QString, QStringLiteral("获取二维码失败，请重试")));
+        return;
+    }
+
+    if (m_neteaseCancelled.loadAcquire()) {
+        m_neteaseBusy.storeRelease(0);
+        return;
+    }
+
+    // 2) 用 unikey 生成二维码链接
+    QVariantMap createRes = m_api->invoke(
+        QStringLiteral("login_qr_create"),
+        QVariantMap{{QStringLiteral("key"), unikey}});
+    QString qrurl;
+    if (createRes[QStringLiteral("status")].toInt() == 200 &&
+        createRes[QStringLiteral("body")].toMap()[QStringLiteral("code")].toInt() == 200) {
+        qrurl = createRes[QStringLiteral("body")].toMap()
+                    [QStringLiteral("qrurl")].toString();
+    }
+    m_neteaseBusy.storeRelease(0);
+
+    if (qrurl.isEmpty()) {
+        QMetaObject::invokeMethod(this, "onNeteaseFetchError", Qt::QueuedConnection,
+                                  Q_ARG(QString, QStringLiteral("生成二维码失败，请重试")));
+        return;
+    }
+
+    // 3) 把结果送回主线程：记录 unikey、显示二维码、启动轮询
+    QMetaObject::invokeMethod(this, "onNeteaseQrFetched", Qt::QueuedConnection,
+                              Q_ARG(QString, unikey), Q_ARG(QString, qrurl));
 }
 
 void AccountManager::cancelNeteaseQrLogin()
 {
+    m_neteaseCancelled = 1;
     m_neteasePollTimer->stop();
 }
 
@@ -216,57 +221,36 @@ void AccountManager::logoutNetease()
 
 void AccountManager::pollNetease()
 {
-    if (m_neteaseUnikey.isEmpty())
+    if (m_neteaseCancelled.loadAcquire() || m_neteaseUnikey.isEmpty()) {
+        m_neteasePollTimer->stop();
         return;
-    weapiPost(QStringLiteral("/weapi/login/qrcode/client/login"),
-              QJsonObject{{QStringLiteral("csrf_token"), QString()},
-                          {QStringLiteral("key"), m_neteaseUnikey},
-                          {QStringLiteral("type"), QStringLiteral("1")}});
+    }
+    // 登录走 QCloudMusicApi，invoke 为阻塞调用，放到线程池执行避免卡 UI
+    const QString key = m_neteaseUnikey;
+    (void)QtConcurrent::run([this, key]() { neteasePollWorker(key); });
 }
 
-void AccountManager::onNeteaseUnikey(QNetworkReply *reply)
+void AccountManager::onNeteaseQrFetched(const QString &unikey, const QString &qrurl)
 {
-    reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError) {
-        qWarning() << "[netease] unikey 网络错误:" << reply->errorString();
-        setNeteaseQr(QrError, QStringLiteral("网络错误：%1").arg(reply->errorString()));
+    if (m_neteaseCancelled.loadAcquire())
         return;
-    }
-    QByteArray raw = reply->readAll();
-    qDebug() << "[netease] unikey 响应:" << QString::fromUtf8(raw).left(200);
-    QJsonDocument doc = QJsonDocument::fromJson(raw);
-    QJsonObject obj = doc.object();
-    if (obj.value(QStringLiteral("code")).toInt() != 200) {
-        qWarning() << "[netease] unikey 业务失败 code:" << obj.value("code").toInt()
-                   << "msg:" << obj.value("message").toString();
-        setNeteaseQr(QrError, QStringLiteral("获取二维码失败：%1")
-                                 .arg(obj.value(QStringLiteral("message")).toString()));
-        return;
-    }
-    m_neteaseUnikey = obj.value(QStringLiteral("unikey")).toString();
-    if (m_neteaseUnikey.isEmpty()) {
-        qWarning() << "[netease] unikey 为空";
-        setNeteaseQr(QrError, QStringLiteral("二维码参数为空"));
-        return;
-    }
-    QString qrText = QStringLiteral("https://music.163.com/login?codekey=") + m_neteaseUnikey;
-    setNeteaseQr(QrWaiting, QStringLiteral("请使用网易云音乐App扫码登录"), qrText);
+    m_neteaseUnikey = unikey;
+    setNeteaseQr(QrWaiting, QStringLiteral("请使用网易云音乐App扫码登录"), qrurl);
     m_neteasePollTimer->start();
 }
 
-void AccountManager::onNeteasePoll(QNetworkReply *reply)
+void AccountManager::onNeteaseFetchError(const QString &msg)
 {
-    reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError) {
-        // 网络抖动不打断轮询
-        qWarning() << "[netease] poll 网络错误:" << reply->errorString();
+    if (m_neteaseCancelled.loadAcquire())
         return;
-    }
-    QByteArray raw = reply->readAll();
-    qDebug() << "[netease] poll 响应:" << QString::fromUtf8(raw).left(200);
-    QJsonDocument doc = QJsonDocument::fromJson(raw);
-    QJsonObject obj = doc.object();
-    int code = obj.value(QStringLiteral("code")).toInt(-1);
+    setNeteaseQr(QrError, msg);
+}
+
+void AccountManager::onNeteasePollResult(int code, const QString &cookie,
+                                        const QString &nickname, const QString &msg)
+{
+    if (m_neteaseCancelled.loadAcquire())
+        return;
     switch (code) {
     case 800: // 过期
         m_neteasePollTimer->stop();
@@ -275,22 +259,23 @@ void AccountManager::onNeteasePoll(QNetworkReply *reply)
     case 801: // 等待
         setNeteaseQr(QrWaiting, QStringLiteral("请使用网易云音乐App扫码登录"));
         break;
-    case 802: { // 已扫码
-        QString nick = obj.value(QStringLiteral("nickname")).toString();
-        setNeteaseQr(QrScanned, nick.isEmpty() ? QStringLiteral("已扫码，请在手机上确认")
-                                               : QStringLiteral("%1 正在确认登录").arg(nick));
+    case 802: // 已扫码
+        setNeteaseQr(QrScanned, nickname.isEmpty() ? QStringLiteral("已扫码，请在手机上确认")
+                                                    : QStringLiteral("%1 正在确认登录").arg(nickname));
         break;
-    }
     case 803: { // 成功
         m_neteasePollTimer->stop();
-        m_neteaseCookie = buildNeteaseCookieString();
-        persistNetease();
+        QString cookieStr = cookie;
+        if (!cookieStr.contains(QStringLiteral("os=pc")))
+            cookieStr += QStringLiteral("; os=pc");
+        storeNeteaseCookieString(cookieStr);
         m_neteaseLoggedIn = true;
+        persistNetease();
         setNeteaseQr(QrSuccess, QStringLiteral("登录成功"));
         emit neteaseLoginChanged();
         emit message(QStringLiteral("网易云账号登录成功"), 1);
 
-        // 获取用户信息
+        // 获取用户信息（m_jar 已写入 MUSIC_U，QNAM 会自动附带）
         QNetworkRequest req(QUrl(QStringLiteral("https://music.163.com/api/nuser/account/get")));
         req.setRawHeader("User-Agent", kUa);
         req.setRawHeader("Referer", "https://music.163.com/");
@@ -300,9 +285,32 @@ void AccountManager::onNeteasePoll(QNetworkReply *reply)
         break;
     }
     default:
-        setNeteaseQr(QrError, obj.value(QStringLiteral("message")).toString(QStringLiteral("未知状态")));
+        setNeteaseQr(QrError, msg.isEmpty() ? QStringLiteral("未知状态") : msg);
         break;
     }
+}
+
+void AccountManager::neteasePollWorker(const QString &key)
+{
+    if (m_neteaseCancelled.loadAcquire())
+        return;
+    if (!m_neteaseBusy.testAndSetAcquire(0, 1))
+        return; // 上一次轮询未结束，跳过本次
+
+    QVariantMap res = m_api->invoke(QStringLiteral("login_qr_check"),
+                                    QVariantMap{{QStringLiteral("key"), key}});
+    m_neteaseBusy.storeRelease(0);
+
+    const QVariantMap body = res[QStringLiteral("body")].toMap();
+    const int code = body[QStringLiteral("code")].toInt();
+    const QString cookie = res[QStringLiteral("cookie")].toString();
+    const QString nickname = body[QStringLiteral("nickname")].toString();
+    const QString msg = body[QStringLiteral("message")].toString();
+
+    // 结果送回主线程处理
+    QMetaObject::invokeMethod(this, "onNeteasePollResult", Qt::QueuedConnection,
+                              Q_ARG(int, code), Q_ARG(QString, cookie),
+                              Q_ARG(QString, nickname), Q_ARG(QString, msg));
 }
 
 void AccountManager::onNeteaseProfile(QNetworkReply *reply)
@@ -338,7 +346,7 @@ void AccountManager::startKugouQrLogin()
     m_kugouDfid = s.value(QStringLiteral("dfid")).toString();
     s.endGroup();
     if (m_kugouGuid.isEmpty()) {
-        m_kugouGuid = WeCrypto::randomGuid();
+        m_kugouGuid = KugouApi::randomGuid();
         QSettings w(m_configPath, QSettings::IniFormat);
         w.beginGroup(QStringLiteral("Kugou"));
         w.setValue(QStringLiteral("guid"), m_kugouGuid);
@@ -358,7 +366,7 @@ void AccountManager::startKugouQrLogin()
         w.endGroup();
         w.sync();
     }
-    m_kugouMid = WeCrypto::kugouMidFromGuid(m_kugouGuid);
+    m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
 
     setKugouQr(QrWaiting, QStringLiteral("正在获取二维码…"));
 
@@ -421,7 +429,6 @@ void AccountManager::onKugouKey(QNetworkReply *reply)
         return;
     }
     QByteArray raw = reply->readAll();
-    qDebug() << "[kugou] qrcode 响应:" << QString::fromUtf8(raw).left(300);
     QJsonObject obj = QJsonDocument::fromJson(raw).object();
     if (obj.value(QStringLiteral("status")).toInt() != 1) {
         qWarning() << "[kugou] qrcode 业务失败 status:" << obj.value("status").toInt()
@@ -451,7 +458,6 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
     if (reply->error() != QNetworkReply::NoError)
         return;
     QByteArray raw = reply->readAll();
-    qDebug() << "[kugou] poll 响应:" << QString::fromUtf8(raw);
     QJsonObject obj = QJsonDocument::fromJson(raw).object();
     if (obj.value(QStringLiteral("status")).toInt() != 1)
         return;
@@ -470,7 +476,6 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
         break;
     case 4: { // 成功
         m_kugouPollTimer->stop();
-        qDebug() << "[kugou] 登录成功 data keys:" << data.keys();
         // 注意：酷狗的 user_id 是 JSON 数字类型，QJsonValue::toString() 对数字
         // 会返回空字符串，必须用 toVariant().toString() 才能拿到！
         QString token = data.value(QStringLiteral("token")).toVariant().toString();
@@ -589,7 +594,7 @@ void AccountManager::loadKugou()
     if (m_kugouCookie.isEmpty())
         return;
     if (!m_kugouGuid.isEmpty())
-        m_kugouMid = WeCrypto::kugouMidFromGuid(m_kugouGuid);
+        m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
     if (m_kugouDfid.isEmpty())
         m_kugouDfid = QStringLiteral("-");
     m_kugouLoggedIn = true;

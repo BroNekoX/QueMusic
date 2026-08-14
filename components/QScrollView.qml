@@ -11,6 +11,9 @@ ScrollView {
     wheelEnabled: false
     property real scrollToPosition: 0.0
     property int barMargin: 18
+    onContentHeightChanged: {
+        scrollToPosition = viewBar.position;
+    }
 
     ScrollBar.vertical: ScrollBar {
         id: viewBar
@@ -21,7 +24,7 @@ ScrollView {
         //active: view.ScrollBar.horizontal.active
         //Behavior on position { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
         onPressedChanged: {
-            view.scrollToPosition = position
+            view.scrollToPosition = position;
         }
     }
 

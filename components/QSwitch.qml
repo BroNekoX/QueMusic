@@ -46,7 +46,7 @@ Rectangle {
             width: 16
             height: 16
             radius: 9
-            color: Style.themes.primaryColor
+            color: "#fffafbfd"//Style.themes.primaryColor
             Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
         }
     }

@@ -13,7 +13,7 @@ QtObject {
     property Settings settings: Settings {
         //id: settings
         category: "Options"
-        location: configDir + "/Options.ini"
+        //location: configDir + "/Options.ini"
         
         //全局
         property real musicVolume: 0.6
@@ -50,18 +50,25 @@ QtObject {
         property bool displayFps: false //显示帧率
         property bool debug: false //使用调试模式
         property bool timerAnimator: false //使用Timer动画引擎
+        property bool qmlAnimator: false //使用vsync动画引擎
         property bool displayDebugControl //显示控制台
     }
 
     // 最后播放的歌曲（关闭软件时保存，下次打开首页显示）
     property Settings lastSongs: Settings {
         category: "LastMedia"
-        location: configDir + "/LastMedia.ini"
+        //location: configDir + "/LastMedia.ini"
         property string name: ""
         property string artist: ""
         property string cover: ""
         property string hash: ""
         property int source: -1
+    }
+
+    property Settings shortCuts: Settings {
+        category: "ShortCuts"
+        //location: configDir + "/ShortCut.ini"
+        property string pause: " "
     }
     
     signal changeOptions()

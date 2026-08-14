@@ -2127,62 +2127,60 @@ QVariantMap Api::login_cellphone(QVariantMap query) {
     return result;
 }
 
-// 二维码检测扫码状态接口
-QVariantMap Api::login_qr_check(QVariantMap query) {
-    const QVariantMap data{
-        { "key", query["key"] },
-        { "type", 3 }
-    };
-    QVariantMap result = request(
-        "/api/login/qrcode/client/login",
-        data,
-        Option::createOption(query)
-    );
-    auto body = result["body"].toMap();
-    body["cookie"] = result["cookie"];
-    result = QVariantMap{
-        { "status", 200 },
-        { "body", body },
-        { "cookie", result["cookie"] }
-    };
-    return result;
-}
-
-// 二维码 key 生成接口
+// 二维码 key 生成接口（weapi 加密，返回 unikey）
 QVariantMap Api::login_qr_key(QVariantMap query) {
     const QVariantMap data{
-        { "type", 3 }
+        { "type", 1 }
     };
     QVariantMap result = request(
         "/api/login/qrcode/unikey",
         data,
-        Option::createOption(query)
+        Option::createOption(query, "weapi")
     );
-    result = QVariantMap{
-        { "status", 200 },
+    const QVariantMap body = result["body"].toMap();
+    return QVariantMap{
+        { "status", result["status"] },
         { "body", QVariantMap {
-                     { "data", result["body"] },
-                     { "code", 200}
+                     { "code", body["code"] },
+                     { "unikey", body["unikey"] },
                  } },
         { "cookie", result["cookie"] }
     };
-    return result;
 }
 
-// 二维码生成接口
+// 二维码生成接口（本地拼接扫码 URL，key 即 unikey）
 QVariantMap Api::login_qr_create(QVariantMap query) {
     const QString url = "https://music.163.com/login?codekey=" + query["key"].toString();
-    auto result = QVariantMap{
-        { "code", 200 },
+    return QVariantMap{
         { "status", 200 },
         { "body", QVariantMap {
-                     { "code", 200},
-                     { "data", QVariantMap {
-                                  { "qrurl", url }
-                              } }
+                     { "code", 200 },
+                     { "qrurl", url }
                  } }
     };
-    return result;
+}
+
+// 二维码检测扫码状态接口（weapi 加密，轮询 key）
+QVariantMap Api::login_qr_check(QVariantMap query) {
+    const QVariantMap data{
+        { "key", query["key"] },
+        { "type", 1 }
+    };
+    QVariantMap result = request(
+        "/api/login/qrcode/client/login",
+        data,
+        Option::createOption(query, "weapi")
+    );
+    const QVariantMap body = result["body"].toMap();
+    return QVariantMap{
+        { "status", 200 },
+        { "body", QVariantMap {
+                     { "code", body["code"] },
+                     { "message", body["message"] },
+                     { "nickname", body["nickname"] },
+                 } },
+        { "cookie", result["cookie"] }
+    };
 }
 
 // 登录刷新

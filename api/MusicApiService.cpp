@@ -45,7 +45,7 @@ MusicApiService::MusicApiService(QObject *parent)
     : QObject(parent)
 {
     // 平台结果直接在本类处理（填模型 / 属性 / 发信号）
-    connect(&m_netease, &NeteaseApi::resultReady, this, &MusicApiService::handleResult);
+    connect(&m_netease, &NeteaseCloudApi::resultReady, this, &MusicApiService::handleResult);
     connect(&m_kugou, &KugouApi::resultReady, this, &MusicApiService::handleResult);
 }
 

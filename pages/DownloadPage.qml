@@ -26,6 +26,7 @@ Item {
             height: 40
             verticalAlignment: Text.AlignVCenter
             text: "下载管理"
+            font.weight: Font.DemiBold
             font.pixelSize: Style.settings.pageTitle
             color: Style.themes.fontColor
         }

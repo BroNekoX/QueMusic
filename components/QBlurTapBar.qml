@@ -58,7 +58,7 @@ Item {
         offset.x: 5
         offset.y: 5
         radius: root.borderRadius
-        blur: 24
+        blur: 20
         spread: 0
         color: Style.themes.shadowColor
     }

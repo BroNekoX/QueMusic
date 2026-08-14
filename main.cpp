@@ -36,14 +36,16 @@ int main(int argc, char *argv[])
     }
     if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
         qputenv("QSG_NO_VSYNC", "1");
+    if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
+        qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
     qputenv("QSG_INFO", "1");
-    qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QGuiApplication application(argc, argv);
 
     QQuickWindow::setDefaultAlphaBuffer(true);
+    //QQuickWindow::setTextRenderType(QQuickWindow::CurveTextRendering);
     QQmlApplicationEngine engine;
 
     // 显式注册QML_ELEMENT 类型
