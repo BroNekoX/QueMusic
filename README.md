@@ -333,6 +333,8 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的算法（AGPL-3.0，见 `meshgradient/` 组件）
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 使用了本项目api服务，以实现在线音乐网易云音乐平台部分
+- [Cryptopp](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi解析
+- [libqrencode](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi
 - 以下虽然可能没有使用到他们的代码，但是我仍然致谢他们所带来的精神。
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
