@@ -279,6 +279,7 @@ Rectangle {
                     onClicked: {
                         sidebar.indexed(index);
                         mainContent.contentIndexed(index);
+                        forceActiveFocus();
                     }
                 }
             }

@@ -36,9 +36,11 @@ Window {
         MusicApi.downloadPath = Options.settings.downloadFolder;
 
         window.visible = true;
+        MusicApi.songSource = Options.settings.mainMusicSource;
         // 更新设置项
         Style.changeUi();
         Style.changeTheme();
+        console.log("back:",Options.shortCuts.back,"foprward:",Options.shortCuts.forward,"list:",Options.shortCuts.playList);
     }
 
     Connections {
@@ -47,18 +49,11 @@ Window {
             MusicApi.downloadPath = Options.settings.downloadFolder;
         }
     }
-
-    onClosing: (close) => {
-        if(Options.settings.closeToManage) {
-            close.accepted = false;
-            window.showMinimized();
-        }
-    }
-
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.2.5"
+    property string version: "Beta-0.3.0"
+    property int versionCode: 30
 
     // 首次加载内容临时存储，防止重新加载浪费内存
     property QtObject completedStart: QtObject {
@@ -93,19 +88,74 @@ Window {
     //type: 0.提示 1.警告 2.错误 3.正确
     signal message(string title,string text,int type)
 
-    function coverUpdate() {
-        colorExtractor.extractColorsFromUrl(mainMedia.urlStr);
-        console.log("---正在提取封面颜色");
-    }
-
     Shortcut {
-        sequence: "Esc"
-        context: Qt.ApplicationShortcut // 设置为应用全局，不依赖焦点
+        sequence: "Esc" // 返回
+        context: Qt.ApplicationShortcut
         onActivated: {
             window.exit();
-            console.log("Exit")
+            console.log("Exit");
             if(window.exitIndex > 0) {
-                window.exitIndex -= 1
+                window.exitIndex -= 1;
+            }
+            mainLayout.forceActiveFocus();
+        }
+    }
+    Shortcut {
+        sequence: Options.shortCuts.play // 暂停/播放
+        context: Qt.ApplicationShortcut
+        enabled: Options.settings.openShortCut
+        onActivated: {
+            console.log("shortcut--play")
+            if (mainMedia.playing === false) {
+                mainMedia.play();
+            }
+            else {
+                mainMedia.pause();
+            }
+        }
+    }
+    Shortcut {
+        sequence: Options.shortCuts.back // 上一首
+        context: Qt.ApplicationShortcut
+        enabled: Options.settings.openShortCut
+        onActivated: {
+            console.log("shortcut--back")
+            musicControlMin.lastMedia();
+        }
+    }
+    Shortcut {
+        sequence: Options.shortCuts.forward // 下一首
+        context: Qt.ApplicationShortcut
+        enabled: Options.settings.openShortCut
+        onActivated: {
+            console.log("shortcut--forward")
+            musicControlMin.enterMedia();
+        }
+    }
+    Shortcut {
+        sequence: Options.shortCuts.playList // 播放菜单
+        context: Qt.ApplicationShortcut
+        enabled: Options.settings.openShortCut
+        onActivated: {
+            console.log("shortcut--playList")
+            if(playList.visible) {
+                playList.close();
+            } else {
+                playList.open();
+            }
+        }
+    }
+    Shortcut {
+        sequence: Options.shortCuts.musicControl // 播放模式切换
+        context: Qt.ApplicationShortcut
+        enabled: Options.settings.openShortCut
+        onActivated: {
+            if(mainLayout.state === "") {
+                controlMaxLoader.active = true;
+            } else {
+                window.playermined();
+                minedAnimation.start();
+                mainLayout.state = "";
             }
         }
     }
@@ -236,8 +286,6 @@ Window {
                 largeicon: true
                 source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
-                    console.log("audiobufferoutput:",mainMedia.audioBufferOutput);
-                    console.log("频谱模型：",getWave.spectrumData);
                     mainMessage.dialog("Error Dialog","本功能未开发完成，无法使用。","\uf11a");
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(fullDesktopButton, true);
@@ -861,7 +909,7 @@ Window {
         active: false
         asynchronous: true
         visible: status == Loader.Ready
-        source: "qrc:/QueMusic/components/QDesktopSpot.qml"
+        source: "qrc:/QueMusic/components/DesktopSpot.qml"
     }
     // 桌面小窗播放器（Loader 动态加载，切换模式时才创建实例）
     Loader {
@@ -869,7 +917,7 @@ Window {
         active: false
         asynchronous: true
         visible: status == Loader.Ready
-        source: "qrc:/QueMusic/components/QDesktopPlayerWindow.qml"
+        source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
     }
     QAlertDialog {
         id: globalDialog
@@ -986,5 +1034,14 @@ Window {
                 horizontalAlignment: Text.AlignHCenter
             }
         }
+    }
+    Loader {
+        id: textWatch
+        anchors.fill: parent
+        active: false
+        asynchronous: true
+        visible: status == Loader.Ready
+        source: "qrc:/QueMusic/components/QTextWindow.qml"
+        property bool info: true
     }
 }

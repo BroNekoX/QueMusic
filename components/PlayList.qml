@@ -49,6 +49,19 @@ Popup {
             hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
             shadowEnabled: false
             onClicked: {
+                globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
+                    function() {
+                        var title = playListModel.get(playListModel.playListIndex).name;
+                        var hash = playListModel.get(playListModel.playListIndex).path;
+                        var artist = playListModel.get(playListModel.playListIndex).songer;
+                        var source = playListModel.get(playListModel.playListIndex).source;
+                        playListModel.remove( 0, playListModel.count );
+                        //playListModel.append(indexData);
+                        playListModel.append({ name: title, path: hash, songer: artist, source: source });
+                        playListModel.playListIndex = 0;
+                        Style.warned("已清空播放列表",1);
+                    }
+                );
             }
         }
         SButton {
@@ -62,7 +75,7 @@ Popup {
             buttonColor: "transparent"
             shadowEnabled: false
             onClicked: {
-                playList.close()
+                playList.close();
             }
         }
         ListView {
@@ -241,8 +254,8 @@ Popup {
                             shadowEnabled: false
                             onClicked: {
                                 if(playListModel.playListIndex !== index) {
-                                    if(playListModel.playListIndex > index) playListModel.playListIndex -= 1
-                                    playListModel.remove( index, 1 )
+                                    if(playListModel.playListIndex > index) playListModel.playListIndex -= 1;
+                                    playListModel.remove( index, 1 );
                                 }
                             }
                         }
@@ -255,6 +268,6 @@ Popup {
         NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-            NumberAnimation { property: "x"; duration: 210; to: playList.parent.width; easing.type: Easing.InCubic }
+        NumberAnimation { property: "x"; duration: 210; to: playList.parent.width; easing.type: Easing.InCubic }
     }
 }

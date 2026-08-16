@@ -19,6 +19,8 @@ QtObject {
         property real musicVolume: 0.6
         property bool closeToManage: false //关闭则最小化托盘
         property bool autoUpdate: false //自动检查更新
+        property list<string> searchList: [] //搜索记录
+        property bool openShortCut: true
         
         //播放器
         property int soundQuality: 1 //音质
@@ -65,11 +67,14 @@ QtObject {
         property int source: -1
     }
 
-    property Settings shortCuts: Settings {
-        category: "ShortCuts"
+    property QtObject shortCuts: QtObject {
+        //category: "ShortCuts"
         //location: configDir + "/ShortCut.ini"
-        property string pause: " "
+        property string play: "Space"
+        property string back: "Left"
+        property string forward: "Right"
+        property string playList: "Alt"
+        property string musicControl: "Up"
     }
-    
     signal changeOptions()
 }

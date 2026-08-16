@@ -152,9 +152,10 @@ Item {
                         onExited: hover.opacity = 0
                         onClicked: {
                             if(tabView.choiceIndex !== index) {
-                                root.tabChange(index)
+                                root.tabChange(index);
                             }
-                            tabView.choiceIndex = index
+                            tabView.choiceIndex = index;
+                            forceActiveFocus();
                         }
                     }
                 }

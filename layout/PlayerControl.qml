@@ -45,10 +45,10 @@ Rectangle {
         id: sliderControl
         visible: mainMedia.onMedia
         x: 0
-        y: -11
+        y: -10
         z: 6
         width: musicControlMin.width
-        height: 24
+        height: 23
         clip: false
         Rectangle {
             z: 1
@@ -99,7 +99,7 @@ Rectangle {
             }
             // 背景轨道
             background: Rectangle {
-                y: progressSlider.hovered ? 9 : 11
+                y: progressSlider.hovered ? 8 : 10
                 x: 0
                 width: musicControlMin.width
                 height: progressSlider.hovered ? 6 : 2
@@ -119,7 +119,7 @@ Rectangle {
             handle: Rectangle {
                 visible: progressSlider.hovered// ? 1 : 0
                 x: progressSlider.leftPadding + progressSlider.visualPosition * (progressSlider.availableWidth-width)
-                y: 3
+                y: 2
                 implicitWidth: 18
                 implicitHeight: 18
                 radius: 18
@@ -552,11 +552,11 @@ Rectangle {
         }
     }
 
-    QPlayList {
+    PlayList {
         id: playList
         model: playListModel
     }
-    QDesktopPlayer {
+    DesktopPlayer {
         id: desktopPlayer
     }
 

@@ -58,13 +58,18 @@ Item {
             }
             //QButton { x: parent.width - 120; y: 0; height: 40; width: 120; iconCharacter: "\uf10c"; text: "刷新" }
             QDrop {
-                x: parent.width - 128
+                x: parent.width - 96
                 y: 0
-                height: 36; width: 128
+                height: 36; width: 120
                 //radius: 18
                 anchors.right: parent.right
                 choice: MusicApi.songSource
-                model: ["酷狗音乐","网易云音乐","QQ音乐","自定义源"]
+                textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#16750F" : "#756F0F"
+                color: MusicApi.songSource == 0 ? "#CDE8FF" : MusicApi.songSource == 1 ? "#FFCDCD" : MusicApi.songSource == 2 ? "#CDFFCD" : "#FFFFCD"
+                border.color: MusicApi.songSource == 0 ? "#4384F5" : MusicApi.songSource == 1 ? "#F54343" : MusicApi.songSource == 2 ? "#4DF543" : "#F5F543"
+                radius: 18
+                cardRadius: Style.settings.labelRadius
+                model: ["酷狗音乐","网易云音乐","QQ音乐(x)","自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
                     if(MusicApi.songSource === 0) {
@@ -94,14 +99,14 @@ Item {
                 padding: 24
                 Rectangle {
                     width: homeView.standWidth
-                    height: warnText.implicitHeight + 48
+                    height: warnText.implicitHeight + 40
                     color: Style.themes.containColor
                     radius: Style.settings.cubeRadius
                     border.color: Style.themes.sideColor
                     border.width: 1
                     Text {
-                        x: 24
-                        y: 24
+                        x: 20
+                        anchors.verticalCenter: parent.verticalCenter
                         font.family: iconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
@@ -111,10 +116,11 @@ Item {
                     Text {
                         id: warnText
                         x: 48
-                        y: 24
+                        y: 20
+                        width: parent.width - 108
                         text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
-                        elide: Text.ElideRight
-                        color: Style.themes.textColor
+                        wrapMode: Text.Wrap
+                        color: Style.themes.fontColor
                         font.bold: false
                         font.pixelSize: Style.settings.textmain
                     }
@@ -148,7 +154,7 @@ Item {
                         // 大标题
                         Text {
                             x: 16
-                            y: 64
+                            y: 50
                             text: "DAILY RECOMMEND"
                             width: parent.width
                             font.pixelSize: Style.settings.textmain
@@ -158,7 +164,7 @@ Item {
                         }
                         Text {
                             x: 16
-                            y: 100
+                            y: 88
                             text: "每日推荐"
                             width: parent.width
                             elide: Text.ElideRight
@@ -168,7 +174,7 @@ Item {
                         }
                         Text {
                             x: 16
-                            y: 160
+                            y: 152
                             text: "那些你反复循环的节奏，长成了今天的模样。"
                             width: parent.width
                             wrapMode: Text.Wrap
@@ -211,7 +217,7 @@ Item {
                         }
                         controlItem: QButton {
                             x: 16
-                            y: 200
+                            y: 192
                             height: 32
                             radius: 16
                             iconCharacter: "\uf0e7"

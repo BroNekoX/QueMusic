@@ -14,7 +14,7 @@ ListView {
     property list<string> menuModel: ["下载到本地","分享","歌曲信息"]
     property list<int> selectedIndices: []
     property bool isList: false
-    property int artistX: width / 2 - 50
+    property int artistX: width / 2 - 32
     property int toolX: width - 210
     property string toolText0: "\uf095"
     property string toolText1: "\uf0c8"
@@ -139,7 +139,7 @@ ListView {
             verticalAlignment: Text.AlignVCenter
         }
         Text {
-            x: view.toolX + 16
+            x: view.width - 76
             height: 36
             text: view.headerModel[2]
             color: Style.themes.textColor
@@ -147,7 +147,7 @@ ListView {
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
-        Text {
+        /*Text {
             x: view.toolX + 70
             height: 36
             text: view.headerModel[3]
@@ -155,7 +155,7 @@ ListView {
             font.pixelSize: Style.settings.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
-        }
+        }*/
         Rectangle {
             width: parent.width - 16
             height: 1
@@ -263,7 +263,7 @@ ListView {
             x: view.artistX
             y: 16
             z: 3
-            width: view.artistX - 100
+            width: view.artistX - 128
             height: 28
             text: model.artist || "Unknown"
             color: Style.themes.textColor
@@ -275,7 +275,7 @@ ListView {
             Behavior on color { ColorAnimation { duration: 120 } }
         }
         Text {
-            x: view.toolX
+            x: view.width - 92
             y: 16
             z: 3
             width: 60
@@ -304,16 +304,16 @@ ListView {
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: (mouse) => {
                 if (mouse.button === Qt.LeftButton) {
-                    onClicked: view.clicked(index)
+                    onClicked: view.clicked(index);
                 } else {
-                    menu.index = index
-                    view.menu.popup()
+                    menu.index = index;
+                    view.menu.popup();
                 }
+                forceActiveFocus();
             }
 
             Row {
-                anchors.right: parent.right
-                anchors.rightMargin: 16
+                x: view.toolX
                 spacing: 2
                 y: 12
                 height: 36

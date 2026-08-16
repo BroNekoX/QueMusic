@@ -13,7 +13,7 @@ Popup {
     property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     default property alias options: dialogContent.contentData
-    property string cancelText: "默认"
+    property string cancelText: ""
     property string cancelIcon: "\uf10f"
     property string confirmText: "完成"
     property bool isInput: false
@@ -71,6 +71,7 @@ Popup {
                 width: 108
                 height: 36
                 text: dialog.cancelText
+                visible: dialog.cancelText !== ""
                 iconCharacter: dialog.cancelIcon // X 图标
                 radius: Style.settings.labelRadius
                 buttonColor: Style.themes.secondaryColor

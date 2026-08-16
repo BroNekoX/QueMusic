@@ -192,9 +192,11 @@ Item {
         height: 36
         radius: 18
         //visible: false
-        buttonColor: lyricContent.openTranslate ? "#99ffffff" : "#00ffffff"
+        buttonColor: lyricContent.openTranslate ? "#88ffffff" : "#55e1e1e1"
         hoverColor: "#42000000"
-        iconColor: lyricContent.openTranslate ? "#555555" : "#eeeeee"
+        iconColor: lyricContent.openTranslate ? "#555555" : "#fbfbfb"
+        borderColor: "#66ffffff"
+        borderWidth: 1
         iconSize: Style.settings.texticon
         shadowEnabled: false
         onClicked: {
@@ -299,6 +301,16 @@ Item {
             fragmentShader: "qrc:/shaders/resources/app/shaders/lyricfade.frag.qsb"
         }
 
+        property int currentPlayTime: 0
+
+        Timer {
+            interval: 100
+            running: mainMedia.onMedia
+            repeat: true
+            onTriggered: {
+                lyricContent.currentPlayTime = mainMedia.position;
+            }
+        }
         readonly property int lyricHeight: musicControlMax.standHeight / 2
         property real alignPos: 0.32        // 当前行停在视口高度比例
         property real lineSpacing: musicControlMax.standHeight / 1.6  // 行间距
@@ -447,9 +459,8 @@ Item {
                 //visible: Math.abs(index - lyricContent.currentLine) <= lyricContent.overscan
 
                 readonly property bool isCurrent: index === lyricContent.currentLine
-                readonly property bool isPrev: index === lyricContent.currentLine - 1
-                readonly property bool isFlowActive: MusicApi.lyricsData[index].info ? (isCurrent || isPrev) : false
-                readonly property int nowPosition: isFlowActive ? mainMedia.position - MusicApi.lyricsData[index].time : 0
+                readonly property bool isFlowActive: MusicApi.lyricsData[index].info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
+                readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - MusicApi.lyricsData[index].time : 0
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
                 property real standY: 0.0
@@ -570,19 +581,41 @@ Item {
                         delegate: Item {
                             width: lyricFlowText.width
                             height: lyricFlowText.height
+                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent
+                            onToTextAnimeValueChanged: {
+                                if(toTextAnimeValue) {
+                                    outFlowText.running = false;
+                                    toFlowText.running = true;
+                                } else {
+                                    toFlowText.running = false;
+                                    outFlowText.running = true;
+                                }
+                            }
+
+                            ParallelAnimation {
+                                id: toFlowText
+                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo }
+                            }
+                            ParallelAnimation {
+                                id: outFlowText
+                                NumberAnimation { target: lyricFlowText; property: "y"; to: 0; duration: 640; easing.type: Easing.InOutCubic }
+                            }
+
                             Text {
                                 id: lyricFlowText
                                 text: linesText.model[index].text
-                                y: lyricItem.nowPosition > linesText.model[index].offset ? -3 : 0
+                                y: 0//lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent ? -3 : 0
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
                                 color: "#ffffffff"
                                 opacity: 0.4
-                                Behavior on y { NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
+                                //Behavior on y { NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
                             }
                             LinearGradient {
-                                property int countToWidth: linesText.model[index].duration !== 0 ? (lyricItem.nowPosition - linesText.model[index].offset) / linesText.model[index].duration * width : (lyricItem.nowPosition - linesText.model[index].offset) * width
+                                property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
+                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[index].duration / mainMedia.playbackRate * (width + 16) / width } }
+                                //linesText.model[index].duration !== 0 ? (lyricItem.nowPosition - linesText.model[index].offset) / linesText.model[index].duration * width : (lyricItem.nowPosition - linesText.model[index].offset) * width
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y
@@ -646,7 +679,7 @@ Item {
                 NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
                 NumberAnimation { target: waitAnimeSection; property: "scale"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
             }
-            NumberAnimation { target: waitAnimeSection; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration }
+            NumberAnimation { target: waitAnimeSection; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration / mainMedia.playbackRate }
             //ScriptAction { script: console.log("动画完成:",waitOpenAnime.lightDuration); }
         }
         SequentialAnimation {
@@ -786,7 +819,11 @@ Item {
                     height: 36; width: 120
                     anchors.right: parent.right
                     switchTrue: Style.settings.lyricHideGui
-                    onToggled: Style.settings.lyricHideGui = !Style.settings.lyricHideGui
+                    onToggled: {
+                        Style.settings.lyricHideGui = !Style.settings.lyricHideGui;
+                        hideDelay.running = false;
+                        controlMaxLoader.hideHeight = 0;
+                    }
                 }
             }
         }

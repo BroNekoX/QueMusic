@@ -833,7 +833,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "自动检查更新"
+                            label: "自动检查更新(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -843,7 +843,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "清除缓存"
+                            label: "清除缓存(x)"
                             controlItem: QButton {
                                 anchors.fill: parent
                                 shadowEnabled: false
@@ -975,7 +975,7 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "高质量模糊效果"
+                            label: "高质量模糊效果(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -1017,7 +1017,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "高级动画效果"
+                            label: "高级动画效果(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -1027,7 +1027,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "全局动画速率"
+                            label: "全局动画速率(x)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Style.settings.animeSpeed
@@ -1054,7 +1054,7 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "首页默认布局"
+                            label: "首页默认布局(x)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: 1
@@ -1196,7 +1196,7 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "动画速度"
+                            label: "动画速度(x)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: 1
@@ -1245,7 +1245,7 @@ Item {
                         Component.onCompleted: parent.height = height
 
                         SettingItemCard {
-                            label: "默认缓存位置"
+                            label: "默认缓存位置(x)"
                             controlItem: QInput {
                                 anchors.fill: parent
                                 inputText: "选择目录"
@@ -1253,7 +1253,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "默认数据存储位置"
+                            label: "默认数据存储位置(x)"
                             controlItem: QInput {
                                 anchors.fill: parent
                                 inputText: "选择目录"
@@ -1311,7 +1311,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "代理服务器"
+                            label: "代理服务器(x)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Options.settings.serverAgency
@@ -1323,7 +1323,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "缓存大小/MB"
+                            label: "缓存大小/MB(x)"
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 200
@@ -1406,7 +1406,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "音频播放比率/K"
+                            label: "音频播放比率/K(x)"
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 100
@@ -1422,7 +1422,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "自动缓冲大小"
+                            label: "自动缓冲大小(x)"
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 100
@@ -1462,7 +1462,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "使用音频快速缓冲"
+                            label: "使用音频快速缓冲(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -1471,7 +1471,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "播放器播放列表"
+                            label: "播放器播放列表(x)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: 1
@@ -1489,11 +1489,106 @@ Item {
             id: shortcutset
             width: settingStack.width
             height: settingStack.height - 60
-
             visible: false
 
+            // 动作定义（名称、显示描述、默认键位）
+            property var actionDefs: [
+                { name: "play", desc: "播放/暂停", default: "Space" },
+                { name: "back", desc: "上一首", default: "Left" },
+                { name: "forward", desc: "下一首", default: "Right" },
+                { name: "playList", desc: "打开/关闭播放列表", default: "Alt" },
+                { name: "musicControl", desc: "音乐控制面板", default: "Up" }
+                // 如需添加更多，请在此增加条目，并确保 Options.shortCuts 中存在对应属性
+            ]
+            ListModel {
+                id: actionDefs
+                ListElement { name: "play"; desc: "播放/暂停"; defau: "Space" }
+                ListElement { name: "back"; desc: "上一首"; defau: "Left" }
+                ListElement { name: "forward"; desc: "下一首"; defau: "Right" }
+                ListElement { name: "playList"; desc: "打开/关闭播放列表"; defau: "Alt" }
+                ListElement { name: "musicControl"; desc: "音乐控制面板"; defau: "Up" }
+            }
+
+            // 录制状态
+            property string recordingAction: ""
+            property bool isRecording: false
+            property bool oldShortCutState: false
+
+            // 按键转字符串（辅助函数）
+            function keyToString(key) {
+                if (key >= Qt.Key_F1 && key <= Qt.Key_F35)
+                    return "F" + (key - Qt.Key_F1 + 1)
+                switch (key) {
+                    case Qt.Key_Escape: return "Esc"
+                    case Qt.Key_Return: return "Enter"
+                    case Qt.Key_Backspace: return "Backspace"
+                    case Qt.Key_Tab: return "Tab"
+                    case Qt.Key_Space: return "Space"
+                    case Qt.Key_Left: return "Left"
+                    case Qt.Key_Right: return "Right"
+                    case Qt.Key_Up: return "Up"
+                    case Qt.Key_Down: return "Down"
+                    case Qt.Key_Insert: return "Insert"
+                    case Qt.Key_Delete: return "Delete"
+                    case Qt.Key_Home: return "Home"
+                    case Qt.Key_End: return "End"
+                    case Qt.Key_PageUp: return "PageUp"
+                    case Qt.Key_PageDown: return "PageDown"
+                    default:
+                        if (key >= Qt.Key_A && key <= Qt.Key_Z)
+                            return String.fromCharCode(key)
+                        else if (key >= Qt.Key_0 && key <= Qt.Key_9)
+                            return String.fromCharCode(key)
+                        else
+                            return "" // 不支持的键
+                }
+            }
+
+            function keyEventToSequence(event) {
+                var modifiers = []
+                if (event.modifiers & Qt.ControlModifier) modifiers.push("Ctrl")
+                if (event.modifiers & Qt.AltModifier) modifiers.push("Alt")
+                if (event.modifiers & Qt.ShiftModifier) modifiers.push("Shift")
+                var key = event.key
+                // 忽略单独的修饰键
+                if (key === Qt.Key_Control || key === Qt.Key_Alt || key === Qt.Key_Shift || key === Qt.Key_Meta)
+                    return ""
+                var keyName = keyToString(key)
+                if (!keyName) return ""
+                var seq = modifiers.join("+")
+                if (seq && keyName) seq += "+"
+                seq += keyName
+                return seq
+            }
+
+            // 开始录制
+            function startRecording(action) {
+                if (isRecording) return
+                recordingAction = action
+                isRecording = true
+                oldShortCutState = Options.settings.openShortCut
+                Options.settings.openShortCut = false   // 暂时禁用全局快捷键，避免干扰
+                keyCapture.forceActiveFocus()
+                keyCapture.focus = true;
+                mainWarn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
+            }
+
+            // 停止录制（完成或取消）
+            function stopRecording(success, sequence) {
+                isRecording = false
+                Options.settings.openShortCut = oldShortCutState
+                if (success && sequence) {
+                    Options.shortCuts[recordingAction] = sequence
+                    mainWarn.tiped("已设置快捷键: " + sequence, 1)
+                } else {
+                    mainWarn.tiped("已取消录制", 1)
+                }
+                recordingAction = ""
+                keyCapture.focus = false
+            }
+
+            // 内容
             contentChildren: Column {
-                id: shortcutContent
                 spacing: 16
                 padding: 24
 
@@ -1508,10 +1603,8 @@ Item {
                     font.letterSpacing: -0.3
                 }
 
-                Text { text: "目前本页的设置项无法使用,请等待更新"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
-
+                // 全局开关
                 QHead { text: "全局快捷键" }
-
                 Rectangle {
                     width: settingStack.standWidth
                     color: Style.themes.primaryColor
@@ -1526,98 +1619,161 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                onToggled: switchTrue = !switchTrue
+                                switchTrue: Options.settings.openShortCut
+                                onToggled: Options.settings.openShortCut = !Options.settings.openShortCut
                             }
                             bottomLine: false
                         }
                     }
                 }
 
+                // 快捷键列表
                 QHead { text: "快捷键列表" }
-
                 Rectangle {
                     width: settingStack.standWidth
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
-                    height: 400
+                    height: shortCutColumn.height // 自适应高度
                     clip: true
 
-                    ListView {
-                        id: shortcutListView
-                        anchors.fill: parent
-                        anchors.margins: 16
-                        model: ListModel {
-                            id: shortcutModel
-                            ListElement { actionName: "play_pause"; description: "播放/暂停"; defaultKey: "Space"; currentKey: "Space" }
-                            ListElement { actionName: "prev"; description: "上一首"; defaultKey: "Ctrl+Left"; currentKey: "Ctrl+Left" }
-                            ListElement { actionName: "next"; description: "下一首"; defaultKey: "Ctrl+Right"; currentKey: "Ctrl+Right" }
-                            ListElement { actionName: "vol_up"; description: "增大音量"; defaultKey: "Ctrl+Up"; currentKey: "Ctrl+Up" }
-                        }
-                        delegate: Row {
-                            width: shortcutListView.width
-                            height: 50
-                            padding: 5
-                            spacing: 20
-
-                            Label {
-                                text: model.description
-                                width: 150
-                                height: 40
-                                font.pixelSize: Style.settings.textmain
-                                color: Style.themes.fontColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            Label {
-                                text: "当前: " + model.currentKey
-                                width: 150
-                                height: 40
-                                font.pixelSize: Style.settings.textmain
-                                color: Style.themes.fontColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            Label {
-                                text: "默认: " + model.defaultKey
-                                width: 150
-                                height: 40
-                                font.pixelSize: Style.settings.textmain
-                                color: Qt.rgba(Style.themes.fontColor.r, Style.themes.fontColor.g, Style.themes.fontColor.b, 0.6)
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            Item {
-                                height: 40
-                                visible: false
-                                width: settingStack.standWidth - 674
-                            }
-
-                            QButton {
-                                text: "设置"
-                                shadowEnabled: false
-                                width: 96
-                                height: 40
-                                buttonColor: "transparent"
+                    Column {
+                        id: shortCutColumn
+                        width: parent.width
+                        padding: 0
+                        Repeater {
+                            model: actionDefs
+                            delegate: Rectangle {
+                                width: shortCutColumn.width
+                                height: 56
+                                color: "transparent"
                                 radius: Style.settings.labelRadius
-                                borderWidth: 2
-                                onClicked: {
-                                    //signalCenter.shortcutChanged(model.actionName, "New Key");
+                                Row {
+                                    spacing: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: 16
+
+                                    Label {
+                                        text: model.desc
+                                        width: 150
+                                        font.pixelSize: Style.settings.textmain
+                                        color: Style.themes.fontColor
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Label {
+                                        text: Options.shortCuts[model.name] || model.defau
+                                        width: 120
+                                        font.pixelSize: Style.settings.textmain
+                                        color: Style.themes.fontColor
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Label {
+                                        text: "默认: " + model.defau
+                                        width: 120
+                                        font.pixelSize: Style.settings.textmain
+                                        color: Qt.rgba(Style.themes.fontColor.r, Style.themes.fontColor.g, Style.themes.fontColor.b, 0.6)
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
                                 }
-                            }
-                            QButton {
-                                text: "重置"
-                                shadowEnabled: false
-                                width: 96
-                                height: 40
-                                buttonColor: "transparent"
-                                radius: Style.settings.labelRadius
-                                borderWidth: 2
-                                onClicked: {
-                                    //signalCenter.shortcutChanged(model.actionName, model.defaultKey);
+                                QButton {
+                                    x: parent.width - 224
+                                    y: 10
+                                    width: 96
+                                    height: 36
+                                    text: "设置"
+                                    shadowEnabled: false
+                                    radius: Style.settings.labelRadius
+                                    borderWidth: 2
+                                    buttonColor: "transparent"
+                                    onClicked: shortcutset.startRecording(model.name)
+                                }
+
+                                QButton {
+                                    x: parent.width - 112
+                                    y: 10
+                                    width: 96
+                                    height: 36
+                                    text: "重置"
+                                    shadowEnabled: false
+                                    radius: Style.settings.labelRadius
+                                    borderWidth: 2
+                                    buttonColor: "transparent"
+                                    onClicked: {
+                                        Options.shortCuts[model.name] = model.defau
+                                        mainWarn.tiped("已恢复默认快捷键", 1)
+                                    }
                                 }
                             }
                         }
                     }
+                }
+
+                // 底部提示
+                Text {
+                    width: settingStack.standWidth
+                    text: "提示：点击「设置」后按下新的组合键（如 Ctrl+Shift+A），按 Esc 取消。"
+                    color: Style.themes.textColor
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+            }
+            // 按键捕获器（隐藏）
+            Rectangle {
+                id: keyCapture
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: parent.height - 56
+                height: 40
+                width: keyCaptureText.width + 135
+                color: Style.themes.fontColor
+                border.width: 1
+                border.color: Style.themes.sideColor
+                radius: 18
+                focus: false
+                visible: true          // 必须可见才能获得焦点
+                opacity: shortcutset.isRecording ? 1 : 0 // 透明，不干扰界面
+                enabled: shortcutset.isRecording   // 仅在录制时启用
+                Behavior on opacity { NumberAnimation { duration: 240 } }
+                Keys.onPressed: (event) => {
+                    if (!shortcutset.isRecording) return;
+                    // 按 Esc 取消
+                    if (event.key === Qt.Key_Escape) {
+                        shortcutset.stopRecording(false)
+                        event.accepted = true
+                        mainWarn.tiped("已取消", 0)
+                        return
+                    }
+                    var seq = shortcutset.keyEventToSequence(event)
+                    if (seq) {
+                        shortcutset.stopRecording(true, seq)
+                        mainWarn.tiped("设置成功！", 1)
+                        event.accepted = true
+                    }
+                    // 如果是无效键（如单独的修饰键），不处理，等待有效组合
+                }
+                QButton {
+                    x: 3
+                    y: 3
+                    width: 100
+                    height: 34
+                    text: "取消[Esc]"
+                    buttonColor: Style.themes.primaryColor
+                    borderWidth: 1
+                    onClicked: {
+                        shortcutset.stopRecording(false);
+                        mainWarn.tiped("已取消", 0);
+                    }
+                }
+                Text {
+                    id: keyCaptureText
+                    x: 119
+                    anchors.verticalCenter: parent.verticalCenter
+                    font.pixelSize: Style.settings.textmain
+                    color: Style.themes.secondaryColor
+                    text: "请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
                 }
             }
         }
@@ -1642,8 +1798,6 @@ Item {
                     font.letterSpacing: -0.3
             }
 
-            Text { text: "目前本页的设置项无法使用,请等待更新"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
-
             QBlurTapBar {
                 x: 24
                 y: 70
@@ -1655,6 +1809,37 @@ Item {
                 blurSource: downloadChildPage
                 onTabChange: (index) => {
                     downloadChildPage.stack(index)
+                }
+            }
+
+            Rectangle {
+                x: 24
+                y: 124
+                width: settingStack.standWidth
+                height: warnModText.implicitHeight + 48
+                color: Style.themes.containColor
+                radius: Style.settings.cubeRadius
+                border.color: Style.themes.sideColor
+                border.width: 1
+                Text {
+                    x: 24
+                    y: 24
+                    font.family: iconFont.name
+                    height: warnModText.implicitHeight
+                    text: "\uf11a"
+                    color: Style.themes.themeColor
+                    font.pixelSize: Style.settings.texticon
+                }
+                Text {
+                    id: warnModText
+                    x: 48
+                    y: 24
+                    width: parent.width - 64
+                    text: "插件功能还未开发完成，等待开发者更新喵"
+                    wrapMode: Text.Wrap
+                    color: Style.themes.textColor
+                    font.bold: false
+                    font.pixelSize: Style.settings.textmain
                 }
             }
 
@@ -1720,7 +1905,6 @@ Item {
 
             contentChildren: Column {
                 id: aboutCol
-                anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 16
                 padding: 24
 
@@ -1771,10 +1955,10 @@ Item {
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 20
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: 240
+                        width: 260
                         height: 50
                         radius: 25
-                        color: Qt.rgba(1, 1, 1, 0.4)
+                        color: Qt.rgba(1, 1, 1, 0.5)
                         border.width: 1
                         border.color: Qt.rgba(1, 1, 1, 0.6)
 
@@ -1782,7 +1966,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 15
                             Label {
-                                text: "版本: " + window.version
+                                text: " 版本: " + window.version + "-" + window.versionCode
                                 font.pixelSize: Style.settings.textmain
                                 color: "black"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -1794,7 +1978,7 @@ Item {
                                 text: "检查更新"
                                 anchors.verticalCenter: parent.verticalCenter
                                 onClicked: {
-                                    signalCenter.checkForUpdatesRequested();
+                                    updater.checkForUpdate();
                                 }
                             }
                         }
@@ -1803,14 +1987,14 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: warnText.implicitHeight + 48
+                    height: warnText.implicitHeight + 40
                     color: Style.themes.containColor
                     radius: Style.settings.cubeRadius
                     border.color: Style.themes.sideColor
                     border.width: 1
                     Text {
-                        x: 24
-                        y: 24
+                        x: 20
+                        anchors.verticalCenter: parent.verticalCenter
                         font.family: iconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
@@ -1820,10 +2004,54 @@ Item {
                     Text {
                         id: warnText
                         x: 48
-                        y: 24
+                        y: 20
+                        width: parent.width - 108
                         text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
-                        elide: Text.ElideRight
-                        color: Style.themes.textColor
+                        wrapMode: Text.Wrap
+                        color: Style.themes.fontColor
+                        font.bold: false
+                        font.pixelSize: Style.settings.textmain
+                    }
+                    SButton {
+                        iconCharacter: "\uf025"
+                        x: parent.width - 52
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 36
+                        height: 36
+                        radius: 18
+                        iconSize: Style.settings.texticon
+                        buttonColor: "transparent"
+                        shadowEnabled: false
+                        onClicked: {
+                            parent.visible = false;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: warnMoneyText.implicitHeight + 40
+                    color: Style.themes.containColor
+                    radius: Style.settings.cubeRadius
+                    border.color: Style.themes.sideColor
+                    border.width: 1
+                    Text {
+                        x: 20
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.family: iconFont.name
+                        height: warnMoneyText.implicitHeight
+                        text: "\uf11a"
+                        color: Style.themes.themeColor
+                        font.pixelSize: Style.settings.texticon
+                    }
+                    Text {
+                        id: warnMoneyText
+                        x: 48
+                        y: 20
+                        width: parent.width - 108
+                        text: "QueMusic Beta（官方版）始终是完全免费且开源的软件，不存在付费，会员，捐献，充值，广告等入口，官方版本不存在Pro，Ultra，高级版等版本，如果你发现软件是买来的或者软件内有需要付费的内容，请立即与开发者联系。"
+                        wrapMode: Text.Wrap
+                        color: Style.themes.fontColor
                         font.bold: false
                         font.pixelSize: Style.settings.textmain
                     }
@@ -1876,11 +2104,11 @@ Item {
                     }
                 }
 
-                QHead { text: "版本信息" }
+                QHead { text: "技术践与版本信息" }
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: 244
+                    height: 288
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
@@ -1893,7 +2121,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: window.version
+                                text: window.version + " (" + window.versionCode + ")"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -1914,12 +2142,12 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
-                            label: "MinGW架构版本"
+                            label: "渲染与主体架构"
                             controlWidth: 120
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "MinGW-13.1.0-64Bit"
+                                text: "QML Engine/Qt RHI"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -1927,12 +2155,25 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
-                            label: "Cmake版本"
+                            label: "编译架构"
                             controlWidth: 120
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "3.30.5"
+                                text: "MinGW-13.1.0-64Bit（Cmake）"
+                                color: Style.themes.textColor
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        SettingItem {
+                            width: settingStack.standWidth - 32
+                            label: "编程语言"
+                            controlWidth: 120
+                            Text {
+                                anchors.right: parent.right
+                                height: 36
+                                text: "C++，QML，JS，Sql"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -1946,97 +2187,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "1.5.1.0-2606"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                    }
-                }
-
-                QHead { text: "技术践实现" }
-
-                Rectangle {
-                    width: settingStack.standWidth
-                    height: 288
-                    color: Style.themes.primaryColor
-                    radius: Style.settings.cubeRadius
-                    Column {
-                        spacing: 8
-                        padding: 16
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "主体架构"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "Qt QML Engine"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "开发工具"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "QtCreator"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "渲染架构"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "Qml RHI graph"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "前端编程语言"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "QML/JS"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "后端编程语言"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "C++/SqlLite"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "编译器与包管理"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "Cmake-MinGW"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2143,8 +2293,8 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "Source"
-                        iconCharacter: "\uf060"
+                        text: "SourceCode"
+                        iconCharacter: "\uf0dd"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic");
                         }
@@ -2164,7 +2314,7 @@ Item {
                         height: 40
                         radius: 20
                         text: "Bug反馈"
-                        iconCharacter: "\uf117"
+                        iconCharacter: "\uf06e"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic/issues");
                         }
@@ -2174,9 +2324,20 @@ Item {
                         height: 40
                         radius: 20
                         text: "开源许可"
-                        iconCharacter: "\uf117"
+                        iconCharacter: "\uf10a"
                         onClicked: {
-                            Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/blob/main/LICENSE");
+                            textWatch.info = false;
+                            textWatch.active = true;
+                        }
+                    }
+                    QButton {
+                        height: 40
+                        radius: 20
+                        text: "详细信息"
+                        iconCharacter: "\uf0b6"
+                        onClicked: {
+                            textWatch.info = true;
+                            textWatch.active = true;
                         }
                     }
                 }
@@ -2257,7 +2418,6 @@ Item {
                                     mainMessage.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
                                 }
                             }
-                            bottomLine: false
                         }
 
                         SettingItemCard {
@@ -2299,7 +2459,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "调试模式"
+                            label: "调试模式(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -2309,7 +2469,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "显示信息控制台"
+                            label: "显示信息控制台(x)"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -2320,6 +2480,62 @@ Item {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    Item {
+        id: updater
+
+        // 从文件或宏定义中获取的本地版本号
+        property int localVersion: window.versionCode
+
+        // 远程 version.txt 的 URL
+        property string remoteVersionUrl: "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/version.txt"
+        property int newVersion: window.versionCode
+
+        function checkForUpdate() {
+            console.log("正在检查更新...");
+            mainWarn.tiped("正在检查更新", 0);
+
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        var remoteVersion = parseInt(xhr.responseText.trim());
+                        console.log("远程版本号:", remoteVersion);
+
+                        if (remoteVersion > localVersion) {
+                            console.log("发现新版本!");
+                            newVersion = remoteVersion;
+                            // 显示更新提示对话框
+                            updateDialog.open();
+                        } else {
+                            console.log("当前已是最新版本");
+                            // 可选：显示“已是最新”的提示
+                            mainWarn.tiped("当前已是最新版本", 1);
+                        }
+                    } else {
+                        console.error("检查更新失败，HTTP状态码:", xhr.status);
+                        mainWarn.tiped("检查更新失败，请稍后重试", 2);
+                    }
+                }
+            }
+            xhr.open("GET", remoteVersionUrl)
+            xhr.send();
+        }
+
+        // 更新提示对话框
+        QAlertDialog {
+            id: updateDialog
+            title: "有新版本！"
+            message: "有新版本：(v" + updater.newVersion + ")可供下载，是否前往下载？"
+            isInput: false
+            blurSource: settingsView
+            //standardButtons: Dialog.Ok | Dialog.Cancel
+
+            onConfirm: {
+                Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/releases");
             }
         }
     }

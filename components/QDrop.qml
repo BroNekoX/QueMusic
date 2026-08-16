@@ -13,7 +13,7 @@ Rectangle {
     height: 36
     radius: Style.settings.labelRadius
     property color buttonColor: Style.themes.primaryColor
-    color: mouseArea.containsMouse ? Qt.darker(Style.themes.primaryColor, 1.2) : Style.themes.primaryColor
+    color: Style.themes.primaryColor
     border.width: 2
     border.color: Style.themes.borderColor
     property string text: model[choice]
@@ -21,16 +21,24 @@ Rectangle {
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
     property int choice: 0
+    property color textColor: Style.themes.textColor
     property string iconFontFamily: iconFont.name    // 图标字体
+    property int cardRadius: radius
     signal transformed(int choiced)
     clip: false
-    Behavior on color { ColorAnimation { duration: 80 } }
+    Rectangle {
+        anchors.fill: parent
+        color: Style.themes.hoverColor
+        radius: root.radius
+        opacity: mouseArea.containsMouse ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 80 } }
+    }
     Text {
         x: 0
         y: 0
         width: root.height
         height: root.height
-        color: Style.themes.textColor
+        color: root.textColor
         text: root.icon
         font.pixelSize: Style.settings.texticon
         font.family: root.iconFontFamily
@@ -44,7 +52,7 @@ Rectangle {
         height: root.height
         clip: true
         text: root.useId ? root.model[choice].description : root.text
-        color: Style.themes.fontColor
+        color: root.textColor
         font.pixelSize: Style.settings.textmain
         font.bold: true
         verticalAlignment: Text.AlignVCenter
@@ -87,20 +95,16 @@ Rectangle {
         transformOrigin: Popup.Top
         //color: Style.themes.primaryColor
 
-        background: Item {
-            Rectangle {
-                z: 1
-                id: menuCard
-                anchors.fill: parent
-                color: Style.themes.primaryColor
-                radius: root.radius
-            }
+        background: Rectangle {
+            id: menuCard
+            color: Style.themes.primaryColor
+            radius: root.cardRadius
             RectangularShadow {
                 anchors.fill: parent
-                z: 0
+                z: -1
                 offset.x: 5
                 offset.y: 5
-                radius: root.radius
+                radius: root.cardRadius
                 blur: 24
                 spread: 0
                 color: Style.themes.shadowColor
@@ -119,7 +123,7 @@ Rectangle {
                     width: dropList.width
                     height: 36
                     color: root.choice == index ? Style.themes.themeColor : "transparent"
-                    radius: root.radius
+                    radius: root.cardRadius
                     Text {
                         anchors.fill: parent
                         text: root.useId ? root.model[index].description : modelData
@@ -133,7 +137,7 @@ Rectangle {
                         id: hover
                         color: Style.themes.hoverColor
                         anchors.fill: parent
-                        radius: root.radius
+                        radius: root.cardRadius
                         opacity: 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
@@ -145,8 +149,8 @@ Rectangle {
                         onExited: hover.opacity = 0
                         onClicked: {
                             //root.choice = index
-                            root.transformed(index)
-                            popmenu.close()
+                            root.transformed(index);
+                            popmenu.close();
                         }
                     }
                 }

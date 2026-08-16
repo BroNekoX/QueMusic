@@ -21,12 +21,13 @@ Popup {
     height: 36
     width: contentRow.width + 24
     //onClosed: { input.text = ""; input.focus = false }
-    Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
+    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
     function tiped(title,type) {
-        dialog.title = title
-        dialog.type = type
-        dialog.open()
-        delay.running = true
+        delay.running = false;
+        dialog.title = title;
+        dialog.type = type;
+        dialog.open();
+        delay.running = true;
     }
 
     Timer {
@@ -92,11 +93,11 @@ Popup {
         }
     }
     enter: Transition {
-        NumberAnimation { property: "y"; duration: 240; from: -60; to: 70; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "y"; duration: 280; from: -60; to: 70; easing.type: Easing.OutExpo }
         NumberAnimation { property: "opacity"; duration: 160; from: 0; to: 1 }
     }
     exit: Transition {
-        NumberAnimation { property: "y"; duration: 160; to: -60 }
+        NumberAnimation { property: "y"; duration: 180; to: -60 }
         NumberAnimation { property: "opacity"; duration: 120; to: 0 }
     }
 }
