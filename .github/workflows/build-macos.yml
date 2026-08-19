@@ -20,14 +20,15 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install Qt 6.9.3 (aqtinstall)
-        run: |
-          python3 -m pip install --break-system-packages aqtinstall
-          # 用 clang_64 确保所有模块完整可用
-          python3 -m aqt install-qt mac desktop 6.9.3 clang_64 \
-            -m qtmultimedia qtshadertools qtsql qtdeclarative qttools \
-            -O "$HOME/Qt"
-          echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
+      # 使用官方的 setup-qt，自动适配当前 runner 架构，并安装所需模块
+      - name: Install Qt 6.9.3
+        uses: qt-actions/setup-qt@v3
+        with:
+          version: '6.9.3'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'          # 自动映射到当前 runner 的架构（arm64 或 x86_64）
+          modules: 'qtmultimedia qtshadertools qtsql qtdeclarative qttools'
 
       - name: Generate .icns app icon
         run: |
@@ -46,19 +47,12 @@ jobs:
 
       - name: Configure (CMake)
         run: |
-          QT_PREFIX="$HOME/Qt/6.9.3/clang_64"
-          if [ ! -f "$QT_PREFIX/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]; then
-            echo "!! ERROR: Qt6Multimedia not found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
-            echo "Available components in $QT_PREFIX/lib/cmake:"
-            ls -la "$QT_PREFIX/lib/cmake" | grep -i qt6 || true
-            exit 1
-          fi
+          # setup-qt 已经设置了 Qt6_DIR 环境变量，直接用
+          echo "Using Qt6_DIR = $Qt6_DIR"
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
-            -DQT_DIR="$QT_PREFIX" \
-            -DQt6_DIR="$QT_PREFIX/lib/cmake/Qt6" \
-            -DQt6Multimedia_DIR="$QT_PREFIX/lib/cmake/Qt6Multimedia"
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR/.." \
+            -DQt6_DIR="$Qt6_DIR"
 
       - name: Build
         run: cmake --build build -j"$(sysctl -n hw.ncpu)"
@@ -67,7 +61,17 @@ jobs:
         run: |
           APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
-          "$HOME/Qt/6.9.3/clang_64/bin/macdeployqt" "$APP_PATH" -dmg=no
+          # macdeployqt 路径通常与 Qt6_DIR 在同一父目录的 bin 下
+          DEPLOY_TOOL="$Qt6_DIR/../bin/macdeployqt"
+          if [ ! -f "$DEPLOY_TOOL" ]; then
+            echo "macdeployqt not found at $DEPLOY_TOOL, trying default path"
+            DEPLOY_TOOL="$(which macdeployqt)" || true
+          fi
+          if [ -z "$DEPLOY_TOOL" ]; then
+            echo "ERROR: macdeployqt not found"
+            exit 1
+          fi
+          "$DEPLOY_TOOL" "$APP_PATH" -dmg=no
           codesign --force --deep --sign - "$APP_PATH"
 
       - name: Create DMG
