@@ -1,21 +1,18 @@
-name: Build Linux AppImage
+name: Build macOS
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: '要创建的 Release tag（如 v0.2.0）。不能与已有 tag 重复。'
-        required: true
-        default: ''
   push:
     tags:
       - "v*"
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    permissions:
-        contents: write   # 仅这个 job 获得创建 Release 的权限
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-13]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -23,90 +20,78 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
-            libxcb-image0-dev libxcb-shm0-dev libxcb-util-dev \
-            libxcb-cursor0 libxcb-cursor-dev libxcb-randr0-dev \
-            libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
-            libxkbcommon-dev libxkbcommon-x11-dev \
-            libgl1-mesa-dev libfuse2 ninja-build wget file \
-            libpulse-dev libpulse0
-          ls -la /usr/lib/x86_64-linux-gnu/libpulse*
-
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
-          python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 \
-            -O "$HOME/Qt" \
-            -m qtmultimedia qtshadertools qt5compat
-          echo "$HOME/Qt/6.9.3/gcc_64/bin" >> "$GITHUB_PATH"
+          # 用 clang_64 确保所有模块完整可用
+          python3 -m aqt install-qt mac desktop 6.9.3 clang_64 \
+            -m qtmultimedia qtshadertools qtsql qtdeclarative qttools \
+            -O "$HOME/Qt"
+          echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
+
+      - name: Generate .icns app icon
+        run: |
+          mkdir -p icon.iconset
+          sips -z 16 16     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o resources/app/icon.icns
 
       - name: Configure (CMake)
         run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/gcc_64"
-
-      - name: Build
-        run: |
-          cmake --build build -j"$(nproc)"
-
-      - name: Download linuxdeploy tools
-        run: |
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
-
-      - name: Package AppImage
-        run: |
-          export QMAKE="$HOME/Qt/6.9.3/gcc_64/bin/qmake"
-          export QML_SOURCES_PATHS="$(pwd)"
-          export EXTRA_QT_MODULES="multimedia;sql;shadertools"
-          export QT_QPA_PLATFORM=minimal
-          rm -f "$HOME/Qt/6.9.3/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp packaging/QueMusic.desktop AppDir/usr/share/applications/
-          cp resources/icon.png \
-            AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
-          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
-            --appdir AppDir \
-            --executable build/bin/QueMusic \
-            --desktop-file AppDir/usr/share/applications/QueMusic.desktop \
-            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
-            --plugin qt \
-            --output appimage
-          mv QueMusic-*.AppImage QueMusic-x86_64.AppImage 2>/dev/null || true
-          ls -la QueMusic-*.AppImage
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: QueMusic-x86_64.AppImage
-          path: QueMusic-x86_64.AppImage
-
-      # ========== 新增：检查手动输入的 tag 是否已存在 ==========
-      - name: Check if release tag already exists (manual trigger only)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.event.inputs.release_tag }}"
-          if gh release view "$TAG" &>/dev/null; then
-            echo "❌ Error: Release tag '$TAG' already exists. Please choose a different tag."
+          QT_PREFIX="$HOME/Qt/6.9.3/clang_64"
+          if [ ! -f "$QT_PREFIX/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]; then
+            echo "!! ERROR: Qt6Multimedia not found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
+            echo "Available components in $QT_PREFIX/lib/cmake:"
+            ls -la "$QT_PREFIX/lib/cmake" | grep -i qt6 || true
             exit 1
           fi
-          echo "✅ Tag '$TAG' is available."
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
+            -DQT_DIR="$QT_PREFIX" \
+            -DQt6_DIR="$QT_PREFIX/lib/cmake/Qt6" \
+            -DQt6Multimedia_DIR="$QT_PREFIX/lib/cmake/Qt6Multimedia"
 
-      # ========== 创建 Release 并上传 AppImage ==========
-      - name: Create Release and upload AppImage
-        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release_tag != ''
+      - name: Build
+        run: cmake --build build -j"$(sysctl -n hw.ncpu)"
+
+      - name: Bundle with macdeployqt
+        run: |
+          APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+          "$HOME/Qt/6.9.3/clang_64/bin/macdeployqt" "$APP_PATH" -dmg=no
+          codesign --force --deep --sign - "$APP_PATH"
+
+      - name: Create DMG
+        run: |
+          APP_NAME="QueMusic"
+          ARCH_NAME="${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}"
+          DMG_NAME="${APP_NAME}-$(git describe --tags --always)-macOS-${ARCH_NAME}.dmg"
+          echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
+          hdiutil create -volname "${APP_NAME}" \
+            -srcfolder "${APP_PATH}" \
+            -ov -format UDZO "${DMG_NAME}"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DMG_NAME }}
+          path: ${{ env.DMG_NAME }}
+
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.event.inputs.release_tag }}
-          files: QueMusic-x86_64.AppImage
-          # 不设置 body 和 name，Release 标题默认取 tag 名，正文为空
-          generate_release_notes: false
+          files: ${{ env.DMG_NAME }}
+          generate_release_notes: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
