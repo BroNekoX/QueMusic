@@ -1,8 +1,5 @@
 name: Build macOS
 
-# 触发条件：
-#   - 推送 v* 标签时（发布 Release 用）
-#   - 手动触发（Actions 页面点 Run workflow）
 on:
   workflow_dispatch:
   push:
@@ -14,8 +11,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-14 = Apple Silicon (arm64), macos-13 = Intel (x86_64)
-        # 想同时出两个架构就都保留；只想出 arm64 就删掉 macos-13 行
         os: [macos-14, macos-13]
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,12 +21,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install Qt 6.9.3 (aqtinstall)
-         run: |
-            python3 -m pip install --break-system-packages aqtinstall
-            python3 -m aqt install-qt mac desktop 6.9.3 macos \
-               -m qtmultimedia qtshadertools qtsql qtdeclarative qttools \
-               -O "$HOME/Qt"
-            echo "$HOME/Qt/6.9.3/macos/bin" >> "$GITHUB_PATH"
+        run: |
+          python3 -m pip install --break-system-packages aqtinstall
+          python3 -m aqt install-qt mac desktop 6.9.3 clang_64 \
+            -m qtmultimedia qtshadertools qtsql qtdeclarative qttools \
+            -O "$HOME/Qt"
+          echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
 
       - name: Generate .icns app icon
         run: |
@@ -47,51 +42,38 @@ jobs:
           sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512.png
           sips -z 1024 1024 resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512@2x.png
           iconutil -c icns icon.iconset -o resources/app/icon.icns
-          ls -la resources/app/icon.icns
 
       - name: Configure (CMake)
         run: |
-          # 动态定位 Qt6Config.cmake 的真实位置（aqtinstall 的 mac 架构目录名不固定）
-          QT6_CFG=$(find "$HOME/Qt" -name "Qt6Config.cmake" 2>/dev/null | head -n1)
-          if [ -z "$QT6_CFG" ]; then
-            echo "!! FATAL: Qt6Config.cmake not found under $HOME/Qt"
+          QT_PREFIX="$HOME/Qt/6.9.3/clang_64"
+          if [ ! -f "$QT_PREFIX/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]; then
+            echo "!! ERROR: Qt6Multimedia not found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
+            echo "Available components in $QT_PREFIX/lib/cmake:"
+            ls -la "$QT_PREFIX/lib/cmake" | grep -i qt6 || true
             exit 1
           fi
-          echo "==> Found Qt6Config.cmake: $QT6_CFG"
-          # 从 .../lib/cmake/Qt6/Qt6Config.cmake 剥掉后缀得到 Qt 前缀
-          QT_PREFIX=${QT6_CFG%/lib/cmake/Qt6/Qt6Config.cmake}
-          echo "==> QT_PREFIX = $QT_PREFIX"
-          ls "$QT_PREFIX/lib/cmake/Qt6/" 2>/dev/null | head -5
-          # 设置多个 Qt 查找变量，确保 qwindowkit 内部 qmsetup
-          # 和 find_package(QT NAMES Qt6 Qt5) 都能找到 Qt6Config.cmake
-          export QT_DIR="$QT_PREFIX"
-          export QTDIR="$QT_PREFIX"
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
             -DQT_DIR="$QT_PREFIX" \
-            -DQt6_DIR="$QT_PREFIX/lib/cmake/Qt6"
+            -DQt6_DIR="$QT_PREFIX/lib/cmake/Qt6" \
+            -DQt6Multimedia_DIR="$QT_PREFIX/lib/cmake/Qt6Multimedia"
 
       - name: Build
-        run: |
-          cmake --build build -j"$(sysctl -n hw.ncpu)"
+        run: cmake --build build -j"$(sysctl -n hw.ncpu)"
 
       - name: Bundle with macdeployqt
         run: |
-          # 找出 .app bundle 路径
           APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
-          # 把 Qt 运行库打进 .app
-          "$HOME/Qt/6.9.3/clang_64/bin/macdeployqt" "$APP_PATH" \
-            -dmg=no
-          # ad-hoc 签名（无开发者证书时也能在本机运行）
+          "$HOME/Qt/6.9.3/clang_64/bin/macdeployqt" "$APP_PATH" -dmg=no
           codesign --force --deep --sign - "$APP_PATH"
 
       - name: Create DMG
         run: |
           APP_NAME="QueMusic"
           ARCH_NAME="${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}"
-          DMG_NAME="${APP_NAME}-0.1.0-macOS-${ARCH_NAME}.dmg"
+          DMG_NAME="${APP_NAME}-$(git describe --tags --always)-macOS-${ARCH_NAME}.dmg"
           echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
           hdiutil create -volname "${APP_NAME}" \
             -srcfolder "${APP_PATH}" \
@@ -109,3 +91,6 @@ jobs:
         with:
           files: ${{ env.DMG_NAME }}
           generate_release_notes: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
