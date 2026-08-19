@@ -618,7 +618,7 @@ Item {
             }
 
             QButton {
-                x: parent.width - 124
+                x: localFolderMusic.width - 124
                 y: 44
                 height: 40; width: 100
                 radius: 20
@@ -828,9 +828,9 @@ Item {
             }
 
             QButton {
-                x: parent.width - 124
+                x: localFolderMusic.width - width - 24
                 y: 44
-                height: 40; width: 100
+                height: 40
                 radius: 20
                 z: 10
                 text: "文件夹中显示"
