@@ -24,7 +24,7 @@ jobs:
         run: |
           python3 -m pip install --break-system-packages aqtinstall
           python3 -m aqt install-qt mac desktop 6.9.3 clang_64 \
-            -m qtmultimedia qtshadertools qtsql qtdeclarative qttools \
+            -m multimedia shadertools sql declarative tools \
             -O "$HOME/Qt"
           echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
 
