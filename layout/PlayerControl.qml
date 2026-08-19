@@ -211,6 +211,15 @@ Rectangle {
             iconColor: Style.themes.textColor
             shadowEnabled: false
             onClicked: {
+                if(playListModel.get(playListModel.playListIndex).path) {
+                    if(Options.settings.soundQuality === 0) {
+                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
+                    } else if(Options.settings.soundQuality === 1) {
+                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
+                    } else {
+                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
+                    }
+                }
             }
             QTip {
                 visible: parent.hovered

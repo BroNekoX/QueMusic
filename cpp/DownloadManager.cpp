@@ -219,6 +219,7 @@ void DownloadManager::startNextTask()
     QString downloadDir = m_downloadPath;
     if (downloadDir.isEmpty())
         downloadDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+        downloadDir += "/QueMusic";
     QDir().mkpath(downloadDir);
 
     // 如果文件已存在，添加数字后缀避免覆盖

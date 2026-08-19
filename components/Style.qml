@@ -58,7 +58,7 @@ QtObject {
 
         // UI设置
         property bool sidebarColor: false
-        property int sidebarStyle: 0
+        property int sidebarStyle: 1
         property int menutheme: 1
         //1.material 2.fluent
         property int glmode: 0

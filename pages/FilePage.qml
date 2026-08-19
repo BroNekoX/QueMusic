@@ -618,15 +618,15 @@ Item {
             }
 
             QButton {
-                x: folderMusic.width - 144
+                x: parent.width - 124
                 y: 44
-                height: 40; width: 120
+                height: 40; width: 100
                 radius: 20
                 z: 10
                 iconCharacter: "\uf10d"
                 text: "导入"
                 onClicked: {
-                    onClicked: musicfileDialog.open();
+                    musicfileDialog.open();
                 }
             }
 
@@ -642,7 +642,7 @@ Item {
                 headerModel: ["标题","","","菜单"]
                 delegate: Rectangle {
                     id: listfile
-                    height: 64
+                    height: 60
                     width: fileView.width - 16
                     radius: Style.settings.labelRadius
                     property color isBackDisplay: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
@@ -654,8 +654,8 @@ Item {
                         y: 8
                         x: 8
                         z: 4
-                        width: 48
-                        height: 48
+                        width: 44
+                        height: 44
                         color: Style.themes.containColor
                         radius: 10
                         Text {
@@ -684,7 +684,7 @@ Item {
                         y: 0
                         z: 3
                         width: 140
-                        height: 64
+                        height: 60
                         text: model.name
                         color: Style.themes.fontColor
                         font.bold: true
@@ -715,17 +715,16 @@ Item {
                         }
                         Row {
                             anchors.right: parent.right
-                            anchors.rightMargin: 20
-                            spacing: 5
-                            z: 2
+                            anchors.rightMargin: 16
+                            spacing: 2
                             y: 12
-                            height: 40
+                            height: 36
                             SButton {
                                 id: fileListAdd
                                 iconCharacter: "\uf095"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
@@ -742,9 +741,9 @@ Item {
                             SButton {
                                 id: fileOpen
                                 iconCharacter: "\uf107"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
@@ -754,9 +753,9 @@ Item {
                             SButton {
                                 id: fileDelete
                                 iconCharacter: "\uf08e"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                 shadowEnabled: false
@@ -828,6 +827,19 @@ Item {
                 }
             }
 
+            QButton {
+                x: parent.width - 124
+                y: 44
+                height: 40; width: 100
+                radius: 20
+                z: 10
+                text: "文件夹中显示"
+                iconCharacter: "\uf0fb"
+                onClicked: {
+                    Qt.openUrlExternally(localFileModel.folder);
+                }
+            }
+
             QListView {
                 id: localFileView
                 x: 24
@@ -868,11 +880,10 @@ Item {
                 }
                 delegate: Rectangle {
                     id: listLocalFile
-                    height: 64
+                    height: 60
                     width: localFileView.width - 16
                     radius: Style.settings.labelRadius
-                    property color isBackDisplay: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
-                    color: mainMedia.noTitle == model.fileName ? Style.themes.onPrimaryColor : isBackDisplay
+                    color: mainMedia.source == model.fileUrl ? Style.themes.onPrimaryColor : "transparent"
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -880,8 +891,8 @@ Item {
                         y: 8
                         x: 8
                         z: 4
-                        width: 48
-                        height: 48
+                        width: 44
+                        height: 44
                         color: Style.themes.containColor
                         radius: 10
                         Text {
@@ -910,7 +921,7 @@ Item {
                         y: 0
                         z: 3
                         width: 140
-                        height: 64
+                        height: 60
                         text: model.fileName
                         color: Style.themes.fontColor
                         font.bold: true
@@ -941,16 +952,15 @@ Item {
                         }
                         Row {
                             anchors.right: parent.right
-                            anchors.rightMargin: 20
-                            spacing: 5
-                            z: 2
+                            anchors.rightMargin: 16
+                            spacing: 2
                             y: 12
-                            height: 40
+                            height: 36
                             SButton {
                                 iconCharacter: "\uf095"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
@@ -965,9 +975,9 @@ Item {
                             }
                             SButton {
                                 iconCharacter: "\uf107"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
@@ -976,9 +986,9 @@ Item {
                             }
                             SButton {
                                 iconCharacter: "\uf08e"
-                                width: 40
-                                height: 40
-                                radius: 40
+                                width: 36
+                                height: 36
+                                radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                 shadowEnabled: false

@@ -4,6 +4,8 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QueMusic 1.0
+import QtCore
+import Qt.labs.folderlistmodel
 import 'qrc:/QueMusic/components'
 
 Item {
@@ -44,6 +46,28 @@ Item {
         blurSource: downloadChildPage
         onTabChange: (index) => {
             downloadChildPage.stack(index);
+        }
+    }
+
+    // 右侧操作区
+    Row {
+        x: parent.width - width - 24
+        y: 80
+        z: 2
+        spacing: 8
+        QButton {
+            height: 38
+            text: "文件夹中显示"
+            iconCharacter: "\uf0fb"
+            buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
+            onClicked: {
+                var path = Options.settings.downloadFolder;
+                if (path === "") {
+                    path = StandardPaths.writableLocation(StandardPaths.MusicLocation) + "/QueMusic";
+                }
+                // 转换为 file:// URL
+                Qt.openUrlExternally(path);
+            }
         }
     }
 
@@ -308,197 +332,185 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: "没有已下载的文件"
+                text: "没有已下载的文件,去下载几个音乐喵"
                 color: Style.themes.textColor
                 font.pixelSize: 14
-                visible: MusicApi.downloader.completedCount === 0
+                visible: downloadFileModel.count === 0
             }
 
-            ListView {
-                id: completedList
+            FolderListModel {
+                id: downloadFileModel
+                nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
+                folder: StandardPaths.writableLocation(StandardPaths.MusicLocation) + "/QueMusic"
+            }
+
+            QListView {
+                id: localFileView
                 anchors.fill: parent
-                anchors.topMargin: 72
-                anchors.bottomMargin: 24
-                model: MusicApi.downloader
+                topMargin: 72
+                bottomMargin: 24
+                model: downloadFileModel
                 clip: true
-                spacing: 4
-                reuseItems: true
-                ScrollBar.vertical: ScrollBar {
-                    parent: completedList
-                    anchors.top: completedList.top
-                    anchors.right: completedList.right
-                    anchors.bottom: completedList.bottom
+                visible: downloadFileModel.count !== 0
+                //reuseItems: true
+                headerModel: ["标题","","","菜单"]
+                populate: Transition {
+                    id: localFileLoadAnime
+                    SequentialAnimation {
+                        PropertyAction {
+                            property: "opacity"
+                            value: 0
+                        }
+                        PauseAnimation {
+                            duration: localFileLoadAnime.ViewTransition.index * 80
+                        }
+                        ParallelAnimation {
+                            NumberAnimation {
+                                properties: "x"
+                                from: 400
+                                to: 0
+                                duration: 350
+                                easing.type: Easing.OutExpo
+                            }
+                            NumberAnimation {
+                                properties: "opacity"
+                                from: 0
+                                to: 1
+                                duration: 350
+                                easing.type: Easing.OutExpo
+                            }
+                        }
+                    }
                 }
-                visible: MusicApi.downloader.completedCount > 0
+                delegate: Rectangle {
+                    id: listLocalFile
+                    height: 60
+                    width: localFileView.width - 16
+                    radius: Style.settings.labelRadius
+                    color: mainMedia.source == model.fileUrl ? Style.themes.onPrimaryColor : "transparent"
 
-                header: Item {
-                    width: completedList.width
-                    height: 32
-                    Text {
-                        x: 80
-                        height: 32
-                        verticalAlignment: Text.AlignVCenter
-                        text: "文件名"
-                        color: Style.themes.textColor
-                        font.pixelSize: Style.settings.text
-                    }
-                    Text {
-                        x: parent.width - 200
-                        height: 32
-                        verticalAlignment: Text.AlignVCenter
-                        text: "操作"
-                        color: Style.themes.textColor
-                        font.pixelSize: Style.settings.text
-                    }
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
                     Rectangle {
-                        width: parent.width - 16
-                        height: 1
-                        color: Style.themes.sideColor
-                        y: 31
+                        y: 8
+                        x: 8
+                        z: 4
+                        width: 44
+                        height: 44
+                        color: Style.themes.containColor
+                        radius: 10
+                        Text {
+                            anchors.fill: parent
+                            text: "\uf044"
+                            font.family: iconFont.name
+                            font.pixelSize: Style.settings.texticon
+                            color: Style.themes.fontColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
-                }
-
-                delegate: Item {
-                    id: completedDel
-                    height: 64
-                    width: completedList.width - 16
-                    visible: model.status === 2
 
                     Rectangle {
                         anchors.fill: parent
                         radius: Style.settings.labelRadius
-                        color: Style.themes.hoverColor
-                        opacity: area2.containsMouse ? 1 : 0
+                        color: Qt.rgba(0.5,0.5,0.5,0.2)
+                        opacity: localFileArea.containsMouse ? 1 : 0
+                        z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
 
-                    // 图标
-                    Rectangle {
-                        x: 8
-                        y: 8
-                        width: 48
-                        height: 48
-                        radius: 10
-                        color: Style.themes.containColor
-                        Text {
-                            anchors.centerIn: parent
-                            text: "\ue80d"
-                            font.family: iconFont.name
-                            font.pixelSize: 20
-                            color: Style.themes.themeColor
-                        }
-                    }
 
-                    // 文件名
-                    Text {
+                    Label {
                         x: 80
-                        y: 12
-                        width: parent.width - 280
-                        height: 24
+                        y: 0
+                        z: 3
+                        width: 140
+                        height: 60
                         text: model.fileName
                         color: Style.themes.fontColor
-                        font.pixelSize: Style.settings.textmain
                         font.bold: true
-                        elide: Text.ElideRight
+                        font.pixelSize: Style.settings.textmain
                         verticalAlignment: Text.AlignVCenter
-                    }
-
-                    // 文件路径
-                    Text {
-                        x: 80
-                        y: 36
-                        width: parent.width - 280
-                        height: 20
-                        text: model.filePath
-                        color: Style.themes.textColor
-                        font.pixelSize: Style.settings.textTip
-                        elide: Text.ElideMiddle
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    // 操作按钮
-                    Row {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 8
-                        y: 14
-                        spacing: 2
-
-                        // 播放
-                        SButton {
-                            iconCharacter: "\uf04b"
-                            iconSize: 14
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            shadowEnabled: false
-                            onClicked: {
-                                mainMedia.urlLocal = true;
-                                mainMedia.source = model.filePath;
-                                mainMedia.noTitle = model.fileName;
-                                MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
-                                mainMedia.play();
-
-                                // 加入播放列表
-                                var found = false;
-                                for (var i = 0; i < playListModel.count; i++) {
-                                    if (playListModel.get(i).path === model.filePath) {
-                                        found = true;
-                                        playListModel.playListIndex = i;
-                                        break;
-                                    }
-                                }
-                                if (!found) {
-                                    playListModel.append({
-                                        name: model.fileName,
-                                        path: model.filePath,
-                                        local: "true"
-                                    });
-                                    playListModel.playListIndex = playListModel.count - 1;
-                                }
-                            }
-                        }
-
-                        // 加入播放列表
-                        SButton {
-                            iconCharacter: "\uf095"
-                            iconSize: 14
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            shadowEnabled: false
-                            onClicked: {
-                                playListModel.append({
-                                    name: model.fileName,
-                                    path: model.filePath,
-                                    local: "true"
-                                });
-                                mainWarn.tiped("已加入播放列表", 1);
-                            }
-                        }
-
-                        // 移除
-                        SButton {
-                            iconCharacter: "\ue804"
-                            iconSize: 14
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
-                            shadowEnabled: false
-                            onClicked: MusicApi.downloader.removeTask(model.taskId)
-                        }
+                        visible: true
+                        Behavior on color { ColorAnimation { duration: 120 } }
                     }
 
                     MouseArea {
-                        id: area2
+                        id: localFileArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        acceptedButtons: Qt.NoButton
+                        onClicked: {
+                            mainMedia.urlLocal = true;
+                            mainMedia.source = model.fileUrl;
+                            mainMedia.noTitle = model.fileName;
+                            console.log("url:", model.fileUrl);
+                            MusicApi.setLocalLyrics();
+                            mainMedia.play();
+                            var musicName = model.fileName;
+                            var musicPath = model.fileUrl.toString();
+                            var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
+                            if (listIndex == -1) {
+                                playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
+                                playListModel.playListIndex = playListModel.count - 1;
+                            }
+                        }
+                        Row {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 20
+                            spacing: 2
+                            y: 12
+                            height: 36
+                            SButton {
+                                iconCharacter: "\uf095"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
+                                shadowEnabled: false
+                                onClicked: {
+                                    var musicName = model.fileName;
+                                    var musicPath = model.fileUrl.toString();
+                                    var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
+                                    if (listIndex == -1) {
+                                        playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
+                                    }
+                                }
+                            }
+                            SButton {
+                                iconCharacter: "\uf107"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
+                                shadowEnabled: false
+                                onClicked: {
+                                }
+                            }
+                            SButton {
+                                iconCharacter: "\uf08e"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                shadowEnabled: false
+                                onClicked: {
+                                    myfileModel.get(filePage.folderNumber).music.remove(index);
+                                }
+                            }
+                        }
+                    }
+
+                    function findIndexByValue(model, key, targetValue) {
+                        for (var i = 0; i < model.count; i++) {
+                            var element = model.get(i);
+                            if (element[key] === targetValue) {
+                                return i; // 返回找到的索引
+                            }
+                        }
+                        return -1; // 未找到返回 -1
                     }
                 }
             }

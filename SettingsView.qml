@@ -11,6 +11,7 @@ import QueMusic 1.0
 Item {
     id: settingsView
 
+
     // 账号登录面板展开状态
     property bool neteaseShowLogin: false
     property bool kugouShowLogin: false
@@ -174,7 +175,7 @@ Item {
                 if(Style.settings.sidebarStyle === 0) {
                     leftSidebarSettings.choiceColor = Style.themes.hoverColor;
                     leftSidebarSettings.choiceTextColor = Style.themes.fontColor;
-                    choicebar1.x = 16;
+                    choicebar1.x = 18;
                     choicebar1.radius = 2;
                 } else if(Style.settings.sidebarStyle === 1) {
                     leftSidebarSettings.choiceColor = Style.themes.themeColor;
@@ -412,11 +413,13 @@ Item {
 
     Rectangle {
         id: settingStack
-        x: 210; y: 0
+        x: 210
+        //x: parent.width > 1410 ? parent.width / 2 - 495 : 210; y: 0
+        //width: parent.width > 1410 ? 1200 : parent.width - 210
         width: parent.width - 210
         height: parent.height
-        z: 2
         color: Style.themes.secondaryColor
+        z: 2
         property var setPages: [
             themeset,
             uiset,
@@ -463,7 +466,9 @@ Item {
             }
         }
 
-        property int standWidth: settingsView.width - 262
+        property int standWidth: parent.width > 1410 ? 1148 : parent.width - 262
+        property int containWidth: parent.width > 1410 ? 1200 : parent.width - 210
+        property int containX: parent.width > 1410 ? parent.width / 2 - 705 : 0
 
         // 通用设置
         QScrollView {
@@ -480,6 +485,8 @@ Item {
                 id: themeContent
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
                 Text {
                     width: settingStack.standWidth
                     height: 40
@@ -638,6 +645,7 @@ Item {
                         width: parent.width
                         topPadding: 12
                         Component.onCompleted: parent.height = height
+                        spacing: 12
 
                         // 合规说明
                         Rectangle {
@@ -666,117 +674,73 @@ Item {
                             }
                         }
 
-                        // 网易云音乐
-                        SettingItemCard {
-                            label: "网易云音乐账号"
-                            controlWidth: 400
-                            controlItem: Item {
-                                anchors.fill: parent
-                                Row {
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 10
-                                    Rectangle {
-                                        width: 28
-                                        height: 28
-                                        radius: 14
-                                        clip: true
-                                        visible: accountManager.neteaseLoggedIn && accountManager.neteaseAvatar !== ""
-                                        Image {
-                                            anchors.fill: parent
-                                            source: accountManager.neteaseAvatar
-                                            fillMode: Image.PreserveAspectCrop
-                                        }
-                                    }
-                                    Text {
-                                        visible: accountManager.neteaseLoggedIn
-                                        text: accountManager.neteaseNickname
-                                        color: Style.themes.fontColor
-                                        verticalAlignment: Text.AlignVCenter
-                                        font.pixelSize: Style.settings.textmain
-                                        elide: Text.ElideRight
-                                        width: 150
-                                    }
-                                    QButton {
-                                        text: accountManager.neteaseLoggedIn ? "退出登录" : "扫码登录"
-                                        width: 110
-                                        height: 32
-                                        radius: 16
-                                        shadowEnabled: false
-                                        buttonColor: Style.themes.themeColor
-                                        textColor: Style.themes.secondaryColor
-                                        onClicked: {
-                                            if (accountManager.neteaseLoggedIn) {
-                                                globalDialog.openSimpleDialog("警告", "是否退出账号？",
-                                                    function() {
-                                                        accountManager.logoutNetease();
-                                                    }
-                                                )
-                                            } else {
-                                                settingsView.neteaseShowLogin = true;
-                                                neteaseQrDialog.open();
-                                                accountManager.startNeteaseQrLogin();
+                        Row {
+                            x: 16
+                            width: parent.width - 32
+                            height: 128
+                            spacing: 14
+                            PlatformCard {
+                                text: "酷狗音乐"
+                                chooseColor: "#4384F5"
+                                chooseColor1: "#CDE8FF"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 0
+                                isLogin: accountManager.kugouLoggedIn
+                                header: accountManager.kugouAvatar
+                                name: accountManager.kugouNickname
+                                onClicked: MusicApi.songSource = 0;
+                                onLogined: {
+                                    if (accountManager.kugouLoggedIn) {
+                                        globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                            function() {
+                                                accountManager.logoutKugou();
                                             }
-                                        }
+                                        )
+                                    } else {
+                                        settingsView.kugouShowLogin = true;
+                                        kugouQrDialog.open();
+                                        accountManager.startKugouQrLogin();
                                     }
                                 }
                             }
-                        }
-
-                        // 酷狗音乐
-                        SettingItemCard {
-                            label: "酷狗音乐账号"
-                            controlWidth: 400
-                            bottomLine: false
-                            controlItem: Item {
-                                anchors.fill: parent
-                                Row {
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 10
-                                    Rectangle {
-                                        width: 28
-                                        height: 28
-                                        radius: 14
-                                        clip: true
-                                        visible: accountManager.kugouLoggedIn && accountManager.kugouAvatar !== ""
-                                        Image {
-                                            anchors.fill: parent
-                                            source: accountManager.kugouAvatar
-                                            fillMode: Image.PreserveAspectCrop
-                                        }
-                                    }
-                                    Text {
-                                        visible: accountManager.kugouLoggedIn
-                                        text: accountManager.kugouNickname
-                                        color: Style.themes.fontColor
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        font.pixelSize: Style.settings.textmain
-                                        elide: Text.ElideRight
-                                        width: 150
-                                    }
-                                    QButton {
-                                        text: accountManager.kugouLoggedIn ? "退出登录" : "扫码登录"
-                                        width: 110
-                                        height: 32
-                                        radius: 16
-                                        shadowEnabled: false
-                                        buttonColor: Style.themes.themeColor
-                                        textColor: Style.themes.secondaryColor
-                                        onClicked: {
-                                            if (accountManager.kugouLoggedIn) {
-                                                globalDialog.openSimpleDialog("警告", "是否退出账号？",
-                                                    function() {
-                                                        accountManager.logoutKugou();
-                                                    }
-                                                )
-                                            } else {
-                                                settingsView.kugouShowLogin = true;
-                                                kugouQrDialog.open();
-                                                accountManager.startKugouQrLogin();
+                            PlatformCard {
+                                text: "网易云音乐"
+                                chooseColor: "#F54343"
+                                chooseColor1: "#FFCDCD"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 1
+                                isLogin: accountManager.neteaseLoggedIn
+                                header: accountManager.neteaseAvatar
+                                name: accountManager.neteaseNickname
+                                onClicked: MusicApi.songSource = 1;
+                                onLogined: {
+                                    if (accountManager.neteaseLoggedIn) {
+                                        globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                            function() {
+                                                accountManager.logoutNetease();
                                             }
-                                        }
+                                        )
+                                    } else {
+                                        settingsView.neteaseShowLogin = true;
+                                        neteaseQrDialog.open();
+                                        accountManager.startNeteaseQrLogin();
                                     }
+                                }
+                            }
+                            PlatformCard {
+                                text: "QQ音乐"
+                                chooseColor: "#4DF543"
+                                chooseColor1: "#CDFFCD"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 2
+                                isLogin: false
+                                name: "暂不支持"
+                                onClicked: MusicApi.songSource = 2;
+                                onLogined: {
+                                    mainWarn.tiped("目前无法使用", 0);
                                 }
                             }
                         }
@@ -871,6 +835,8 @@ Item {
                 id: uiContent
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
@@ -1221,6 +1187,8 @@ Item {
                 id: funcContent
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
@@ -1355,6 +1323,8 @@ Item {
                 id: playContent
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
@@ -1591,6 +1561,8 @@ Item {
             contentChildren: Column {
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
@@ -1776,6 +1748,13 @@ Item {
                     text: "请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
                 }
             }
+            Connections {
+                target: window
+                function onExit() {
+                    shortcutset.stopRecording(false);
+                    mainWarn.tiped("已取消", 0);
+                }
+            }
         }
 
         // 插件设置
@@ -1907,6 +1886,8 @@ Item {
                 id: aboutCol
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
@@ -2356,6 +2337,8 @@ Item {
                 id: deBug
                 spacing: 16
                 padding: 24
+                width: settingStack.containWidth
+                x: settingStack.containX
 
                 Text {
                     width: settingStack.standWidth
