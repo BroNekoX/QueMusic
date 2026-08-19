@@ -103,7 +103,8 @@
 
 - Qt **6.9+**（含 Qt Multimedia, Qt SQL, Qt ShaderTools等基础Qt库）
 - CMake ≥ **3.24**
-- 编译器：MSVC 2022 / GCC 13+ / MinGW 13+
+- 编译器：GCC 13+ / MinGW 13+ / Clang
+- （可选）**Ninja** 构建系统（推荐，已内置在预设中）
 
 ### 克隆（含子模块）
 
@@ -119,55 +120,79 @@ cd QueMusic
 > git submodule update --init --recursive
 > ```
 
-### Windows 构建
+### 快速构建
+
+本项目内置`CmakePresets.json`,支持快速构建：
+
+#### 1.使用just构建与运行
+
+! 该操作需提前安装just ! 然后执行：
 
 ```bash
-# 方式一：命令行
+just b   #构建
+just r   #运行
+```
+
+#### 2.使用Cmake构建
+
+```bash
+# 配置（自动选择预设）
+cmake --preset <preset-name>
+
+# 编译
+cmake --build build/<preset-name> -j 8
+
+# 运行
+./build/<preset-name>/bin/QueMusic   # Linux/macOS
+./build/<preset-name>/bin/QueMusic.exe  # Windows
+```
+
+预设如下：
+
+| 平台 | 预设名 | 编译器 |
+|------|------|------|
+| Windows | win-mingw-release | MinGW |
+| Linux | linux-gcc-release | GCC |
+| MacOS | mac-clang-release | Clang |
+
+> 💡 如果 CMake 找不到 Qt，请先设置环境变量 `CMAKE_PREFIX_PATH` 指向你的 Qt 安装目录（例如 `~/Qt/6.9.3/mingw_64` 或 `~/Qt/6.9.3/gcc_64`）。
+
+### 普通构建
+
+#### Windows（MinGW）
+
+```bash
 cmake -B build -G Ninja \
   -DCMAKE_PREFIX_PATH=/path/to/Qt/6.9.x/mingw_64
 cmake --build build --parallel
 ./build/bin/QueMusic
-
-# 方式二：Qt Creator
-# 本项目就是QueMusic的源代码，直接用 Qt Creator 打开项目根目录的 CMakeLists.txt，配置后运行即可
 ```
-
-> 💡 **提示**：推荐使用 **Qt Creator** 打开本项目，配置、编译、调试一步到位。
-
-### Linux 构建
+#### Linux 构建
 
 ```bash
-# 方式一：AppImage 一键打包（推荐，自包含 Qt 6.9.3）
-bash packaging/build-linux.sh
-# 产物：QueMusic-x86_64.AppImage
-
-# 方式二：直接构建（使用系统 Qt 或已安装的 Qt 6.9+）
 cmake -B build -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH=~/Qt/6.9.3/gcc_64
 cmake --build build -j"$(nproc)"
 ./build/bin/QueMusic
-
-#方式三：使用KDevelop或Qt Creator
-#使用KDevelop或Qt Creator都可以进行快速构建和测试
-
-# Arch Linux 用户也可以用 PKGBUILD 打包：
-# cd packaging && makepkg -si
 ```
 
-### MacOS 构建
-
-本项目内置 GitHub Actions 工作流 `.github/workflows/build-macos.yml`，在 GitHub 的 macOS 虚拟机（Apple Silicon + Intel）上自动构建 `.dmg`：
+#### MacOS 构建
 
 ```bash
-# 方式一：手动触发
-# 仓库页面 → Actions → Build macOS → Run workflow → 下载 Artifacts 里的 .dmg
-
-# 方式二：打 tag 自动构建并挂到 Release
-git tag v0.1.0
-git push origin v0.1.0
+cmake -B build -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=~/Qt/6.9.3/clang_64 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+cmake --build build -j 8
+./build/bin/QueMusic.app/Contents/MacOS/QueMusic
 ```
 
 > 📦 三种平台的可执行安装包都会随 [Release](https://github.com/BroNekoX/QueMusic/releases) 发布。
+
+### 打包分发
+
+- **Windows**：使用Windeployqt + Inno Setup(可选)进行分步打包。
+- **Linux**：运行 `bash packaging/build-linux.sh` 生成 AppImage。
+- **MacOS**：运行 `just mac-bundle` 生成 `.dmg`（需安装 `macdeployqt`）。
 
 ---
 
@@ -360,3 +385,4 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra
   <sub>Built with ❤️ by the QueMusic Project</sub><br/>
   <sub>最后更新：2026-8-14</sub>
 </p>
+

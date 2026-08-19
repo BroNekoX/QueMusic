@@ -677,7 +677,7 @@ Item {
                         Row {
                             x: 16
                             width: parent.width - 32
-                            height: 128
+                            height: 144
                             spacing: 14
                             PlatformCard {
                                 text: "酷狗音乐"
@@ -1765,7 +1765,7 @@ Item {
             visible: false
 
             Text {
-                x: 24
+                x: 24 + settingStack.containX
                 y: 24
                 width: settingStack.standWidth
                 height: 36
@@ -1778,7 +1778,7 @@ Item {
             }
 
             QBlurTapBar {
-                x: 24
+                x: 24 + settingStack.containX
                 y: 70
                 z: 5
                 model: ["外观类","功能类","音源"]
@@ -1792,7 +1792,7 @@ Item {
             }
 
             Rectangle {
-                x: 24
+                x: 24 + settingStack.containX
                 y: 124
                 width: settingStack.standWidth
                 height: warnModText.implicitHeight + 48
@@ -2141,7 +2141,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "MinGW-13.1.0-64Bit（Cmake）"
+                                text: "MinGW13.1 / GCC / Clang"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter

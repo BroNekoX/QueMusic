@@ -1,0 +1,95 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_STANDARD": "17",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    // 1. Mac 分支
+    {
+      "name": "mac-clang-release",
+      "displayName": "Mac Clang Release",
+      "description": "针对 macOS 的 Clang 编译，优化性能",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0"
+      }
+    },
+    {
+      "name": "mac-clang-beta",
+      "displayName": "Mac Clang Beta",
+      "description": "针对 macOS 的 Clang 编译，保留调试符号",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    // 2. Linux 分支 (GCC)
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC Release",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    // 3. Windows 分支 (MinGW) 
+    {
+      "name": "win-mingw-release",
+      "displayName": "Win MinGW Release",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++", 
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mac-release",
+      "configurePreset": "mac-clang-release"
+    },
+    {
+      "name": "mac-beta",
+      "configurePreset": "mac-clang-beta"
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-gcc-release"
+    },
+    {
+      "name": "win-release",
+      "configurePreset": "win-mingw-release"   // 这里也改成 win-mingw-release
+    }
+  ]
+}
