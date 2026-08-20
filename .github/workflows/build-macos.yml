@@ -34,11 +34,9 @@ jobs:
             find "$HOME/Qt" -type d -maxdepth 3 2>/dev/null || true
             exit 1
           fi
-          # 去掉尾部 /lib/cmake/Qt6/Qt6Config.cmake，得到 Qt 安装根目录
           QT_PREFIX="${QT6_CFG%/lib/cmake/Qt6/Qt6Config.cmake}"
           echo "QT_PREFIX=$QT_PREFIX" >> "$GITHUB_ENV"
           echo "Found Qt at: $QT_PREFIX"
-          # 验证 Multimedia 组件存在
           if [ ! -f "$QT_PREFIX/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]; then
             echo "!! ERROR: Qt6Multimedia not found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
             echo "Available components in $QT_PREFIX/lib/cmake:"
@@ -78,7 +76,7 @@ jobs:
         run: |
           APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
-          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH" -dmg=no
+          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH"
           codesign --force --deep --sign - "$APP_PATH"
 
       - name: Create DMG
