@@ -23,9 +23,32 @@ jobs:
       - name: Install Qt 6.9.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
-          # 使用全量安装避免任何组件缺失（CI磁盘空间足够）
+          # 全量安装，避免缺失任何模块
           python3 -m aqt install-qt mac desktop 6.9.3 clang_64 -m all -O "$HOME/Qt"
-          echo "$HOME/Qt/6.9.3/clang_64/bin" >> "$GITHUB_PATH"
+
+      - name: Locate Qt installation
+        id: locate_qt
+        run: |
+          # 动态查找 Qt6Config.cmake
+          QT6_CFG=$(find "$HOME/Qt" -name "Qt6Config.cmake" 2>/dev/null | head -n1)
+          if [ -z "$QT6_CFG" ]; then
+            echo "!! FATAL: Qt6Config.cmake not found"
+            echo "Directory structure under $HOME/Qt:"
+            find "$HOME/Qt" -type d -maxdepth 3 2>/dev/null || true
+            exit 1
+          fi
+          QT_PREFIX=$(dirname $(dirname $(dirname "$QT6_CFG")))  # 剥掉 lib/cmake/Qt6
+          echo "QT_PREFIX=$QT_PREFIX" >> "$GITHUB_ENV"
+          echo "Found Qt at: $QT_PREFIX"
+          # 验证 Multimedia 组件
+          MULTIMEDIA_DIR="$QT_PREFIX/lib/cmake/Qt6Multimedia"
+          if [ ! -f "$MULTIMEDIA_DIR/Qt6MultimediaConfig.cmake" ]; then
+            echo "!! ERROR: Qt6Multimedia not found"
+            echo "Available cmake components:"
+            ls -la "$QT_PREFIX/lib/cmake" || true
+            exit 1
+          fi
+          echo "Qt6Multimedia found."
 
       - name: Generate .icns app icon
         run: |
@@ -44,13 +67,6 @@ jobs:
 
       - name: Configure (CMake)
         run: |
-          QT_PREFIX="$HOME/Qt/6.9.3/clang_64"
-          if [ ! -f "$QT_PREFIX/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ]; then
-            echo "!! ERROR: Qt6Multimedia not found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
-            echo "Available components in $QT_PREFIX/lib/cmake:"
-            ls -la "$QT_PREFIX/lib/cmake" | grep -i qt6 || true
-            exit 1
-          fi
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_PREFIX" \
@@ -65,7 +81,7 @@ jobs:
         run: |
           APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
-          "$HOME/Qt/6.9.3/clang_64/bin/macdeployqt" "$APP_PATH" -dmg=no
+          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH" -dmg=no
           codesign --force --deep --sign - "$APP_PATH"
 
       - name: Create DMG
