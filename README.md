@@ -19,6 +19,7 @@
 > 
 > 🚧 项目正处于 **开发/预览阶段**，部分功能尚未完善, 仍存在部分问题，有一些功能无法使用，会持续更新，欢迎 Star & Fork 一起参与！
 > 快速下载本应用及历史版本：[123网盘快速下载](https://1816090463.share.123pan.cn/123pan/0HQ5Vv-jfjld)
+> 加入QQ群获取最新消息：1105114511
 
 ---
 
@@ -383,6 +384,6 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra
 
 <p align="center">
   <sub>Built with ❤️ by the QueMusic Project</sub><br/>
-  <sub>最后更新：2026-8-14</sub>
+  <sub>最后更新：2026-8-20</sub>
 </p>
 
