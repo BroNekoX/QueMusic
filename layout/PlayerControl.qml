@@ -40,6 +40,29 @@ Rectangle {
         color: Style.themes.sideColor
     }
 
+    // 拆分多歌手，覆盖常见分隔符：/ 、 ， , & ; ；(不含空格，避免拆坏英文歌手名)
+    function parseArtists(raw) {
+        var parts = raw.split(/\s*[\/、,，&;&；]\s*/);
+        var list = [];
+        for(var i = 0; i < parts.length; i++) {
+            var s = parts[i].trim();
+            if(s && list.indexOf(s) === -1) {
+                list.push(s);
+            }
+        }
+        return list;
+    }
+
+    // 统一搜索入口
+    function doSearchSongsMessage(name) {
+        MusicApi.searchSongsResults.clear();
+        mainSearchInput.text = name;
+        MusicApi.nowIndex = 0;
+        mainContent.contentIndexed(6);
+        MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
+        window.exitIndex = 1;
+    }
+
     //控制条
     Item {
         id: sliderControl
@@ -151,8 +174,18 @@ Rectangle {
             font.bold: true
             font.pixelSize: 15
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: titleDisplayMouse.containsMouse ? Style.themes.themeColor : Style.themes.textColor
 
+            MouseArea {
+                id: titleDisplayMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if(!window.musicTitle)  return ; 
+                    doSearchSongsMessage(window.musicTitle);
+                }
+            }
         }
         Text {
             id: artistDisplay
@@ -165,7 +198,34 @@ Rectangle {
             font.bold: false
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.textColor
+            color: artistDisplayMouse.containsMouse ? Style.themes.themeColor : Style.themes.textColor
+
+            MouseArea {
+                id: artistDisplayMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if(!window.musicArtist)  return ; //本地音乐没有歌手信息时，忽略
+                    var artists = parseArtists(window.musicArtist);
+                    if(artists.length > 1) {
+                        artistMenu.model = artists;// 多歌手,弹菜单
+                        artistMenu.popup();
+                    } 
+                    else {
+                        doSearchSongsMessage(artists[0]);// 单歌手直接搜
+                    }
+
+                }
+            }
+            //多位歌手时，显示菜单
+            QMenu{
+                id: artistMenu
+                model:  []
+                onClicked: (index) => {
+                    doSearchSongsMessage(model[index]);
+                }
+            }
         }
         SButton {
             id: likeButton
