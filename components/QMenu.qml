@@ -25,7 +25,7 @@ Menu {
         implicitHeight: 40
         shadowEffect: true
         blurSource: mainLayout
-        rectXy: Qt.rect(menu.x, menu.y, menu.width, menu.height)
+        rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
         cardColor: Style.themes.blurSecondaryColor
         borderRadius: Style.settings.labelRadius
     }
@@ -45,10 +45,20 @@ Menu {
                 color: menuItem.down || menuItem.highlighted ? Style.themes.hoverColor : "transparent"
             }
             text: modelData
+            //显式指定contentItem，
+            contentItem: Text {
+                text: menuItem.text
+                color: Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
+                font.pixelSize: Style.settings.textmain
+                verticalAlignment: Text.AlignVCenter
+                leftPadding: 12
+                elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
+                clip: true
+            }
             onTriggered: dialog.clicked(index)
         }
-        onObjectAdded: (i, obj) => menu.insertItem(i, obj)
-        onObjectRemoved: (i, obj) => menu.removeItem(obj)
+        onObjectAdded: (i, obj) => dialog.insertItem(i, obj)
+        onObjectRemoved: (i, obj) => dialog.removeItem(obj)
     }
 
 
