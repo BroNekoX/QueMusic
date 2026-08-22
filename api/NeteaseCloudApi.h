@@ -4,13 +4,7 @@
 // NeteaseCloudApi —— 基于 QCloudMusicApi（第三方网易云音乐在线接口，
 // 完整复刻 NeteaseCloudMusicApi 的 weapi 加密协议）的网易云实现，
 // 用于替代旧的 NeteaseApi（老 web 接口，已废弃、缺陷多、字段不全）。
-//
-// 对外接口签名与旧 NeteaseApi 完全一致，对 MusicApiService / QML 完全透明，
-// 因此只需替换 MusicApiService 中的 m_netease 实例即可。
-//
-// 重要：QCloudMusicApi 的 ApiHelper::invoke() 是“同步阻塞”调用（内部用事件
-// 循环等待网络返回），若在主线程调用会卡住 UI。因此所有网络请求都放到独立
-// 工作线程（CloudWorker）中执行，结果通过信号回传到主线程再发出 resultReady。
+
 #ifndef NETEASECLOUDAPI_H
 #define NETEASECLOUDAPI_H
 
@@ -47,11 +41,14 @@ public slots:
     void getHotPlaylists(int page, int pageSize);
     void getNewSongs(int type, int page, int pageSize);
     void getAllToplist();
-    void getMusicToplist(int rankid);
+    void getMusicToplist(int page, int pageSize, int rankid);
     void getHotSingers(int page, int pageSize);
+    void getSingerCategory(int area, int page, int pageSize); // 歌手分类（artist_list）
     void getSingerSongs(const QString &singerid, int page, int pageSize);
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
+    void getPersonalFm(int page, int pageSize);     // 私人漫游 → personal_fm
+    void getPersonalRadar(int page, int pageSize);  // 私人雷达 → recommend_songs
 
 private slots:
     void onWorkerResult(const QString &action, const QVariant &data, int source);

@@ -16,12 +16,10 @@ ColorExtractor::ColorExtractor(QObject *parent)
 {
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, &ColorExtractor::onImageDownloaded);
-    // 预制默认渲染图，保证 renderUrl 从创建起就非空，
-    // 无歌曲/封面时 MeshGradient 背景不至于透明
     ensureDefaultRenderUrl();
 }
 
-// 把默认封面图处理成 32x32 data URI 作为兜底，供从未播放歌曲时使用
+// 把默认封面图处理成 32x32 data URI
 void ColorExtractor::ensureDefaultRenderUrl()
 {
     if (!m_renderUrl.isEmpty())

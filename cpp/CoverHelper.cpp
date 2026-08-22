@@ -3,11 +3,19 @@
 //
 #include "CoverHelper.h"
 #include <QTemporaryFile>
+#include <QStandardPaths>
+#include <QFile>
 #include <QDir>
+#include <QUrl>
 
 CoverHelper::CoverHelper(QObject *parent)
     : QObject(parent)
 {
+    m_cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/PicCache";
+    QDir dir;
+    if (!dir.exists(m_cacheDir)) {
+        dir.mkpath(m_cacheDir);
+    }
 }
 
 QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
@@ -18,7 +26,7 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
         return QString();
     }
 
-    // 从 QVariant 提取 QImage（支持直接 QImage 或 QByteArray）
+    // 从 QVariant 提取 QImage
     QImage img;
     if (imageVariant.userType() == QMetaType::QImage) {
         img = imageVariant.value<QImage>();
@@ -33,10 +41,12 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
     }
 
     // 保存为临时 PNG 文件供 QML Image 加载
-    QTemporaryFile tempFile(QDir::tempPath() + "/cover_XXXXXX.png");
-    if (tempFile.open() && img.save(&tempFile, "PNG")) {
-        tempFile.setAutoRemove(false); // 保留文件，避免 QML 加载时被清理
-        m_currentCoverUrl = "file:///" + tempFile.fileName();
+    QString fileName = QString("cover_%1.png").arg(QDateTime::currentMSecsSinceEpoch());
+    QString fullPath = m_cacheDir + "/" + fileName;
+    if (img.save(fullPath, "PNG")) {
+        m_createdFiles.append(fullPath);
+        //tempFile.setAutoRemove(false); // 保留文件，避免 QML 加载时被清理
+        m_currentCoverUrl = "file:///" + QUrl::fromLocalFile(fullPath).toString();
         emit currentCoverUrlChanged();
         return m_currentCoverUrl;
     }
@@ -49,4 +59,24 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
 QString CoverHelper::currentCoverUrl() const
 {
     return m_currentCoverUrl;
+}
+
+void CoverHelper::clearCache()
+{
+    // 删除所有记录的文件
+    for (const QString &path : m_createdFiles) {
+        if (QFile::remove(path)) {
+            qDebug() << "Removed cached cover:" << path;
+        } else {
+            qWarning() << "Failed to remove:" << path;
+        }
+    }
+    m_createdFiles.clear();
+
+    // 删除整个目录（如果为空）
+    // QDir(m_cacheDir).rmdir(m_cacheDir);
+
+    // 重置当前封面 URL
+    m_currentCoverUrl.clear();
+    emit currentCoverUrlChanged();
 }

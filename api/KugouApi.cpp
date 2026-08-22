@@ -306,15 +306,24 @@ QVariantList KugouApi::krcToLyrics(const QString &krc)
         if (!m.hasMatch())
             continue;
 
+        QString rawContent = m.captured(3).trimmed();
+
+        // 判断是否为对唱（整行被全角括号包裹）
+        const bool isOther = rawContent.endsWith("）");
+
         // 字级：<偏移,持续,0>文本
         QVariantList words;
         QString fullText;
         QRegularExpressionMatchIterator it = wordRe.globalMatch(m.captured(3));
         while (it.hasNext()) {
             const QRegularExpressionMatch w = it.next();
-            const QString text = w.captured(3);
+            QString text = w.captured(3);
             if (text.isEmpty())
                 continue;
+            if(isOther) {
+                text.remove("（");
+                text.remove("）");
+            }
             words << QVariantMap{
                 {QStringLiteral("offset"), w.captured(1).toInt()},
                 {QStringLiteral("duration"), w.captured(2).toInt()},
@@ -328,6 +337,7 @@ QVariantList KugouApi::krcToLyrics(const QString &krc)
             {QStringLiteral("time"), m.captured(1).toInt()},
             {QStringLiteral("text"), fullText},
             {QStringLiteral("info"), words},
+            {QStringLiteral("isOther"), isOther}
         };
     }
     std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
@@ -463,7 +473,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     a.value(QStringLiteral("songcount")).toInt(),
                     a.value(QStringLiteral("albumname")).toString());
             }
-        } else if (type == 3) { // 歌词搜索结果（点结果可播放对应歌曲）
+        } else if (type == 3) { // 歌词搜索结果
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 const QString filename = s.value(QStringLiteral("filename")).toString();
@@ -515,9 +525,9 @@ void KugouApi::getPlaylistMenu(int type)
                                      .value(QStringLiteral("info")).toArray()) {
             const QJsonObject t = v.toObject();
             info << QVariantMap{
-                {QStringLiteral("title"), t.value(QStringLiteral("tagname")).toString()},
-                {QStringLiteral("id"), t.value(QStringLiteral("tagid")).toVariant().toLongLong()},
-                {QStringLiteral("category"), t.value(QStringLiteral("parentname")).toString()},
+                {QStringLiteral("title"), t.value(QStringLiteral("name")).toString()},
+                {QStringLiteral("id"), t.value(QStringLiteral("id")).toVariant().toLongLong()},
+                {QStringLiteral("category"), t.value(QStringLiteral("id")).toString()},
             };
         }
         emit resultReady(QStringLiteral("getPlaylistMenu"),
@@ -525,7 +535,7 @@ void KugouApi::getPlaylistMenu(int type)
     });
 }
 
-// 分类信息（透传 data）
+// 分类信息（透传 data，并显式带上 special_tag_id 供上层拉取该分类歌单）
 void KugouApi::getMenuInfo(const QString &id)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/info"));
@@ -534,9 +544,12 @@ void KugouApi::getMenuInfo(const QString &id)
     q.addQueryItem(QStringLiteral("id"), id);
     url.setQuery(q);
 
-    get(url.toString(), [this](const QJsonObject &json) {
-        emit resultReady(QStringLiteral("getMenuInfo"),
-                         json.value(QStringLiteral("data")).toObject(), Source);
+    get(url.toString(), [this, id](const QJsonObject &json) {
+        QJsonObject raw = json.value(QStringLiteral("data")).toObject();
+        // 兜底：tag/info 返回可能不含 tagid 字段，强制注入请求的 id
+        if (!raw.contains(QStringLiteral("special_tag_id")))
+            raw.insert(QStringLiteral("special_tag_id"), id);
+        emit resultReady(QStringLiteral("getMenuInfo"), raw.toVariantMap(), Source);
     });
 }
 
@@ -794,26 +807,51 @@ void KugouApi::getNewSongs(int type, int page, int pageSize)
 // 榜单列表
 void KugouApi::getAllToplist()
 {
-    QVariantList info;
-    info << ApiCommon::song(QStringLiteral("酷狗飙升榜"), QString(), QString(),
-                            QStringLiteral("6666"));
-    info << ApiCommon::song(QStringLiteral("酷狗TOP500"), QString(), QString(),
-                            QStringLiteral("8888"));
-    emit resultReady(QStringLiteral("getAllToplist"),
-                     ApiCommon::listResult(info), Source);
+    // 酷狗榜单列表（rank/list 动态接口，返回全部榜单 + 封面）
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/list"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
+    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("withsong"), QStringLiteral("0"));
+    url.setQuery(q);
+
+    get(url.toString(), [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
+                                     .value(QStringLiteral("info")).toArray()) {
+            const QJsonObject t = v.toObject();
+            const QJsonObject total = t.value(QStringLiteral("extra")).toObject().value(QStringLiteral("resp")).toObject();
+            info << ApiCommon::song(
+                t.value(QStringLiteral("rankname")).toString(),
+                t.value(QStringLiteral("update_frequency")).toString(),
+                t.value(QStringLiteral("imgurl")).toString(),
+                QString::number(t.value(QStringLiteral("rankid")).toVariant().toLongLong()),
+                total.value(QStringLiteral("all_total")).toInt(),
+                t.value(QStringLiteral("intro")).toString());
+        }
+        // 接口异常时回退到内置热门榜单
+        if (info.isEmpty()) {
+            info << ApiCommon::song(QStringLiteral("酷狗飙升榜"), QString(), QString(),
+                                    QStringLiteral("6666"));
+            info << ApiCommon::song(QStringLiteral("酷狗TOP500"), QString(), QString(),
+                                    QStringLiteral("8888"));
+        }
+        emit resultReady(QStringLiteral("getAllToplist"),
+                         ApiCommon::listResult(info), Source);
+    });
 }
 
 // 榜单歌曲
-void KugouApi::getMusicToplist(int rankid)
+void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
     q.addQueryItem(QStringLiteral("ranktype"), QStringLiteral("2"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("pagesize"), QStringLiteral("100"));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
+    q.addQueryItem(QStringLiteral("page"), QString::number(page));
     q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("page"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("rankid"), QString::number(rankid));
     q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
     url.setQuery(q);
@@ -823,17 +861,27 @@ void KugouApi::getMusicToplist(int rankid)
         for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
                                      .value(QStringLiteral("info")).toArray()) {
             const QJsonObject s = v.toObject();
+            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = filename.isEmpty()
-                                      ? s.value(QStringLiteral("songname")).toString()
-                                      : filename;
+            const QString title = s.value(QStringLiteral("songname")).toString();
+            const QJsonObject author = s.value(QStringLiteral("authors")).toArray().at(0).toObject();
+            const QString hash = s.value(QStringLiteral("hash")).toString();
+            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
+            const QString hq = pay320 == 0 && !s.value(QStringLiteral("320hash")).toString().isEmpty()
+                                   ? s.value(QStringLiteral("320hash")).toString()
+                                   : hash;
+            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
+                                   ? s.value(QStringLiteral("sqhash")).toString()
+                                   : hash;
             info << ApiCommon::song(
                 title,
-                s.value(QStringLiteral("singername")).toString(),
-                s.value(QStringLiteral("imgUrl")).toString(),
+                author.value(QStringLiteral("author_name")).toString(),
+                tp.value(QStringLiteral("union_cover")).toString(),
                 s.value(QStringLiteral("hash")).toString(),
                 s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString());
+                s.value(QStringLiteral("album_name")).toString(),
+                hq, sq,
+                s.value(QStringLiteral("pay_type")).toInt(1));
         }
         emit resultReady(QStringLiteral("getMusicToplist"),
                          ApiCommon::listResult(info), Source);
@@ -863,12 +911,46 @@ void KugouApi::getHotSingers(int page, int pageSize)
         for (const QJsonValue &v : arr) {
             const QJsonObject s = v.toObject();
             info << ApiCommon::song(
-                s.value(QStringLiteral("singer_name")).toString(),
+                s.value(QStringLiteral("singername")).toString(),
                 QString(),
-                s.value(QStringLiteral("singer_photo")).toString(),
-                QString::number(s.value(QStringLiteral("singer_id")).toVariant().toLongLong()));
+                s.value(QStringLiteral("imgurl")).toString(),
+                QString::number(s.value(QStringLiteral("singerid")).toVariant().toLongLong()));
         }
         emit resultReady(QStringLiteral("getHotSingers"),
+                         ApiCommon::listResult(info), Source);
+    });
+}
+
+// 歌手分类（area: 1 华语 / 2 欧美 / 3 日本 / 4 韩国）
+void KugouApi::getSingerCategory(int area, int page, int pageSize)
+{
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/list"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("type"), QString::number(area));
+    q.addQueryItem(QStringLiteral("sex"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("page"), QString::number(page));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
+    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
+    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    url.setQuery(q);
+
+    get(url.toString(), [this](const QJsonObject &json) {
+        QVariantList info;
+        // 兼容 data.singers / data.info 两种结构
+        QJsonArray arr = json.value(QStringLiteral("data")).toObject()
+                             .value(QStringLiteral("singers")).toArray();
+        if (arr.isEmpty())
+            arr = json.value(QStringLiteral("data")).toObject()
+                      .value(QStringLiteral("info")).toArray();
+        for (const QJsonValue &v : arr) {
+            const QJsonObject s = v.toObject();
+            info << ApiCommon::song(
+                s.value(QStringLiteral("singername")).toString(),
+                QString(),
+                s.value(QStringLiteral("imgurl")).toString(),
+                QString::number(s.value(QStringLiteral("singerid")).toVariant().toLongLong()));
+        }
+        emit resultReady(QStringLiteral("getSingerCategory"),
                          ApiCommon::listResult(info), Source);
     });
 }
@@ -1024,5 +1106,111 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
             }
             emit resultReady(QStringLiteral("getLyricInfo"), data, Source);
         });
+    });
+}
+
+// 私人漫游/私人雷达：酷狗无 personal_fm/recommend_songs，用榜单等价实现。
+// rankid 6666 = 飙升榜（最新潮流），8888 = TOP500（全网热门）。
+void KugouApi::getPersonalFm(int page, int pageSize)
+{
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
+    q.addQueryItem(QStringLiteral("ranktype"), QStringLiteral("2"));
+    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
+    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
+    q.addQueryItem(QStringLiteral("page"), QString::number(page));
+    q.addQueryItem(QStringLiteral("rankid"), QStringLiteral("8888"));
+    q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
+    url.setQuery(q);
+
+    get(url.toString(), [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
+                                     .value(QStringLiteral("info")).toArray()) {
+            const QJsonObject s = v.toObject();
+            const QString filename = s.value(QStringLiteral("filename")).toString();
+            const QString title = s.value(QStringLiteral("songname")).toString();
+            const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
+            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
+            const QString hash = s.value(QStringLiteral("hash")).toString();
+            const QJsonArray artistList = s.value("authors").toArray();
+            const QJsonObject artistValue = artistList.at(0).toObject();
+            const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
+            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
+            const QString hq = pay320 != 3
+                                   ? s.value(QStringLiteral("320hash")).toString()
+                                             .isEmpty()
+                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
+                                         : s.value(QStringLiteral("320hash")).toString()
+                                   : hash;
+            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
+                                   ? s.value(QStringLiteral("sqhash")).toString()
+                                   : hash;
+            info << ApiCommon::song(
+                title,
+                artist,
+                transparam.value(QStringLiteral("union_cover")).toString(),
+                hash,
+                s.value(QStringLiteral("duration")).toInt(),
+                s.value(QStringLiteral("album_name")).toString(),
+                hq, sq,
+                s.value(QStringLiteral("pay_type")).toInt(1));
+        }
+        emit resultReady(QStringLiteral("getPersonalFm"),
+                         ApiCommon::listResult(info), Source);
+    });
+}
+
+void KugouApi::getPersonalRadar(int page, int pageSize)
+{
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
+    q.addQueryItem(QStringLiteral("ranktype"), QStringLiteral("2"));
+    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
+    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
+    q.addQueryItem(QStringLiteral("page"), QString::number(page));
+    q.addQueryItem(QStringLiteral("rankid"), QStringLiteral("6666"));
+    q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
+    url.setQuery(q);
+
+    get(url.toString(), [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
+                                     .value(QStringLiteral("info")).toArray()) {
+            const QJsonObject s = v.toObject();
+            const QString filename = s.value(QStringLiteral("filename")).toString();
+            const QString title = s.value(QStringLiteral("songname")).toString();
+            const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
+            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
+            const QString hash = s.value(QStringLiteral("hash")).toString();
+            const QJsonArray artistList = s.value("authors").toArray();
+            const QJsonObject artistValue = artistList.at(0).toObject();
+            const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
+            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
+            const QString hq = pay320 != 3
+                                   ? s.value(QStringLiteral("320hash")).toString()
+                                             .isEmpty()
+                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
+                                         : s.value(QStringLiteral("320hash")).toString()
+                                   : hash;
+            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
+                                   ? s.value(QStringLiteral("sqhash")).toString()
+                                   : hash;
+            info << ApiCommon::song(
+                title,
+                artist,
+                transparam.value(QStringLiteral("union_cover")).toString(),
+                hash,
+                s.value(QStringLiteral("duration")).toInt(),
+                s.value(QStringLiteral("album_name")).toString(),
+                hq, sq,
+                s.value(QStringLiteral("pay_type")).toInt(1));
+        }
+        emit resultReady(QStringLiteral("getPersonalRadar"),
+                         ApiCommon::listResult(info), Source);
     });
 }

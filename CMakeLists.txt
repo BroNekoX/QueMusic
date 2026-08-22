@@ -121,6 +121,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/Favorites.h
         cpp/AccountManager.cpp
         cpp/AccountManager.h
+        cpp/CustomFlow.cpp
+        cpp/CustomFlow.h
         api/MusicApiService.cpp
         api/MusicApiService.h
         api/OnlineListModel.cpp

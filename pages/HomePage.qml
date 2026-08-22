@@ -553,6 +553,15 @@ Item {
                             font.pixelSize: Style.settings.text
                             verticalAlignment: Text.AlignVCenter
                         }
+                        onClicked: {
+                            MusicApi.personalFm.clear();
+                            personalWindow.page = 1;
+                            personalWindow.mode = "fm";
+                            MusicApi.getPersonalFm(1, 20, MusicApi.songSource);
+                            personalWindow.currentModel = MusicApi.personalFm;
+                            personalWindow.opened("私人漫游", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
+                            window.exitIndex = 1;
+                        }
                         controlItem: SButton {
                             x: parent.width - 50
                             y: 23
@@ -560,9 +569,9 @@ Item {
                             width: 36
                             height: 36
                             radius: 18
-                            //visible: false
                             buttonColor: "transparent"
                             shadowEnabled: false
+                            onClicked: parent.clicked()
                         }
                     }
                     QFloatCard {
@@ -600,6 +609,15 @@ Item {
                             font.pixelSize: Style.settings.text
                             verticalAlignment: Text.AlignVCenter
                         }
+                        onClicked: {
+                            MusicApi.personalRadar.clear();
+                            personalWindow.page = 1;
+                            personalWindow.mode = "radar";
+                            MusicApi.getPersonalRadar(1, 20, MusicApi.songSource);
+                            personalWindow.currentModel = MusicApi.personalRadar;
+                            personalWindow.opened("私人雷达", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
+                            window.exitIndex = 1;
+                        }
                         controlItem: SButton {
                             x: parent.width - 50
                             y: 23
@@ -607,9 +625,9 @@ Item {
                             width: 36
                             height: 36
                             radius: 18
-                            //visible: false
                             buttonColor: "transparent"
                             shadowEnabled: false
+                            onClicked: parent.clicked()
                         }
                     }
                 }
@@ -758,6 +776,7 @@ Item {
     AnimatorWindow {
         id: dailyRecomWindow
         mainTarget: homeMain
+        haveControl: false
         content: Item {
 
             QListView {
@@ -822,6 +841,92 @@ Item {
                         onClicked: {
                             if(!MusicApi.loadState && MusicApi.recommendSongs.count % 20 === 0) {
                                 MusicApi.getRecommendSongs(MusicApi.recommendSongs.count / 20 + 1, 20, MusicApi.songSource);
+                            } else {
+                                mainWarn.tiped("没有更多了",0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 私人漫游 / 私人雷达
+    AnimatorWindow {
+        id: personalWindow
+        mainTarget: homeMain
+        haveControl: false
+        property var currentModel: MusicApi.personalFm
+        property string mode: "fm"   // "fm" 私人漫游 / "radar" 私人雷达
+        property int page: 1         // 当前页码
+        property int pageSize: 20    // 每页数量
+        content: Item {
+            QListView {
+                id: personalView
+                x: 24
+                y: 128
+                width: personalWindow.width - 32
+                height: personalWindow.height - 128
+                model: personalWindow.currentModel
+                clip: true
+                topMargin: 8
+                bottomMargin: 24
+
+                onClicked: (index) => {
+                    if(Options.settings.soundQuality === 0) {
+                        MusicApi.getMusicInfo(model.get(index).hash);
+                    } else if(Options.settings.soundQuality === 1) {
+                        MusicApi.getMusicInfo(model.get(index).hashhq);
+                    } else {
+                        MusicApi.getMusicInfo(model.get(index).hashsq);
+                    }
+                }
+
+                onToolClicked: (index,tool) => {
+                    switch(tool) {
+                    case 0:
+                        var listIndex = -1;
+                        var indexHash = model.get(index).hash;
+                        for(var i = 0;i < playListModel.count;i++) {
+                            var forUrl = playListModel.get(i).path;
+                            if(forUrl === indexHash) {
+                                listIndex = i;
+                            }
+                        }
+                        if (listIndex == -1) {
+                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
+                            mainWarn.tiped("成功加入播放列表",1);
+                        }
+                        break;
+                    case 1:
+                        if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
+                            favoritesSong.removeFavorite(model.get(index).hash, "song");
+                            mainWarn.tiped("取消收藏",0);
+                        } else {
+                            favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                            mainWarn.tiped("成功收藏",1);
+                        }
+                        break;
+                    }
+                }
+
+                footer: Item {
+                    height: 60
+                    width: personalView.width
+                    QButton {
+                        anchors.centerIn: parent
+                        height: 40; width: 120
+                        radius: 20
+                        iconCharacter: "\uf0f8"
+                        text: "更多"
+                        onClicked: {
+                            if(!MusicApi.loadState && personalWindow.currentModel.count % personalWindow.pageSize === 0) {
+                                personalWindow.page += 1;
+                                if(personalWindow.mode === "fm") {
+                                    MusicApi.getPersonalFm(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
+                                } else {
+                                    MusicApi.getPersonalRadar(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
+                                }
                             } else {
                                 mainWarn.tiped("没有更多了",0);
                             }

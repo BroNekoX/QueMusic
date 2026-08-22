@@ -75,7 +75,7 @@ Item {
     QPages {
         x: 24
         y: 68
-        width: parent.width - 48
+        width: parent.width - 32
         height: parent.height - 68
         id: downloadChildPage
         pageList: [downloadingPage, downloadedPage, cloudPage]

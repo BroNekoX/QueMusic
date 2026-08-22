@@ -21,12 +21,15 @@ public:
 
     Q_INVOKABLE QString convertVariantToUrl(const QVariant &imageVariant);
     QString currentCoverUrl() const;
+    Q_INVOKABLE void clearCache();
 
 signals:
     void currentCoverUrlChanged();
 
 private:
     QString m_currentCoverUrl;
+    QStringList m_createdFiles;          // 记录生成的文件路径
+    QString m_cacheDir;                  // 缓存目录路径
 };
 
 #endif // COVERHELPER_H

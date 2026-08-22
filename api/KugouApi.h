@@ -40,12 +40,15 @@ public:
     void getHotPlaylistMenu(int type);
     void getHotPlaylists(int page, int pageSize);
     void getNewSongs(int type, int page, int pageSize);
-    void getAllToplist();                       // 榜单列表（本地固定）
-    void getMusicToplist(int rankid);           // 榜单歌曲（rankid: 6666 飙升 / 8888 TOP500）
-    void getHotSingers(int page, int pageSize); // 热门歌手
+    void getAllToplist();                       // 榜单列表（rank/list 动态接口）
+    void getMusicToplist(int page, int pageSize, int rankid);           // 榜单歌曲（rankid: 6666 飙升 / 8888 TOP500）
+    void getHotSingers(int page, int pageSize); // 热门歌手（singer/rank）
+    void getSingerCategory(int area, int page, int pageSize); // 歌手分类（singer/list）
     void getSingerSongs(const QString &singerid, int page, int pageSize); // 歌手歌曲
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
+    void getPersonalFm(int page, int pageSize);     // 私人漫游 → TOP500 热门榜（分页）
+    void getPersonalRadar(int page, int pageSize);  // 私人雷达 → 飙升榜（分页）
 
 signals:
     // 统一结果协议：data 为 { info: [...] }（列表）或单条信息 map

@@ -237,15 +237,15 @@ Item {
                             Row {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 20
-                                spacing: 5
+                                spacing: 2
                                 z: 2
                                 y: 12
-                                height: 40
+                                height: 36
                                 SButton {
                                     iconCharacter: "\uf050"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
@@ -254,9 +254,9 @@ Item {
                                 }
                                 SButton {
                                     iconCharacter: "\uf005"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
@@ -274,9 +274,9 @@ Item {
                                 }
                                 SButton {
                                     iconCharacter: "\uf08e"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                     shadowEnabled: false
@@ -472,15 +472,15 @@ Item {
                             Row {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 20
-                                spacing: 5
+                                spacing: 2
                                 z: 2
                                 y: 12
-                                height: 40
+                                height: 36
                                 SButton {
                                     iconCharacter: "\uf050"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
@@ -489,9 +489,9 @@ Item {
                                 }
                                 SButton {
                                     iconCharacter: "\uf005"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
@@ -504,9 +504,9 @@ Item {
                                 }
                                 SButton {
                                     iconCharacter: "\uf08e"
-                                    width: 40
-                                    height: 40
-                                    radius: 40
+                                    width: 36
+                                    height: 36
+                                    radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                     shadowEnabled: false
@@ -645,8 +645,7 @@ Item {
                     height: 60
                     width: fileView.width - 16
                     radius: Style.settings.labelRadius
-                    property color isBackDisplay: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
-                    color: mainMedia.noTitle == model.name ? Style.themes.onPrimaryColor : isBackDisplay
+                    color: mainMedia.noTitle == model.name ? Style.themes.onPrimaryColor : "transparent"
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -672,7 +671,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: Style.settings.labelRadius
-                        color: Qt.rgba(0.5,0.5,0.5,0.2)
+                        color: Style.themes.hoverColor
                         opacity: fileArea.containsMouse ? 1 : 0
                         z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -909,7 +908,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: Style.settings.labelRadius
-                        color: Qt.rgba(0.5,0.5,0.5,0.2)
+                        color: Style.themes.hoverColor
                         opacity: localFileArea.containsMouse ? 1 : 0
                         z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -1059,6 +1058,7 @@ Item {
             height: 36
             radius: 20
             buttonColor: "#fa4642"
+            textColor: Style.themes.primaryColor
             text: "删除"
             onClicked: {
                 switch(filePage.setMode) {

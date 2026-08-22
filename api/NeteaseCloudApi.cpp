@@ -191,7 +191,29 @@ private:
         else if (action == QLatin1String("getPlaylistSongs")
                  || action == QLatin1String("getMusicToplist")
                  || action == QLatin1String("getSingerSongs")) {
-            info = parseSongList(data.value(QStringLiteral("songs")).toList());
+            // playlist_track_all 返回 songs[]；top_list 返回 playlist.tracks[]；
+            // artist_top_song 返回 songs[]。统一兜底三种结构。
+            QVariantList songs = data.value(QStringLiteral("songs")).toList();
+            if (songs.isEmpty())
+                songs = data.value(QStringLiteral("playlist")).toMap()
+                            .value(QStringLiteral("tracks")).toList();
+            info = parseSongList(songs);
+        }
+        else if (action == QLatin1String("getPersonalFm")) {
+            // personal_fm 返回 data[]（标准歌曲对象，部分场景带 song 包装，统一解包）
+            QVariantList songs;
+            for (const QVariant &v : data.value(QStringLiteral("data")).toList()) {
+                const QVariantMap w = v.toMap();
+                songs << (w.contains(QStringLiteral("song"))
+                              ? w.value(QStringLiteral("song")) : w);
+            }
+            info = parseSongList(songs);
+        }
+        else if (action == QLatin1String("getPersonalRadar")) {
+            // recommend_songs 返回 data.dailySongs[]（标准歌曲对象）
+            const QVariantList daily = data.value(QStringLiteral("data")).toMap()
+                                           .value(QStringLiteral("dailySongs")).toList();
+            info = parseSongList(daily);
         }
         else if (action == QLatin1String("getRecommendSongs")) {
             const QVariantList list = data.contains(QStringLiteral("data"))
@@ -230,9 +252,12 @@ private:
         else if (action == QLatin1String("getHotPlaylistMenu")) {
             for (const QVariant &v : data.value(QStringLiteral("tags")).toList()) {
                 const QVariantMap t = v.toMap();
+                // tagid 复用分类名：网易云 top_playlist 的 cat 参数需要分类名，
+                // 首页分类卡片点击后直接 getMusicPlaylists(model.tagid)，故 tagid=分类名。
                 info << QVariantMap{
                     {QStringLiteral("title"), t.value(QStringLiteral("name")).toString()},
                     {QStringLiteral("id"), songId(t.value(QStringLiteral("id")))},
+                    {QStringLiteral("tagid"), t.value(QStringLiteral("name")).toString()},
                 };
             }
         }
@@ -260,7 +285,9 @@ private:
                     0, t.value(QStringLiteral("description")).toString());
             }
         }
-        else if (action == QLatin1String("getHotSingers")) {
+        else if (action == QLatin1String("getHotSingers")
+                 || action == QLatin1String("getSingerCategory")) {
+            // top_artists / artist_list 均返回 artists[]（name/picUrl/id）
             for (const QVariant &v : data.value(QStringLiteral("artists")).toList()) {
                 const QVariantMap a = v.toMap();
                 info << ApiCommon::song(
@@ -511,14 +538,15 @@ void NeteaseCloudApi::getAllToplist()
     enqueue(QStringLiteral("getAllToplist"), call);
 }
 
-void NeteaseCloudApi::getMusicToplist(int rankid)
+void NeteaseCloudApi::getMusicToplist(int page, int pageSize, int rankid)
 {
+    // 榜单 id 本质是歌单 id，用 top_list（playlist/v4/detail）拉取榜单歌曲
     QVariantMap arg;
     arg.insert(QStringLiteral("id"), rankid);
-    arg.insert(QStringLiteral("limit"), 100);
-    arg.insert(QStringLiteral("offset"), 0);
+    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
+    arg.insert(QStringLiteral("limit"), pageSize);
     QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("playlist_track_all"));
+    call.insert(QStringLiteral("member"), QStringLiteral("top_list"));
     call.insert(QStringLiteral("arg"), arg);
     enqueue(QStringLiteral("getMusicToplist"), call);
 }
@@ -532,6 +560,20 @@ void NeteaseCloudApi::getHotSingers(int page, int pageSize)
     call.insert(QStringLiteral("member"), QStringLiteral("top_artists"));
     call.insert(QStringLiteral("arg"), arg);
     enqueue(QStringLiteral("getHotSingers"), call);
+}
+
+void NeteaseCloudApi::getSingerCategory(int area, int page, int pageSize)
+{
+    // artist_list：area 为地区编码（7 华语 / 96 欧美 / 8 日本 / 16 韩国）
+    QVariantMap arg;
+    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
+    arg.insert(QStringLiteral("limit"), pageSize);
+    arg.insert(QStringLiteral("type"), QStringLiteral("1"));
+    arg.insert(QStringLiteral("area"), area);
+    QVariantMap call;
+    call.insert(QStringLiteral("member"), QStringLiteral("artist_list"));
+    call.insert(QStringLiteral("arg"), arg);
+    enqueue(QStringLiteral("getSingerCategory"), call);
 }
 
 void NeteaseCloudApi::getSingerSongs(const QString &singerid, int page, int pageSize)
@@ -570,6 +612,32 @@ void NeteaseCloudApi::getLyricInfo(const QString &hash, int duration)
     call.insert(QStringLiteral("member"), QStringLiteral("lyric"));
     call.insert(QStringLiteral("arg"), arg);
     enqueue(QStringLiteral("getLyricInfo"), call);
+}
+
+void NeteaseCloudApi::getPersonalFm(int page, int pageSize)
+{
+    // personal_fm（私人漫游）本身不分页，每次返回一批，忽略分页参数
+    Q_UNUSED(page);
+    Q_UNUSED(pageSize);
+    QVariantMap call;
+    call.insert(QStringLiteral("member"), QStringLiteral("personal_fm"));
+    call.insert(QStringLiteral("arg"), QVariantMap());
+    enqueue(QStringLiteral("getPersonalFm"), call);
+}
+
+void NeteaseCloudApi::getPersonalRadar(int page, int pageSize)
+{
+    Q_UNUSED(pageSize);
+    // recommend_songs（每日推荐）不支持分页，仅第一页有数据；后续页返回空避免重复追加
+    if (page > 1) {
+        emit resultReady(QStringLiteral("getPersonalRadar"),
+                         ApiCommon::listResult(QVariantList()), kSource);
+        return;
+    }
+    QVariantMap call;
+    call.insert(QStringLiteral("member"), QStringLiteral("recommend_songs"));
+    call.insert(QStringLiteral("arg"), QVariantMap());
+    enqueue(QStringLiteral("getPersonalRadar"), call);
 }
 
 #include "NeteaseCloudApi.moc"

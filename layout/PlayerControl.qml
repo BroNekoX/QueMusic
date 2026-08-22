@@ -44,6 +44,7 @@ Rectangle {
     function parseArtists(raw) {
         var parts = raw.split(/\s*[\/、,，&;&；]\s*/);
         var list = [];
+        list.push("搜索")
         for(var i = 0; i < parts.length; i++) {
             var s = parts[i].trim();
             if(s && list.indexOf(s) === -1) {
@@ -147,7 +148,7 @@ Rectangle {
                 implicitHeight: 18
                 radius: 18
                 color: Style.themes.primaryColor
-                border.color: Style.themes.containColor
+                border.color: Style.themes.themeColor
                 border.width: 3
             }
         }
@@ -182,8 +183,18 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if(!window.musicTitle)  return ; 
-                    doSearchSongsMessage(window.musicTitle);
+                    if(!window.musicTitle)  return;
+                    titleMenu.popup();
+                }
+            }
+            // 为防止误触，使用点击弹出菜单再搜索
+            QMenu {
+                id: titleMenu
+                model: ["搜索歌曲名"]
+                masked: true
+                blurSource: null // 位置特殊，关闭模糊效果
+                onClicked: (index) => {
+                    musicControlMin.doSearchSongsMessage(window.musicTitle);
                 }
             }
         }
@@ -206,24 +217,29 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if(!window.musicArtist)  return ; //本地音乐没有歌手信息时，忽略
-                    var artists = parseArtists(window.musicArtist);
-                    if(artists.length > 1) {
-                        artistMenu.model = artists;// 多歌手,弹菜单
-                        artistMenu.popup();
-                    } 
-                    else {
-                        doSearchSongsMessage(artists[0]);// 单歌手直接搜
-                    }
+                    if(!window.musicArtist)  return; //本地音乐没有歌手信息时，忽略
+                    var artists = musicControlMin.parseArtists(window.musicArtist);
+                    artistMenu.model = artists;// 多歌手,弹菜单
+                    artistMenu.popup();
+
+                    //else {
+                    //    doSearchSongsMessage(artists[0]);// 单歌手直接搜
+                    //}
 
                 }
             }
             //多位歌手时，显示菜单
-            QMenu{
+            QMenu {
                 id: artistMenu
-                model:  []
+                model: []
+                masked: true
+                blurSource: null // 位置特殊，关闭模糊效果
                 onClicked: (index) => {
-                    doSearchSongsMessage(model[index]);
+                    if(index === 0) {
+                        musicControlMin.doSearchSongsMessage(window.musicArtist);
+                    } else {
+                        musicControlMin.doSearchSongsMessage(model[index]);
+                    }
                 }
             }
         }

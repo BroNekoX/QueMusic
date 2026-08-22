@@ -459,8 +459,8 @@ Item {
                 //visible: Math.abs(index - lyricContent.currentLine) <= lyricContent.overscan
 
                 readonly property bool isCurrent: index === lyricContent.currentLine
-                readonly property bool isFlowActive: MusicApi.lyricsData[index].info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
-                readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - MusicApi.lyricsData[index].time : 0
+                readonly property bool isFlowActive: modelData.info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
+                readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - modelData.time : 0
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
                 property real standY: 0.0
@@ -534,42 +534,46 @@ Item {
                     z: 0
                     id: lyricsText
                     width: lyricItem.width - lyricContent.lyricHeight / 4
-                    text: MusicApi.lyricsData[index].text || ""
+                    text: modelData.text || ""
                     font.weight: Style.settings.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: "#ffffffff"
-                    transformOrigin: Item.BottomLeft
+                    color: modelData.info ? Qt.rgba(0.96,0.96,0.96,1.0) : Qt.rgba(0.96 + lyricItem.opacityAnime * 0.04,0.96 + lyricItem.opacityAnime * 0.04,0.96 + lyricItem.opacityAnime * 0.04,1.0)
+                    transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
-                    scale: lyricItem.isCurrent && !MusicApi.lyricsData[index].info ? 1.02 : 1.00
-                    opacity: MusicApi.lyricsData[index].info ? 0.4 : (0.4 + lyricItem.opacityAnime * 0.5)
-                    visible: MusicApi.lyricsData[index].info ? !lyricItem.isFlowActive : true
-                    horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : Text.AlignLeft
+                    scale: lyricItem.isCurrent && !modelData.info ? 1.02 : 1.00
+                    opacity: modelData.info ? 0.4 : (0.4 + lyricItem.opacityAnime * 0.5)
+                    visible: modelData.info ? !lyricItem.isFlowActive : true
+                    horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                 }
 
                 Text {
                     id: lyricTransText
                     anchors.top: lyricsText.bottom
-                    transformOrigin: Item.TopLeft
+                    transformOrigin: modelData.isOther ? Item.TopRight : Item.TopLeft
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     visible: text !== ""
                     height: visible ? implicitHeight * 1.5 : 0
                     text: MusicApi.lyricsTranslate.length !== 0 && lyricContent.openTranslate ? (MusicApi.lyricsTranslate[index] || "") : ""
                     width: parent.width
-                    horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : Text.AlignLeft
+                    horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.settings.textWidth
-                    color: "#ffffffff"
+                    color: "#fff5f5f5"
                     opacity: 0.4 + lyricItem.opacityAnime * 0.2
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
 
-                Flow {
+                CustomFlow {
                     id: lyricFlow
                     width: lyricItem.width
                     height: lyricItem.height
-                    transformOrigin: Item.BottomLeft
+                    //horizontalAlignment:
+                    alignment: modelData.isOther ? CustomFlow.AlignRight : CustomFlow.AlignLeft
+                    //flow: Flow.LeftToRight
+
+                    transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     x: controlMaxLoader.lyricsType === 2 ? (width - implicitWidth) / 2 : 0
                     visible: lyricItem.isFlowActive
@@ -577,7 +581,7 @@ Item {
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     Repeater {
                         id: linesText
-                        model: lyricItem.isFlowActive ? (MusicApi.lyricsData[index].info || 0) : 0
+                        model: lyricItem.isFlowActive ? (modelData.info || 0) : 0
                         delegate: Item {
                             width: lyricFlowText.width
                             height: lyricFlowText.height
@@ -608,7 +612,7 @@ Item {
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
-                                color: "#ffffffff"
+                                color: "#fff5f5f5"
                                 opacity: 0.4
                                 //Behavior on y { NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
                             }
@@ -625,7 +629,7 @@ Item {
                                 end: Qt.point(countToWidth, 0)
                                 gradient: Gradient {
                                     GradientStop { position: 0.0; color: "#ffffffff" }
-                                    GradientStop { position: 1.0; color: "#66ffffff" }
+                                    GradientStop { position: 1.0; color: "#66f5f5f5" }
                                 }
                             }
                         }

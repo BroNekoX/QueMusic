@@ -31,8 +31,7 @@ int main(int argc, char *argv[])
     switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
     case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
     case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
-    case 3: qputenv("QSG_RHI_BACKEND", "d3d12"); break;
-    case 4: qputenv("QT_QUICK_BACKEND", "software"); break;
+    case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
     }
     if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
         qputenv("QSG_NO_VSYNC", "1");

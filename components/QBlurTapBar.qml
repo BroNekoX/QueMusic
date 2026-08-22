@@ -38,18 +38,15 @@ Item {
     }
 
     // === 创建遮罩 ===
-    Item {
+    Rectangle {
         id: maskItem
         z: 1
         anchors.fill: root
         layer.enabled: true
         layer.smooth: true
+        radius: root.borderRadius
+        color: Style.themes.primaryColor
         visible: true
-        Rectangle {
-            anchors.fill: parent
-            radius: root.borderRadius
-            color: Style.themes.primaryColor
-        }
     }
 
     RectangularShadow {
@@ -124,11 +121,10 @@ Item {
 
 
                     Rectangle {
-                        id: hover
                         z: 0
                         anchors.fill: navMusic
                         radius: root.borderRadius
-                        opacity: 0
+                        opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
                         color: Style.themes.hoverColor
                         Behavior on opacity { NumberAnimation { duration: 100 } }
                     }
@@ -146,10 +142,9 @@ Item {
 
 
                     MouseArea {
+                        id: indexArea
                         anchors.fill: navMusic
                         hoverEnabled: true
-                        onEntered: hover.opacity = 1
-                        onExited: hover.opacity = 0
                         onClicked: {
                             if(tabView.choiceIndex !== index) {
                                 root.tabChange(index);

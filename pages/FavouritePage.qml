@@ -392,14 +392,10 @@ Item {
                         onClicked: {
                             if(!MusicApi.loadState) {
                                 var tagid = playListSongsWindow.id
-                                if(MusicApi.songSource === 1) {
-                                    MusicApi.getPlaylistSongs(tagid,Math.floor(MusicApi.playlistSong.count / 10) + 1,10,playListSongsWindow.songSource);
+                                if(MusicApi.playlistSong.count % 20 === 0) {
+                                    MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
                                 } else {
-                                    if(MusicApi.playlistSong.count % 20 === 0) {
-                                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
-                                    } else {
-                                        mainWarn.tiped("没有更多了",0);
-                                    }
+                                    mainWarn.tiped("没有更多了",0);
                                 }
                             }
                         }

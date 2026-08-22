@@ -682,7 +682,7 @@ Item {
                             PlatformCard {
                                 text: "酷狗音乐"
                                 chooseColor: "#4384F5"
-                                chooseColor1: "#CDE8FF"
+                                chooseColor1: Style.darkis ? "#153A57" : "#CDE8FF"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 0
@@ -707,7 +707,7 @@ Item {
                             PlatformCard {
                                 text: "网易云音乐"
                                 chooseColor: "#F54343"
-                                chooseColor1: "#FFCDCD"
+                                chooseColor1: Style.darkis ? "#601515" : "#FFCDCD"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 1
@@ -731,8 +731,8 @@ Item {
                             }
                             PlatformCard {
                                 text: "QQ音乐"
-                                chooseColor: "#4DF543"
-                                chooseColor1: "#CDFFCD"
+                                chooseColor: "#3AD630"
+                                chooseColor1: Style.darkis ? "#195319" : "#CDFFCD"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 2
@@ -807,7 +807,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "清除缓存(x)"
+                            label: "清除图片缓存"
                             controlItem: QButton {
                                 anchors.fill: parent
                                 shadowEnabled: false
@@ -815,6 +815,10 @@ Item {
                                 radius: Style.settings.labelRadius
                                 borderWidth: 2
                                 text: "清理"
+                                onClicked: {
+                                    coverHelper.clearCache();
+                                    Style.warned("成功清除图片缓存",1);
+                                }
                             }
                             bottomLine: false
                         }
@@ -2351,7 +2355,7 @@ Item {
                     font.letterSpacing: -0.3
                 }
 
-                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请将BroNekoX/Quemusic.ini删除"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请到软件配置目录删除"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
 
                 QHead { text: "渲染" }
 
@@ -2382,7 +2386,7 @@ Item {
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Options.settings.gpuRenderMode
-                                model: ["系统偏好","OpenGL","Vulkan","DirectX12","Software"]
+                                model: ["系统偏好","OpenGL","Vulkan","Software"]
                                 onTransformed: (choiced) => {
                                     Options.settings.gpuRenderMode = choiced;
                                     mainMessage.openSimpleDialog("提示", "重启本应用以生效更改.", null);

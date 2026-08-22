@@ -40,7 +40,6 @@ Window {
         // 更新设置项
         Style.changeUi();
         Style.changeTheme();
-        console.log("back:",Options.shortCuts.back,"foprward:",Options.shortCuts.forward,"list:",Options.shortCuts.playList);
     }
 
     Connections {
@@ -221,7 +220,7 @@ Window {
                 x: 20
                 y: 0
                 height: 36
-                width: 150
+                width: 160
                 //displayText: "搜索"
                 leftPadding: 16
                 placeholderText: "搜索"
@@ -229,19 +228,23 @@ Window {
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
                 focus: false
+                onReleased: searchCard.open();
                 //clip: true
                 //onTextEdited: parent.border.color = Style.themes.themeColor
                 //onEditingFinished: parent.border.color = "transparent"
                 onAccepted: {
                     MusicApi.searchSongsResults.clear();
                     mainContent.contentIndexed(6);
+                    Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);
+                    Options.settings.searchList.splice(0, 0, mainSearchInput.text);
                     MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
                     window.exitIndex = 1;
+                    searchCard.close();
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(mainSearchInput, true);
                 background: Rectangle {
                     height: 36
-                    width: 191
+                    width: 201
                     radius: 18
                     color: Style.themes.primaryColor//Style.themes.secondaryColor
                 }
@@ -256,8 +259,11 @@ Window {
                 onClicked: {
                     MusicApi.searchSongsResults.clear();
                     mainContent.contentIndexed(6);
+                    Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);
+                    Options.settings.searchList.splice(0, 0, mainSearchInput.text);
                     MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
                     window.exitIndex = 1;
+                    searchCard.close();
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
             }
@@ -862,9 +868,9 @@ Window {
 
                 if (cover) {
                     console.log("找到封面艺术: " + cover);
-                    urlStr = coverHelper.convertVariantToUrl(cover)
+                    urlStr = coverHelper.convertVariantToUrl(cover);
                     console.log("封面艺术url: " + urlStr);
-                    window.coverUpdate()
+                    colorExtractor.extractColorsFromUrl(urlStr);
                 } else {
                     urlStr = null
                 }
@@ -900,6 +906,20 @@ Window {
     ListModel {
         id: playListModel
         property int playListIndex: -1
+    }
+    SearchCard {
+        id: searchCard
+        onSearchIndex: (index) => {
+            MusicApi.searchSongsResults.clear();
+            mainContent.contentIndexed(6);
+            var name = Options.settings.searchList[index];
+            mainSearchInput.text = name;
+            Options.settings.searchList = Options.settings.searchList.filter(value => value !== name);
+            Options.settings.searchList.splice(0, 0, name);
+            MusicApi.searchSongs(name,MusicApi.nowIndex,1,20);
+            window.exitIndex = 1;
+            searchCard.close();
+        }
     }
 
     // 附加置于窗口顶层

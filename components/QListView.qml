@@ -59,6 +59,15 @@ ListView {
                     color: menuItem.down || menuItem.highlighted ? Style.themes.hoverColor : "transparent"
                 }
                 text: modelData
+                contentItem: Text {
+                    text: menuItem.text
+                    color: Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
+                    font.pixelSize: Style.settings.textmain
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: 12
+                    elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
+                    clip: true
+                }
                 onTriggered: view.menuClicked(menu.index,index)
             }
             onObjectAdded: (i, obj) => menu.insertItem(i, obj)

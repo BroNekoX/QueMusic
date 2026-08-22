@@ -11,6 +11,7 @@ Menu {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
     property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    property bool masked: false
     title: "Menu"
     //parent: Overlay.overlay
     //closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
@@ -24,9 +25,9 @@ Menu {
         implicitWidth: 150
         implicitHeight: 40
         shadowEffect: true
-        blurSource: mainLayout
-        rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
-        cardColor: Style.themes.blurSecondaryColor
+        blurSource: dialog.blurSource
+        masked: dialog.masked
+        rectXy: dialog.rectXy
         borderRadius: Style.settings.labelRadius
     }
 

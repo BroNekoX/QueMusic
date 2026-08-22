@@ -154,20 +154,38 @@ void MusicApiService::getNewSongs(int type, int page, int pageSize, int source)
 
 void MusicApiService::getAllToplist(int source)
 {
+    m_toplistList.clear();
     setLoadState(true);
     DISPATCH(source, getAllToplist());
 }
 
-void MusicApiService::getMusicToplist(int rankid, int source)
+// 同时拉取酷狗 + 网易云的榜单列表，合并进 toplistList（每条带 source）
+void MusicApiService::getAllToplists()
+{
+    m_toplistList.clear();
+    setLoadState(true);
+    syncCookie(kSourceKugou);
+    m_kugou.getAllToplist();
+    syncCookie(kSourceNetease);
+    m_netease.getAllToplist();
+}
+
+void MusicApiService::getMusicToplist(int page, int pageSize, int rankid, int source)
 {
     setLoadState(true);
-    DISPATCH(source, getMusicToplist(rankid));
+    DISPATCH(source, getMusicToplist(page, pageSize, rankid));
 }
 
 void MusicApiService::getHotSingers(int page, int pageSize, int source)
 {
     setLoadState(true);
     DISPATCH(source, getHotSingers(page, pageSize));
+}
+
+void MusicApiService::getSingerCategory(int area, int page, int pageSize, int source)
+{
+    setLoadState(true);
+    DISPATCH(source, getSingerCategory(area, page, pageSize));
 }
 
 void MusicApiService::getSingerSongs(const QString &singerid, int page, int pageSize,
@@ -181,6 +199,18 @@ void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
 {
     setLoadState(true);
     DISPATCH(source, getMusicInfo(hash, type));
+}
+
+void MusicApiService::getPersonalFm(int page, int pageSize, int source)
+{
+    setLoadState(true);
+    DISPATCH(source, getPersonalFm(page, pageSize));
+}
+
+void MusicApiService::getPersonalRadar(int page, int pageSize, int source)
+{
+    setLoadState(true);
+    DISPATCH(source, getPersonalRadar(page, pageSize));
 }
 
 void MusicApiService::getLyricInfo(const QString &hash, int duration, int source)
@@ -364,8 +394,26 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         QVariant tid = d.value(QStringLiteral("special_tag_id"));
         if (!tid.isValid() || tid.toString().isEmpty())
             tid = d.value(QStringLiteral("tag_id"));
-        if (tid.isValid() && !tid.toString().isEmpty())
-            getMusicPlaylists(tid.toString(), 1, 24, source);
+        if (!tid.isValid() || tid.toString().isEmpty())
+            tid = d.value(QStringLiteral("tagid"));
+        if (!tid.isValid() || tid.toString().isEmpty())
+            return;
+        // 网易云 top_playlist 的 cat 参数需要分类名（而非数字 id），
+        // 从已缓存的分类列表 allPlaylistMenu 中按 id 反查分类名。
+        QString playlistArg = tid.toString();
+        if (source == 1) {
+            const QVariantList menu = m_allPlaylistMenu.toList();
+            for (const QVariant &v : menu) {
+                const QVariantMap it = v.toMap();
+                if (it.value(QStringLiteral("id")).toString() == tid.toString()) {
+                    playlistArg = it.value(QStringLiteral("title")).toString();
+                    break;
+                }
+            }
+            if (playlistArg.isEmpty())
+                playlistArg = tid.toString();
+        }
+        getMusicPlaylists(playlistArg, 1, 24, source);
     } else if (action == QLatin1String("getMusicPlaylists")) {
         m_musicPlaylists.append(normalizeList(info));
     } else if (action == QLatin1String("getPlaylistSongs")) {
@@ -380,17 +428,33 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getNewSongs")) {
         m_newSongs.append(normalizeList(info));
     } else if (action == QLatin1String("getMusicToplist")) {
-        m_musicToplist.clear();
-        m_musicToplist.append(normalizeList(info));
+        // 榜单歌曲 → 填 playlistSong（供 playListSongsWindow 展示）
+        m_playlistSong.clear();
+        m_playlistSong.append(normalizeList(info));
     } else if (action == QLatin1String("getAllToplist")) {
+        // 单平台榜单列表：保留旧模型 + 累积到双平台模型（注入 source 供点击强制指定平台）
         m_musicToplist.clear();
         m_musicToplist.append(normalizeList(info));
+        QVariantList list = normalizeList(info);
+        for (QVariant &it : list) {
+            QVariantMap m = it.toMap();
+            m.insert(QStringLiteral("source"), source);
+            it = m;
+        }
+        m_toplistList.append(list);
     } else if (action == QLatin1String("getHotSingers")) {
-        m_singerList.clear();
+        // 分页累积：第一页由 UI 侧 clear，后续页直接 append
+        m_singerList.append(normalizeList(info));
+    } else if (action == QLatin1String("getSingerCategory")) {
         m_singerList.append(normalizeList(info));
     } else if (action == QLatin1String("getSingerSongs")) {
         m_playlistSong.clear();
         m_playlistSong.append(normalizeList(info));
+    } else if (action == QLatin1String("getPersonalFm")) {
+        // 分页累积：第一页由 UI 侧 clear，后续页直接 append
+        m_personalFm.append(normalizeList(info));
+    } else if (action == QLatin1String("getPersonalRadar")) {
+        m_personalRadar.append(normalizeList(info));
     } else if (action == QLatin1String("getMusicInfo")) {
         handleMusicInfo(d, source);
     } else if (action == QLatin1String("getLyricInfo")) {

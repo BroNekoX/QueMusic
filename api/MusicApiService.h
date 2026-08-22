@@ -36,7 +36,10 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel* hotPlayLists READ hotPlayLists CONSTANT)
     Q_PROPERTY(OnlineListModel* getHotlistMenu READ getHotlistMenu CONSTANT)
     Q_PROPERTY(OnlineListModel* musicToplist READ musicToplist CONSTANT)
+    Q_PROPERTY(OnlineListModel* toplistList READ toplistList CONSTANT)
     Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT)
+    Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT)
+    Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT)
 
     // 非模型数据
     Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged)
@@ -76,7 +79,10 @@ public:
     OnlineListModel *hotPlayLists() { return &m_hotPlayLists; }
     OnlineListModel *getHotlistMenu() { return &m_getHotlistMenu; }
     OnlineListModel *musicToplist() { return &m_musicToplist; }
+    OnlineListModel *toplistList() { return &m_toplistList; }
     OnlineListModel *singerList() { return &m_singerList; }
+    OnlineListModel *personalFm() { return &m_personalFm; }
+    OnlineListModel *personalRadar() { return &m_personalRadar; }
 
     QVariant allPlaylistMenu() const { return m_allPlaylistMenu; }
     void setAllPlaylistMenu(const QVariant &v);
@@ -115,13 +121,21 @@ public:
     Q_INVOKABLE void getHotPlaylistMenu(int type, int source = -1);
     Q_INVOKABLE void getHotPlaylists(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getNewSongs(int type, int page = 1, int pageSize = 20, int source = -1);
-    Q_INVOKABLE void getAllToplist(int source = -1);   // 榜单列表
-    Q_INVOKABLE void getMusicToplist(int rankid, int source = -1); // 榜单歌曲
+    Q_INVOKABLE void getAllToplist(int source = -1);   // 榜单列表（单平台）
+    Q_INVOKABLE void getAllToplists();           // 酷狗 + 网易云榜单
+    Q_INVOKABLE void getMusicToplist(int page, int pageSize, int rankid, int source = -1); // 榜单歌曲
     Q_INVOKABLE void getHotSingers(int page = 1, int pageSize = 20, int source = -1);
+    // 歌手分类：area 由 QML 按平台映射（酷狗 1 华语/2 欧美/3 日本/4 韩国；网易云 7/96/8/16）
+    Q_INVOKABLE void getSingerCategory(int area, int page = 1, int pageSize = 30,
+                                       int source = -1);
     Q_INVOKABLE void getSingerSongs(const QString &singerid, int page = 1, int pageSize = 20,
                                     int source = -1);
     Q_INVOKABLE void getMusicInfo(const QString &hash, int type = 0, int source = -1);
     Q_INVOKABLE void getLyricInfo(const QString &hash, int duration, int source = -1);
+    // 私人漫游（每日推荐式流媒体，网易云 personal_fm / 酷狗推荐榜）
+    Q_INVOKABLE void getPersonalFm(int page = 1, int pageSize = 20, int source = -1);
+    // 私人雷达（基于用户口味的推荐，网易云 recommend_songs / 酷狗新歌榜）
+    Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
     // 本地音乐（无歌词）时调用：清掉在线歌词残留，显示占位歌词 [{time:0, text:"纯音乐，请欣赏"}]
     Q_INVOKABLE void setLocalLyrics();
     Q_INVOKABLE void download(const QString &url, const QString &name);
@@ -168,7 +182,10 @@ private:
     OnlineListModel m_hotPlayLists;
     OnlineListModel m_getHotlistMenu;
     OnlineListModel m_musicToplist;
+    OnlineListModel m_toplistList;
     OnlineListModel m_singerList;
+    OnlineListModel m_personalFm;
+    OnlineListModel m_personalRadar;
 
     QVariant m_allPlaylistMenu;
     QVariant m_playlistmenuInfo;

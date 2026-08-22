@@ -19,6 +19,7 @@ Item {
     property real borderRadius: Style.settings.cubeRadius
     property color cardColor: Style.themes.primaryBlurColor
     property color borderColor: Style.themes.primaryBlurColor
+    property bool masked: false
     property real borderWidth: 1
     property bool shadowEffect: false
 
@@ -37,18 +38,15 @@ Item {
     }
 
     // === 创建遮罩 ===
-    Item {
+    Rectangle {
         id: maskItem
         z: 1
         anchors.fill: parent
         layer.enabled: true
         layer.smooth: true
-        visible: false
-        Rectangle {
-            anchors.fill: parent
-            radius: root.borderRadius
-            color: Style.themes.primaryColor  // 必须是不透明色，否则遮罩无效
-        }
+        radius: root.borderRadius
+        color: Style.themes.primaryColor
+        visible: root.masked
     }
 
     RectangularShadow {
