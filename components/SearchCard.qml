@@ -52,11 +52,31 @@ Popup {
             y: 12
         }
 
+        // 清空搜索记录（右上角）
+        Text {
+            id: clearButton
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            text: "清空"
+            visible: Options.settings.searchList.length > 0
+            font.pixelSize: Style.themes.textTip
+            color: clearArea.containsMouse ? Style.themes.fontColor : Style.themes.textColor
+            MouseArea {
+                id: clearArea
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: Options.settings.searchList = []
+            }
+        }
+
         Flow {
             spacing: 6
             y: 36
             x: 16
             width: parent.width - 32
+            clip: true
             Repeater {
                 model: Options.settings.searchList
                 delegate: Rectangle {
