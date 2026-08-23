@@ -277,6 +277,7 @@ Window {
             iconColor: Style.themes.textColor
             shadowEnabled: false
             onClicked: {
+                desktopPlayer.desktopPlayerMode = 0;
                 desktopSpot.active = false;
                 desktopPlayerLoader.active = false;
             }

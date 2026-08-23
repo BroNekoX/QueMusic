@@ -322,10 +322,10 @@ Item {
                             hoverEnabled: true
                             anchors.fill: parent
                             onClicked: {
-                                musicMenuPage.musicMenuIndex = index
-                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[index].id
-                                MusicApi.musicPlaylists.clear()
-                                MusicApi.getMenuInfo(MusicApi.allPlaylistMenu[index].id)
+                                musicMenuPage.musicMenuIndex = index;
+                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[index].id;
+                                MusicApi.musicPlaylists.clear();
+                                MusicApi.getMenuInfo(MusicApi.allPlaylistMenu[index].id);
                             }
                         }
                     }

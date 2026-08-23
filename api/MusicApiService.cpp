@@ -413,7 +413,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
             if (playlistArg.isEmpty())
                 playlistArg = tid.toString();
         }
-        getMusicPlaylists(playlistArg, 1, 24, source);
+        getMusicPlaylists(playlistArg, 1, 20, source);
     } else if (action == QLatin1String("getMusicPlaylists")) {
         m_musicPlaylists.append(normalizeList(info));
     } else if (action == QLatin1String("getPlaylistSongs")) {

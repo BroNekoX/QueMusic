@@ -641,9 +641,6 @@ Rectangle {
         id: playList
         model: playListModel
     }
-    DesktopPlayer {
-        id: desktopPlayer
-    }
 
     QOptionDialog {
         id: playerOptionDialog

@@ -27,11 +27,12 @@ extern void qml_register_types_MeshGradientItem();
 int main(int argc, char *argv[])
 {
     // 从Options.ini读取设置，设置一些高级项喵~
-    QSettings opt;
+    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+    QSettings opt(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
     switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
-    case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
-    case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
-    case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
+        case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
+        case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
+        case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
     }
     if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
         qputenv("QSG_NO_VSYNC", "1");
@@ -55,6 +56,9 @@ int main(int argc, char *argv[])
     application.setOrganizationDomain("com.bronekox.quemusic");
     application.setWindowIcon(QIcon("qrc:/QPlayer/resources/icon.ico"));
     application.setApplicationName("QueMusic");
+
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
     // 创建模型实例
     FolderModel *myFolderModel = new FolderModel(&engine);
@@ -80,9 +84,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("accountManager", accountManager);
     // 在线音乐 API 单例
     MusicApiService::setSharedAccountManager(accountManager);
+
     // 关键修改：使用标准配置目录，而不是应用程序目录
-    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    engine.rootContext()->setContextProperty("configDir", configDir);
+    engine.rootContext()->setContextProperty("configDir", configPath);
     engine.rootContext()->setContextProperty("$curveRenderingAvailable", true);
 
     QWK::registerTypes(&engine);

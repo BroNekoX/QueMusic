@@ -2,7 +2,6 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Controls.Basic
 
 Popup {
@@ -73,6 +72,7 @@ Popup {
                     onToggled: {
                         desktopSpot.active = false;
                         desktopPlayerLoader.active = false;
+                        desktopLyricsLoader.active = false;
                         desktopPlayer.openTool = !desktopPlayer.openTool;
                         desktopPlayer.desktopPlayerMode = 0;
                     }
@@ -88,8 +88,9 @@ Popup {
                 QDrop {
                     height: 36; width: 120
                     anchors.right: parent.right
+                    enabled: desktopPlayer.openTool
                     choice: desktopPlayer.desktopPlayerMode
-                    model: ["无","灵动岛","小窗播放器","歌词栏"]
+                    model: ["无","灵动岛","小窗播放器","桌面歌词"]
                     onTransformed: (choiced) => {
                         desktopPlayer.desktopPlayerMode = choiced;
                         switch(choiced) {
@@ -97,15 +98,18 @@ Popup {
                                 // 无：全部关闭
                                 desktopSpot.active = false;
                                 desktopPlayerLoader.active = false;
+                                desktopLyricsLoader.active = false;
                                 break;
                             case 1:
                                 // 灵动岛：开启灵动岛，关闭小窗
-                                desktopSpot.active = true;
+                                desktopLyricsLoader.active = false;
                                 desktopPlayerLoader.active = false;
+                                desktopSpot.active = true;
                                 break;
                             case 2:
                                 // 小窗播放器：开启小窗，关闭灵动岛
                                 desktopSpot.active = false;
+                                desktopLyricsLoader.active = false;
                                 desktopPlayerLoader.active = true;
                                 if (desktopPlayerLoader.status === Loader.Ready) {
                                     desktopPlayerLoader.item.show();
@@ -115,6 +119,7 @@ Popup {
                                 // 歌词栏：暂未实现
                                 desktopSpot.active = false;
                                 desktopPlayerLoader.active = false;
+                                desktopLyricsLoader.active = true;
                                 break;
                         }
                     }
@@ -128,15 +133,15 @@ Popup {
         target: desktopPlayerLoader
         function onStatusChanged() {
             if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 2) {
-                desktopPlayerLoader.item.show()
+                desktopPlayerLoader.item.show();
             }
         }
     }
 
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 420; from: desktopPlayer.parent.width; to: desktopPlayer.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 210; to: playList.parent.width; easing.type: Easing.InCubic }
+        NumberAnimation { property: "x"; duration: 210; to: desktopPlayer.parent.width; easing.type: Easing.InCubic }
     }
 }

@@ -21,6 +21,7 @@ Rectangle {
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
     property int choice: 0
+    property bool enabled: true
     property color textColor: Style.themes.textColor
     property string iconFontFamily: iconFont.name    // 图标字体
     property int cardRadius: radius
@@ -63,12 +64,14 @@ Rectangle {
         id: mouseArea
         z: 2
         anchors.fill: root
+        enabled: root.enabled
         hoverEnabled: true
         onClicked: {
+            if(root)
             if(popmenu.visible) {
-                popmenu.close()
+                popmenu.close();
             } else {
-                popmenu.open()
+                popmenu.open();
             }
         }
     }

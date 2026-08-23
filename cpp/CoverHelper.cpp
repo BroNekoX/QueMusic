@@ -41,12 +41,10 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
     }
 
     // 保存为临时 PNG 文件供 QML Image 加载
-    QString fileName = QString("cover_%1.png").arg(QDateTime::currentMSecsSinceEpoch());
-    QString fullPath = m_cacheDir + "/" + fileName;
-    if (img.save(fullPath, "PNG")) {
-        m_createdFiles.append(fullPath);
-        //tempFile.setAutoRemove(false); // 保留文件，避免 QML 加载时被清理
-        m_currentCoverUrl = "file:///" + QUrl::fromLocalFile(fullPath).toString();
+    QTemporaryFile tempFile(m_cacheDir + "/cover_XXXXXX.png");
+    if (tempFile.open() && img.save(&tempFile, "PNG")) {
+        tempFile.setAutoRemove(false); // 保留文件，避免 QML 加载时被清理
+        m_currentCoverUrl = "file:///" + tempFile.fileName();
         emit currentCoverUrlChanged();
         return m_currentCoverUrl;
     }

@@ -374,7 +374,7 @@ Copyright (c) 2025-2026 QueMusic Contributors
 
 ## QueMusic Pro 高级版
 
-### 不可能存在！！！
+### 不可能存在的喵！！！
 
 QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra、高级版、捐献版等版本，QueMusic也没有任何付费、会员、捐献、充值、赞助内容，如果你发现你的QueMusic需要钱或者QueMusic内存在付费项目，请立即向开发者告知。
 

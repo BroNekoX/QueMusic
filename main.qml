@@ -51,8 +51,8 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.3.1"
-    property int versionCode: 31
+    property string version: "Beta-0.4.0"
+    property int versionCode: 40
 
     // 首次加载内容临时存储，防止重新加载浪费内存
     property QtObject completedStart: QtObject {
@@ -77,6 +77,7 @@ Window {
         }
         // 清理桌面悬浮窗（灵动岛 / 小窗播放器）
         desktopSpot.active = false;
+        desktopLyricsLoader.active = false;
         desktopPlayerLoader.active = false;
         window.close();
     }
@@ -922,7 +923,11 @@ Window {
         }
     }
 
-    // 附加置于窗口顶层
+    DesktopPlayer {
+        id: desktopPlayer
+    }
+
+    // 桌面灵动岛（弃用？）
     Loader {
         id: desktopSpot
         anchors.fill: parent
@@ -931,13 +936,22 @@ Window {
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/DesktopSpot.qml"
     }
-    // 桌面小窗播放器（Loader 动态加载，切换模式时才创建实例）
+    // 桌面小窗播放器
     Loader {
         id: desktopPlayerLoader
         active: false
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
+    }
+    // 桌面歌词
+    Loader {
+        id: desktopLyricsLoader
+        active: false
+        asynchronous: true
+        visible: status == Loader.Ready
+        source: "qrc:/QueMusic/components/DesktopLyrics.qml"
+        property int lyricSize: 20
     }
     QAlertDialog {
         id: globalDialog
