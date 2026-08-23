@@ -60,7 +60,8 @@ Popup {
             Repeater {
                 model: Options.settings.searchList
                 delegate: Rectangle {
-                    width: searchText.width + 16
+                    //短搜索记录自适应即可，超长时以父容器宽度为上限
+                    width: Math.min(searchText.implicitWidth + 16, parent.width)
                     height: searchText.height + 12
                     color: Style.themes.secondaryColor
                     radius: Style.settings.labelRadius
@@ -74,7 +75,14 @@ Popup {
 
                     Text {
                         id: searchText
-                        anchors.centerIn: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        //超出部分省略号截断，强制单行
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
                         text: modelData
                         color: Style.themes.fontColor
                         font.pixelSize: Style.settings.text
