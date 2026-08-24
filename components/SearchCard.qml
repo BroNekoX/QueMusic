@@ -52,15 +52,36 @@ Popup {
             y: 12
         }
 
+        // 清空搜索记录（右上角）
+        Text {
+            id: clearButton
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            text: "清空"
+            visible: Options.settings.searchList.length > 0
+            font.pixelSize: Style.themes.textTip
+            color: clearArea.containsMouse ? Style.themes.fontColor : Style.themes.textColor
+            MouseArea {
+                id: clearArea
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: Options.settings.searchList = []
+            }
+        }
+
         Flow {
             spacing: 6
             y: 36
             x: 16
             width: parent.width - 32
+            clip: true
             Repeater {
                 model: Options.settings.searchList
                 delegate: Rectangle {
-                    width: searchText.width + 16
+                    //短搜索记录自适应即可，超长时以父容器宽度为上限
+                    width: Math.min(searchText.implicitWidth + 16, parent.width)
                     height: searchText.height + 12
                     color: Style.themes.secondaryColor
                     radius: Style.settings.labelRadius
@@ -74,7 +95,14 @@ Popup {
 
                     Text {
                         id: searchText
-                        anchors.centerIn: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        //超出部分省略号截断，强制单行
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
                         text: modelData
                         color: Style.themes.fontColor
                         font.pixelSize: Style.settings.text
