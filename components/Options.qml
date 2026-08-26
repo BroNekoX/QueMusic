@@ -56,6 +56,13 @@ QtObject {
         property bool displayDebugControl //显示控制台
     }
 
+    // 播放器行为设置（跨平台持久化：Windows/macOS/Linux 由 QSettings 写入各自配置目录）
+    property Settings playSettings: Settings {
+        category: "Player"
+        // 播放顺序：0 列表循环，1 单曲循环，2 随机播放，3 顺序播放
+        property int cycleIndex: 0
+    }
+
     // 最后播放的歌曲（关闭软件时保存，下次打开首页显示）
     property Settings lastSongs: Settings {
         category: "LastMedia"

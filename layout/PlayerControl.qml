@@ -14,8 +14,14 @@ Rectangle {
     color: Style.themes.primaryBlurColor
     clip: false
     property int musicInfoX: 100
-    property int cycleIndex: 0
+    property int cycleIndex: Options.playSettings.cycleIndex
     property int playerRateIndex: 2
+
+    // 播放顺序持久化（跨平台：QSettings → 系统配置目录）
+    onCycleIndexChanged: {
+        if (Options.playSettings.cycleIndex !== cycleIndex)
+            Options.playSettings.cycleIndex = cycleIndex
+    }
 
     readonly property string mediaTime: (Math.floor(mainMedia.position / 60000)) + ":" + (Math.floor(mainMedia.position / 1000) % 60)
     function formatTime(ms) {
