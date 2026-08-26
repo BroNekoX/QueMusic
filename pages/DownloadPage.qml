@@ -13,7 +13,26 @@ Item {
 
     property int downloadTab: 0
 
-    // 接收来自 MusicApi 的下载请求downloader
+    DownloadedMusicModel {
+        id: downloadedModel
+    }
+
+    // 扫描下载目录
+    function refreshDownloads() {
+        downloadedModel.downloadDir = MusicApi.downloader.effectiveDownloadDir();
+        downloadedModel.reload();
+    }
+
+    Component.onCompleted: refreshDownloads()
+
+    Connections {
+        target: MusicApi.downloader
+        function onCompletedCountChanged() { refreshDownloads() }
+    }
+    Connections {
+        target: MusicApi
+        function onDownloadPathChanged() { refreshDownloads() }
+    }
 
     // 顶部标题
     Item {
@@ -46,6 +65,8 @@ Item {
         blurSource: downloadChildPage
         onTabChange: (index) => {
             downloadChildPage.stack(index);
+            if (index === 1)
+                refreshDownloads();
         }
     }
 
@@ -61,12 +82,7 @@ Item {
             iconCharacter: "\uf0fb"
             buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
             onClicked: {
-                var path = Options.settings.downloadFolder;
-                if (path === "") {
-                    path = StandardPaths.writableLocation(StandardPaths.MusicLocation) + "/QueMusic";
-                }
-                // 转换为 file:// URL
-                Qt.openUrlExternally(path);
+                Qt.openUrlExternally(MusicApi.downloader.effectiveDownloadDir());
             }
         }
     }
@@ -335,13 +351,7 @@ Item {
                 text: "没有已下载的文件,去下载几个音乐喵"
                 color: Style.themes.textColor
                 font.pixelSize: 14
-                visible: downloadFileModel.count === 0
-            }
-
-            FolderListModel {
-                id: downloadFileModel
-                nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
-                folder: StandardPaths.writableLocation(StandardPaths.MusicLocation) + "/QueMusic"
+                visible: downloadedModel.count === 0
             }
 
             QListView {
@@ -349,168 +359,48 @@ Item {
                 anchors.fill: parent
                 topMargin: 72
                 bottomMargin: 24
-                model: downloadFileModel
+                model: downloadedModel
                 clip: true
-                visible: downloadFileModel.count !== 0
-                //reuseItems: true
-                headerModel: ["标题","","","菜单"]
-                populate: Transition {
-                    id: localFileLoadAnime
-                    SequentialAnimation {
-                        PropertyAction {
-                            property: "opacity"
-                            value: 0
+                visible: downloadedModel.count !== 0
+                headerModel: ["标题","歌手","时长","操作"]
+
+                onClicked: (index) => {
+                    var item = downloadedModel.get(index);
+                    if (!item || !item.fileUrl)
+                        return;
+                    window.playLocalSong(item.fileUrl, item.fileName);
+
+                    var listIndex = -1;
+                    for (var i = 0; i < playListModel.count; i++) {
+                        if (playListModel.get(i).path === item.fileUrl) {
+                            listIndex = i;
+                            break;
                         }
-                        PauseAnimation {
-                            duration: localFileLoadAnime.ViewTransition.index * 80
-                        }
-                        ParallelAnimation {
-                            NumberAnimation {
-                                properties: "x"
-                                from: 400
-                                to: 0
-                                duration: 350
-                                easing.type: Easing.OutExpo
-                            }
-                            NumberAnimation {
-                                properties: "opacity"
-                                from: 0
-                                to: 1
-                                duration: 350
-                                easing.type: Easing.OutExpo
-                            }
-                        }
+                    }
+                    if (listIndex === -1) {
+                        playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
+                        playListModel.playListIndex = playListModel.count - 1;
+                    } else {
+                        playListModel.playListIndex = listIndex;
                     }
                 }
-                delegate: Rectangle {
-                    id: listLocalFile
-                    height: 60
-                    width: localFileView.width - 16
-                    radius: Style.settings.labelRadius
-                    color: mainMedia.source == model.fileUrl ? Style.themes.onPrimaryColor : "transparent"
 
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
-                    Rectangle {
-                        y: 8
-                        x: 8
-                        z: 4
-                        width: 44
-                        height: 44
-                        color: Style.themes.containColor
-                        radius: 10
-                        Text {
-                            anchors.fill: parent
-                            text: "\uf044"
-                            font.family: iconFont.name
-                            font.pixelSize: Style.settings.texticon
-                            color: Style.themes.fontColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Style.settings.labelRadius
-                        color: Qt.rgba(0.5,0.5,0.5,0.2)
-                        opacity: localFileArea.containsMouse ? 1 : 0
-                        z: 1
-                        Behavior on opacity { NumberAnimation { duration: 80 } }
-                    }
-
-
-                    Label {
-                        x: 80
-                        y: 0
-                        z: 3
-                        width: 140
-                        height: 60
-                        text: model.fileName
-                        color: Style.themes.fontColor
-                        font.bold: true
-                        font.pixelSize: Style.settings.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        visible: true
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                    }
-
-                    MouseArea {
-                        id: localFileArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            mainMedia.urlLocal = true;
-                            mainMedia.source = model.fileUrl;
-                            mainMedia.noTitle = model.fileName;
-                            console.log("url:", model.fileUrl);
-                            MusicApi.setLocalLyrics();
-                            mainMedia.play();
-                            var musicName = model.fileName;
-                            var musicPath = model.fileUrl.toString();
-                            var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
-                            if (listIndex == -1) {
-                                playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
-                                playListModel.playListIndex = playListModel.count - 1;
+                onToolClicked: (index,tool) => {
+                    if (tool === 0) {
+                        var item = downloadedModel.get(index);
+                        if (!item || !item.fileUrl)
+                            return;
+                        var listIndex = -1;
+                        for (var i = 0; i < playListModel.count; i++) {
+                            if (playListModel.get(i).path === item.fileUrl) {
+                                listIndex = i;
+                                break;
                             }
                         }
-                        Row {
-                            anchors.right: parent.right
-                            anchors.rightMargin: 20
-                            spacing: 2
-                            y: 12
-                            height: 36
-                            SButton {
-                                iconCharacter: "\uf095"
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
-                                shadowEnabled: false
-                                onClicked: {
-                                    var musicName = model.fileName;
-                                    var musicPath = model.fileUrl.toString();
-                                    var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
-                                    if (listIndex == -1) {
-                                        playListModel.append({ name: musicName, path: musicPath, songer: "", source: -1 });
-                                    }
-                                }
-                            }
-                            SButton {
-                                iconCharacter: "\uf107"
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
-                                shadowEnabled: false
-                                onClicked: {
-                                }
-                            }
-                            SButton {
-                                iconCharacter: "\uf08e"
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
-                                shadowEnabled: false
-                                onClicked: {
-                                    myfileModel.get(filePage.folderNumber).music.remove(index);
-                                }
-                            }
+                        if (listIndex === -1) {
+                            playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
+                            mainWarn.tiped("成功加入播放列表", 1);
                         }
-                    }
-
-                    function findIndexByValue(model, key, targetValue) {
-                        for (var i = 0; i < model.count; i++) {
-                            var element = model.get(i);
-                            if (element[key] === targetValue) {
-                                return i; // 返回找到的索引
-                            }
-                        }
-                        return -1; // 未找到返回 -1
                     }
                 }
             }

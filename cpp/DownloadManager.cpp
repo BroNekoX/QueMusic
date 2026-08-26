@@ -6,6 +6,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QUrl>
+#include <QDebug>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonValue>
 
 DownloadManager::DownloadManager(QObject *parent)
     : QAbstractListModel(parent)
@@ -24,6 +29,15 @@ void DownloadManager::setDownloadPath(const QString &path)
         return;
     m_downloadPath = path;
     emit downloadPathChanged();
+}
+
+// 实际保存音频/元数据的目录：自定义目录或系统音乐目录下统一挂 QueMusic 子目录
+QString DownloadManager::effectiveDownloadDir() const
+{
+    QString dir = m_downloadPath;
+    if (dir.isEmpty())
+        dir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    return dir + QLatin1String("/QueMusic");
 }
 
 // QAbstractListModel
@@ -79,9 +93,9 @@ QHash<int, QByteArray> DownloadManager::roleNames() const
 
 // Public API
 
-void DownloadManager::addDownload(const QString &url, const QString &fileName)
+void DownloadManager::addDownload(const QString &url, const QString &fileName,
+                                  const QVariantMap &meta)
 {
-    // 避免重复添加完全相同的下载
     for (const auto &t : m_tasks) {
         if (t.url == url && t.fileName == fileName &&
             (t.status == DownloadTask::Queued || t.status == DownloadTask::Downloading)) {
@@ -94,6 +108,13 @@ void DownloadManager::addDownload(const QString &url, const QString &fileName)
     task.id = id;
     task.url = url;
     task.fileName = fileName;
+    task.title = meta.value(QStringLiteral("title")).toString();
+    task.artist = meta.value(QStringLiteral("artist")).toString();
+    task.cover = meta.value(QStringLiteral("cover")).toString();
+    task.duration = meta.value(QStringLiteral("duration")).toInt();
+    task.hash = meta.value(QStringLiteral("hash")).toString();
+    task.lyrics = meta.value(QStringLiteral("lyrics")).toList();
+    task.translate = meta.value(QStringLiteral("translate")).toList();
 
     int row = m_tasks.size();
     beginInsertRows(QModelIndex(), row, row);
@@ -102,7 +123,6 @@ void DownloadManager::addDownload(const QString &url, const QString &fileName)
 
     emit taskCountChanged();
 
-    // 没有活跃任务则立即启动
     if (!hasActiveTasks())
         startNextTask();
 }
@@ -216,10 +236,7 @@ void DownloadManager::startNextTask()
     emit hasActiveTasksChanged();
 
     // 准备保存路径
-    QString downloadDir = m_downloadPath;
-    if (downloadDir.isEmpty())
-        downloadDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-        downloadDir += "/QueMusic";
+    QString downloadDir = effectiveDownloadDir();
     QDir().mkpath(downloadDir);
 
     // 如果文件已存在，添加数字后缀避免覆盖
@@ -304,6 +321,46 @@ int DownloadManager::completedCount() const
     return count;
 }
 
+// 下载完成后，在与音频同名（同 basename）的 .json 中保存元数据与歌词
+void DownloadManager::writeMetadata(const DownloadTask &task)
+{
+    if (task.filePath.isEmpty())
+        return;
+
+    const QFileInfo fi(task.filePath);
+    const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
+                             + fi.completeBaseName() + QStringLiteral(".json");
+
+    QJsonObject root;
+    root.insert(QStringLiteral("title"), task.title);
+    root.insert(QStringLiteral("artist"), task.artist);
+    root.insert(QStringLiteral("cover"), task.cover);
+    root.insert(QStringLiteral("duration"), task.duration);
+    root.insert(QStringLiteral("hash"), task.hash);
+
+    QJsonArray lyricsArr;
+    for (const QVariant &v : task.lyrics) {
+        const QVariantMap m = v.toMap();
+        QJsonObject line;
+        line.insert(QStringLiteral("time"), m.value(QStringLiteral("time")).toInt());
+        line.insert(QStringLiteral("text"), m.value(QStringLiteral("text")).toString());
+        lyricsArr.append(line);
+    }
+    root.insert(QStringLiteral("lyrics"), lyricsArr);
+
+    QJsonArray transArr;
+    for (const QVariant &v : task.translate)
+        transArr.append(QJsonValue::fromVariant(v));
+    root.insert(QStringLiteral("translate"), transArr);
+
+    QFile f(jsonPath);
+    if (!f.open(QIODevice::WriteOnly)) {
+        qWarning() << "[download] 无法写入元数据文件:" << jsonPath;
+        return;
+    }
+    f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+}
+
 // Network slots
 
 void DownloadManager::onReadyRead()
@@ -333,6 +390,7 @@ void DownloadManager::onFinished()
         if (m_reply->error() == QNetworkReply::NoError) {
             task.status = DownloadTask::Completed;
             task.progress = 1.0;
+            writeMetadata(task);
         }
         // 错误已在 onErrorOccurred 里处理
 

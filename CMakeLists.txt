@@ -117,6 +117,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/FolderModel.h
         cpp/DownloadManager.cpp
         cpp/DownloadManager.h
+        cpp/DownloadedMusicModel.cpp
+        cpp/DownloadedMusicModel.h
         cpp/Favorites.cpp
         cpp/Favorites.h
         cpp/AccountManager.cpp

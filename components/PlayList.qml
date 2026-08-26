@@ -203,14 +203,8 @@ Popup {
                     onExited: listHover.opacity = 0
                     onClicked: {
                         if(model.source == -1) {
-                            mainMedia.urlLocal = true;
                             playListModel.playListIndex = index;
-                            var sourcePath = model.path;
-                            var sourcename = model.name;
-                            mainMedia.source = sourcePath;
-                            mainMedia.noTitle = sourcename;
-                            MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
-                            mainMedia.play();
+                            window.playLocalSong(model.path, model.name);
                         } else {
                             mainMedia.urlLocal = false;
                             playListModel.playListIndex = index;

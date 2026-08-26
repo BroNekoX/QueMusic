@@ -6,6 +6,11 @@
 #include <QDebug>
 #include <QQmlEngine>
 #include <QJSEngine>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QUrl>
 
 #include "../cpp/AccountManager.h"
 
@@ -231,10 +236,32 @@ void MusicApiService::setLocalLyrics()
     setLyricsTranslate(QVariantList()); // 清空翻译，避免残留
 }
 
-void MusicApiService::download(const QString &url, const QString &name)
+// 读取本地音频同目录同名 .json 元数据；不存在返回空 map
+QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
 {
-    m_downloader.addDownload(url, name);
-    emit warned(QStringLiteral("已添加下载: ") + name, 1);
+    QVariantMap meta;
+    if (filePath.isEmpty())
+        return meta;
+
+    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
+    if (localPath.isEmpty())
+        localPath = filePath;
+
+    const QFileInfo fi(localPath);
+    const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
+                             + fi.completeBaseName() + QStringLiteral(".json");
+    if (!QFileInfo::exists(jsonPath))
+        return meta;
+
+    QFile f(jsonPath);
+    if (!f.open(QIODevice::ReadOnly))
+        return meta;
+
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject())
+        return meta;
+
+    return doc.object().toVariantMap();
 }
 
 // setter
@@ -460,6 +487,19 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getLyricInfo")) {
         setLyricsData(d.value(QStringLiteral("info")));
         setLyricsTranslate(d.value(QStringLiteral("translate")));
+
+        // 歌词返回后发起下载
+        const QString hash = d.value(QStringLiteral("hash")).toString();
+        if (!hash.isEmpty() && m_pendingDownloads.contains(hash)) {
+            QVariantMap meta = m_pendingDownloads.take(hash);
+            meta.insert(QStringLiteral("lyrics"), d.value(QStringLiteral("info")));
+            meta.insert(QStringLiteral("translate"), d.value(QStringLiteral("translate")));
+            m_downloader.addDownload(meta.value(QStringLiteral("url")).toString(),
+                                     meta.value(QStringLiteral("fileName")).toString(),
+                                     meta);
+            emit warned(QStringLiteral("已添加下载: ")
+                        + meta.value(QStringLiteral("fileName")).toString(), 1);
+        }
     } else {
         qWarning() << "MusicApiService: 未知消息类型:" << action;
     }
@@ -476,7 +516,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
         QString solve = d.value(QStringLiteral("album_img")).toString();
         if (solve.contains(QLatin1String("{size}")))
             solve.replace(QLatin1String("{size}"), QLatin1String("128"));
-        // 秒 → 毫秒（timeLength 是秒时 <1000 判定）
+        // 秒 → 毫秒
         const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
         const int time = int(timeLength * (timeLength < 1000 ? 1000 : 1));
         emit urlplay(d.value(QStringLiteral("backup_url")).toString(),
@@ -488,7 +528,27 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
         // 直接请求歌词
         getLyricInfo(d.value(QStringLiteral("hash")).toString(), time, source);
     } else if (type == 1) { // 下载
-        download(d.value(QStringLiteral("url")).toString(),
-                 d.value(QStringLiteral("fileName")).toString());
+        // 秒 → 毫秒
+        const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
+        const int time = int(timeLength * (timeLength < 1000 ? 1000 : 1));
+
+        QString cover = d.value(QStringLiteral("album_img")).toString();
+        if (cover.contains(QLatin1String("{size}")))
+            cover.replace(QLatin1String("{size}"), QLatin1String("512"));
+
+        const QString hash = d.value(QStringLiteral("hash")).toString();
+
+        QVariantMap meta;
+        meta.insert(QStringLiteral("title"), d.value(QStringLiteral("songName")).toString());
+        meta.insert(QStringLiteral("artist"), d.value(QStringLiteral("author_name")).toString());
+        meta.insert(QStringLiteral("cover"), cover);
+        meta.insert(QStringLiteral("duration"), int(timeLength)); // 秒
+        meta.insert(QStringLiteral("hash"), hash);
+        meta.insert(QStringLiteral("url"), d.value(QStringLiteral("url")).toString());
+        meta.insert(QStringLiteral("fileName"), d.value(QStringLiteral("fileName")).toString());
+
+        // 先取歌词再下载
+        m_pendingDownloads.insert(hash, meta);
+        getLyricInfo(hash, time, source);
     }
 }

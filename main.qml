@@ -54,6 +54,28 @@ Window {
     property string version: "Beta-0.4.0"
     property int versionCode: 40
 
+    // 播放本地歌曲：有同名 .json 用其元数据，否则回退内嵌标签
+    function playLocalSong(path, name) {
+        var meta = MusicApi.readLocalMetadata(path) || {};
+        var hasMeta = Object.keys(meta).length > 0;
+        if (hasMeta) {
+            mainMedia.urlLocal = false;
+            mainMedia.noTitle = meta.title || name;
+            mainMedia.urlStr = meta.cover || "qrc:/QueMusic/resources/app/musicpic.png";
+            window.musicTitle = meta.title || name;
+            window.musicArtist = meta.artist || "";
+            MusicApi.lyricsData = meta.lyrics || [];
+            MusicApi.lyricsTranslate = meta.translate || [];
+            colorExtractor.extractColorsFromUrl(meta.cover);
+        } else {
+            mainMedia.urlLocal = true;
+            mainMedia.noTitle = name;
+            MusicApi.setLocalLyrics();
+        }
+        mainMedia.source = path;
+        mainMedia.play();
+    }
+
     // 首次加载内容临时存储，防止重新加载浪费内存
     property QtObject completedStart: QtObject {
         property bool homeLoaded: false
@@ -228,12 +250,17 @@ Window {
                 color: Style.themes.textColor
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
+                selectionColor: Style.themes.containColor
                 focus: false
                 onReleased: searchCard.open();
                 //clip: true
                 //onTextEdited: parent.border.color = Style.themes.themeColor
                 //onEditingFinished: parent.border.color = "transparent"
                 onAccepted: {
+                    if(text.trim() == "") {
+                        mainWarn.tiped("请输入文本>-<",0);
+                        return;
+                    }
                     MusicApi.searchSongsResults.clear();
                     mainContent.contentIndexed(6);
                     Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);
@@ -258,6 +285,10 @@ Window {
                 iconCharacter: "\uf100"
                 buttonColor: "transparent"
                 onClicked: {
+                    if(mainSearchInput.text.trim() == "") {
+                        mainWarn.tiped("请输入文本>-<",0);
+                        return;
+                    }
                     MusicApi.searchSongsResults.clear();
                     mainContent.contentIndexed(6);
                     Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);

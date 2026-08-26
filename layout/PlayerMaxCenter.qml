@@ -304,7 +304,7 @@ Item {
         property int currentPlayTime: 0
 
         Timer {
-            interval: 100
+            interval: 60
             running: mainMedia.onMedia
             repeat: true
             onTriggered: {

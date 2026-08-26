@@ -380,24 +380,14 @@ Item {
                     }
                 }
 
-                footer: Item {
-                    height: 60
-                    width: playListsView.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState) {
-                                var tagid = playListSongsWindow.id
-                                if(MusicApi.playlistSong.count % 20 === 0) {
-                                    MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
-                                } else {
-                                    mainWarn.tiped("没有更多了",0);
-                                }
-                            }
+                onEnded: {
+                    if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
+                        var tagid = playListSongsWindow.id;
+                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.playlistSong.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }

@@ -1073,6 +1073,7 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
             QVariantMap empty;
             empty.insert(QStringLiteral("info"), QVariantList{});
             empty.insert(QStringLiteral("translate"), QVariantList{});
+            empty.insert(QStringLiteral("hash"), hash);
             emit resultReady(QStringLiteral("getLyricInfo"), empty, Source);
             return;
         }
@@ -1090,7 +1091,7 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
         q2.addQueryItem(QStringLiteral("charset"), QStringLiteral("utf8"));
         url2.setQuery(q2);
 
-        get(url2.toString(), [this](const QJsonObject &json2) {
+        get(url2.toString(), [this, hash](const QJsonObject &json2) {
             QVariantMap data;
             const QString content = json2.value(QStringLiteral("content")).toString();
             if (!content.isEmpty()) {
@@ -1104,6 +1105,7 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
                 data.insert(QStringLiteral("info"), QVariantList{});
                 data.insert(QStringLiteral("translate"), QVariantList{});
             }
+            data.insert(QStringLiteral("hash"), hash);
             emit resultReady(QStringLiteral("getLyricInfo"), data, Source);
         });
     });

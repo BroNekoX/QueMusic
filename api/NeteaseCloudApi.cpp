@@ -366,6 +366,9 @@ private:
             QVariantMap d;
             d.insert(QStringLiteral("info"), lrcInfo);
             d.insert(QStringLiteral("translate"), translate);
+            d.insert(QStringLiteral("hash"),
+                     call.value(QStringLiteral("arg")).toMap()
+                         .value(QStringLiteral("id")).toString());
             return d;
         }
         else {

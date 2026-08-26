@@ -579,13 +579,9 @@ Rectangle {
     function refreshMusicPlay() {
         var source = playListModel.get(playListModel.playListIndex).source;
         if(source == -1) {
-            mainMedia.urlLocal = true;
             var sourcePath = playListModel.get(playListModel.playListIndex).path;
             var sourcename = playListModel.get(playListModel.playListIndex).name;
-            mainMedia.source = sourcePath;
-            mainMedia.noTitle = sourcename;
-            MusicApi.setLocalLyrics(); // 本地音乐无歌词：清掉在线歌词残留
-            mainMedia.play();
+            window.playLocalSong(sourcePath, sourcename);
         } else {
             mainMedia.urlLocal = false;
             var sourcePath = playListModel.get(playListModel.playListIndex).path;

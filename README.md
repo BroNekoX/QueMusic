@@ -7,7 +7,7 @@
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
   <img alt="Qt" src="https://img.shields.io/badge/Qt-6.9.3-41CD52?style=flat-square">
-  <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B20%20%7C%20QML-orange?style=flat-square">
+  <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B17%20%7C%20QML-orange?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic?style=flat-square">
   <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic?style=flat-square">

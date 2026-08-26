@@ -829,21 +829,13 @@ Item {
                                    }
                                }
 
-                footer: Item {
-                    height: 60
-                    width: dailyRecomView.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState && MusicApi.recommendSongs.count % 20 === 0) {
-                                MusicApi.getRecommendSongs(MusicApi.recommendSongs.count / 20 + 1, 20, MusicApi.songSource);
-                            } else {
-                                mainWarn.tiped("没有更多了",0);
-                            }
+                onEnded: {
+                    if(MusicApi.recommendSongs.count % 20 === 0 && MusicApi.recommendSongs.count !== 0) {
+                        MusicApi.getRecommendSongs(MusicApi.recommendSongs.count / 20 + 1, 20, MusicApi.songSource);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.recommendSongs.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }
@@ -910,26 +902,18 @@ Item {
                     }
                 }
 
-                footer: Item {
-                    height: 60
-                    width: personalView.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState && personalWindow.currentModel.count % personalWindow.pageSize === 0) {
-                                personalWindow.page += 1;
-                                if(personalWindow.mode === "fm") {
-                                    MusicApi.getPersonalFm(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
-                                } else {
-                                    MusicApi.getPersonalRadar(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
-                                }
-                            } else {
-                                mainWarn.tiped("没有更多了",0);
-                            }
+                onEnded: {
+                    if(personalWindow.currentModel.count % personalWindow.pageSize === 0 && MusicApi.playlistSong.count !== 0) {
+                        personalWindow.page += 1;
+                        if(personalWindow.mode === "fm") {
+                            MusicApi.getPersonalFm(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
+                        } else {
+                            MusicApi.getPersonalRadar(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
+                        }
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.playlistSong.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }
@@ -954,21 +938,13 @@ Item {
             bottomMargin: 24
             isList: true
 
-            footer: Item {
-                height: 60
-                width: recomView.width
-                QButton {
-                    anchors.centerIn: parent
-                    height: 40; width: 120
-                    radius: 20
-                    iconCharacter: "\uf0f8"
-                    text: "更多"
-                    onClicked: {
-                        if(!MusicApi.loadState && MusicApi.musicPlaylists.count % 20 === 0) {
-                            MusicApi.getMusicPlaylists(MusicApi.globaltagid,MusicApi.musicPlaylists.count / 20 + 1,20);
-                        } else {
-                            mainWarn.tiped("没有更多了",0);
-                        }
+            onEnded: {
+                if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {
+                    MusicApi.getMusicPlaylists(MusicApi.globaltagid,MusicApi.musicPlaylists.count / 20 + 1,20);
+                    isEnd = false;
+                } else {
+                    if(MusicApi.musicPlaylists.count !== 0) {
+                        isEnd = true;
                     }
                 }
             }
@@ -1043,22 +1019,14 @@ Item {
                                    }
                                }
 
-                footer: Item {
-                    height: 60
-                    width: hotlistsView.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState && MusicApi.playlistSong.count % 20 === 0) {
-                                var tagid = hotlistsWindow.id;
-                                MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
-                            } else {
-                                mainWarn.tiped("没有更多了",0);
-                            }
+                onEnded: {
+                    if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
+                        var tagid = hotlistsWindow.id;
+                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.playlistSong.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }

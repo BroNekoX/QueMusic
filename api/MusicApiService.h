@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QString>
 #include <QVariant>
+#include <QMap>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include "KugouApi.h"
@@ -138,7 +139,8 @@ public:
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
     // 本地音乐（无歌词）时调用：清掉在线歌词残留，显示占位歌词 [{time:0, text:"纯音乐，请欣赏"}]
     Q_INVOKABLE void setLocalLyrics();
-    Q_INVOKABLE void download(const QString &url, const QString &name);
+    // 读取本地音频同目录同名 .json 元数据（不存在返回空 map）
+    Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
 
 signals:
     void loaded();   // loadState 置 true（QLoadSign 显示加载动画）
@@ -191,6 +193,9 @@ private:
     QVariant m_playlistmenuInfo;
     QVariant m_lyricsData;
     QVariant m_lyricsTranslate;
+
+    // 下载流程：按 hash 暂存待下载元数据，等歌词返回后一起发起下载
+    QMap<QString, QVariantMap> m_pendingDownloads;
 
     bool m_loadState = false;
     QVariant m_globalid;

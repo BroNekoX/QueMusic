@@ -578,7 +578,7 @@ Item {
                             ColorDialog {
                                 id: themeColorChoose
                                 onAccepted: {
-                                    var toColor = Qt.hsva(selectedColor.hsvHue,0.9,0.9,1.0)
+                                    var toColor = Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0)
                                     Style.settings.colorList.push(toColor);
                                     mainWarn.tiped("成功添加一个主题颜色",1);
                                 }

@@ -16,28 +16,18 @@ Popup {
     //horizontalPadding: 12
     //verticalPadding: 10
     z: 3
-    height: 200
+    height: cardFlow.height + 42 > 200 ? 200 : cardFlow.height + 42
     width: 320
     signal searchIndex(int index)
     //onClosed: { input.text = ""; input.focus = false }
     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
 
-    background: Rectangle {
+    background: QBlurCard {
         anchors.fill: parent
-        radius: Style.settings.cubeRadius
-        color: Style.themes.fullColor
         opacity: 1
-
-        RectangularShadow {
-            anchors.fill: parent
-            z: -1
-            offset.x: 3
-            offset.y: 3
-            radius: Style.settings.labelRadius
-            blur: 16
-            spread: 0
-            color: Style.themes.shadowColor
-        }
+        blurSource: dialog.blurSource
+        rectXy: dialog.rectXy
+        shadowEffect: true
     }
 
     contentItem: Item {
@@ -72,6 +62,7 @@ Popup {
         }
 
         Flow {
+            id: cardFlow
             spacing: 6
             y: 36
             x: 16
@@ -81,10 +72,12 @@ Popup {
                 model: Options.settings.searchList
                 delegate: Rectangle {
                     //短搜索记录自适应即可，超长时以父容器宽度为上限
-                    width: Math.min(searchText.implicitWidth + 16, parent.width)
-                    height: searchText.height + 12
+                    width: Math.min(searchText.implicitWidth + 20, parent.width)
+                    height: searchText.height + 16
                     color: Style.themes.secondaryColor
                     radius: Style.settings.labelRadius
+                    border.color: Style.themes.primaryColor
+                    border.width: 1
                     Rectangle {
                         radius: parent.radius
                         anchors.fill: parent

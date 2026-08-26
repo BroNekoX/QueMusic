@@ -217,22 +217,13 @@ Item {
                 clip: true
                 //topMargin: 72
 
-                footer: Item {
-                    height: 60
-                    width: searchSong.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState) {
-                                var tagid = MusicApi.globalid;
-                                if(MusicApi.newSongs.count % 20 === 0) {
-                                    MusicApi.getNewSongs(tagid, MusicApi.newSongs.count / 20 + 1, 20);
-                                }
-                            }
+                onEnded: {
+                    if(MusicApi.newSongs.count % 20 === 0 && MusicApi.newSongs.count !== 0) {
+                        MusicApi.getNewSongs(MusicApi.globalid, MusicApi.newSongs.count / 20 + 1, 20);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.newSongs.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }
@@ -343,21 +334,13 @@ Item {
                 //topMargin: 72
                 bottomMargin: 24
 
-                footer: Item {
-                    height: 60
-                    width: musicMenuList.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(!MusicApi.loadState && MusicApi.musicPlaylists.count % 20 === 0) {
-                                MusicApi.getMusicPlaylists(MusicApi.globaltagid, MusicApi.musicPlaylists.count / 20 + 1, 20);
-                            } else {
-                                mainWarn.tiped("没有更多了",0);
-                            }
+                onEnded: {
+                    if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {
+                        MusicApi.getMusicPlaylists(MusicApi.globaltagid, MusicApi.musicPlaylists.count / 20 + 1, 20);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.musicPlaylists.count !== 0) {
+                            isEnd = true;
                         }
                     }
                 }

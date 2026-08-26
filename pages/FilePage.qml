@@ -645,7 +645,7 @@ Item {
                     height: 60
                     width: fileView.width - 16
                     radius: Style.settings.labelRadius
-                    color: mainMedia.noTitle == model.name ? Style.themes.onPrimaryColor : "transparent"
+                    color: mainMedia.noTitle == model.name ? Style.themes.containColor : "transparent"
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -698,12 +698,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            mainMedia.urlLocal = true;
-                            mainMedia.source = model.path;
-                            mainMedia.noTitle = model.name;
-                            console.log("url:", model.path);
-                            MusicApi.setLocalLyrics();
-                            mainMedia.play();
+                            window.playLocalSong(model.path, model.name);
                             var musicName = model.name;
                             var musicPath = model.path;
                             var listIndex = listfile.findIndexByValue(playListModel, "name", musicName);
@@ -882,7 +877,7 @@ Item {
                     height: 60
                     width: localFileView.width - 16
                     radius: Style.settings.labelRadius
-                    color: mainMedia.source == model.fileUrl ? Style.themes.onPrimaryColor : "transparent"
+                    color: mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -935,12 +930,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            mainMedia.urlLocal = true;
-                            mainMedia.source = model.fileUrl;
-                            mainMedia.noTitle = model.fileName;
-                            console.log("url:", model.fileUrl);
-                            MusicApi.setLocalLyrics();
-                            mainMedia.play();
+                            window.playLocalSong(model.fileUrl.toString(), model.fileName);
                             var musicName = model.fileName;
                             var musicPath = model.fileUrl.toString();
                             var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);

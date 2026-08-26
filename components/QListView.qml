@@ -3,6 +3,7 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
+import QueMusic 1.0
 
 ListView {
     id: view
@@ -19,6 +20,7 @@ ListView {
     property string toolText0: "\uf095"
     property string toolText1: "\uf0c8"
     property alias menu: menu
+    property bool isEnd: false
     contentWidth: view.width - 16
     synchronousDrag: true
     reuseItems: true
@@ -26,6 +28,23 @@ ListView {
     signal clicked(int index)
     signal menuClicked(int index,int choice)
     signal toolClicked(int index,int tool)//从右往左2（菜单)，1（喜欢），0（通用）
+    signal ended()
+
+    onAtYEndChanged: {
+        if (atYEnd && !MusicApi.loadState) ended();
+    }
+    footer: Item {
+        width: view.width
+        height: 32
+        visible: view.isEnd
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            text: "没有更多了~"
+            color: Style.themes.textColor
+            font.pixelSize: Style.settings.text
+        }
+    }
     Menu {
         id: menu
         title: "Menu"
@@ -100,7 +119,7 @@ ListView {
             view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines), view.contentHeight - view.height + view.bottomMargin));
             listViewAnime.running = false;
             listViewAnime.running = true;
-            script: viewBar.active = true;
+            viewBar.active = true;
             event.accepted = true;
         }
     }
@@ -114,7 +133,7 @@ ListView {
             easing.type: Easing.OutCubic
         }
         ScriptAction {
-            script: viewBar.active = true
+            script: viewBar.active = false
         }
     }
 

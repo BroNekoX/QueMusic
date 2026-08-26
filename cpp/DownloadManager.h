@@ -12,6 +12,7 @@
 #include <QUrl>
 #include <QList>
 #include <QString>
+#include <QVariant>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 struct DownloadTask {
@@ -23,6 +24,14 @@ struct DownloadTask {
     qreal progress = 0.0;
     Status status = Queued;
     QString errorString;
+    // 元数据：下载完成后写入同名 .json
+    QString title;
+    QString artist;
+    QString cover;
+    int duration = 0;
+    QString hash;
+    QVariantList lyrics;
+    QVariantList translate;
 };
 
 class DownloadManager : public QAbstractListModel
@@ -60,11 +69,13 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     // Public API
-    Q_INVOKABLE void addDownload(const QString &url, const QString &fileName);
+    Q_INVOKABLE void addDownload(const QString &url, const QString &fileName,
+                                 const QVariantMap &meta);
     Q_INVOKABLE void retryTask(int taskId);
     Q_INVOKABLE void removeTask(int taskId);
     Q_INVOKABLE void clearCompleted();
     Q_INVOKABLE void cancelCurrent();
+    Q_INVOKABLE QString effectiveDownloadDir() const;
 
     int currentTaskId() const { return m_currentTaskId; }
     bool hasActiveTasks() const { return m_currentTaskId >= 0; }
@@ -87,6 +98,7 @@ private slots:
     void onErrorOccurred(QNetworkReply::NetworkError code);
 
 private:
+    void writeMetadata(const DownloadTask &task);
     void startNextTask();
     void abortCurrentDownload();
     int findTaskById(int id) const;
