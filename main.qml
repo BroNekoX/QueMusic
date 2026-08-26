@@ -902,6 +902,70 @@ Window {
             }
         }
     }
+    // Windows SMTC（系统媒体传输控件）：在系统媒体弹窗中显示歌曲信息并可控制播放
+    WindowsSmtcManager {
+        id: windowsSmtc
+
+        Component.onCompleted: {
+            // 此时窗口已可见；initialize 内部也会确保 native window 已创建
+            windowsSmtc.initialize(window)
+        }
+    }
+
+    Connections {
+        target: windowsSmtc
+
+        function onPlayPressed() { mainMedia.play() }
+        function onPausePressed() { mainMedia.pause() }
+        function onNextPressed() { musicControlMin.enterMedia() }
+        function onPreviousPressed() { musicControlMin.lastMedia() }
+        function onSeekRequested(pos) { mainMedia.position = pos }
+    }
+
+    Connections {
+        target: mainMedia
+
+        function onPlaybackStateChanged() {
+            if (!windowsSmtc.available)
+                return
+            switch (mainMedia.playbackState) {
+            case MediaPlayer.PlayingState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Playing)
+                break
+            case MediaPlayer.PausedState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Paused)
+                break
+            case MediaPlayer.StoppedState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Stopped)
+                break
+            case MediaPlayer.NoMediaState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Closed)
+                break
+            default:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Closed)
+                break
+            }
+        }
+        function onPositionChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateTimeline(mainMedia.position, mainMedia.duration)
+        }
+    }
+
+    Connections {
+        target: window
+
+        function onMusicTitleChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album)
+        }
+        function onMusicArtistChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album)
+        }
+    }
 
     // 播放列表
     ListModel {
