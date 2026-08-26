@@ -901,6 +901,14 @@ Window {
                 }
             }
         }
+
+        // 封面就绪后立即推给 SMTC（title/artist 变化时封面可能还是旧值，
+        // 所以必须监听 urlStr 变化单独刷新一次缩略图）
+        onUrlStrChanged: {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album, urlStr)
+        }
     }
     // Windows SMTC（系统媒体传输控件）：在系统媒体弹窗中显示歌曲信息并可控制播放
     WindowsSmtcManager {
@@ -958,12 +966,12 @@ Window {
         function onMusicTitleChanged() {
             if (windowsSmtc.available)
                 windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                            mainMedia.album)
+                                            mainMedia.album, mainMedia.urlStr)
         }
         function onMusicArtistChanged() {
             if (windowsSmtc.available)
                 windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                            mainMedia.album)
+                                            mainMedia.album, mainMedia.urlStr)
         }
     }
 

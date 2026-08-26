@@ -6,9 +6,8 @@
 
 #include <QObject>
 #include <QString>
+#include <QWindow>
 #include <QtQmlIntegration/qqmlintegration.h>
-
-class QWindow;
 
 // Windows SMTC（System Media Transport Controls，系统媒体传输控件）管理器。
 // 在 Windows 下启用（MSVC 与 MinGW-w64 均可，直连 WinRT ABI，不依赖 WRL）；
@@ -45,7 +44,8 @@ public:
     Q_INVOKABLE void setControlsEnabled(bool play, bool pause, bool next, bool previous);
     Q_INVOKABLE void setPlaybackStatus(int status);
     Q_INVOKABLE void updateMediaInfo(const QString &title, const QString &artist,
-                                     const QString &album = QString());
+                                     const QString &album = QString(),
+                                     const QString &cover = QString());
     // position/duration 单位为毫秒；每 5 秒调用一次即可，切歌/暂停时也建议调用
     Q_INVOKABLE void updateTimeline(qint64 positionMs, qint64 durationMs);
 

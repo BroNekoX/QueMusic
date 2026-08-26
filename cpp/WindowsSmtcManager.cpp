@@ -108,6 +108,11 @@ struct IAutoRepeatModeChangeRequestedEventArgs;
 struct IPlaybackRateChangeRequestedEventArgs;
 struct IShuffleEnabledChangeRequestedEventArgs;
 struct IRandomAccessStreamReference;
+struct IUriRuntimeClass;
+struct IUriRuntimeClassFactory;
+struct IRandomAccessStream;
+struct IRandomAccessStreamWithContentType;
+struct IWwwFormUrlDecoderRuntimeClass;
 struct IVideoDisplayProperties;
 struct IImageDisplayProperties;
 struct IStorageFile;
@@ -136,6 +141,14 @@ static const GUID IID_IMusicDisplayProperties2 = { 0x00368462, 0x97d3, 0x44b9, {
 static const GUID IID_ISystemMediaTransportControlsInterop = { 0xddb0472d, 0xc911, 0x4a1f, { 0x86, 0xd9, 0xdc, 0x3d, 0x71, 0xa9, 0x5f, 0x5a } };
 static const GUID IID_ITypedEventHandler_ButtonPressed = { 0x0557e996, 0x7b23, 0x5bae, { 0xaa, 0x81, 0xea, 0x0d, 0x67, 0x11, 0x43, 0xa4 } };
 static const GUID IID_ITypedEventHandler_PlaybackPosition = { 0x44e34f15, 0xbdc0, 0x50a7, { 0xac, 0xe4, 0x39, 0xe9, 0x1f, 0xb7, 0x53, 0xf1 } };
+// Windows.Storage.Streams.IRandomAccessStreamReference
+static const GUID IID_IRandomAccessStreamReference = { 0x33ee3134, 0x1dd6, 0x4e3a, { 0x80, 0x67, 0xd1, 0xc1, 0x62, 0xe8, 0x64, 0x2b } };
+// Windows.Storage.Streams.IRandomAccessStreamReferenceStatics
+static const GUID IID_IRandomAccessStreamReferenceStatics = { 0x857309dc, 0x3fbf, 0x4e7d, { 0x98, 0x6f, 0xef, 0x3b, 0x1a, 0x07, 0xa9, 0x64 } };
+// Windows.Foundation.IUriRuntimeClass
+static const GUID IID_IUriRuntimeClass = { 0x9e365e57, 0x48b2, 0x4160, { 0x95, 0x6f, 0xc7, 0x38, 0x51, 0x20, 0xbb, 0xfc } };
+// Windows.Foundation.IUriRuntimeClassFactory
+static const GUID IID_IUriRuntimeClassFactory = { 0x44a9796f, 0x723e, 0x4fdf, { 0xa2, 0x18, 0x03, 0x3e, 0x75, 0xb0, 0xc0, 0x84 } };
 
 inline bool guidEquals(const GUID &a, const GUID &b)
 {
@@ -311,6 +324,44 @@ struct ISystemMediaTransportControlsDisplayUpdater : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE Update() = 0;
 };
 
+// Windows.Foundation.Uri（用于把封面 URL 转成 RandomAccessStreamReference）
+struct IUriRuntimeClass : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE get_AbsoluteUri(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_DisplayUri(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Domain(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Extension(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Fragment(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Host(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Password(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Path(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Port(INT32 *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Query(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_QueryParsed(IWwwFormUrlDecoderRuntimeClass **value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_RawUri(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_SchemeName(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_UserName(HSTRING *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Suspicious(boolean *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE Equals(IUriRuntimeClass *pUri, boolean *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE CombineUri(PCWSTR relativeUri, IUriRuntimeClass **value) = 0;
+};
+
+struct IUriRuntimeClassFactory : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE CreateUri(HSTRING uri, IUriRuntimeClass **value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE CreateWithRelativeUri(HSTRING baseUri, HSTRING relativeUri, IUriRuntimeClass **value) = 0;
+};
+
+// Windows.Storage.Streams.IRandomAccessStreamReference（封面缩略图）
+struct IRandomAccessStreamReference : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE OpenReadAsync(IAsyncOperation<IRandomAccessStreamWithContentType *> **operation) = 0;
+};
+
+// Windows.Storage.Streams.IRandomAccessStreamReferenceStatics（RandomAccessStreamReference 静态工厂）
+struct IRandomAccessStreamReferenceStatics : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE CreateFromFile(IStorageFile *file, IRandomAccessStreamReference **value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE CreateFromUri(IUriRuntimeClass *uri, IRandomAccessStreamReference **value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE CreateFromStream(IRandomAccessStream *stream, IRandomAccessStreamReference **value) = 0;
+};
+
 struct IMusicDisplayProperties : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE get_Title(HSTRING *value) = 0;
     virtual HRESULT STDMETHODCALLTYPE put_Title(HSTRING value) = 0;
@@ -427,6 +478,64 @@ public:
     }
 };
 
+// 把封面 URL（http/https/file）转成 RandomAccessStreamReference，
+// 供 DisplayUpdater.Thumbnail 使用。失败或 scheme 不支持时返回空 ComPtr。
+static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString &url)
+{
+    ComPtr<IRandomAccessStreamReference> result;
+    if (url.isEmpty())
+        return result;
+
+    const QString trimmed = url.trimmed();
+    if (trimmed.isEmpty())
+        return result;
+
+    // 只处理 SMTC 能真正读取的 scheme（http/https/file）。
+    // qrc:/ 等 Qt 内部 scheme 对 Windows 而言无意义，塞给 SMTC 只会失败。
+    const QString scheme = trimmed.section(QStringLiteral("://"), 0, 0).toLower();
+    if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")
+        && scheme != QStringLiteral("file")) {
+        return result;
+    }
+
+    // 1) 创建 Windows.Foundation.Uri
+    HStringReference uriClassId(L"Windows.Foundation.Uri");
+    if (!uriClassId.isValid())
+        return result;
+
+    ComPtr<IUriRuntimeClassFactory> uriFactory;
+    HRESULT hr = RoGetActivationFactory(uriClassId.get(), IID_IUriRuntimeClassFactory,
+                                        reinterpret_cast<void **>(uriFactory.put()));
+    if (FAILED(hr) || !uriFactory)
+        return result;
+
+    HString hUri = HString::make(reinterpret_cast<PCWSTR>(trimmed.utf16()),
+                                 UINT32(trimmed.size()));
+    if (!hUri.isValid())
+        return result;
+
+    ComPtr<IUriRuntimeClass> uri;
+    hr = uriFactory->CreateUri(hUri.get(), uri.put());
+    if (FAILED(hr) || !uri)
+        return result;
+
+    // 2) 通过 RandomAccessStreamReference 静态工厂 CreateFromUri
+    HStringReference streamRefClassId(L"Windows.Storage.Streams.RandomAccessStreamReference");
+    if (!streamRefClassId.isValid())
+        return result;
+
+    ComPtr<IRandomAccessStreamReferenceStatics> statics;
+    hr = RoGetActivationFactory(streamRefClassId.get(), IID_IRandomAccessStreamReferenceStatics,
+                                reinterpret_cast<void **>(statics.put()));
+    if (FAILED(hr) || !statics)
+        return result;
+
+    hr = statics->CreateFromUri(uri.get(), result.put());
+    if (FAILED(hr) || !result)
+        result.reset();
+    return result;
+}
+
 } // namespace SmtcAbi
 
 class WindowsSmtcManager::Private
@@ -448,7 +557,8 @@ public:
     void deinit();
     void setControlsEnabled(bool play, bool pause, bool next, bool previous);
     void setPlaybackStatus(int status);
-    void updateMediaInfo(const QString &title, const QString &artist, const QString &album);
+    void updateMediaInfo(const QString &title, const QString &artist, const QString &album,
+                         const QString &cover);
     void updateTimeline(qint64 positionMs, qint64 durationMs);
 };
 
@@ -591,7 +701,8 @@ void WindowsSmtcManager::Private::setPlaybackStatus(int status)
 
 void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
                                                   const QString &artist,
-                                                  const QString &album)
+                                                  const QString &album,
+                                                  const QString &cover)
 {
     if (!initialized || !displayUpdater)
         return;
@@ -630,6 +741,14 @@ void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
         }
     }
 
+    // 封面缩略图（专辑封面）：SMTC 弹窗里显示的音乐图标
+    if (!cover.isEmpty()) {
+        SmtcAbi::ComPtr<SmtcAbi::IRandomAccessStreamReference> thumb =
+            SmtcAbi::createThumbnailFromUrl(cover);
+        if (thumb)
+            displayUpdater->put_Thumbnail(thumb.get());
+    }
+
     displayUpdater->Update();
 }
 
@@ -657,12 +776,19 @@ void WindowsSmtcManager::Private::updateTimeline(qint64 positionMs, qint64 durat
     const qint64 safePosition = qMax<qint64>(0, positionMs);
     const qint64 safeDuration = qMax<qint64>(0, durationMs);
 
+    // 时长未知（如直播流或刚切歌的瞬间）时不设置时间线，否则
+    // EndTime=0 / Position>0 会让系统媒体弹窗拒绝显示进度条。
+    if (safeDuration <= 0)
+        return;
+
+    const qint64 clampedPosition = qMin(safePosition, safeDuration);
+
     SmtcAbi::TimeSpan zero;
     zero.Duration = 0;
     SmtcAbi::TimeSpan position;
-    position.Duration = msToTicks(safePosition);
+    position.Duration = SmtcAbi::msToTicks(clampedPosition);
     SmtcAbi::TimeSpan end;
-    end.Duration = msToTicks(safeDuration);
+    end.Duration = SmtcAbi::msToTicks(safeDuration);
 
     timeline->put_StartTime(zero);
     timeline->put_EndTime(end);
@@ -692,8 +818,8 @@ WindowsSmtcManager::WindowsSmtcManager(QObject *parent)
 WindowsSmtcManager::~WindowsSmtcManager()
 {
 #if QUEMUSIC_SMTC_IMPL
-    if (s_smtcManager == this)
-        s_smtcManager = nullptr;
+    if (SmtcAbi::s_smtcManager == this)
+        SmtcAbi::s_smtcManager = nullptr;
     d->deinit();
 #endif
     delete d;
@@ -714,10 +840,10 @@ void WindowsSmtcManager::initialize(QWindow *window)
         return;
     }
 
-    s_smtcManager = this;
+    SmtcAbi::s_smtcManager = this;
     if (!d->init(window)) {
-        if (s_smtcManager == this)
-            s_smtcManager = nullptr;
+        if (SmtcAbi::s_smtcManager == this)
+            SmtcAbi::s_smtcManager = nullptr;
     }
     emit availableChanged();
 #else
@@ -729,8 +855,8 @@ void WindowsSmtcManager::initialize(QWindow *window)
 void WindowsSmtcManager::shutdown()
 {
 #if QUEMUSIC_SMTC_IMPL
-    if (s_smtcManager == this)
-        s_smtcManager = nullptr;
+    if (SmtcAbi::s_smtcManager == this)
+        SmtcAbi::s_smtcManager = nullptr;
     if (d->initialized)
         d->deinit();
     emit availableChanged();
@@ -756,12 +882,12 @@ void WindowsSmtcManager::setPlaybackStatus(int status)
 }
 
 void WindowsSmtcManager::updateMediaInfo(const QString &title, const QString &artist,
-                                         const QString &album)
+                                         const QString &album, const QString &cover)
 {
 #if QUEMUSIC_SMTC_IMPL
-    d->updateMediaInfo(title, artist, album);
+    d->updateMediaInfo(title, artist, album, cover);
 #else
-    Q_UNUSED(title); Q_UNUSED(artist); Q_UNUSED(album);
+    Q_UNUSED(title); Q_UNUSED(artist); Q_UNUSED(album); Q_UNUSED(cover);
 #endif
 }
 
