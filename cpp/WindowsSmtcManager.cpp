@@ -660,9 +660,9 @@ void WindowsSmtcManager::Private::updateTimeline(qint64 positionMs, qint64 durat
     SmtcAbi::TimeSpan zero;
     zero.Duration = 0;
     SmtcAbi::TimeSpan position;
-    position.Duration = msToTicks(safePosition);
+    position.Duration = SmtcAbi::msToTicks(safePosition);
     SmtcAbi::TimeSpan end;
-    end.Duration = msToTicks(safeDuration);
+    end.Duration = SmtcAbi::msToTicks(safeDuration);
 
     timeline->put_StartTime(zero);
     timeline->put_EndTime(end);
@@ -692,8 +692,8 @@ WindowsSmtcManager::WindowsSmtcManager(QObject *parent)
 WindowsSmtcManager::~WindowsSmtcManager()
 {
 #if QUEMUSIC_SMTC_IMPL
-    if (s_smtcManager == this)
-        s_smtcManager = nullptr;
+    if (SmtcAbi::s_smtcManager == this)
+        SmtcAbi::s_smtcManager = nullptr;
     d->deinit();
 #endif
     delete d;
@@ -714,10 +714,10 @@ void WindowsSmtcManager::initialize(QWindow *window)
         return;
     }
 
-    s_smtcManager = this;
+    SmtcAbi::s_smtcManager = this;
     if (!d->init(window)) {
-        if (s_smtcManager == this)
-            s_smtcManager = nullptr;
+        if (SmtcAbi::s_smtcManager == this)
+            SmtcAbi::s_smtcManager = nullptr;
     }
     emit availableChanged();
 #else
@@ -729,8 +729,8 @@ void WindowsSmtcManager::initialize(QWindow *window)
 void WindowsSmtcManager::shutdown()
 {
 #if QUEMUSIC_SMTC_IMPL
-    if (s_smtcManager == this)
-        s_smtcManager = nullptr;
+    if (SmtcAbi::s_smtcManager == this)
+        SmtcAbi::s_smtcManager = nullptr;
     if (d->initialized)
         d->deinit();
     emit availableChanged();

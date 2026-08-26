@@ -6,9 +6,8 @@
 
 #include <QObject>
 #include <QString>
+#include <QWindow>
 #include <QtQmlIntegration/qqmlintegration.h>
-
-class QWindow;
 
 // Windows SMTC（System Media Transport Controls，系统媒体传输控件）管理器。
 // 在 Windows 下启用（MSVC 与 MinGW-w64 均可，直连 WinRT ABI，不依赖 WRL）；
