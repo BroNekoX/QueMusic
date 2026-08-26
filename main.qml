@@ -51,8 +51,8 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.4.0"
-    property int versionCode: 40
+    property string version: "Beta-0.4.1"
+    property int versionCode: 41
 
     // 播放本地歌曲：有同名 .json 用其元数据，否则回退内嵌标签
     function playLocalSong(path, name) {
@@ -931,6 +931,75 @@ Window {
                         break;
                 }
             }
+        }
+
+        onUrlStrChanged: {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album, urlStr)
+        }
+    }
+    // Windows SMTC
+    WindowsSmtcManager {
+        id: windowsSmtc
+
+        Component.onCompleted: {
+            windowsSmtc.initialize(window);
+        }
+    }
+
+    Connections {
+        target: windowsSmtc
+
+        function onPlayPressed() { mainMedia.play() }
+        function onPausePressed() { mainMedia.pause() }
+        function onNextPressed() { musicControlMin.enterMedia() }
+        function onPreviousPressed() { musicControlMin.lastMedia() }
+        function onSeekRequested(pos) { mainMedia.position = pos }
+    }
+
+    Connections {
+        target: mainMedia
+
+        function onPlaybackStateChanged() {
+            if (!windowsSmtc.available)
+                return
+            switch (mainMedia.playbackState) {
+            case MediaPlayer.PlayingState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Playing)
+                break
+            case MediaPlayer.PausedState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Paused)
+                break
+            case MediaPlayer.StoppedState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Stopped)
+                break
+            case MediaPlayer.NoMediaState:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Closed)
+                break
+            default:
+                windowsSmtc.setPlaybackStatus(WindowsSmtcManager.Closed)
+                break
+            }
+        }
+        function onPositionChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateTimeline(mainMedia.position, mainMedia.duration)
+        }
+    }
+
+    Connections {
+        target: window
+
+        function onMusicTitleChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album, mainMedia.urlStr)
+        }
+        function onMusicArtistChanged() {
+            if (windowsSmtc.available)
+                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                            mainMedia.album, mainMedia.urlStr)
         }
     }
 

@@ -125,6 +125,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/AccountManager.h
         cpp/CustomFlow.cpp
         cpp/CustomFlow.h
+        cpp/WindowsSmtcManager.cpp
+        cpp/WindowsSmtcManager.h
         api/MusicApiService.cpp
         api/MusicApiService.h
         api/OnlineListModel.cpp
@@ -171,6 +173,11 @@ target_link_libraries(${PROJECT_NAME}
         z
     PUBLIC QWindowKit::Quick
 )
+# Windows SMTC 互操作使用 RoGetActivationFactory / RoActivateInstance，需要 runtimeobject 导入库；
+# 应用身份注册（AUMID 快捷方式/注册表）使用 COM 与注册表 API，需要 ole32/shell32/advapi32。
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32)
+endif()
 
 # macOS 上由 macdeployqt 统一部署，避免与 qt_deploy_runtime 冲突
 if(NOT APPLE)

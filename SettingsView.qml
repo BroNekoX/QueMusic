@@ -2185,7 +2185,7 @@ Item {
                 Grid {
                     spacing: 24
                     columns: 2
-                    rows: 3
+                    rows: 4
                     width: settingStack.standWidth
                     AccountCard {
                         source: "qrc:/QueMusic/resources/app/icons/qwk.png"
@@ -2215,6 +2215,18 @@ Item {
                         title: "QCloudMusicApi"
                         text: "网易云音乐第三方API服务框架"
                         openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
+                    }
+                    AccountCard {
+                        source: ""
+                        title: "SMTC-Bridge-Cpp"
+                        text: "Windows 系统媒体控件(SMTC)桥接参考实现(C++)"
+                        openUrl: "https://github.com/Cainongw/SMTC-Bridge-Cpp"
+                    }
+                    AccountCard {
+                        source: ""
+                        title: "smtc_bridge_rust"
+                        text: "Windows 系统媒体控件(SMTC)桥接参考实现(Rust)"
+                        openUrl: "https://github.com/Cainongw/smtc_bridge_rust"
                     }
                 }
 

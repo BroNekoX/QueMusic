@@ -3,7 +3,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Effects
+import Qt5Compat.GraphicalEffects
 import QueMusic 1.0
 
 Window {
@@ -70,9 +70,11 @@ Window {
         id: lyricsColumn
         y: 60
         width: parent.width
+        height: parent.height - 60
         spacing: 8
         z: 5
-        layer.enabled: true
+        //visible: false
+        //layer.enabled: true
 
         Text {
             id: currentLineText
@@ -81,11 +83,21 @@ Window {
                   ? lyricsData[desktopLyricsWindow.currentIndex].text || ""
                   : "🎵 纯音乐，请欣赏"
             font.pixelSize: desktopLyricsLoader.lyricSize * 1.2
+            font.bold: true
             font.weight: Font.Medium
             color: Style.themes.themeColor
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
-            opacity: 0.95
+            //opacity: 0.95
+            layer.enabled: true
+            layer.effect: DropShadow {
+                radius: 12.0
+                samples: 16
+                //z: -1
+                fast: true
+                color: "#41000000"
+                //source: currentLineText // 阴影绑定到主内容区域
+            }
         }
 
         Text {
@@ -95,22 +107,23 @@ Window {
                   ? lyricsData[desktopLyricsWindow.nextIndex].text || ""
                   : ""
             font.pixelSize: desktopLyricsLoader.lyricSize
-            color: "#fafafa"
+            font.bold: true
+            color: "#fcfcfc"
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
-            opacity: 0.65
+            //opacity: 0.8
             visible: text !== ""
+            layer.enabled: true
+            layer.effect: DropShadow {
+                radius: 12.0
+                samples: 16
+                fast: true
+                color: "#56000000"
+                //source: nextLineText // 阴影绑定到主内容区域
+            }
         }
     }
-    /*RectangularShadow {
-        anchors.fill: lyricsColumn
-        z: 0
-        radius: 16
-        blur: 24
-        spread: 0
-        visible: true
-        color: "#10000000"
-    }*/
+
 
     // 拖动区域
     MouseArea {

@@ -90,7 +90,7 @@ Popup {
                     anchors.right: parent.right
                     enabled: desktopPlayer.openTool
                     choice: desktopPlayer.desktopPlayerMode
-                    model: ["无","灵动岛","小窗播放器","桌面歌词"]
+                    model: ["无","灵动岛(废弃)","小窗播放器","桌面歌词"]
                     onTransformed: (choiced) => {
                         desktopPlayer.desktopPlayerMode = choiced;
                         switch(choiced) {
