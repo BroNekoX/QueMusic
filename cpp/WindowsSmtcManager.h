@@ -45,7 +45,8 @@ public:
     Q_INVOKABLE void setPlaybackStatus(int status);
     Q_INVOKABLE void updateMediaInfo(const QString &title, const QString &artist,
                                      const QString &album = QString(),
-                                     const QString &cover = QString());
+                                     const QString &cover = QString(),
+                                     const QString &mediaId = QString());
     // position/duration 单位为毫秒；每 5 秒调用一次即可，切歌/暂停时也建议调用
     Q_INVOKABLE void updateTimeline(qint64 positionMs, qint64 durationMs);
 

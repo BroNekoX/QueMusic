@@ -556,6 +556,10 @@ Rectangle {
         if(playListModel.playListIndex > 0) {
             playListModel.playListIndex -= 1;
             musicControlMin.refreshMusicPlay();
+            if(windowsSmtc.available)
+                windowsSmtc.setControlsEnabled(true, true,
+                    playListModel.playListIndex < playListModel.count - 1,
+                    playListModel.playListIndex > 0);
         }
     }
     // 下一首
@@ -566,11 +570,19 @@ Rectangle {
             playListModel.playListIndex = 0;
         }
         musicControlMin.refreshMusicPlay();
+        if(windowsSmtc.available)
+            windowsSmtc.setControlsEnabled(true, true,
+                playListModel.playListIndex < playListModel.count - 1,
+                playListModel.playListIndex > 0);
     }
     // 随机播放音乐
     function randomMedia() {
         playListModel.playListIndex = Math.floor( Math.random() * playListModel.count );
         musicControlMin.refreshMusicPlay();
+        if(windowsSmtc.available)
+            windowsSmtc.setControlsEnabled(true, true,
+                playListModel.playListIndex < playListModel.count - 1,
+                playListModel.playListIndex > 0);
     }
     // 切换播放列表显示
     function togglePlayList() {
