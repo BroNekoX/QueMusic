@@ -490,12 +490,9 @@ Window {
                             backGround.source = "qrc:/QueMusic/resources/pic/back1.jpg";
                             break;
                         case 1:
-                            backGround.source = "qrc:/QueMusic/resources/pic/back2.jpg";
-                            break;
-                        case 2:
                             backGround.source = "qrc:/QueMusic/resources/pic/back3.jpg";
                             break;
-                        case 3:
+                        case 2:
                             backGround.source = Style.settings.backgroundImage;
                             break;
                     }

@@ -608,12 +608,12 @@ Item {
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Style.settings.backpic
-                                model: ["示例1","示例2(星空)","示例3","自定义图片"]
+                                model: ["示例1","示例2","自定义图片"]
                                 onTransformed: (choiced) => {
                                     Style.settings.backpic = choiced;
                                     Style.changeUi();
                                     Style.changeTheme();
-                                    if(choiced === 3) {
+                                    if(choiced === 2) {
                                         imagefileDialog.open();
                                     }
                                 }
@@ -1918,15 +1918,16 @@ Item {
                         spacing: 32
                         //icon
                         Image {
-                            width: 96
-                            height: 96
+                            width: 80
+                            height: 80
                             source: "qrc:/QueMusic/resources/icon.ico"
                             sourceSize: Qt.size(96, 96)
                         }
 
                         // App Title
                         Text {
-                            height: 96
+                            height: 80
+                            width: implicitWidth + 80
                             text: "QueMusic"
                             font.family: textFont.name
                             font.pixelSize: 64
@@ -2215,18 +2216,6 @@ Item {
                         title: "QCloudMusicApi"
                         text: "网易云音乐第三方API服务框架"
                         openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
-                    }
-                    AccountCard {
-                        source: ""
-                        title: "SMTC-Bridge-Cpp"
-                        text: "Windows 系统媒体控件(SMTC)桥接参考实现(C++)"
-                        openUrl: "https://github.com/Cainongw/SMTC-Bridge-Cpp"
-                    }
-                    AccountCard {
-                        source: ""
-                        title: "smtc_bridge_rust"
-                        text: "Windows 系统媒体控件(SMTC)桥接参考实现(Rust)"
-                        openUrl: "https://github.com/Cainongw/smtc_bridge_rust"
                     }
                 }
 

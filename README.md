@@ -367,7 +367,7 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [libqrencode](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi
 - [SMTC-Bridge-Cpp](https://github.com/Cainongw/SMTC-Bridge-Cpp) — Windows 系统媒体控件(SMTC)桥接参考实现(C++)
 - [smtc_bridge_rust](https://github.com/Cainongw/smtc_bridge_rust) — Windows 系统媒体控件(SMTC)桥接参考实现(Rust)
-- 以下虽然可能没有使用到他们的代码，但是我仍然致谢他们所带来的精神。
+- 以下参考了他们的部分代码实现，特此致谢。
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
 - 所有贡献者与测试者
