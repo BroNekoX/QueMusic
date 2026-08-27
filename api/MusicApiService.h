@@ -141,6 +141,12 @@ public:
     Q_INVOKABLE void setLocalLyrics();
     // 读取本地音频同目录同名 .json 元数据（不存在返回空 map）
     Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
+    // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
+    Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
+    // 本地歌词不存在时，按标题/歌手搜索在线歌词；结果通过信号返回。
+    Q_INVOKABLE void findLocalLyrics(const QString &filePath, const QString &title,
+                                     const QString &artist, int duration = 0,
+                                     int source = -1);
 
 signals:
     void loaded();   // loadState 置 true（QLoadSign 显示加载动画）
@@ -159,6 +165,8 @@ signals:
     void globalinfoChanged();
     void nowIndexChanged();
     void downloadPathChanged();
+    void localLyricsReady(const QString &filePath, const QVariantList &lyrics);
+    void localLyricsFailed(const QString &filePath);
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
@@ -169,6 +177,13 @@ private:
     QVariantMap normalizeItem(const QVariantMap &raw); // 字段归一化 + 旧字段别名
     QVariantList normalizeList(const QVariant &v);
     void handleMusicInfo(const QVariantMap &d, int source);
+
+    struct LocalLyricsRequest {
+        QString filePath;
+        QString title;
+        QString artist;
+        int duration = 0;
+    };
 
     int m_source = 0;
     NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
@@ -196,6 +211,8 @@ private:
 
     // 下载流程：按 hash 暂存待下载元数据，等歌词返回后一起发起下载
     QMap<QString, QVariantMap> m_pendingDownloads;
+    QMap<int, LocalLyricsRequest> m_localLyricsSearches;
+    QMap<QString, LocalLyricsRequest> m_pendingLocalLyrics;
 
     bool m_loadState = false;
     QVariant m_globalid;
