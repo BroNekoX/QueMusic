@@ -550,12 +550,17 @@ public:
     SmtcAbi::EventRegistrationToken buttonToken = {};
     SmtcAbi::EventRegistrationToken seekToken = {};
 
+    // 进度节流状态：记录最近一次已推送的 position/duration（ms）。
+    // duration<=0（切歌清空重置）后复位为 -1，使下一条时间线立即推送。
+    qint64 lastTimelinePositionMs = -1;
+    qint64 lastTimelineDurationMs = -1;
+
     bool init(QWindow *window);
     void deinit();
     void setControlsEnabled(bool play, bool pause, bool next, bool previous);
     void setPlaybackStatus(int status);
     void updateMediaInfo(const QString &title, const QString &artist, const QString &album,
-                         const QString &cover);
+                         const QString &cover, const QString &mediaId);
     void updateTimeline(qint64 positionMs, qint64 durationMs);
 };
 
@@ -699,7 +704,8 @@ void WindowsSmtcManager::Private::setPlaybackStatus(int status)
 void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
                                                   const QString &artist,
                                                   const QString &album,
-                                                  const QString &cover)
+                                                  const QString &cover,
+                                                  const QString &mediaId)
 {
     if (!initialized || !displayUpdater)
         return;
@@ -708,6 +714,15 @@ void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
     const QString artistStr = artist.isEmpty() ? QStringLiteral("未知歌手") : artist;
 
     displayUpdater->put_Type(SmtcAbi::MediaPlaybackType_Music);
+
+    // AppMediaId：供 SMTC 按曲目区分/分组元信息。mediaId 有值则写入，
+    // 为空时写入空 HSTRING（即清除旧的 id，避免上一首曲目的分组残留）。
+    {
+        SmtcAbi::HString hMediaId = SmtcAbi::HString::make(
+            reinterpret_cast<PCWSTR>(mediaId.utf16()), UINT32(mediaId.size()));
+        if (hMediaId.isValid())
+            displayUpdater->put_AppMediaId(hMediaId.get());
+    }
 
     SmtcAbi::ComPtr<SmtcAbi::IMusicDisplayProperties> musicProps;
     if (FAILED(displayUpdater->get_MusicProperties(musicProps.put())) || !musicProps)
@@ -726,7 +741,8 @@ void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
             musicProps->put_Artist(hArtist.get());
     }
 
-    if (!album.isEmpty()) {
+    // 专辑名：有值则写入；无值时写入空 HSTRING，清除上一首残留的专辑名。
+    {
         SmtcAbi::ComPtr<SmtcAbi::IMusicDisplayProperties2> musicProps2;
         if (SUCCEEDED(musicProps->QueryInterface(SmtcAbi::IID_IMusicDisplayProperties2,
                                                  reinterpret_cast<void **>(musicProps2.put())))
@@ -738,12 +754,15 @@ void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
         }
     }
 
-    // 封面缩略图（专辑封面）：SMTC 弹窗里显示的音乐图标
+    // 封面缩略图（专辑封面）：SMTC 弹窗里显示的音乐图标。
+    // 无封面时传空引用清除旧的缩略图，避免残留上一首歌曲封面。
     if (!cover.isEmpty()) {
         SmtcAbi::ComPtr<SmtcAbi::IRandomAccessStreamReference> thumb =
             SmtcAbi::createThumbnailFromUrl(cover);
         if (thumb)
             displayUpdater->put_Thumbnail(thumb.get());
+    } else {
+        displayUpdater->put_Thumbnail(nullptr);
     }
 
     displayUpdater->Update();
@@ -773,12 +792,44 @@ void WindowsSmtcManager::Private::updateTimeline(qint64 positionMs, qint64 durat
     const qint64 safePosition = qMax<qint64>(0, positionMs);
     const qint64 safeDuration = qMax<qint64>(0, durationMs);
 
-    // 时长未知（如直播流或刚切歌的瞬间）时不设置时间线，否则
-    // EndTime=0 / Position>0 会让系统媒体弹窗拒绝显示进度条。
-    if (safeDuration <= 0)
+    // 时长未知（如直播流或刚切歌、duration 尚未加载的瞬间）时，
+    // 用全零 TimelineProperties 重置时间线（而非直接返回），
+    // 避免系统媒体弹窗残留上一首歌曲的进度条；
+    // EndTime=0 时系统不显示进度条。
+    // 此分支不被节流，并复位节流状态，保证切歌瞬间立即清空残留进度。
+    if (safeDuration <= 0) {
+        SmtcAbi::TimeSpan zero;
+        zero.Duration = 0;
+        timeline->put_StartTime(zero);
+        timeline->put_EndTime(zero);
+        timeline->put_MinSeekTime(zero);
+        timeline->put_MaxSeekTime(zero);
+        timeline->put_Position(zero);
+        smtc2->UpdateTimelineProperties(timeline.get());
+        lastTimelinePositionMs = -1;
+        lastTimelineDurationMs = -1;
         return;
+    }
 
     const qint64 clampedPosition = qMin(safePosition, safeDuration);
+
+    // —— 进度节流 ——
+    // position 随播放约 10Hz 变化，
+    // 若每次都重建 TimelineProperties 再调 UpdateTimelineProperties，会高频触发 WinRT 全量重建。
+    // 这里仅在以下任一情况才推送：
+    //  1. 首次推送；
+    //  2. duration 变化（切歌/时长异常，关键事件不节流）；
+    //  3. 进度回退（seek 倒退）；
+    //  4. position 相对上次
+    // 已推送值前进达到阈值。
+    // 其余情况直接跳过本次重建，进度条仍以子系统可接受的频率平滑推进。
+    const qint64 kTimelineThrottleMs = 200;
+    const bool firstPush = (lastTimelineDurationMs < 0);
+    const bool durationChange = (safeDuration != lastTimelineDurationMs);
+    const bool backwardJump = (safePosition < lastTimelinePositionMs);
+    if (!firstPush && !durationChange && !backwardJump
+        && (safePosition - lastTimelinePositionMs) < kTimelineThrottleMs)
+        return;
 
     SmtcAbi::TimeSpan zero;
     zero.Duration = 0;
@@ -794,6 +845,9 @@ void WindowsSmtcManager::Private::updateTimeline(qint64 positionMs, qint64 durat
     timeline->put_Position(position);
 
     smtc2->UpdateTimelineProperties(timeline.get());
+
+    lastTimelineDurationMs = safeDuration;
+    lastTimelinePositionMs = clampedPosition;
 }
 
 #else // QUEMUSIC_SMTC_IMPL
@@ -879,12 +933,13 @@ void WindowsSmtcManager::setPlaybackStatus(int status)
 }
 
 void WindowsSmtcManager::updateMediaInfo(const QString &title, const QString &artist,
-                                         const QString &album, const QString &cover)
+                                         const QString &album, const QString &cover,
+                                         const QString &mediaId)
 {
 #if QUEMUSIC_SMTC_IMPL
-    d->updateMediaInfo(title, artist, album, cover);
+    d->updateMediaInfo(title, artist, album, cover, mediaId);
 #else
-    Q_UNUSED(title); Q_UNUSED(artist); Q_UNUSED(album); Q_UNUSED(cover);
+    Q_UNUSED(title); Q_UNUSED(artist); Q_UNUSED(album); Q_UNUSED(cover); Q_UNUSED(mediaId);
 #endif
 }
 
