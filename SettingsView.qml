@@ -2479,6 +2479,84 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "日志" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    Column {
+                        width: parent.width
+                        padding: 0
+                        Component.onCompleted: parent.height = height
+
+                        SettingItemCard {
+                            label: "启用日志"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: logManager.enabled
+                                onToggled: logManager.enabled = !logManager.enabled
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "记录等级"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: logManager.minimumLevel
+                                model: ["调试","信息","警告","错误","致命"]
+                                onTransformed: (choiced) => { logManager.minimumLevel = choiced }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "打开日志目录"
+                            controlItem: QButton {
+                                anchors.fill: parent
+                                text: "打开"
+                                onClicked: logManager.openLogFolder()
+                            }
+                            bottomLine: false
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: 200
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 8
+                        Text {
+                            width: parent.width
+                            text: "实时日志预览（完整内容见日志文件）"
+                            color: Style.themes.textColor
+                            font.pixelSize: Style.settings.text
+                        }
+                        Flickable {
+                            id: logPreviewFlick
+                            width: parent.width
+                            height: parent.height - 30
+                            clip: true
+                            contentWidth: width
+                            contentHeight: logPreviewText.height
+                            onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
+                            Text {
+                                id: logPreviewText
+                                width: parent.width
+                                text: logManager.logPreview
+                                color: Style.themes.textColor
+                                font.pixelSize: Style.settings.text
+                                wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                }
             }
         }
     }
