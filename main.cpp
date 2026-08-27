@@ -15,6 +15,7 @@
 #include "cpp/Favorites.h"
 #include "cpp/AccountManager.h"
 #include "api/MusicApiService.h"
+#include "cpp/LogManager.h"
 #include "meshgradient/MeshGradientItem.h"
 #include <QWKQuick/qwkquickglobal.h>
 
@@ -156,6 +157,10 @@ int main(int argc, char *argv[])
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
+
+    // 日志系统：接管 Qt 消息并写入“安装目录/logs”，中文、可分级筛选（默认记录错误及以上）
+    LogManager *logManager = new LogManager(&engine);
+    engine.rootContext()->setContextProperty("logManager", logManager);
 
     // 创建模型实例
     FolderModel *myFolderModel = new FolderModel(&engine);

@@ -127,6 +127,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/CustomFlow.h
         cpp/WindowsSmtcManager.cpp
         cpp/WindowsSmtcManager.h
+        cpp/LogManager.cpp
+        cpp/LogManager.h
         api/MusicApiService.cpp
         api/MusicApiService.h
         api/OnlineListModel.cpp
