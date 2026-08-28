@@ -16,6 +16,18 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
 add_subdirectory(cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
+
+# TagLib is vendored so local metadata parsing works consistently on all
+# supported platforms without requiring a system package.
+set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+# qwindowkit may set BUILD_SHARED_LIBS globally. Keep TagLib static so the
+# application bundle does not require a separately deployed libtag dylib.
+set(_quemusic_build_shared_libs ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS OFF)
+add_subdirectory(ThirdParty/taglib ${CMAKE_BINARY_DIR}/_deps/taglib-build EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_quemusic_build_shared_libs})
+unset(_quemusic_build_shared_libs)
 #add_subdirectory(api)
 #include_directories(api)
 
@@ -30,6 +42,11 @@ qt_add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/api
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
 )
 
 # 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
@@ -123,6 +140,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/Favorites.h
         cpp/AccountManager.cpp
         cpp/AccountManager.h
+        cpp/LocalLyricsReader.cpp
+        cpp/LocalLyricsReader.h
         cpp/CustomFlow.cpp
         cpp/CustomFlow.h
         cpp/WindowsSmtcManager.cpp
@@ -170,6 +189,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Multimedia
         Qt6::Concurrent
         QCloudMusicApi
+        tag
         cryptopp::cryptopp
         quemusic_meshgradientplugin
         z
@@ -185,3 +205,24 @@ endif()
 if(NOT APPLE)
     qt_deploy_runtime(${PROJECT_NAME})
 endif()
+
+enable_testing()
+find_package(Qt6 REQUIRED COMPONENTS Test)
+add_executable(quemusic_local_lyrics_test
+    tests/local_lyrics_reader_test.cpp
+    cpp/LocalLyricsReader.cpp
+)
+target_include_directories(quemusic_local_lyrics_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
+    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
+)
+target_link_libraries(quemusic_local_lyrics_test PRIVATE
+    Qt6::Core
+    Qt6::Test
+    tag
+)
+add_test(NAME quemusic_local_lyrics_test COMMAND quemusic_local_lyrics_test)

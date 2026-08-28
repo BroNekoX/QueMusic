@@ -69,6 +69,12 @@
 | **🛡️ 可靠性高** | 自制 JS API 管理层，统一错误处理，速度快且持续优化 |
 | **💻 跨平台** | 全面支持 **Windows / macOS / Linux** 三大桌面端 |
 
+### 本地歌词加载
+
+本地歌曲按以下顺序读取歌词：同目录同名 `.lrc` → 音频内嵌歌词 → 在线匹配 → “纯音乐，请欣赏”占位。
+内嵌歌词支持 ID3v2 的同步歌词（SYLT）与非同步歌词（USLT），以及 TagLib 能识别的
+`LYRICS` 文本元数据（常见于 FLAC、Ogg/Opus、MP4/M4A 等格式）。
+
 ---
 
 ## 🖼️ 截图预览
@@ -118,7 +124,7 @@ git clone --recurse-submodules https://github.com/BroNekoX/QueMusic.git
 cd QueMusic
 ```
 
-> ⚠️ **重要**：本项目使用 QWindowKit 作为 git 子模块，务必加上 `--recurse-submodules`。
+> ⚠️ **重要**：本项目使用 QWindowKit、TagLib 作为 git 子模块，务必加上 `--recurse-submodules`。
 > 如果已经 clone 但忘记拉子模块，运行：
 > 
 > ```bash
@@ -217,6 +223,7 @@ QueMusic/
 │   ├── GetWave.cpp/h           # 音频波形数据
 │   ├── FolderModel.cpp/h       # 本地文件夹模型
 │   ├── DownloadManager.cpp/h   # 下载管理器
+│   ├── LocalLyricsReader.cpp/h # .lrc 与音频内嵌歌词读取
 │   └── Favorites.cpp/h         # 收藏管理
 ├── meshgradient/               # 🧩 独立 Mesh Gradient 背景组件（AGPL-3.0）
 │   ├── CMakeLists.txt          # 独立库 target：quemusic_meshgradient
@@ -394,4 +401,3 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra
   <sub>Written by QueMusic Project</sub><br/>
   <sub>最后更新：2026-8-26</sub>
 </p>
-
