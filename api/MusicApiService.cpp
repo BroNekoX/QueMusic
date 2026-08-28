@@ -13,6 +13,7 @@
 #include <QUrl>
 
 #include "../cpp/AccountManager.h"
+#include "../cpp/LocalLyricsReader.h"
 
 namespace {
 constexpr int kSourceKugou = 0;
@@ -236,6 +237,36 @@ void MusicApiService::setLocalLyrics()
     setLyricsTranslate(QVariantList()); // 清空翻译，避免残留
 }
 
+QVariantMap MusicApiService::readLocalLyrics(const QString &filePath)
+{
+    return LocalLyricsReader::read(filePath);
+}
+
+void MusicApiService::findLocalLyrics(const QString &filePath, const QString &title,
+                                      const QString &artist, int duration, int source)
+{
+    const int resolvedSource = resolve(source);
+    const QString cleanTitle = title.trimmed();
+    if (filePath.trimmed().isEmpty() || cleanTitle.isEmpty()) {
+        emit localLyricsFailed(filePath);
+        return;
+    }
+
+    LocalLyricsRequest request;
+    request.filePath = filePath;
+    request.title = cleanTitle;
+    request.artist = artist.trimmed();
+    request.duration = duration;
+    m_localLyricsSearches.insert(resolvedSource, request);
+
+    // Search only songs so the result can be resolved to a hash and then sent
+    // through the existing platform-specific lyric endpoint.
+    const QString keyword = request.artist.isEmpty()
+        ? request.title
+        : request.title + QLatin1Char(' ') + request.artist;
+    searchSongs(keyword, 0, 1, 10, resolvedSource);
+}
+
 // 读取本地音频同目录同名 .json 元数据；不存在返回空 map
 QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
 {
@@ -402,7 +433,43 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
                               : data;
 
     if (action == QLatin1String("searchSongs")) {
-        m_searchSongsResults.append(normalizeList(info));
+        if (m_localLyricsSearches.contains(source)) {
+            const LocalLyricsRequest request = m_localLyricsSearches.take(source);
+            const QVariantList songs = normalizeList(info);
+            QVariantMap best;
+            int bestScore = -1;
+            for (const QVariant &value : songs) {
+                const QVariantMap candidate = value.toMap();
+                const QString candidateTitle = candidate.value(QStringLiteral("title")).toString();
+                const QString candidateArtist = candidate.value(QStringLiteral("artist")).toString();
+                int score = 0;
+                if (candidateTitle.compare(request.title, Qt::CaseInsensitive) == 0)
+                    score += 4;
+                else if (candidateTitle.contains(request.title, Qt::CaseInsensitive)
+                         || request.title.contains(candidateTitle, Qt::CaseInsensitive))
+                    score += 2;
+                if (!request.artist.isEmpty()
+                    && (candidateArtist.contains(request.artist, Qt::CaseInsensitive)
+                        || request.artist.contains(candidateArtist, Qt::CaseInsensitive)))
+                    score += 2;
+                if (!candidate.value(QStringLiteral("hash")).toString().isEmpty())
+                    score += 1;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+
+            const QString hash = best.value(QStringLiteral("hash")).toString();
+            if (hash.isEmpty()) {
+                emit localLyricsFailed(request.filePath);
+            } else {
+                m_pendingLocalLyrics.insert(hash, request);
+                getLyricInfo(hash, request.duration, source);
+            }
+        } else {
+            m_searchSongsResults.append(normalizeList(info));
+        }
     } else if (action == QLatin1String("getPlaylistMenu")) {
         // 歌单分类：map 数组（QML 侧 text: modelData.title / [i].id 访问）
         QVariantList menu;
@@ -488,8 +555,18 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         setLyricsData(d.value(QStringLiteral("info")));
         setLyricsTranslate(d.value(QStringLiteral("translate")));
 
+        const QString lyricHash = d.value(QStringLiteral("hash")).toString();
+        if (!lyricHash.isEmpty() && m_pendingLocalLyrics.contains(lyricHash)) {
+            const LocalLyricsRequest request = m_pendingLocalLyrics.take(lyricHash);
+            const QVariantList lyrics = d.value(QStringLiteral("info")).toList();
+            if (lyrics.isEmpty())
+                emit localLyricsFailed(request.filePath);
+            else
+                emit localLyricsReady(request.filePath, lyrics);
+        }
+
         // 歌词返回后发起下载
-        const QString hash = d.value(QStringLiteral("hash")).toString();
+        const QString hash = lyricHash;
         if (!hash.isEmpty() && m_pendingDownloads.contains(hash)) {
             QVariantMap meta = m_pendingDownloads.take(hash);
             meta.insert(QStringLiteral("lyrics"), d.value(QStringLiteral("info")));

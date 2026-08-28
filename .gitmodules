@@ -4,3 +4,6 @@
 [submodule "api/QCloudMusicApi/3rdparty/cryptopp"]
 	path = api/QCloudMusicApi/3rdparty/cryptopp
 	url = https://github.com/weidai11/cryptopp.git
+[submodule "ThirdParty/taglib"]
+	path = ThirdParty/taglib
+	url = https://github.com/taglib/taglib.git
