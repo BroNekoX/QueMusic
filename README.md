@@ -379,6 +379,7 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 使用了本项目api服务，以实现在线音乐网易云音乐平台部分
 - [Cryptopp](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi解析
 - [libqrencode](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi
+- [Taglib](https://github.com/taglib/taglib) — 用于解析本地音乐部分数据
 - [SMTC-Bridge-Cpp](https://github.com/Cainongw/SMTC-Bridge-Cpp) — Windows 系统媒体控件(SMTC)桥接参考实现(C++)
 - [smtc_bridge_rust](https://github.com/Cainongw/smtc_bridge_rust) — Windows 系统媒体控件(SMTC)桥接参考实现(Rust)
 - 以下参考了他们的部分代码实现，特此致谢。
@@ -406,5 +407,5 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra
 
 <p align="center">
   <sub>Written by QueMusic Project</sub><br/>
-  <sub>最后更新：2026-8-26</sub>
+  <sub>最后更新：2026-8-28</sub>
 </p>
