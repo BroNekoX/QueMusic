@@ -901,7 +901,10 @@ Window {
                     console.log("封面艺术url: " + urlStr);
                     colorExtractor.extractColorsFromUrl(urlStr);
                 } else {
-                    urlStr = null
+                    // 元数据未内嵌封面：本地文件尝试同目录同名/常见命名封面图兜底
+                    // （如 a.mp3 旁的 a.jpg / cover.png）。未命中则保持空，与原行为一致。
+                    var localCover = coverHelper.findLocalCover(mainMedia.source)
+                    urlStr = localCover ? localCover : null
                 }
 
 
@@ -932,16 +935,42 @@ Window {
 
         onUrlStrChanged: {
             if (windowsSmtc.available)
-                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                            mainMedia.album, urlStr)
+                smtcUpdateMediaInfo()
         }
     }
+    // 依据播放列表上下文动态启用/禁用 SMTC 的上一首/下一首按钮
+    // （无上一首/下一首时禁用对应按钮，避免一律恒启用）
+    function updateSmtcControls() {
+        if (!windowsSmtc.available)
+            return;
+        var count = playListModel.count;
+        var idx = playListModel.playListIndex;
+        windowsSmtc.setControlsEnabled(true, true, idx < count - 1, idx > 0);
+    }
+
+    // 统一将当前曲目信息推给 SMTC。
+    // AppMediaId 取播放列表当前项的稳定标识 path（在线歌曲为歌曲 hash、本地文件为文件路径），供系统按曲目分组元信息；
+    // 列表未就绪/无当前项时传空串，C++ 侧会清除旧的 id。
+    function smtcUpdateMediaInfo() {
+        if (!windowsSmtc.available)
+            return
+        var mediaId = ""
+        if (playListModel.count > 0 && playListModel.playListIndex >= 0) {
+            var item = playListModel.get(playListModel.playListIndex)
+            if (item)
+                mediaId = item.path
+        }
+        windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
+                                    mainMedia.album, mainMedia.urlStr, mediaId)
+    }
+
     // Windows SMTC
     WindowsSmtcManager {
         id: windowsSmtc
 
         Component.onCompleted: {
             windowsSmtc.initialize(window);
+            updateSmtcControls()
         }
     }
 
@@ -958,7 +987,21 @@ Window {
     Connections {
         target: mainMedia
 
+        function onSourceChanged() {
+            // 切歌/新曲目开始播放的瞬间：主动推送 position=0 并刷新时间线；
+            // duration 尚未就绪（<=0）时由 C++ 侧走全零重置分支清空上一首的残留进度。
+            if (windowsSmtc.available)
+                windowsSmtc.updateTimeline(0, mainMedia.duration)
+            updateSmtcControls()
+        }
+        function onDurationChanged() {
+            // 新歌时长加载完成：以 position=0 主动推送一条完整时间线，
+            // 随后 onPositionChanged 会用实时位置持续刷新。
+            if (windowsSmtc.available && mainMedia.duration > 0)
+                windowsSmtc.updateTimeline(0, mainMedia.duration)
+        }
         function onPlaybackStateChanged() {
+            updateSmtcControls()
             if (!windowsSmtc.available)
                 return
             switch (mainMedia.playbackState) {
@@ -990,13 +1033,11 @@ Window {
 
         function onMusicTitleChanged() {
             if (windowsSmtc.available)
-                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                            mainMedia.album, mainMedia.urlStr)
+                smtcUpdateMediaInfo()
         }
         function onMusicArtistChanged() {
             if (windowsSmtc.available)
-                windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                            mainMedia.album, mainMedia.urlStr)
+                smtcUpdateMediaInfo()
         }
     }
 
@@ -1004,6 +1045,8 @@ Window {
     ListModel {
         id: playListModel
         property int playListIndex: -1
+        // 列表增删后同步 SMTC 上一首/下一首按钮可用性
+        onCountChanged: updateSmtcControls()
     }
     SearchCard {
         id: searchCard
@@ -1173,6 +1216,5 @@ Window {
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/QTextWindow.qml"
-        property bool info: true
     }
 }

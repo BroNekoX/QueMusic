@@ -15,6 +15,7 @@
 #include "cpp/Favorites.h"
 #include "cpp/AccountManager.h"
 #include "api/MusicApiService.h"
+#include "cpp/LogManager.h"
 #include "meshgradient/MeshGradientItem.h"
 #include <QWKQuick/qwkquickglobal.h>
 
@@ -25,11 +26,7 @@ extern void qml_register_types_QueMusic();
 extern void qml_register_types_MeshGradientItem();
 
 #if defined(Q_OS_WIN)
-// Windows SMTC 弹窗里显示的应用名来自进程的 AppUserModelID（AUMID）。
-// 仅写注册表 DisplayName 只对“通知”有效；媒体弹窗（SMTC）取名的真正来源是
-// 开始菜单里带 AppUserModelID 属性的快捷方式，因此这里同时做三件事：
-//   1) 设置显式 AUMID；2) 注册表 DisplayName/IconUri（供通知等部件）；
-//   3) 创建带 AUMID 的开始菜单快捷方式（SMTC 据此显示应用名/图标）。
+// 注册Windows SMTC
 #include <windows.h>
 #include <winreg.h>
 #include <shobjidl.h>
@@ -127,9 +124,9 @@ int main(int argc, char *argv[])
     QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
     QSettings opt(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
     switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
-        case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
-        case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
-        case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
+    case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
+    case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
+    case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
     }
     if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
         qputenv("QSG_NO_VSYNC", "1");
@@ -157,6 +154,10 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
+    // 日志系统：接管 Qt 消息并写入“安装目录/logs”，中文、可分级筛选（默认记录错误及以上）
+    LogManager *logManager = new LogManager(&engine);
+    engine.rootContext()->setContextProperty("logManager", logManager);
+
     // 创建模型实例
     FolderModel *myFolderModel = new FolderModel(&engine);
     myFolderModel->setFilterType("my");
@@ -182,7 +183,6 @@ int main(int argc, char *argv[])
     // 在线音乐 API 单例
     MusicApiService::setSharedAccountManager(accountManager);
 
-    // 关键修改：使用标准配置目录，而不是应用程序目录
     engine.rootContext()->setContextProperty("configDir", configPath);
     engine.rootContext()->setContextProperty("$curveRenderingAvailable", true);
 

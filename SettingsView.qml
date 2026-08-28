@@ -1927,7 +1927,7 @@ Item {
                         // App Title
                         Text {
                             height: 80
-                            width: implicitWidth + 80
+                            width: implicitWidth + 96
                             text: "QueMusic"
                             font.family: textFont.name
                             font.pixelSize: 64
@@ -2075,7 +2075,7 @@ Item {
                     }
                 }
 
-                QHead { text: "开发者" }
+                QHead { text: "主要开发者" }
 
                 Grid {
                     spacing: 24
@@ -2312,17 +2312,6 @@ Item {
                         text: "开源许可"
                         iconCharacter: "\uf10a"
                         onClicked: {
-                            textWatch.info = false;
-                            textWatch.active = true;
-                        }
-                    }
-                    QButton {
-                        height: 40
-                        radius: 20
-                        text: "详细信息"
-                        iconCharacter: "\uf0b6"
-                        onClicked: {
-                            textWatch.info = true;
                             textWatch.active = true;
                         }
                     }
@@ -2383,7 +2372,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "界面渲染引擎(重启生效)"
+                            label: "渲染引擎(重启生效)"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Options.settings.gpuRenderMode
@@ -2454,17 +2443,89 @@ Item {
                                 switchTrue: Options.settings.debug
                                 onToggled: Options.settings.debug = !Options.settings.debug
                             }
+                            bottomLine: false
                         }
+                    }
+                }
+
+                QHead { text: "日志" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    Column {
+                        width: parent.width
+                        padding: 0
+                        Component.onCompleted: parent.height = height
 
                         SettingItemCard {
-                            label: "显示信息控制台(x)"
+                            label: "启用日志"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.displayDebugControl
-                                onToggled: Options.settings.displayDebugControl = !Options.settings.displayDebugControl
+                                switchTrue: logManager.enabled
+                                onToggled: logManager.enabled = !logManager.enabled
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "记录等级"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: logManager.minimumLevel
+                                model: ["调试","信息","警告","错误","致命"]
+                                onTransformed: (choiced) => { logManager.minimumLevel = choiced }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "打开日志目录"
+                            controlItem: QButton {
+                                anchors.fill: parent
+                                text: "打开"
+                                shadowEnabled: false
+                                buttonColor: "transparent"
+                                radius: Style.settings.labelRadius
+                                borderWidth: 2
+                                onClicked: logManager.openLogFolder()
                             }
                             bottomLine: false
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: 320
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 8
+                        Text {
+                            width: parent.width
+                            text: "实时日志预览（完整内容见日志文件）"
+                            color: Style.themes.textColor
+                            font.pixelSize: Style.settings.text
+                        }
+                        Flickable {
+                            id: logPreviewFlick
+                            width: parent.width
+                            height: parent.height - 30
+                            clip: true
+                            contentWidth: width
+                            contentHeight: logPreviewText.height
+                            onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
+                            Text {
+                                id: logPreviewText
+                                width: parent.width
+                                text: logManager.logPreview
+                                color: Style.themes.textColor
+                                font.pixelSize: Style.settings.text
+                                wrapMode: Text.Wrap
+                            }
                         }
                     }
                 }
