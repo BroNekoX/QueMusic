@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+### 🔧 变更
+- 升级到 Qt 6.10.3（Windows 主用 LLVM-MinGW 工具链）
+- 第三方依赖（QWindowKit / TagLib / zlib）的导入统一收敛到 `cmake/external/`
+- “设置-关于”中的 Qt 版本改为运行时动态获取，不再硬编码
+- 移除调试遗留的 `QSG_INFO` 输出
+
 ### ✨ 新增
 - 设置页（主题、界面、功能、播放、快捷键、插件、关于、Debug 八大模块）
 - 桌面歌词 / 桌面部件

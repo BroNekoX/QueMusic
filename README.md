@@ -6,7 +6,7 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
-  <img alt="Qt" src="https://img.shields.io/badge/Qt-6.9.3-41CD52?style=flat-square">
+  <img alt="Qt" src="https://img.shields.io/badge/Qt-6.10.3-41CD52?style=flat-square">
   <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B17%20%7C%20QML-orange?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic?style=flat-square">
@@ -14,7 +14,7 @@
 </p>
 
 > **可能是桌面跨平台上UI最美丽丝滑，性能最强的开源音乐播放器？**
-> **基于 Qt 6.9 / QML 与 GPU 加速 RHI 渲染的开源跨平台音乐播放器，支持接入网易云、酷狗等平台的公开音乐服务接口。**
+> **基于 Qt 6.10 / QML 与 GPU 加速 RHI 渲染的开源跨平台音乐播放器，支持接入网易云、酷狗等平台的公开音乐服务接口。**
 > 动效美丽，性能出众，开发者坚持 **永久免费 & 开源**。
 > 
 > 🚧 项目正处于 **开发/预览阶段**，部分功能尚未完善, 仍存在部分问题，有一些功能无法使用，会持续更新，欢迎 Star & Fork 一起参与！
@@ -98,13 +98,13 @@
 
 | 类别 | 技术 |
 |------|------|
-| **框架** | Qt 6.9.3 Community |
+| **框架** | Qt 6.10.3 Community |
 | **构建** | CMake ≥ 3.24 / Ninja |
 | **语言** | C++17 / JavaScript / QML |
 | **音频** | Qt Multimedia (FFmpeg7.1.1 后端) |
 | **渲染** | QtRHI — 基于平台原生GPU渲染器 |
 | **数据库** | Qt SQL / SQLite |
-| **工具链** | MSVC 2022 / GCC 13+ / MinGW 13+ |
+| **工具链** | MSVC 2022 / GCC 13+ / MinGW 13+ / LLVM-MinGW 17+ |
 
 ---
 
@@ -112,9 +112,9 @@
 
 ### 前置条件
 
-- Qt **6.9+**（含 Qt Multimedia, Qt SQL, Qt ShaderTools等基础Qt库）
+- Qt **6.10+**（含 Qt Multimedia, Qt SQL, Qt ShaderTools等基础Qt库）
 - CMake ≥ **3.24**
-- 编译器：GCC 13+ / MinGW 13+ / Clang
+- 编译器：GCC 13+ / MinGW 13+ / LLVM-MinGW 17+ / Clang
 - （可选）**Ninja** 构建系统（推荐，已内置在预设中）
 
 ### 克隆（含子模块）
@@ -162,27 +162,34 @@ cmake --build build/<preset-name> -j 8
 
 | 平台 | 预设名 | 编译器 |
 |------|------|------|
-| Windows | win-mingw-release | MinGW |
+| Windows | win-llvm-mingw-release | LLVM-MinGW（Qt 6.10 的 `llvm-mingw_64` 套件） |
+| Windows | win-mingw-release | MinGW（Qt 的 `mingw_64` 套件） |
 | Linux | linux-gcc-release | GCC |
 | MacOS | mac-clang-release | Clang |
 
-> 💡 如果 CMake 找不到 Qt，请先设置环境变量 `CMAKE_PREFIX_PATH` 指向你的 Qt 安装目录（例如 `~/Qt/6.9.3/mingw_64` 或 `~/Qt/6.9.3/gcc_64`）。
+> 💡 如果 CMake 找不到 Qt，请先设置环境变量 `CMAKE_PREFIX_PATH` 指向你的 Qt 安装目录（例如 `~/Qt/6.10.3/llvm-mingw_64` 或 `~/Qt/6.10.3/gcc_64`）。
 
 ### 普通构建
 
-#### Windows（MinGW）
+#### Windows（LLVM-MinGW / MinGW）
 
 ```bash
+# LLVM-MinGW（Qt 6.10 推荐）
 cmake -B build -G Ninja \
-  -DCMAKE_PREFIX_PATH=/path/to/Qt/6.9.x/mingw_64
+  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_PREFIX_PATH=/path/to/Qt/6.10.3/llvm-mingw_64
 cmake --build build --parallel
 ./build/bin/QueMusic
+
+# MinGW
+cmake -B build -G Ninja \
+  -DCMAKE_PREFIX_PATH=/path/to/Qt/6.10.3/mingw_64
 ```
 #### Linux 构建
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH=~/Qt/6.9.3/gcc_64
+  -DCMAKE_PREFIX_PATH=~/Qt/6.10.3/gcc_64
 cmake --build build -j"$(nproc)"
 ./build/bin/QueMusic
 ```
@@ -191,7 +198,7 @@ cmake --build build -j"$(nproc)"
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH=~/Qt/6.9.3/clang_64 \
+      -DCMAKE_PREFIX_PATH=~/Qt/6.10.3/clang_64 \
       -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 cmake --build build -j 8
 ./build/bin/QueMusic.app/Contents/MacOS/QueMusic

@@ -6,13 +6,13 @@
 # 产物: QueMusic-<version>-x86_64.AppImage
 #
 # 说明:
-#   - 使用 aqtinstall 安装与 Windows 一致的 Qt 6.9.3,
-#     避免与系统 Qt 6.11 产生兼容性风险
+#   - 使用 aqtinstall 安装与 Windows 一致的 Qt 6.10.3,
+#     避免与系统 Qt 版本不一致产生兼容性风险
 #   - 通过 linuxdeploy + qt 插件打包自包含 AppImage
 # ============================================================
 set -e
 
-QT_VERSION="6.9.3"
+QT_VERSION="6.10.3"
 QT_ARCH="linux_gcc_64"
 QT_DIR="${HOME}/Qt"
 BUILD_DIR="build-linux"
@@ -37,7 +37,7 @@ if [ -n "$MISSING" ]; then
     exit 1
 fi
 
-# ---------- 1. 安装 Qt 6.9.3 (不存在时才装) ----------
+# ---------- 1. 安装 Qt 6.10.3 (不存在时才装) ----------
 if [ ! -d "${QT_DIR}/${QT_VERSION}/gcc_64" ]; then
     echo "==> [1/5] 未找到 Qt ${QT_VERSION}，正在通过 aqtinstall 安装..."
     pip install --user aqtinstall 2>/dev/null || pip install aqtinstall

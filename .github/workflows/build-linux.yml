@@ -38,19 +38,19 @@ jobs:
             qt6-wayland fcitx5-frontend-qt6          # <--- 新增：Wayland 插件 + fcitx5 Qt6 前端
           ls -la /usr/lib/x86_64-linux-gnu/libpulse*
 
-      - name: Install Qt 6.9.3 (aqtinstall)
+      - name: Install Qt 6.10.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
-          python3 -m aqt install-qt linux desktop 6.9.3 linux_gcc_64 \
+          python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 \
             -O "$HOME/Qt" \
             -m qtmultimedia qtshadertools qt5compat
-          echo "$HOME/Qt/6.9.3/gcc_64/bin" >> "$GITHUB_PATH"
+          echo "$HOME/Qt/6.10.3/gcc_64/bin" >> "$GITHUB_PATH"
 
       - name: Configure (CMake)
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.9.3/gcc_64"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.10.3/gcc_64"
 
       - name: Build
         run: |
@@ -120,11 +120,11 @@ jobs:
       # ========== 修改：Package AppImage（添加 --apprun-script，移除重复的 mkdir/cp） ==========
       - name: Package AppImage
         run: |
-          export QMAKE="$HOME/Qt/6.9.3/gcc_64/bin/qmake"
+          export QMAKE="$HOME/Qt/6.10.3/gcc_64/bin/qmake"
           export QML_SOURCES_PATHS="$(pwd)"
           export EXTRA_QT_MODULES="multimedia;sql;shadertools"
           export QT_QPA_PLATFORM=minimal
-          rm -f "$HOME/Qt/6.9.3/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
+          rm -f "$HOME/Qt/6.10.3/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
           # linuxdeploy 会保留我们已复制到 AppDir 中的文件，并自动部署其他 Qt 库
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \

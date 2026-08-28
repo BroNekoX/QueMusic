@@ -2120,7 +2120,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "Qt-Community-6.9.3"
+                                text: "Qt-Community-" + qtRuntimeVersion
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2146,7 +2146,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "MinGW13.1 / GCC / Clang"
+                                text: "LLVM-MinGW17 / Clang"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter

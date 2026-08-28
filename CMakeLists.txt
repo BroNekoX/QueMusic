@@ -3,33 +3,20 @@ cmake_minimum_required(VERSION 3.16)
 project(QueMusic VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOMOC_PATH_PREFIX ON)
 set(CMAKE_AUTORCC ON)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 设置所有配置的输出目录
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)  # 可执行文件和Windows DLL
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)  # Linux/macOS 动态库
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)  # 静态库
+# 统一输出目录：可执行文件与动态库放 bin/，静态库放 lib/
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
-
-add_subdirectory(cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
 
-# TagLib is vendored so local metadata parsing works consistently on all
-# supported platforms without requiring a system package.
-set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-# qwindowkit may set BUILD_SHARED_LIBS globally. Keep TagLib static so the
-# application bundle does not require a separately deployed libtag dylib.
-set(_quemusic_build_shared_libs ${BUILD_SHARED_LIBS})
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(ThirdParty/taglib ${CMAKE_BINARY_DIR}/_deps/taglib-build EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_quemusic_build_shared_libs})
-unset(_quemusic_build_shared_libs)
-#add_subdirectory(api)
-#include_directories(api)
+# 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
+add_subdirectory(cmake)
 
 # 独立 Mesh Gradient 组件（AGPL-3.0，衍生自 AMLL）：以独立库 target 聚合
 add_subdirectory(meshgradient)
@@ -42,11 +29,6 @@ qt_add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/api
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
 )
 
 # 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
@@ -169,9 +151,7 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
         meshgradient/shaders/meshgradient.vert
 )
 
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-
-# QCloudMusicApi：第三方网易云音乐在线接口
+# QCloudMusicApi：网易云音乐在线接口（crypto++ 随其源码放在 api/QCloudMusicApi/3rdparty）
 set(QCLOUDMUSICAPI_BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(QCLOUDMUSICAPI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 add_subdirectory(api/QCloudMusicApi)
@@ -179,7 +159,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi/QCloudMusicApi)
 
 target_link_libraries(${PROJECT_NAME}
-    PRIVATE 
+    PRIVATE
         Qt6::Core
         Qt6::Sql
         Qt6::Gui
@@ -189,16 +169,26 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Multimedia
         Qt6::Concurrent
         QCloudMusicApi
-        tag
+        quemusic::taglib
         cryptopp::cryptopp
         quemusic_meshgradientplugin
-        z
-    PUBLIC QWindowKit::Quick
+        quemusic::zlib
+    PUBLIC
+        QWindowKit::Quick
 )
 # Windows SMTC 互操作使用 RoGetActivationFactory / RoActivateInstance，需要 runtimeobject 导入库；
 # 应用身份注册（AUMID 快捷方式/注册表）使用 COM 与注册表 API，需要 ole32/shell32/advapi32。
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32)
+
+    # qwindowkit 通过 qmsetup 把自身 DLL 输出到 <build>/_deps/qwindowkit-build/out/bin，
+    # 与可执行文件不在同一目录，运行时会找不到 QWKCore / QWKQuick。
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:QWindowKit::Core>
+                $<TARGET_FILE:QWindowKit::Quick>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMENT "Copying QWindowKit runtime libraries next to the executable...")
 endif()
 
 # macOS 上由 macdeployqt 统一部署，避免与 qt_deploy_runtime 冲突
@@ -214,15 +204,10 @@ add_executable(quemusic_local_lyrics_test
 )
 target_include_directories(quemusic_local_lyrics_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
 )
 target_link_libraries(quemusic_local_lyrics_test PRIVATE
     Qt6::Core
     Qt6::Test
-    tag
+    quemusic::taglib
 )
 add_test(NAME quemusic_local_lyrics_test COMMAND quemusic_local_lyrics_test)

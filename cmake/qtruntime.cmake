@@ -1,40 +1,34 @@
-# 统一 Qt 部署函数
+# 统一的 Qt 运行时部署：链接后把 Qt 运行库放到可执行文件旁边
 function(qt_deploy_runtime target)
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+
     if(WIN32)
-        # Windows 平台用 windeployqt
-        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
-        find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BIN_DIR}")
+        find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
 
         if(WINDEPLOYQT_EXECUTABLE)
             add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                        --verbose 1
-                        --no-compiler-runtime
                         --qmldir "${CMAKE_CURRENT_SOURCE_DIR}"
                         "$<TARGET_FILE:${target}>"
-                COMMENT "[qt_deploy_runtime] Deploying Qt libraries on Windows...")
+                COMMENT "[qt_deploy_runtime] Deploying Qt runtime (windeployqt)")
         else()
-            message(WARNING "[qt_deploy_runtime] windeployqt not found, skipped.")
+            message(WARNING "[qt_deploy_runtime] windeployqt not found, skipped")
         endif()
 
     elseif(APPLE)
-        # macOS 平台用 macdeployqt
-        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(QT_BIN_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
-        find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
+        find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${_qt_bin_dir}")
 
         if(MACDEPLOYQT_EXECUTABLE)
             add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND "${MACDEPLOYQT_EXECUTABLE}"
                         "$<TARGET_BUNDLE_DIR:${target}>"
-                COMMENT "[qt_deploy_runtime] Deploying Qt libraries on macOS...")
+                COMMENT "[qt_deploy_runtime] Deploying Qt runtime (macdeployqt)")
         else()
-            message(WARNING "[qt_deploy_runtime] macdeployqt not found, skipped.")
+            message(WARNING "[qt_deploy_runtime] macdeployqt not found, skipped")
         endif()
 
     elseif(UNIX)
-        # Linux 平台用 linuxdeployqt
         find_program(LINUXDEPLOYQT_EXECUTABLE linuxdeployqt)
         if(LINUXDEPLOYQT_EXECUTABLE)
             add_custom_command(TARGET ${target} POST_BUILD
@@ -42,9 +36,9 @@ function(qt_deploy_runtime target)
                         "$<TARGET_FILE:${target}>"
                         -qmldir="${CMAKE_CURRENT_SOURCE_DIR}"
                         -appimage
-                COMMENT "[qt_deploy_runtime] Deploying Qt libraries on Linux...")
+                COMMENT "[qt_deploy_runtime] Deploying Qt runtime (linuxdeployqt)")
         else()
-            message(STATUS "[qt_deploy_runtime] linuxdeployqt not found, assuming system Qt runtime.")
+            message(STATUS "[qt_deploy_runtime] linuxdeployqt not found, assuming system Qt runtime")
         endif()
     endif()
 endfunction()

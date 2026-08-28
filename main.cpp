@@ -10,6 +10,7 @@
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
 #include <QSettings>
+#include <QLibraryInfo>
 #include <QFileInfo>
 #include "cpp/FolderModel.h"
 #include "cpp/Favorites.h"
@@ -132,7 +133,6 @@ int main(int argc, char *argv[])
         qputenv("QSG_NO_VSYNC", "1");
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
-    qputenv("QSG_INFO", "1");
 
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -184,6 +184,8 @@ int main(int argc, char *argv[])
     MusicApiService::setSharedAccountManager(accountManager);
 
     engine.rootContext()->setContextProperty("configDir", configPath);
+    // 运行时 Qt 版本，供“设置-关于”显示
+    engine.rootContext()->setContextProperty("qtRuntimeVersion", QLibraryInfo::version().toString());
     engine.rootContext()->setContextProperty("$curveRenderingAvailable", true);
 
     QWK::registerTypes(&engine);

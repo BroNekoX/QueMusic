@@ -15,7 +15,7 @@
 本项目内置了 GitHub Actions 工作流：`.github/workflows/build-macos.yml`。
 
 ### 工作流会自动完成
-1. 在 GitHub 的 macOS 虚拟机（Apple Silicon + Intel 各一台）上安装 Qt 6.9.3
+1. 在 GitHub 的 macOS 虚拟机（Apple Silicon + Intel 各一台）上安装 Qt 6.10.3
 2. 拉取子模块并构建 Release 版
 3. 用 `macdeployqt` 把 Qt 库打进 `.app`
 4. ad-hoc 签名（无证书也能本机运行）
@@ -56,7 +56,7 @@ bash packaging/build-linux.sh
 
 脚本会自动完成：
 1. 检查系统依赖（cmake / ninja / wget / python3-pip）
-2. 用 **aqtinstall 安装 Qt 6.9.3**（与 Windows 版完全一致，避免系统 Qt 6.11 兼容风险）
+2. 用 **aqtinstall 安装 Qt 6.10.3**（与 Windows 版完全一致，避免系统 Qt 版本不一致带来的兼容风险）
 3. 下载 linuxdeploy + qt 插件
 4. 构建 Release 版
 5. 打包出自包含的 **`QueMusic-x86_64.AppImage`**

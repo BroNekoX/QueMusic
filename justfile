@@ -1,6 +1,6 @@
 # 检测操作系统并自动选择预设
 os := `uname -s`
-preset := if os == "Darwin" { "mac-clang-release" } else if os == "Linux" { "linux-gcc-release" } else { "win-mingw-release" }
+preset := if os == "Darwin" { "mac-clang-release" } else if os == "Linux" { "linux-gcc-release" } else { "win-llvm-mingw-release" }
 
 # 默认构建命令：just b
 b:

@@ -11,7 +11,6 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
-    // 1. Mac 分支
     {
       "name": "mac-clang-release",
       "displayName": "Mac Clang Release",
@@ -43,7 +42,6 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
-    // 2. Linux 分支 (GCC)
     {
       "name": "linux-gcc-release",
       "displayName": "Linux GCC Release",
@@ -58,10 +56,10 @@
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
-    // 3. Windows 分支 (MinGW) 
     {
       "name": "win-mingw-release",
       "displayName": "Win MinGW Release",
+      "description": "Qt 的 mingw_64 套件，使用 MinGW 自带的 g++",
       "inherits": "base",
       "condition": {
         "type": "equals",
@@ -69,7 +67,27 @@
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "g++", 
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "win-llvm-mingw-release",
+      "displayName": "Win LLVM-MinGW Release",
+      "description": "Qt 6.10 的 llvm-mingw_64 套件，使用 LLVM-MinGW 的 clang++",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "environment": {
+        "PATH": "C:/Qt/Tools/llvm-mingw1706_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.10.3/llvm-mingw_64",
         "CMAKE_BUILD_TYPE": "Release"
       }
     }
@@ -89,7 +107,11 @@
     },
     {
       "name": "win-release",
-      "configurePreset": "win-mingw-release"   // 这里也改成 win-mingw-release
+      "configurePreset": "win-mingw-release"
+    },
+    {
+      "name": "win-llvm-release",
+      "configurePreset": "win-llvm-mingw-release"
     }
   ]
 }
