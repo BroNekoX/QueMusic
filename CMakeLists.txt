@@ -15,24 +15,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
 
-<<<<<<< Updated upstream
 # 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
 add_subdirectory(cmake)
-=======
-# TagLib is vendored so local metadata parsing works consistently on all
-# supported platforms without requiring a system package.
-set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-# qwindowkit may set BUILD_SHARED_LIBS globally. Keep TagLib static so the
-# application bundle does not require a separately deployed libtag dylib.
-set(_quemusic_build_shared_libs ${BUILD_SHARED_LIBS})
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(ThirdParty/taglib ${CMAKE_BINARY_DIR}/_deps/taglib-build EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_quemusic_build_shared_libs})
-unset(_quemusic_build_shared_libs)
-#add_subdirectory(api)
-#include_directories(api)
->>>>>>> Stashed changes
 
 # 独立 Mesh Gradient 组件（AGPL-3.0，衍生自 AMLL）：以独立库 target 聚合
 add_subdirectory(meshgradient)
@@ -190,11 +174,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Multimedia
         Qt6::Concurrent
         QCloudMusicApi
-<<<<<<< Updated upstream
         quemusic::taglib
-=======
-        tag
->>>>>>> Stashed changes
         cryptopp::cryptopp
         quemusic_meshgradientplugin
         quemusic::zlib
@@ -229,22 +209,10 @@ add_executable(quemusic_local_lyrics_test
 )
 target_include_directories(quemusic_local_lyrics_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
-<<<<<<< Updated upstream
-=======
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
-    ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
->>>>>>> Stashed changes
 )
 target_link_libraries(quemusic_local_lyrics_test PRIVATE
     Qt6::Core
     Qt6::Test
-<<<<<<< Updated upstream
     quemusic::taglib
-=======
-    tag
->>>>>>> Stashed changes
 )
 add_test(NAME quemusic_local_lyrics_test COMMAND quemusic_local_lyrics_test)
