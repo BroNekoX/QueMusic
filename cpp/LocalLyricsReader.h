@@ -10,7 +10,8 @@
 class LocalLyricsReader
 {
 public:
-    // Parse standard LRC timestamps into the lyric model used by PlayerMaxCenter.
+    // Parse LRC (standard line timestamps + enhanced word-level timestamps)
+    // into the lyric model used by PlayerMaxCenter.
     static QVariantList parseLrc(const QString &contents);
 
     // Read an audio file's sidecar LRC first, then embedded metadata lyrics.
