@@ -8,6 +8,11 @@ class LocalLyricsReaderTest : public QObject
 
 private slots:
     void parsesLrcTimestampsAndSorts();
+<<<<<<< Updated upstream
+    void parsesEnhancedLrcWordTimings();
+    void stripsEmptyWordLabelsFromText();
+=======
+>>>>>>> Stashed changes
     void readsSidecarBeforeEmbeddedLyrics();
     void readsEmbeddedId3LyricsWhenSidecarIsMissing();
 };
@@ -59,6 +64,68 @@ void LocalLyricsReaderTest::parsesLrcTimestampsAndSorts()
     QCOMPARE(lyrics.at(0).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("前奏"));
 }
 
+<<<<<<< Updated upstream
+void LocalLyricsReaderTest::parsesEnhancedLrcWordTimings()
+{
+    const QVariantList lyrics = LocalLyricsReader::parseLrc(
+        QStringLiteral("[00:10.00]<00:10.00>我 <00:10.50>爱 <00:11.00>你\n"
+                       "[00:12.00]结尾\n"
+                       "[00:14.00]<0,300,0>起 <300,400,0>风\n"));
+
+    QCOMPARE(lyrics.size(), 3);
+
+    // 增强 LRC：绝对字级时间 → 相对本行的 offset/duration，行尾字沿用上一字时长
+    const QVariantMap enhanced = lyrics.at(0).toMap();
+    QCOMPARE(enhanced.value(QStringLiteral("time")).toLongLong(), 10000LL);
+    QCOMPARE(enhanced.value(QStringLiteral("text")).toString(), QStringLiteral("我 爱 你"));
+    const QVariantList info = enhanced.value(QStringLiteral("info")).toList();
+    QCOMPARE(info.size(), 3);
+    QCOMPARE(info.at(0).toMap().value(QStringLiteral("offset")).toLongLong(), 0LL);
+    QCOMPARE(info.at(1).toMap().value(QStringLiteral("offset")).toLongLong(), 500LL);
+    QCOMPARE(info.at(2).toMap().value(QStringLiteral("offset")).toLongLong(), 1000LL);
+    QCOMPARE(info.at(0).toMap().value(QStringLiteral("duration")).toLongLong(), 500LL);
+    QCOMPARE(info.at(1).toMap().value(QStringLiteral("duration")).toLongLong(), 500LL);
+    QCOMPARE(info.at(2).toMap().value(QStringLiteral("duration")).toLongLong(), 500LL);
+
+    // 无字级标签的普通行保持 null info，走整行高亮
+    const QVariantMap plain = lyrics.at(1).toMap();
+    QCOMPARE(plain.value(QStringLiteral("text")).toString(), QStringLiteral("结尾"));
+    QVERIFY(!plain.value(QStringLiteral("info")).isValid());
+
+    // KRC 风格相对字级标签，沿用在线逐字解析
+    const QVariantMap krcStyle = lyrics.at(2).toMap();
+    QCOMPARE(krcStyle.value(QStringLiteral("time")).toLongLong(), 14000LL);
+    QCOMPARE(krcStyle.value(QStringLiteral("text")).toString(), QStringLiteral("起 风"));
+    const QVariantList krcInfo = krcStyle.value(QStringLiteral("info")).toList();
+    QCOMPARE(krcInfo.at(0).toMap().value(QStringLiteral("offset")).toLongLong(), 0LL);
+    QCOMPARE(krcInfo.at(0).toMap().value(QStringLiteral("duration")).toLongLong(), 300LL);
+    QCOMPARE(krcInfo.at(1).toMap().value(QStringLiteral("offset")).toLongLong(), 300LL);
+    QCOMPARE(krcInfo.at(1).toMap().value(QStringLiteral("duration")).toLongLong(), 400LL);
+}
+
+void LocalLyricsReaderTest::stripsEmptyWordLabelsFromText()
+{
+    const QVariantList lyrics = LocalLyricsReader::parseLrc(
+        QStringLiteral("[00:09.00]前言<00:00.000>\n"
+                       "[00:10.00]正文\n"
+                       "[00:11.00]<00:00.000><00:11.20>尾奏\n"));
+
+    QCOMPARE(lyrics.size(), 3);
+    for (const QVariant &value : lyrics) {
+        const QString text = value.toMap().value(QStringLiteral("text")).toString();
+        QVERIFY2(!text.contains(QLatin1Char('<')), qPrintable(QStringLiteral("残留 '<' : ") + text));
+        QVERIFY2(!text.contains(QLatin1Char('>')), qPrintable(QStringLiteral("残留 '>' : ") + text));
+    }
+    // 无名文本的空标签不应成为首词或被塞进浮层文本
+    QCOMPARE(lyrics.at(0).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("前言"));
+    QCOMPARE(lyrics.at(2).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("尾奏"));
+    const QVariantList lastInfo = lyrics.at(2).toMap().value(QStringLiteral("info")).toList();
+    QCOMPARE(lastInfo.size(), 1);
+    QCOMPARE(lastInfo.at(0).toMap().value(QStringLiteral("offset")).toLongLong(), 200LL);
+}
+
+=======
+>>>>>>> Stashed changes
 void LocalLyricsReaderTest::readsSidecarBeforeEmbeddedLyrics()
 {
     QTemporaryDir dir;

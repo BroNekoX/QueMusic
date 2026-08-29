@@ -2035,7 +2035,7 @@ Item {
                         x: 48
                         y: 20
                         width: parent.width - 108
-                        text: "QueMusic Beta（官方版）始终是完全免费且开源的软件，不存在付费，会员，捐献，充值，广告等入口，官方版本不存在Pro，Ultra，高级版等版本，如果你发现软件是买来的或者软件内有需要付费的内容，请立即与开发者联系。"
+                        text: "QueMusic Beta（官方版）始终是完全免费且开源的软件，不存在付费，会员，捐献，充值，广告等入口，官方版本不存在Pro，Ultra，高级版等版本，如果你发现软件或软件内有需要付费的内容，请立即与开发者联系。"
                         wrapMode: Text.Wrap
                         color: Style.themes.fontColor
                         font.bold: false

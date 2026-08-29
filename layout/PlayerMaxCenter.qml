@@ -394,7 +394,7 @@ Item {
                     lyricContent.finalH = 0;
                     fixedAnime.running = true;
                 }
-                if(MusicApi.lyricsData[idx].info) {
+                if(MusicApi.lyricsData[idx].info && idx + 1 < MusicApi.lyricsData.length) {
                     var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
                     if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > MusicApi.lyricsData[idx].time + lyricLastLineData.offset + lyricLastLineData.duration) {
                         if(!waitAnimeSection.visible) {
