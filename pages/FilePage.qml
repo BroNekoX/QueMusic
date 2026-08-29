@@ -311,6 +311,7 @@ Item {
                 FolderListModel {
                     id: localFileModel
                     nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
+                    showDirs: false
                 }
 
                 FolderDialog {
