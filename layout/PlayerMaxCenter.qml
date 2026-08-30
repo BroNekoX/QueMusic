@@ -91,6 +91,7 @@ Item {
         color1: musicControlMax.mainColor
         color2: musicControlMax.secondColor
         color3: musicControlMax.thirdColor
+        clip: true
     }
 
     // 静态渐变背景（关闭流动时）

@@ -5,7 +5,6 @@
 #define GETWAVE_H
 
 #include <QAtomicInteger>
-#include <QElapsedTimer>
 #include <QObject>
 #include <QAudioBuffer>
 #include <QAudioBufferOutput>
@@ -13,7 +12,6 @@
 #include <QVector>
 #include <QMutex>
 #include <QImage>
-#include <QtConcurrent>
 #include <QtMath>
 #include <complex>
 #include <algorithm>
@@ -39,6 +37,9 @@ public:
 
     QList<qreal> spectrumData() const;
     QVector<QPointF> wavePath() const { return m_wavePath; }
+
+    // 渲染帧回调：窗口每帧调用一次，有新数据才重算频谱
+    Q_INVOKABLE void updateSpectrum();
 
     int bands() const { return m_bands; }
     void setBands(int b);
@@ -80,9 +81,9 @@ private:
     QVector<Complex>    m_fftData;
     QVector<float>      m_magnitudes;
 
-    // 频谱更新限频 ~30fps，避免线程池堆积与无谓重绘
-    QAtomicInteger<int> m_computePending;
-    QElapsedTimer       m_throttle;
+    // 帧驱动：窗口每帧触发 updateSpectrum()，有新数据才重算
+    QAtomicInteger<int> m_dataReady = 0;
+    QAtomicInteger<int> m_sampleRate = 48000;
 };
 
 #endif // GETWAVE_H

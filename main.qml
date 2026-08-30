@@ -51,8 +51,8 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.4.1"
-    property int versionCode: 41
+    property string version: "Beta-0.4.5"
+    property int versionCode: 45
 
     property string localLyricsRequestPath: ""
 
@@ -847,6 +847,13 @@ Window {
         bands: 128
         //audioBufferOutput: mainMedia.audioBufferOutput
     }
+    Connections {
+        target: window
+        function onFrameSwapped() {
+            getWave.updateSpectrum()
+        }
+    }
+
     MediaPlayer {
         property string noTitle
         property string urlStr: "qrc:/QueMusic/resources/app/musicpic.png"

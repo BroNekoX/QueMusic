@@ -3,7 +3,6 @@
 //
 #include "GetWave.h"
 #include <QDebug>
-#include <QThreadPool>
 #include <cmath>
 #include <algorithm>
 
@@ -17,7 +16,6 @@ GetWave::GetWave(QObject *parent) : QObject(parent)
     // 预分配 FFT 缓冲区，固定大小 4096
     m_fftData.resize(m_fftSize);
     m_magnitudes.resize(m_fftSize / 2);
-    m_throttle.start();
 }
 
 void GetWave::setBands(int b)
@@ -38,6 +36,8 @@ void GetWave::setEnabled(bool e)
 {
     m_enabled = e;
     emit enabledChanged();
+
+    m_dataReady.storeRelease(0);
 
     QMutexLocker locker(&m_mutex);
     m_rawBuffer.clear();
@@ -116,28 +116,27 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
             m_rawBuffer.remove(0, m_rawBuffer.size() - maxSamples);
     }
 
-    // 上一轮未完成或不足 32ms 则跳过（按 ~30fps 更新）
-    if (m_computePending.loadAcquire() || m_throttle.elapsed() < 32)
-        return;
-    m_computePending.storeRelease(1);
-    m_throttle.restart();
+    // 只搬运数据并标记有新数据，由渲染帧回调 updateSpectrum() 消费
+    m_sampleRate.storeRelease(sampleRate);
+    m_dataReady.storeRelease(1);
+}
 
-    // 第二阶段：异步进行 FFT/频谱计算
-    QThreadPool::globalInstance()->start([this, sampleRate]() {
-        QVector<float> snapshot;
-        {
-            QMutexLocker locker(&m_mutex);
-            snapshot = m_rawBuffer;
-        }
-        {
-            QMutexLocker locker(&m_mutex);
-            computeSpectrumFromFFT(snapshot, sampleRate);
-            rebuildWavePath(m_bands, 512.0, 80.0);
-        } // 锁释放，再发送信号（减少锁持有）
-        m_computePending.storeRelease(0);
-        emit spectrumChanged();
-        emit wavePathChanged();
-    });
+// 渲染帧回调（主线程）：每帧调用一次，有新数据才重算频谱，跟随窗口刷新率
+void GetWave::updateSpectrum()
+{
+    if (!m_enabled) return;
+    if (!m_dataReady.loadAcquire()) return;
+    m_dataReady.storeRelease(0);
+
+    QVector<float> snapshot;
+    {
+        QMutexLocker locker(&m_mutex);
+        snapshot = m_rawBuffer;
+    }
+    computeSpectrumFromFFT(snapshot, float(m_sampleRate.loadAcquire()));
+    rebuildWavePath(m_bands, 512.0, 80.0);
+    emit spectrumChanged();
+    emit wavePathChanged();
 }
 
 // 以下为FFT实现模块
