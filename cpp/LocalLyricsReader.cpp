@@ -32,6 +32,93 @@ QVariantMap lyricLine(qint64 time, const QString &text)
     // 在线歌词的数据契约：无逐字信息时 info 为 null，有逐字时是
     // [{offset, duration, text}]。这里保持一致，避免 QML 侧做额外判断。
     line.insert(QStringLiteral("info"), QVariant());
+    return line;
+}
+
+QString localFilePath(const QString &filePath)
+{
+    const QString fromUrl = QUrl::fromUserInput(filePath).toLocalFile();
+    return fromUrl.isEmpty() ? filePath : fromUrl;
+}
+
+// 毫秒小数：LRC 允许 1~3 位小数，统一补齐到 3 位再截取，避免 0.5 被读成 5ms。
+qint64 threeDigitFraction(const QString &fraction)
+{
+    QString value = fraction;
+    while (value.size() < 3)
+        value.append(QLatin1Char('0'));
+    return value.left(3).toLongLong();
+}
+
+// 字级标签沿用在线歌词的两种写法：
+//   1) 增强 LRC：<mm:ss[.f]>，时间是相对整首歌的绝对位置
+//   2) KRC 风格：<offset,duration,flag>，offset/duration 相对所在行
+struct TimedWord
+{
+    bool relative = false;
+    qint64 absoluteTime = 0;
+    qint64 offset = 0;
+    qint64 duration = 0;
+    QString text;
+};
+
+struct WordLabels
+{
+    QList<TimedWord> words;
+    QString leading; // 第一个字级标签之前未标注的文本（增强 LRC 常见）
+};
+
+QString withoutWordLabels(const QString &contents);
+
+WordLabels extractWordLabels(const QString &contents)
+{
+    static const QRegularExpression re(QStringLiteral(
+        R"(<(?:(?:(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?)|(?:(\d+),(\d+),\d+))>([^<]*))"));
+
+    WordLabels labels;
+    int firstStart = -1;
+    QRegularExpressionMatchIterator it = re.globalMatch(contents);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch match = it.next();
+        TimedWord word;
+        word.text = match.captured(6);
+        if (word.text.isEmpty())
+            continue;
+        if (firstStart < 0)
+            firstStart = match.capturedStart(0);
+        if (!match.captured(4).isEmpty()) {
+            word.relative = true;
+            word.offset = match.captured(4).toLongLong();
+            word.duration = match.captured(5).toLongLong();
+        } else {
+            word.absoluteTime = match.captured(1).toLongLong() * 60000
+                                + match.captured(2).toLongLong() * 1000
+                                + threeDigitFraction(match.captured(3));
+        }
+        labels.words.append(word);
+    }
+    if (firstStart > 0)
+        labels.leading = withoutWordLabels(contents.left(firstStart));
+    return labels;
+}
+
+QString withoutWordLabels(const QString &contents)
+{
+    static const QRegularExpression re(QStringLiteral(
+        R"(<(?:(?:(?:\d{1,3}):(?:\d{2})(?:\.\d{1,3})?)|(?:\d+,\d+,\d+))>)"));
+    QString plain = contents;
+    plain.remove(re);
+    return plain.trimmed();
+}
+
+struct WordEntry
+{
+    qint64 effective = 0; // 合成到整首歌坐标后的时间，便于统一算 offset/duration
+    bool hasExplicitDuration = false;
+    qint64 explicitDuration = 0;
+    QString text;
+};
+
 } // namespace
 
 QVariantList LocalLyricsReader::parseLrc(const QString &contents)
@@ -41,8 +128,8 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
 
     QVariantList lyrics;
     const QString normalized = contents.startsWith(QChar(0xFEFF))
-        ? contents.mid(1)
-        : contents;
+                                   ? contents.mid(1)
+                                   : contents;
     const QStringList lines = normalized.split(QRegularExpression(QStringLiteral("[\\r\\n]")),
                                                Qt::KeepEmptyParts);
 
@@ -68,7 +155,7 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
         if (plainText.isEmpty())
             continue;
         const bool isOther = plainText.startsWith(QStringLiteral("（"))
-                           && plainText.endsWith(QStringLiteral("）"));
+                             && plainText.endsWith(QStringLiteral("）"));
 
         for (const qint64 time : times) {
             // 没有字级标签的普通行：info 保持 null，走原来的整行高亮
@@ -137,7 +224,7 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
 
     std::stable_sort(lyrics.begin(), lyrics.end(), [](const QVariant &left, const QVariant &right) {
         return left.toMap().value(QStringLiteral("time")).toLongLong()
-             < right.toMap().value(QStringLiteral("time")).toLongLong();
+        < right.toMap().value(QStringLiteral("time")).toLongLong();
     });
     return lyrics;
 }
@@ -171,7 +258,7 @@ QVariantList LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
             for (auto *frame : synchronized) {
                 auto *sylt = dynamic_cast<TagLib::ID3v2::SynchronizedLyricsFrame *>(frame);
                 if (!sylt || sylt->timestampFormat()
-                    != TagLib::ID3v2::SynchronizedLyricsFrame::AbsoluteMilliseconds)
+                                 != TagLib::ID3v2::SynchronizedLyricsFrame::AbsoluteMilliseconds)
                     continue;
 
                 const auto entries = sylt->synchedText();
@@ -251,7 +338,7 @@ QVariantMap LocalLyricsReader::read(const QString &filePath)
 
     const QFileInfo audioInfo(localPath);
     const QString sidecarPath = audioInfo.absolutePath() + QLatin1Char('/')
-                              + audioInfo.completeBaseName() + QStringLiteral(".lrc");
+                                + audioInfo.completeBaseName() + QStringLiteral(".lrc");
     QFile sidecar(sidecarPath);
     if (sidecar.open(QIODevice::ReadOnly)) {
         const QVariantList lyrics = parseLrc(QString::fromUtf8(sidecar.readAll()));

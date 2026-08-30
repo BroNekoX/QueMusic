@@ -54,7 +54,6 @@ Menu {
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: 12
                 elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
-                clip: true
             }
             onTriggered: dialog.clicked(index)
         }

@@ -4,9 +4,11 @@
 #ifndef MUSICAPISERVICE_H
 #define MUSICAPISERVICE_H
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QString>
 #include <QVariant>
+#include <QVariantMap>
 #include <QMap>
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -143,6 +145,10 @@ public:
     Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
     // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
     Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
+    // 工作线程解析内嵌标签（避免卡 UI）；命中经 localLyricsReady 回传，未命中自动转在线匹配
+    Q_INVOKABLE void readLocalLyricsAsync(const QString &filePath, const QString &title,
+                                          const QString &artist, int duration = 0,
+                                          bool allowOnlineSearch = true);
     // 本地歌词不存在时，按标题/歌手搜索在线歌词；结果通过信号返回。
     Q_INVOKABLE void findLocalLyrics(const QString &filePath, const QString &title,
                                      const QString &artist, int duration = 0,
@@ -186,6 +192,7 @@ private:
     };
 
     int m_source = 0;
+    int m_localLyricsGeneration = 0; // 连续切歌时丢弃过期的歌词解析结果
     NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
     KugouApi m_kugou;
     AccountManager *m_account = nullptr;

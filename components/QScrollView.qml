@@ -44,13 +44,13 @@ ScrollView {
 
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines / view.contentHeight * 0.25
         onWheel: (event) => {
-                     var wheelheight = event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines / view.contentHeight;
-                     viewBar.active = true;
-                     view.scrollToPosition = Math.max(0, Math.min(view.scrollToPosition - wheelheight, 1 - viewBar.size));
-                     //viewBar.position = scrollToPosition
-                     viewAnime.stop();
-                     viewAnime.start();
-                 }
+            viewAnime.running = false;
+            viewBar.active = true;
+            view.scrollToPosition = Math.max(0, Math.min(view.scrollToPosition - event.angleDelta.y * wheelHeightCount, 1 - viewBar.size));
+            //viewBar.position = scrollToPosition
+            viewAnime.running = true;
+        }
     }
 }

@@ -17,6 +17,7 @@ GetWave::GetWave(QObject *parent) : QObject(parent)
     // 预分配 FFT 缓冲区，固定大小 4096
     m_fftData.resize(m_fftSize);
     m_magnitudes.resize(m_fftSize / 2);
+    m_throttle.start();
 }
 
 void GetWave::setBands(int b)
@@ -80,7 +81,7 @@ QList<qreal> GetWave::spectrumData() const
     return m_spectrumData;
 }
 
-// 收到buffer事件动作
+// 音频线程调用：只搬运数据，FFT 放线程池
 void GetWave::onBufferReceived(const QAudioBuffer &buffer)
 {
     if (!buffer.isValid()) return;
@@ -88,43 +89,52 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
 
     const QAudioFormat &fmt = buffer.format();
     const int sampleRate = fmt.sampleRate();
+    const int channels = qMax(1, fmt.channelCount());
+    const int frames = int(buffer.sampleCount()) / channels;
+    if (frames <= 0)
+        return;
 
-    // 快速追加数据，并复制一份当前完整样本（加锁）
-    QVector<float> samplesCopy;
-    {
-        QMutexLocker locker(&m_mutex);
-
-        // 取第一个声道/通常左声道的数据
-        if (fmt.sampleFormat() == QAudioFormat::Float) {
-            const float *data = buffer.constData<float>();
-            int frames = buffer.sampleCount() / fmt.channelCount();
-            m_rawBuffer.reserve(m_rawBuffer.size() + frames);
-            for (int i = 0; i < frames; ++i)
-                m_rawBuffer.append(data[i * fmt.channelCount()]);
-        } else if (fmt.sampleFormat() == QAudioFormat::Int16) {
-            const qint16 *data = buffer.constData<qint16>();
-            int frames = buffer.sampleCount() / fmt.channelCount();
-            m_rawBuffer.reserve(m_rawBuffer.size() + frames);
-            for (int i = 0; i < frames; ++i)
-                m_rawBuffer.append(data[i * fmt.channelCount()] / 32768.0f);
-        }
-
-        // 保留约 0.1 秒的数据
-        int maxSamples = sampleRate * 0.1;
-        if (m_rawBuffer.size() > maxSamples) {
-            m_rawBuffer.remove(0, m_rawBuffer.size() - maxSamples);
-        }
-        samplesCopy = m_rawBuffer;
+    QVector<float> samples(frames);
+    if (fmt.sampleFormat() == QAudioFormat::Float) {
+        const float *data = buffer.constData<float>();
+        for (int i = 0; i < frames; ++i)
+            samples[i] = data[i * channels];
+    } else if (fmt.sampleFormat() == QAudioFormat::Int16) {
+        const qint16 *data = buffer.constData<qint16>();
+        for (int i = 0; i < frames; ++i)
+            samples[i] = data[i * channels] / 32768.0f;
+    } else {
+        return;
     }
 
+    // 保留约 0.1 秒的数据
+    {
+        QMutexLocker locker(&m_mutex);
+        m_rawBuffer.append(samples);
+        const int maxSamples = sampleRate / 10;
+        if (m_rawBuffer.size() > maxSamples)
+            m_rawBuffer.remove(0, m_rawBuffer.size() - maxSamples);
+    }
+
+    // 上一轮未完成或不足 32ms 则跳过（按 ~30fps 更新）
+    if (m_computePending.loadAcquire() || m_throttle.elapsed() < 32)
+        return;
+    m_computePending.storeRelease(1);
+    m_throttle.restart();
+
     // 第二阶段：异步进行 FFT/频谱计算
-    QThreadPool::globalInstance()->start([this, samplesCopy, sampleRate]() {
-        // 加锁保护共享成员 m_spectrumData / m_wavePath
+    QThreadPool::globalInstance()->start([this, sampleRate]() {
+        QVector<float> snapshot;
         {
             QMutexLocker locker(&m_mutex);
-            computeSpectrumFromFFT(samplesCopy, sampleRate);
+            snapshot = m_rawBuffer;
+        }
+        {
+            QMutexLocker locker(&m_mutex);
+            computeSpectrumFromFFT(snapshot, sampleRate);
             rebuildWavePath(m_bands, 512.0, 80.0);
         } // 锁释放，再发送信号（减少锁持有）
+        m_computePending.storeRelease(0);
         emit spectrumChanged();
         emit wavePathChanged();
     });

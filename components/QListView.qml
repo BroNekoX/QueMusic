@@ -85,7 +85,6 @@ ListView {
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 12
                     elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
-                    clip: true
                 }
                 onTriggered: view.menuClicked(menu.index,index)
             }
@@ -115,12 +114,13 @@ ListView {
     }
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
         onWheel: (event) => {
-            view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines), view.contentHeight - view.height + view.bottomMargin));
             listViewAnime.running = false;
-            listViewAnime.running = true;
+            view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), view.contentHeight - view.height + view.bottomMargin));
             viewBar.active = true;
             event.accepted = true;
+            listViewAnime.running = true;
         }
     }
     SequentialAnimation {
@@ -240,14 +240,12 @@ ListView {
             radius: Style.settings.labelRadius
             color: Style.themes.hoverColor
             opacity: listArea.containsMouse ? 1 : 0
-            z: 1
             Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
 
         QPicture {
             y: 8
             x: 8
-            z: 4
             width: 44
             height: 44
             radius: 10
@@ -259,7 +257,6 @@ ListView {
             id: title
             x: 80
             y: 16
-            z: 3
             width: view.artistX - 110
             height: 28
             text: model.title || "Unknown"
@@ -290,7 +287,6 @@ ListView {
         Text {
             x: view.artistX
             y: 16
-            z: 3
             width: view.artistX - 128
             height: 28
             text: model.artist || "Unknown"
@@ -305,10 +301,11 @@ ListView {
         Text {
             x: view.width - 92
             y: 16
-            z: 3
             width: 60
             height: 28
-            text: model.duration + "首"
+            // 声明式绑定，避免复用 delegate 残留上一行数据
+            text: view.isList ? model.duration + "首"
+                              : Math.floor(model.duration / 60) + ":" + (model.duration % 60)
             color: Style.themes.textColor
             font.bold: false
             elide: Text.ElideRight
@@ -317,18 +314,12 @@ ListView {
             horizontalAlignment: Text.AlignHCenter
             visible: true
             Behavior on color { ColorAnimation { duration: 120 } }
-            Component.onCompleted: {
-                if(!view.isList) {
-                    text = Math.floor(model.duration / 60) + ":" + (model.duration % 60)
-                }
-            }
         }
 
         MouseArea {
             id: listArea
             anchors.fill: parent
             hoverEnabled: true
-            z: 5
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: (mouse) => {
                 if (mouse.button === Qt.LeftButton) {

@@ -75,32 +75,34 @@ Window {
     function playLocalSong(path, name) {
         var meta = MusicApi.readLocalMetadata(path) || {};
         var hasMeta = Object.keys(meta).length > 0;
-        var localLyrics = MusicApi.readLocalLyrics(path) || {};
-        var hasLocalLyrics = localLyrics.found === true && localLyrics.lyrics && localLyrics.lyrics.length > 0;
+        var hasMetaLyrics = hasMeta && meta.lyrics && meta.lyrics.length > 0;
         var title = meta.title || name;
         var artist = meta.artist || "";
         window.localLyricsRequestPath = path;
+
         if (hasMeta) {
             mainMedia.urlLocal = false;
             mainMedia.noTitle = title;
             mainMedia.urlStr = meta.cover || "qrc:/QueMusic/resources/app/musicpic.png";
             window.musicTitle = title;
             window.musicArtist = artist;
-            MusicApi.lyricsData = hasLocalLyrics ? localLyrics.lyrics : (meta.lyrics || []);
-            MusicApi.lyricsTranslate = hasLocalLyrics ? [] : (meta.translate || []);
+            MusicApi.lyricsData = meta.lyrics || [];
+            MusicApi.lyricsTranslate = meta.translate || [];
             colorExtractor.extractColorsFromUrl(meta.cover);
         } else {
             mainMedia.urlLocal = true;
             mainMedia.noTitle = name;
             window.musicTitle = name;
             window.musicArtist = "";
-            MusicApi.lyricsData = hasLocalLyrics ? localLyrics.lyrics : [];
+            MusicApi.lyricsData = [];
             MusicApi.lyricsTranslate = [];
         }
-        if (!hasLocalLyrics && (!hasMeta || !meta.lyrics || meta.lyrics.length === 0)) {
+
+        // 歌词解析在工作线程完成，命中回填，未命中自动转在线匹配
+        if (!hasMetaLyrics)
             MusicApi.setLocalLyrics();
-            MusicApi.findLocalLyrics(path, title, artist, meta.duration || 0);
-        }
+        MusicApi.readLocalLyricsAsync(path, title, artist, meta.duration || 0, !hasMetaLyrics);
+
         mainMedia.source = path;
         mainMedia.play();
     }
@@ -681,34 +683,16 @@ Window {
             property color color3: "#9d4edd"
             property bool thirdColors: true
 
-            // 颜色提取器
+            // 取色在工作线程完成，结果回填
             ColorExtractor {
                 id: colorExtractor
                 signal colorExtractFinished()
                 onColorsExtracted: {
-                    //rectcolorAnime.running = false;
-                    console.log("提取到颜色:", colors);
-                    if (colors.length >= 3) {
-                        // 更新渐变颜色
-                        console.log("三种颜色");
-                        coverColor.color1 = colors[0];
-                        coverColor.color2 = colors[1];
-                        coverColor.color3 = colors[2];
-                        coverColor.thirdColors = true;
-                    } else if(colors.length == 2) {
-                        console.log("2种颜色");
-                        coverColor.color1 = colors[0];
-                        coverColor.color2 = colors[1];
-                        coverColor.color3 = colors[0];
-                        coverColor.thirdColors = false;
-                    } else {
-                        console.log("默认颜色");
-                        coverColor.color1 = "#00b1ee";
-                        coverColor.color2 = "#9d4edd";
-                        coverColor.color3 = "#00ea64";
-                        coverColor.thirdColors = true;
-                    }
-                    //rectcolorAnime.running = true;
+                    coverColor.color1 = colors.length > 0 ? colors[0] : "#00b1ee";
+                    coverColor.color2 = colors.length > 1 ? colors[1] : "#9d4edd";
+                    coverColor.color3 = colors.length > 2 ? colors[2]
+                                      : (colors.length === 2 ? colors[0] : "#00ea64");
+                    coverColor.thirdColors = colors.length >= 3 || colors.length < 2;
                     colorExtractFinished();
                 }
 
@@ -827,19 +811,17 @@ Window {
             mainMedia.noTitle = title;
             window.musicTitle = title;
             window.musicArtist = artist;
-            console.log("url:", playurl);
             mainMedia.urlStr = cover;
             mainMedia.play();
             colorExtractor.extractColorsFromUrl(solve);
-            console.log("---正在提取封面颜色");
+
             var listIndex = -1;
             for(var i = 0;i < playListModel.count;i++) {
-                var forUrl = playListModel.get(i).path;
-                if(forUrl === hash) {
+                if(playListModel.get(i).path === hash) {
                     listIndex = i;
+                    break;
                 }
             }
-            //var listIndex = listfile.findIndexByValue(playListModel, "path", playurl);
             if (listIndex == -1) {
                 playListModel.append({ name: title, path: hash, songer: artist, source: source });
                 playListModel.playListIndex = playListModel.count - 1;
@@ -880,65 +862,37 @@ Window {
         source: ""
         autoPlay: Options.settings.autoPlay
         onMetaDataChanged: {
-            console.log("QML: MediaPlayer created, audioBufferOutput =",audioBufferOutput)
-            if(urlLocal) {
-                // 尝试不同的键名
-                var title = mainMedia.metaData.stringValue(MediaMetaData.Title)
-                var artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author)
-                var album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle)
-                var cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage)
-                var date = mainMedia.metaData.value(MediaMetaData.Date)
-                var type = mainMedia.metaData.value(MediaMetaData.MediaType)
-                var keys = mainMedia.metaData.keys()
+            if(!urlLocal)
+                return;
 
-                var lyrics = mainMedia.metaData.value(MediaMetaData.AudioCodec)
-                console.debug("metadatalyric:", lyrics)
+            var title = mainMedia.metaData.stringValue(MediaMetaData.Title)
+            var artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author)
+            var album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle)
+            var date = mainMedia.metaData.value(MediaMetaData.Date)
+            var type = mainMedia.metaData.value(MediaMetaData.MediaType)
+            // 内嵌封面：优先大图，退化到缩略图
+            var cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage)
 
-                if (keys) {
-                    console.log("获取keys:" + keys)
-                }
+            window.musicTitle = title || noTitle
+            if (artist)
+                window.musicArtist = artist
+            if (album)
+                mainMedia.album = album
+            if (date)
+                mainMedia.date = date.toString()
+            if (type)
+                mainMedia.type = type.toString()
 
-                if (title) {
-                    console.log("标题 (Title): " + title);
-                    window.musicTitle = title
-                } else {
-                    console.log("使用文件名标题");
-                    window.musicTitle = noTitle
-                }
-
-                if (artist) {
-                    console.log("艺术家 (Artist): " + artist);
-                    window.musicArtist = artist
-                }
-
-                if (album) {
-                    console.log("专辑 (Album): " + album)
-                    mainMedia.album = album
-                }
-                
-                if (date) {
-                    mainMedia.date = date.toString()
-                }
-                
-                if (date) {
-                    mainMedia.type = type.toString()
-                }
-
-                if (cover) {
-                    console.log("找到封面艺术: " + cover);
-                    urlStr = coverHelper.convertVariantToUrl(cover);
-                    console.log("封面艺术url: " + urlStr);
-                    colorExtractor.extractColorsFromUrl(urlStr);
-                } else {
-                    // 元数据未内嵌封面：本地文件尝试同目录同名/常见命名封面图兜底
-                    // （如 a.mp3 旁的 a.jpg / cover.png）。未命中则保持空，与原行为一致。
-                    var localCover = coverHelper.findLocalCover(mainMedia.source)
-                    urlStr = localCover ? localCover : null
-                }
-
-
-                // 打印所有可用的元数据键
-                console.log("所有可用元数据键:", Object.keys(mainMedia.metaData));
+            if (cover) {
+                // 取色吃封面像素（工作线程）；封面存缓存文件供加载
+                colorExtractor.extractColorsFromImage(cover)
+                urlStr = coverHelper.convertVariantToUrl(cover)
+            } else {
+                // 无内嵌封面：尝试同目录同名/常见命名封面兜底
+                var localCover = coverHelper.findLocalCover(mainMedia.source)
+                urlStr = localCover || null
+                if (localCover)
+                    colorExtractor.extractColorsFromUrl(localCover)
             }
         }
 

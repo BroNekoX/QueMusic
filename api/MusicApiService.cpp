@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QUrl>
+#include <QtConcurrent>
 
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
@@ -240,6 +241,36 @@ void MusicApiService::setLocalLyrics()
 QVariantMap MusicApiService::readLocalLyrics(const QString &filePath)
 {
     return LocalLyricsReader::read(filePath);
+}
+
+void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QString &title,
+                                           const QString &artist, int duration,
+                                           bool allowOnlineSearch)
+{
+    if (filePath.trimmed().isEmpty()) {
+        emit localLyricsFailed(filePath);
+        return;
+    }
+
+    const int generation = ++m_localLyricsGeneration;
+
+    auto *watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this,
+            [this, watcher, generation, filePath, title, artist, duration, allowOnlineSearch]() {
+                const QVariantMap result = watcher->result();
+                watcher->deleteLater();
+
+                if (generation != m_localLyricsGeneration) // 期间又切了歌，丢弃
+                    return;
+
+                const QVariantList lyrics = result.value(QStringLiteral("lyrics")).toList();
+                if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty())
+                    emit localLyricsReady(filePath, lyrics);
+                else if (allowOnlineSearch)
+                    findLocalLyrics(filePath, title, artist, duration);
+                // 其余情况保留当前歌词（如 .json 自带），不覆盖
+            });
+    watcher->setFuture(QtConcurrent::run(&LocalLyricsReader::read, filePath));
 }
 
 void MusicApiService::findLocalLyrics(const QString &filePath, const QString &title,

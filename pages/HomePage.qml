@@ -693,7 +693,6 @@ Item {
                                 font.pixelSize: Style.settings.textmain
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 2
-                                clip: true
                                 elide: Text.ElideRight
                             }
                             Text {
@@ -706,7 +705,6 @@ Item {
                                 font.pixelSize: Style.settings.text
                                 //wrapMode: Text.Wrap
                                 //maximumLineCount: 2
-                                clip: true
                                 elide: Text.ElideRight
                             }
                             Rectangle {

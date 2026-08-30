@@ -134,6 +134,11 @@ int main(int argc, char *argv[])
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 
+    //qputenv("QSG_RENDER_TIMING", "1");
+    //qputenv("QSG_INFO", "1");
+    //qputenv("QSG_RENDERER_DEBUG", "render");
+    qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
+
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QGuiApplication application(argc, argv);

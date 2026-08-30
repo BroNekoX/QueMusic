@@ -39,6 +39,7 @@ Rectangle {
                     anchors.fill: parent
                     radius: root.radius
                     opacity: 0
+                    visible: opacity > 0
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                 }
             

@@ -21,6 +21,7 @@ Item {
         anchors.fill: parent
         radius: root.radius
         opacity: 0
+        visible: opacity > 0
         color: Style.themes.hoverColor
         Behavior on opacity { NumberAnimation { duration: 120 } }
     }

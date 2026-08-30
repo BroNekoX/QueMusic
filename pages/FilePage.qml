@@ -639,7 +639,6 @@ Item {
                 height: folderMusic.height - 128
                 model: songModel//parent.visible ? folderMusic.foldercontent : []
                 clip: true
-                //reuseItems: true
                 headerModel: ["标题","","","菜单"]
                 delegate: Rectangle {
                     id: listfile
@@ -843,7 +842,6 @@ Item {
                 height: folderMusic.height - 128
                 model: localFileModel
                 clip: true
-                //reuseItems: true
                 headerModel: ["标题","","","菜单"]
                 populate: Transition {
                     id: localFileLoadAnime

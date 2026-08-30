@@ -4,7 +4,8 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Shapes
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
+import Qt5Compat.GraphicalEffects   // 仅歌词逐字染色仍用 LinearGradient
 import QueMusic 1.0
 // GetWave 已注册到 QueMusic 模块；MeshGradientItem 为独立模块（C++ QML_ELEMENT）
 import MeshGradientItem 1.0
@@ -39,22 +40,18 @@ Item {
         rectcolorAnime.running = true;
     }
 
+    // 频谱波形（作为模糊源，不直接显示）
     Shape {
         id: waveItem
         width: 512
         height: 80
-        //z: 9
         visible: false
         asynchronous: true
         vendorExtensionsEnabled: true
-        layer.enabled: true
-        layer.smooth: true
 
         ShapePath {
             id: wavePath
             fillColor: Qt.hsva(musicControlMax.mainColor.hsvHue,musicControlMax.mainColor.hsvSaturation,musicControlMax.mainColor.hsvValue * 0.7 + 0.3,0.7)
-            //strokeColor: "#00ccff"
-            //strokeWidth: 2
             strokeWidth: 0
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
@@ -66,40 +63,40 @@ Item {
             }
         }
     }
-    FastBlur {
+
+    MultiEffect {
         x: 0
         y: musicControlMax.height - 158 + controlMaxLoader.hideHeight
         width: musicControlMax.width
         height: 80
         z: 9
         source: waveItem
-        radius: 32
-        //transparentBorder: true
+        blurEnabled: true
+        blurMax: 32
+        blur: 1.0
         visible: Style.settings.waveDisplay
     }
 
-    // 动态背景：AMLL Mesh Gradient 移植（Bicubic Hermite Patch Mesh）
+    // 动态背景：MeshGradient 移植
     MeshGradientItem {
         id: bgMesh
-        clip: true
         anchors.fill: parent
         visible: Style.settings.backFlowQuality !== 2
         coverUrl: colorExtractor.renderUrl || mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
         volume: 0
         flowSpeed: 1.0
-        animating: true
-        subDivisions: 42
+        animating: Style.settings.backFlowQuality === 0
+        subDivisions: Style.settings.backFlowQuality === 0 ? 32 : 16
         // 网格渐变主色：跟随封面的主色调（AMLL 流体感的来源）
         color1: musicControlMax.mainColor
         color2: musicControlMax.secondColor
         color3: musicControlMax.thirdColor
     }
 
-    LinearGradient {
+    // 静态渐变背景（关闭流动时）
+    Rectangle {
         anchors.fill: parent
         visible: Style.settings.backFlowQuality === 2
-        cached: true
-        end: Qt.point(height / 3,height)
         gradient: Gradient {
             GradientStop {
                 position: 0.0

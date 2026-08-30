@@ -4,6 +4,8 @@
 #ifndef GETWAVE_H
 #define GETWAVE_H
 
+#include <QAtomicInteger>
+#include <QElapsedTimer>
 #include <QObject>
 #include <QAudioBuffer>
 #include <QAudioBufferOutput>
@@ -77,6 +79,10 @@ private:
     // 复用缓冲区，避免每次分配
     QVector<Complex>    m_fftData;
     QVector<float>      m_magnitudes;
+
+    // 频谱更新限频 ~30fps，避免线程池堆积与无谓重绘
+    QAtomicInteger<int> m_computePending;
+    QElapsedTimer       m_throttle;
 };
 
 #endif // GETWAVE_H

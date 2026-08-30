@@ -142,6 +142,7 @@ Rectangle {
                         anchors.fill: parent
                         radius: root.cardRadius
                         opacity: 0
+                        visible: opacity > 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
             

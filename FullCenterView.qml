@@ -6,7 +6,6 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Effects
 import QtQuick.Dialogs
-import Qt5Compat.GraphicalEffects
 import QPlayer 1.0
 
 Item {

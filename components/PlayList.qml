@@ -150,7 +150,6 @@ Popup {
                     z: 4
                     width: 200
                     height: 20
-                    clip: true
                     text: model.name
                     elide: Text.ElideRight
                     color: Style.themes.fontColor
@@ -164,7 +163,6 @@ Popup {
                     z: 4
                     width: 200
                     height: 20
-                    clip: true
                     text: model.songer
                     color: Style.themes.textColor
                     elide: Text.ElideRight
@@ -218,6 +216,7 @@ Popup {
                         radius: Style.settings.labelRadius
                         color: Qt.rgba(0.5,0.5,0.5,0.2)
                         opacity: 0
+                        visible: opacity > 0
                         //opacity: playListArea.containsMouse ? 1 : 0
                         z: 2
                         Behavior on opacity { NumberAnimation { duration: 80 } }
