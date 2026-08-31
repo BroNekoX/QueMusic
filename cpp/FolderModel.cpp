@@ -4,6 +4,7 @@
 #include "FolderModel.h"
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QSqlDriver>
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
@@ -223,6 +224,21 @@ QHash<int, QByteArray> SongModel::roleNames() const
     };
 }
 
+QVariantMap SongModel::get(int index) const
+{
+    if (index < 0 || index >= m_items.size())
+        return {};
+    const SongItem &item = m_items.at(index);
+    QVariantMap map;
+    map.insert(QStringLiteral("songId"), item.id);
+    map.insert(QStringLiteral("folderId"), item.folderId);
+    map.insert(QStringLiteral("name"), item.name);
+    map.insert(QStringLiteral("path"), item.path);
+    map.insert(QStringLiteral("singer"), item.singer);
+    map.insert(QStringLiteral("duration"), item.duration);
+    return map;
+}
+
 void SongModel::loadByFolder(int folderId)
 {
     m_folderId = folderId;
@@ -246,6 +262,50 @@ int SongModel::addSong(int folderId, const QString &name, const QString &path, c
         refreshModel();
     }
     return newId;
+}
+
+int SongModel::addSongs(int folderId, const QVariantList &songs)
+{
+    if (songs.isEmpty())
+        return 0;
+
+    // 批量导入时用单个事务承载全部 INSERT，最后统一刷新一次模型，
+    // 避免逐条 addSong 带来的事务/刷新开销把 UI 卡成假死。
+    bool ownTransaction = false;
+    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions)) {
+        ownTransaction = m_db.transaction();
+    }
+
+    QSqlQuery query(m_db);
+    query.prepare("INSERT INTO songs (folder_id, name, path, singer) VALUES (:folder_id, :name, :path, :singer)");
+    int added = 0;
+    for (const QVariant &entry : songs) {
+        const QVariantMap song = entry.toMap();
+        const QString name = song.value(QStringLiteral("name")).toString();
+        const QString path = song.value(QStringLiteral("path")).toString();
+        if (name.isEmpty() || path.isEmpty())
+            continue;
+        query.bindValue(":folder_id", folderId);
+        query.bindValue(":name", name);
+        query.bindValue(":path", path);
+        query.bindValue(":singer", song.value(QStringLiteral("singer")).toString());
+        if (query.exec()) {
+            ++added;
+        } else {
+            emit errorOccurred(QStringLiteral("添加歌曲失败: ") + query.lastError().text());
+        }
+    }
+
+    if (ownTransaction && !m_db.commit()) {
+        m_db.rollback();
+        emit errorOccurred(QStringLiteral("提交批量导入失败: ") + m_db.lastError().text());
+        return 0;
+    }
+
+    if (folderId == m_folderId) {
+        refreshModel();
+    }
+    return added;
 }
 
 bool SongModel::deleteSong(int songId)

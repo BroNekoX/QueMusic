@@ -292,6 +292,9 @@ Rectangle {
             hoverColor: Style.themes.hoverColor
             iconColor: Style.themes.textColor
             shadowEnabled: false
+            visible: playListModel.count > 0 && playListModel.playListIndex >= 0
+                     && playListModel.playListIndex < playListModel.count
+                     && playListModel.get(playListModel.playListIndex).source !== -1
             onClicked: {
                 if(playListModel.get(playListModel.playListIndex).path) {
                     if(Options.settings.soundQuality === 0) {

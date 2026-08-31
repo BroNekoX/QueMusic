@@ -5,10 +5,23 @@
 
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QHashFunctions>
+#include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QUrl>
+
+#include <fileref.h>
+#include <mpegfile.h>
+#include <id3v2tag.h>
+#include <attachedpictureframe.h>
+#include <flacfile.h>
+#include <flacpicture.h>
+#include <mp4file.h>
+#include <mp4tag.h>
+#include <mp4coverart.h>
+#include <tpropertymap.h>
 
 namespace {
 
@@ -59,6 +72,18 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
     return url;
 }
 
+QString CoverHelper::storageCachePath(const QString &localPath) const
+{
+    const QFileInfo fi(localPath);
+    const QByteArray seed = (fi.absoluteFilePath() + QLatin1Char('@')
+                           + QString::number(fi.lastModified().toMSecsSinceEpoch()))
+                                .toUtf8();
+    // 用内容固定的哈希，跨系统 / 跨进程结果一致，不依赖 Qt 的散列种子
+    const QString digest = QString::fromLatin1(
+        QCryptographicHash::hash(seed, QCryptographicHash::Sha1).toHex());
+    return m_cacheDir + QStringLiteral("/cover-") + digest + QStringLiteral(".png");
+}
+
 QString CoverHelper::findLocalCover(const QString &sourcePath)
 {
     if (sourcePath.isEmpty())
@@ -73,6 +98,7 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
     if (!fi.isFile())
         return QString();
 
+    QString found;
     const QDir dir = fi.absoluteDir();
     const QStringList entries = dir.entryList(QDir::Files);
 
@@ -87,12 +113,96 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
         for (const QString &ext : extensions) {
             const QString target = name + QLatin1Char('.') + ext;
             for (const QString &entry : entries) {
-                if (entry.compare(target, Qt::CaseInsensitive) == 0)
-                    return QUrl::fromLocalFile(dir.filePath(entry)).toString();
+                if (entry.compare(target, Qt::CaseInsensitive) == 0) {
+                    found = QUrl::fromLocalFile(dir.filePath(entry)).toString();
+                    break;
+                }
+            }
+            if (!found.isEmpty())
+                break;
+        }
+        if (!found.isEmpty())
+            break;
+    }
+
+    return found;
+}
+
+QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
+{
+    QString localPath = sourcePath;
+    const QUrl asUrl(sourcePath);
+    if (asUrl.isLocalFile())
+        localPath = asUrl.toLocalFile();
+    const QFileInfo fi(localPath);
+    if (!fi.isFile())
+        return QString();
+
+    // 存储缓存：文件存在就直接返回，跨进程、跨重启有效，不用再拆包解析
+    const QString cacheFilePath = storageCachePath(localPath);
+    if (QFileInfo::exists(cacheFilePath))
+        return QUrl::fromLocalFile(cacheFilePath).toString();
+
+    const QByteArray encodedPath = QFile::encodeName(localPath);
+    TagLib::FileRef ref(encodedPath.constData(), false);
+    QString coverUrl;
+    if (!ref.isNull() && ref.file() != nullptr) {
+        TagLib::ByteVector coverData;
+
+        if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(ref.file())) {
+            if (auto *id3v2 = mpeg->ID3v2Tag()) {
+                const auto frames = id3v2->frameList("APIC");
+                for (auto *frame : frames) {
+                    auto *pic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
+                    if (!pic || pic->picture().isEmpty())
+                        continue;
+                    if (pic->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) {
+                        coverData = pic->picture();
+                        break;
+                    }
+                    if (coverData.isEmpty())
+                        coverData = pic->picture();
+                }
+            }
+        } else if (auto *flac = dynamic_cast<TagLib::FLAC::File *>(ref.file())) {
+            const auto pictures = flac->pictureList();
+            for (auto *pic : pictures) {
+                if (!pic || pic->data().isEmpty())
+                    continue;
+                if (pic->type() == TagLib::FLAC::Picture::FrontCover) {
+                    coverData = pic->data();
+                    break;
+                }
+                if (coverData.isEmpty())
+                    coverData = pic->data();
+            }
+        } else if (auto *mp4 = dynamic_cast<TagLib::MP4::File *>(ref.file())) {
+            if (mp4->tag()) {
+                const TagLib::MP4::CoverArtList covers =
+                    mp4->tag()->item("covr").toCoverArtList();
+                for (const auto &cover : covers) {
+                    if (!cover.data().isEmpty()) {
+                        coverData = cover.data();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!coverData.isEmpty()) {
+            QImage image;
+            image.loadFromData(QByteArray(coverData.data(), coverData.size()));
+            if (!image.isNull()) {
+                if (qMax(image.width(), image.height()) > kMaxCoverSize)
+                    image = image.scaled(kMaxCoverSize, kMaxCoverSize, Qt::KeepAspectRatio,
+                                         Qt::FastTransformation);
+                if (image.save(cacheFilePath, "PNG"))
+                    coverUrl = QUrl::fromLocalFile(cacheFilePath).toString();
             }
         }
     }
-    return QString();
+
+    return coverUrl;
 }
 
 void CoverHelper::clearCache()

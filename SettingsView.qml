@@ -1466,14 +1466,6 @@ Item {
             visible: false
 
             // 动作定义（名称、显示描述、默认键位）
-            property var actionDefs: [
-                { name: "play", desc: "播放/暂停", default: "Space" },
-                { name: "back", desc: "上一首", default: "Left" },
-                { name: "forward", desc: "下一首", default: "Right" },
-                { name: "playList", desc: "打开/关闭播放列表", default: "Alt" },
-                { name: "musicControl", desc: "音乐控制面板", default: "Up" }
-                // 如需添加更多，请在此增加条目，并确保 Options.shortCuts 中存在对应属性
-            ]
             ListModel {
                 id: actionDefs
                 ListElement { name: "play"; desc: "播放/暂停"; defau: "Space" }
@@ -1487,6 +1479,11 @@ Item {
             property string recordingAction: ""
             property bool isRecording: false
             property bool oldShortCutState: false
+
+            // 根据 action 名拼出 Options.settings 里的"该功能是否全局生效"属性名
+            function globalPropertyName(actionName) {
+                return "globalShortcut" + actionName.charAt(0).toUpperCase() + actionName.slice(1)
+            }
 
             // 按键转字符串（辅助函数）
             function keyToString(key) {
@@ -1541,7 +1538,8 @@ Item {
                 recordingAction = action
                 isRecording = true
                 oldShortCutState = Options.settings.openShortCut
-                Options.settings.openShortCut = false   // 暂时禁用全局快捷键，避免干扰
+                Options.settings.openShortCut = false   // 关闭总开关（兼容旧逻辑）
+                Options.settings.recordingShortCut = true   // 录制期间屏蔽所有全局快捷键
                 keyCapture.forceActiveFocus()
                 keyCapture.focus = true;
                 mainWarn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
@@ -1551,6 +1549,7 @@ Item {
             function stopRecording(success, sequence) {
                 isRecording = false
                 Options.settings.openShortCut = oldShortCutState
+                Options.settings.recordingShortCut = false
                 if (success && sequence) {
                     Options.shortCuts[recordingAction] = sequence
                     mainWarn.tiped("已设置快捷键: " + sequence, 1)
@@ -1579,26 +1578,34 @@ Item {
                     font.letterSpacing: -0.3
                 }
 
-                // 全局开关
+                // 全局开关（每个功能单独控制）
                 QHead { text: "全局快捷键" }
                 Rectangle {
                     width: settingStack.standWidth
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
+                    height: globalShortCutColumn.height
+                    clip: true
                     Column {
+                        id: globalShortCutColumn
                         width: parent.width
                         padding: 0
-                        Component.onCompleted: parent.height = height
 
-                        SettingItemCard {
-                            label: "启用全局快捷键"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
-                                letRight: true
-                                switchTrue: Options.settings.openShortCut
-                                onToggled: Options.settings.openShortCut = !Options.settings.openShortCut
+                        Repeater {
+                            model: actionDefs
+                            delegate: SettingItemCard {
+                                label: model.desc
+                                controlItem: QSwitch {
+                                    anchors.fill: parent
+                                    letRight: true
+                                    switchTrue: Options.settings[shortcutset.globalPropertyName(model.name)]
+                                    onToggled: {
+                                        var prop = shortcutset.globalPropertyName(model.name);
+                                        Options.settings[prop] = !Options.settings[prop];
+                                    }
+                                }
+                                bottomLine: index !== actionDefs.count - 1
                             }
-                            bottomLine: false
                         }
                     }
                 }
