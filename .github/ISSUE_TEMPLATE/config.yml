@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 提问
+    url: https://github.com/BroNekoX/QueMusic/discussions
+    about: 想询问 QueMusic 相关的问题，请前往讨论区提问
+  - name: 讨论
+    url: https://github.com/BroNekoX/QueMusic/discussions
+    about: 想讨论 QueMusic 相关的事情，请前往讨论区发言
