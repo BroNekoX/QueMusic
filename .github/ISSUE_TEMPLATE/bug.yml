@@ -1,6 +1,6 @@
 name: "综合 Bug 反馈"
 description: "遇到的 Bug 不属于崩溃闪退，或其他未细分的 Bug"
-labels: [· Bug, 新提交]
+labels: [bug, 新提交]
 body:
 - type: checkboxes
   id: "check"

@@ -1,6 +1,6 @@
 name: "崩溃 / 闪退反馈"
 description: "QueMusic 启动失败、运行中崩溃或闪退"
-labels: [· Bug, 新提交]
+labels: [bug, 新提交]
 body:
 - type: checkboxes
   id: "check"
