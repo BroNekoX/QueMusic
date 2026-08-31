@@ -2181,7 +2181,7 @@ Item {
                     }
                 }
 
-                QHead { text: "使用第三方项目与库" }
+                QHead { text: "使用的主要第三方项目" }
 
                 Grid {
                     spacing: 24

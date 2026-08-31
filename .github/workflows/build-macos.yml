@@ -13,6 +13,8 @@ jobs:
       matrix:
         os: [macos-14, macos-13]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write   # <--- 新增：赋予写入 Release 的权限
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -100,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.DMG_NAME }}
-          generate_release_notes: true
+          generate_release_notes: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
