@@ -138,14 +138,21 @@ jobs:
           EOF
           chmod +x AppRun.sh
 
-      # ========== 打包 AppImage（修正参数） ==========
+      # ========== 打包 AppImage（清理多余 SQL 驱动） ==========
       - name: Package AppImage
         run: |
           export QMAKE="$HOME/Qt/6.10.3/gcc_64/bin/qmake"
           export QML_SOURCES_PATHS="$(pwd)"
           export EXTRA_QT_MODULES="multimedia;sql;shadertools"
           export QT_QPA_PLATFORM=minimal
-          rm -f "$HOME/Qt/6.10.3/gcc_64/plugins/sqldrivers/libqsqlmimer.so"
+
+          # 删除不需要的 SQL 驱动，仅保留 sqlite（避免 OCI 依赖缺失）
+          cd "$HOME/Qt/6.10.3/gcc_64/plugins/sqldrivers"
+          # 保留 libqsqlite.so，删除其他所有 libqsql*.so
+          find . -maxdepth 1 -name "libqsql*.so" ! -name "libqsqlite.so" -exec rm -f {} \;
+          cd -
+
+          # 现在运行 linuxdeploy，它只会复制剩余存在的驱动（即 sqlite）
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
             --executable build/bin/QueMusic \
@@ -154,6 +161,7 @@ jobs:
             --plugin qt \
             --custom-apprun AppRun.sh \
             --output appimage
+
           mv QueMusic-*.AppImage QueMusic-x86_64.AppImage 2>/dev/null || true
           ls -la QueMusic-*.AppImage
 
