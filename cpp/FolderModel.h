@@ -93,7 +93,9 @@ public:
 
     // QML 可调用的方法
     Q_INVOKABLE void loadByFolder(int folderId);
+    Q_INVOKABLE QVariantMap get(int index) const;
     Q_INVOKABLE int addSong(int folderId, const QString &name, const QString &path, const QString &singer = "");
+    Q_INVOKABLE int addSongs(int folderId, const QVariantList &songs);
     Q_INVOKABLE bool deleteSong(int songId);
 
     int folderId() const { return m_folderId; }

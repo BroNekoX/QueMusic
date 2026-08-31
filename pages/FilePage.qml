@@ -16,6 +16,100 @@ Item {
     signal loaded()
     signal cancelChoose()
 
+    // 在播放列表中查找同名/同路径歌曲，避免重复添加本地文件
+    function findIndexByValue(model, key, targetValue) {
+        for (var i = 0; i < model.count; i++) {
+            var element = model.get(i);
+            if (element && element[key] === targetValue) {
+                return i;
+            }
+        }
+        return -1; // 未找到返回 -1
+    }
+
+    // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
+    function addAllSongModelToList(play) {
+        if (songModel.count === 0) {
+            Style.warned("当前文件夹没有歌曲", 0);
+            return;
+        }
+        var playFirst = -1;
+        var added = 0;
+        for (var i = 0; i < songModel.count; i++) {
+            var item = songModel.get(i);
+            if (!item || !item.name || !item.path) continue;
+            if (filePage.findIndexByValue(playListModel, "path", item.path) !== -1) continue;
+            playListModel.append({ name: item.name, path: item.path, songer: item.singer || "", source: -1 });
+            if (playFirst === -1) playFirst = playListModel.count - 1;
+            added++;
+        }
+        if (added === 0) {
+            Style.warned("列表中的歌曲都已在播放列表中", 0);
+        } else {
+            Style.warned("成功加入播放列表 " + added + " 首", 1);
+        }
+        if (play && playFirst !== -1) {
+            playListModel.playListIndex = playFirst;
+            musicControlMin.refreshMusicPlay();
+        }
+    }
+
+    // 把「本地文件夹」里扫描到的音频文件全部加入播放列表，play=true 时立即播放
+    function addAllLocalFilesToList(play) {
+        if (localFileModel.count === 0) {
+            Style.warned("当前文件夹没有音频文件", 0);
+            return;
+        }
+        var playFirst = -1;
+        var added = 0;
+        for (var i = 0; i < localFileModel.count; i++) {
+            var name = localFileModel.get(i, "fileName");
+            var fileUrl = localFileModel.get(i, "fileUrl");
+            if (!name || !fileUrl) continue;
+            var path = fileUrl.toString();
+            if (filePage.findIndexByValue(playListModel, "path", path) !== -1) continue;
+            playListModel.append({ name: name, path: path, songer: "", source: -1 });
+            if (playFirst === -1) playFirst = playListModel.count - 1;
+            added++;
+        }
+        if (added === 0) {
+            Style.warned("列表中的歌曲都已在播放列表中", 0);
+        } else {
+            Style.warned("成功加入播放列表 " + added + " 首", 1);
+        }
+        if (play && playFirst !== -1) {
+            playListModel.playListIndex = playFirst;
+            musicControlMin.refreshMusicPlay();
+        }
+    }
+
+    // 打开某个歌曲文件的所在文件夹（本地浏览器）
+    function openSongFolder(songPath) {
+        var p = songPath || "";
+        if (p.startsWith("file:///"))
+            p = p.substring(8);
+        var idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+        var dir = idx > 0 ? p.substring(0, idx) : p;
+        if (dir) {
+            Qt.openUrlExternally(dir);
+        } else {
+            Style.warned("无法定位所在文件夹", 0);
+        }
+    }
+
+    // 刷新当前浏览的音频列表：重新从磁盘/数据库读取
+    function refreshSongList() {
+        if (songModel.folderId >= 0) {
+            songModel.loadByFolder(songModel.folderId);
+        }
+        if (localFileModel.folder.toString()) {
+            var folder = localFileModel.folder;
+            localFileModel.folder = "";
+            localFileModel.folder = folder;
+        }
+        Style.warned("已刷新当前列表", 1);
+    }
+
     // 首页面
     Item {
         id: fileMain
@@ -249,7 +343,13 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
+                                    tipText: model.path ? "打开文件夹位置" : "应用逻辑文件夹（无磁盘路径）"
                                     onClicked: {
+                                        if (model.path) {
+                                            Qt.openUrlExternally(model.path);
+                                        } else {
+                                            Style.warned("「我的文件夹」没有关联的磁盘路径", 0);
+                                        }
                                     }
                                 }
                                 SButton {
@@ -260,6 +360,7 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
+                                    tipText: "重命名文件夹"
 
                                     onClicked: {
                                         if(model.folderId !== 1) {
@@ -280,6 +381,7 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                     shadowEnabled: false
+                                    tipText: "删除文件夹"
                                     onClicked: {
                                         if(model.folderId !== 1) {
                                             //myfileModel.remove( index, 1 )
@@ -485,7 +587,13 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
+                                    tipText: "打开文件夹位置"
                                     onClicked: {
+                                        if (model.path) {
+                                            Qt.openUrlExternally(model.path);
+                                        } else {
+                                            Style.warned("无法定位文件夹", 0);
+                                        }
                                     }
                                 }
                                 SButton {
@@ -496,6 +604,7 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
+                                    tipText: "重命名文件夹"
 
                                     onClicked: {
                                         editLocalDialog.input = model.name
@@ -511,6 +620,7 @@ Item {
                                     buttonColor: "transparent"
                                     hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                     shadowEnabled: false
+                                    tipText: "删除文件夹"
                                     onClicked: {
                                         globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                             function() {
@@ -551,28 +661,23 @@ Item {
                     // 获取选中的文件URL（file:// 格式）
                     var fileUrls = musicfileDialog.selectedFiles;
 
-                    // 将URL转换为本地文件路径（去掉 'file:///' 前缀）
+                    // 先批量转换为本地路径，再一次交给 C++ 侧事务写入，
+                    // 避免上千首歌曲重复打开DB/刷新列表导致界面假死。
+                    var importList = [];
                     for (var i = 0; i < fileUrls.length; i++) {
-                        var fileUrl = fileUrls[i];
-                        var filePath = fileUrl.toString();
+                        var filePath = fileUrls[i].toString();
                         if (filePath.startsWith("file:///")) {
                             filePath = filePath.substring(8);// 去前8字符：file:///
                         }
-
-                        // 从完整路径中提取纯文件名（例如从 'C:/Users/me/doc.txt' 提取 'doc.txt'）
                         var fileName = filePath.split('/').pop(); // 使用 '/' 分割，取最后一部分
+                        if (fileName && filePath) {
+                            importList.push({ name: fileName, path: filePath, singer: "" });
+                        }
+                    }
 
-                        console.log("文件URL: ", fileUrl);
-                        console.log("文件路径: ", filePath);
-                        console.log("文件名: ", fileName);
-
-                        // 现在你可以使用 fileName 或 filePath 进行后续操作，例如显示、读取等
-                        let musics = [];
-                        //musics.push({name:fileName,path:filePath,songer:""});
-                        //myfileModel.get(filePage.folderNumber).music.append(musics);
-                        songModel.addSong(songModel.folderId, fileName, filePath, "");
-                        Style.warned("成功导入音乐",1);
-                        //filePage.loaded()
+                    if (importList.length > 0) {
+                        var added = songModel.addSongs(songModel.folderId, importList);
+                        Style.warned("成功导入 " + added + " 首音乐", 1);
                     }
                 }
                 onRejected: {
@@ -593,7 +698,9 @@ Item {
                     text: "播放"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "播放当前文件夹全部歌曲"
                     onClicked: {
+                        filePage.addAllSongModelToList(true);
                     }
                 }
                 SButton {
@@ -603,7 +710,9 @@ Item {
                     iconCharacter: "\uf095"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "全部加入播放列表"
                     onClicked: {
+                        filePage.addAllSongModelToList(false);
                     }
                 }
                 SButton {
@@ -613,7 +722,9 @@ Item {
                     iconCharacter: "\uf0c8"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "刷新当前文件夹"
                     onClicked: {
+                        filePage.refreshSongList();
                     }
                 }
             }
@@ -647,6 +758,19 @@ Item {
                     radius: Style.settings.labelRadius
                     color: mainMedia.noTitle == model.name ? Style.themes.containColor : "transparent"
 
+                    // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
+                    property string coverUrl: {
+                        if (!model.path) return "";
+                        var path = model.path;
+                        var embedded = coverHelper.findEmbeddedCover(path);
+                        if (embedded) return embedded;
+                        var local = coverHelper.findLocalCover(path);
+                        if (local) return local;
+                        var meta = MusicApi.readLocalMetadata(path);
+                        if (meta && meta.cover) return meta.cover;
+                        return "";
+                    }
+
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Rectangle {
@@ -665,6 +789,15 @@ Item {
                             color: Style.themes.fontColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
+                        }
+                        QPicture {
+                            anchors.fill: parent
+                            source: listfile.coverUrl
+                            visible: listfile.coverUrl !== ""
+                            radius1: 10
+                            radius2: 10
+                            radius3: 10
+                            radius4: 10
                         }
                     }
 
@@ -722,6 +855,7 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
+                                tipText: "加入播放列表"
                                 onClicked: {
                                     var musicName = model.name;
                                     var musicPath = model.path;
@@ -741,7 +875,9 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
+                                tipText: "打开所在文件夹"
                                 onClicked: {
+                                    filePage.openSongFolder(model.path);
                                 }
                             }
                             SButton {
@@ -753,6 +889,7 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                 shadowEnabled: false
+                                tipText: "从当前文件夹移除"
                                 onClicked: {
                                     //myfileModel.get(filePage.folderNumber).music.remove(index)
                                     songModel.deleteSong(model.songId);
@@ -796,7 +933,9 @@ Item {
                     text: "播放"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "播放当前文件夹全部歌曲"
                     onClicked: {
+                        filePage.addAllLocalFilesToList(true);
                     }
                 }
                 SButton {
@@ -806,7 +945,9 @@ Item {
                     iconCharacter: "\uf095"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "全部加入播放列表"
                     onClicked: {
+                        filePage.addAllLocalFilesToList(false);
                     }
                 }
                 SButton {
@@ -816,7 +957,9 @@ Item {
                     iconCharacter: "\uf0c8"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
+                    tipText: "刷新当前文件夹"
                     onClicked: {
+                        filePage.refreshSongList();
                     }
                 }
             }
@@ -878,6 +1021,19 @@ Item {
                     radius: Style.settings.labelRadius
                     color: mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
 
+                    // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
+                    property string coverUrl: {
+                        if (!model.fileUrl) return "";
+                        var path = model.fileUrl.toString();
+                        var embedded = coverHelper.findEmbeddedCover(path);
+                        if (embedded) return embedded;
+                        var local = coverHelper.findLocalCover(path);
+                        if (local) return local;
+                        var meta = MusicApi.readLocalMetadata(path);
+                        if (meta && meta.cover) return meta.cover;
+                        return "";
+                    }
+
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Rectangle {
@@ -896,6 +1052,15 @@ Item {
                             color: Style.themes.fontColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
+                        }
+                        QPicture {
+                            anchors.fill: parent
+                            source: listLocalFile.coverUrl
+                            visible: listLocalFile.coverUrl !== ""
+                            radius1: 10
+                            radius2: 10
+                            radius3: 10
+                            radius4: 10
                         }
                     }
 
@@ -952,6 +1117,7 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
+                                tipText: "加入播放列表"
                                 onClicked: {
                                     var musicName = model.fileName;
                                     var musicPath = model.fileUrl.toString();
@@ -969,7 +1135,9 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
+                                tipText: "打开所在文件夹"
                                 onClicked: {
+                                    filePage.openSongFolder(model.fileUrl.toString());
                                 }
                             }
                             SButton {
@@ -980,8 +1148,22 @@ Item {
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                 shadowEnabled: false
+                                tipText: "从本地文件夹移除（移入回收站）"
                                 onClicked: {
-                                    myfileModel.get(filePage.folderNumber).music.remove(index);
+                                    var targetName = model.fileName;
+                                    var targetPath = model.fileUrl.toString();
+                                    globalDialog.openSimpleDialog("移除本地文件", "这将把「" + targetName + "」从当前文件夹移入回收站，是否继续？",
+                                        function() {
+                                            if (MusicApi.moveLocalFileToTrash(targetPath)) {
+                                                Style.warned("已将文件移入回收站", 1);
+                                                var folder = localFileModel.folder;
+                                                localFileModel.folder = "";
+                                                localFileModel.folder = folder;
+                                            } else {
+                                                Style.warned("移动文件失败", 0);
+                                            }
+                                        }
+                                    );
                                 }
                             }
                         }

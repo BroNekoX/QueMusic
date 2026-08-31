@@ -83,12 +83,15 @@ Window {
         if (hasMeta) {
             mainMedia.urlLocal = false;
             mainMedia.noTitle = title;
-            mainMedia.urlStr = meta.cover || "qrc:/QueMusic/resources/app/musicpic.png";
+            var localCover = meta.cover || coverHelper.findEmbeddedCover(path)
+                             || coverHelper.findLocalCover(path);
+            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
             window.musicTitle = title;
             window.musicArtist = artist;
             MusicApi.lyricsData = meta.lyrics || [];
             MusicApi.lyricsTranslate = meta.translate || [];
-            colorExtractor.extractColorsFromUrl(meta.cover);
+            if (localCover)
+                colorExtractor.extractColorsFromUrl(localCover);
         } else {
             mainMedia.urlLocal = true;
             mainMedia.noTitle = name;
@@ -144,6 +147,7 @@ Window {
     Shortcut {
         sequence: "Esc" // 返回
         context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut // 录制快捷键时不抢 Esc，交给录制框处理
         onActivated: {
             window.exit();
             console.log("Exit");
@@ -156,7 +160,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.play // 暂停/播放
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut
+        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutPlay
         onActivated: {
             console.log("shortcut--play")
             if (mainMedia.playing === false) {
@@ -170,7 +174,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.back // 上一首
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut
+        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutBack
         onActivated: {
             console.log("shortcut--back")
             musicControlMin.lastMedia();
@@ -179,7 +183,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.forward // 下一首
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut
+        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutForward
         onActivated: {
             console.log("shortcut--forward")
             musicControlMin.enterMedia();
@@ -188,7 +192,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.playList // 播放菜单
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut
+        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutPlayList
         onActivated: {
             console.log("shortcut--playList")
             if(playList.visible) {
@@ -201,7 +205,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.musicControl // 播放模式切换
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut
+        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutMusicControl
         onActivated: {
             if(mainLayout.state === "") {
                 controlMaxLoader.active = true;
