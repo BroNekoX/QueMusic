@@ -39,6 +39,21 @@ Popup {
             color: Style.themes.fontColor
         }
         SButton {
+            iconCharacter: "\uf050"
+            x: parent.width - 130
+            y: 12
+            width: 36
+            height: 36
+            radius: 18
+            //iconSize: Style.settings.texticon + 2
+            buttonColor: "transparent"
+            shadowEnabled: false
+            onClicked: {
+                //playList.close();
+            }
+        }
+
+        SButton {
             iconCharacter: "\uf08e"
             x: parent.width - 90
             y: 12

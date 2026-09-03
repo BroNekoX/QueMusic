@@ -10,6 +10,27 @@ Item {
     property int setMode: 0
     property list<int> chooseIndex: []
 
+    function chooseTotal() {
+        return favouriteChildPage.lastIndex === 0 ? favoritesSong.count : favoritesList.count;
+    }
+
+    function isAllChosen() {
+        var total = favouritePage.chooseTotal();
+        return total > 0 && favouritePage.chooseIndex.length >= total;
+    }
+
+    function toggleAllChoose() {
+        var total = favouritePage.chooseTotal();
+        if (total === 0) return;
+        if (favouritePage.isAllChosen()) {
+            favouritePage.chooseIndex = [];
+            return;
+        }
+        var all = [];
+        for (var i = 0; i < total; i++) all.push(i);
+        favouritePage.chooseIndex = all;
+    }
+
     QPages {
         id: favouriteChildPage
         x: 24
@@ -204,25 +225,29 @@ Item {
         Rectangle {
             id: chooseArea
             x: -24
-            y: visible ? favouriteChildPage.height - 60 : favouriteChildPage.height
+            y: favouriteChildPage.height - 60
+            opacity: visible ? 1 : 0
             width: favouritePage.width
             height: 60
             visible: favouritePage.setMode !== 0
-            color: Style.themes.sideColor
-            Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutExpo } }
-            Rectangle {
+            //color: Style.themes.sideColor
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 1.0; color: Style.themes.sideColor }
+            }
+            Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+            QButton {
+                shadowEnabled: false
                 x: 16
                 y: 12
                 width: 92
                 height: 36
                 radius: 20
-                color: Style.themes.fullColor
-                Text {
-                    anchors.centerIn: parent
-                    text: "多选模式"
-                    color: Style.themes.textColor
-                    font.pixelSize: Style.settings.textmain
-                }
+                borderWidth: 1
+                buttonColor: favouritePage.isAllChosen() ? Style.themes.themeColor : Style.themes.fullColor
+                textColor: favouritePage.isAllChosen() ? Style.themes.primaryColor : Style.themes.fontColor
+                text: "全选"
+                onClicked: favouritePage.toggleAllChoose()
             }
             Rectangle {
                 x: 118
@@ -246,6 +271,7 @@ Item {
                     shadowEnabled: false
                     height: 36
                     radius: 20
+                    borderWidth: 1
                     buttonColor: "#fa4642"
                     text: "取消收藏"
                     onClicked: {
@@ -281,6 +307,7 @@ Item {
                     shadowEnabled: false
                     height: 36
                     radius: 20
+                    borderWidth: 1
                     text: "加入播放列表"
                     onClicked: {
                         switch(favouritePage.setMode) {
@@ -313,6 +340,7 @@ Item {
                     width: 92
                     height: 36
                     radius: 20
+                    borderWidth: 1
                     buttonColor: Style.themes.themeColor
                     textColor: Style.themes.primaryColor
                     text: "完成"

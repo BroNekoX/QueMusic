@@ -275,10 +275,7 @@ Rectangle {
                     }
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "收藏"
-            }
+            tipText: "收藏"
         }
         SButton {
             x: 174
@@ -292,6 +289,9 @@ Rectangle {
             hoverColor: Style.themes.hoverColor
             iconColor: Style.themes.textColor
             shadowEnabled: false
+            visible: playListModel.count > 0 && playListModel.playListIndex >= 0
+                     && playListModel.playListIndex < playListModel.count
+                     && playListModel.get(playListModel.playListIndex).source !== -1
             onClicked: {
                 if(playListModel.get(playListModel.playListIndex).path) {
                     if(Options.settings.soundQuality === 0) {
@@ -303,10 +303,7 @@ Rectangle {
                     }
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "下载"
-            }
+            tipText: "下载"
         }
 
     }
@@ -335,10 +332,7 @@ Rectangle {
                     musicControlMin.cycleIndex = 0;
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "播放顺序"
-            }
+            tipText: "播放顺序"
         }
         SButton {
             iconCharacter: "\uf0dc"
@@ -351,10 +345,7 @@ Rectangle {
             iconSize: Style.settings.texticonH
             shadowEnabled: false
             onClicked: musicControlMin.lastMedia()
-            QTip {
-                visible: parent.hovered
-                text: "上一首"
-            }
+            tipText: "上一首"
         }
         SButton {
             iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
@@ -374,10 +365,7 @@ Rectangle {
                     mainMedia.pause();
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: mainMedia.playing ? "暂停" : "播放"
-            }
+            tipText: mainMedia.playing ? "暂停" : "播放"
         }
         SButton {
             iconCharacter: "\uf0d9"
@@ -390,10 +378,7 @@ Rectangle {
             iconSize: Style.settings.texticonH
             shadowEnabled: false
             onClicked: musicControlMin.enterMedia()
-            QTip {
-                visible: parent.hovered
-                text: "下一首"
-            }
+            tipText: "下一首"
         }
         SButton {
             iconCharacter: "\uf0d0"
@@ -412,10 +397,7 @@ Rectangle {
                     playerOptionDialog.open();
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "播放器控制"
-            }
+            tipText: "播放器控制"
         }
 
     }
@@ -451,16 +433,15 @@ Rectangle {
             iconSize: Style.settings.texticon + 1
             shadowEnabled: false
             onClicked: {
-                if(playerInfoDialog.visible) {
-                    playerInfoDialog.close();
+                if(musicInfo.visible) {
+                    //playerInfoDialog.close();
+                    musicInfo.close();
                 } else {
-                    playerInfoDialog.open();
+                    //playerInfoDialog.open();
+                    musicInfo.open();
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "音乐详情"
-            }
+            tipText: "音乐详情"
         }
         SButton {
             iconCharacter: "\uf043"
@@ -508,10 +489,7 @@ Rectangle {
                     desktopPlayer.open()
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "桌面部件"
-            }
+            tipText: "桌面部件"
         }
         SButton {
             iconCharacter: "\uf098"
@@ -530,10 +508,7 @@ Rectangle {
                     playList.open();
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "播放列表"
-            }
+            tipText: "播放列表"
         }
     }
 
@@ -715,14 +690,14 @@ Rectangle {
             }
 
             SettingItem {
-                label: "启用间距补偿"
+                label: "启用音高补偿（倍速）"
                 controlWidth: 120
                 width: parent.width
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: false
-                    onToggled: switchTrue = !switchTrue
+                    switchTrue: mainMedia.pitchCompensation
+                    onToggled: mainMedia.pitchCompensation = !mainMedia.pitchCompensation
                 }
             }
 
@@ -784,6 +759,10 @@ Rectangle {
                 }
             }
         }
+    }
+
+    MusicInfo {
+        id: musicInfo
     }
 
     QOptionDialog {

@@ -13,12 +13,18 @@ ToolTip {
     opacity: visible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
     //属性: parent visible text
+    contentItem: Text {
+        text: root.text
+        font.pixelSize: Style.settings.text
+        wrapMode: Text.Wrap
+        color: Style.themes.textColor
+    }
     background: Rectangle {
         anchors.fill: parent
-        color: "#fffafbfd"
+        color: Style.themes.fullColor//"#fffafbfd"
         border.width: 2
         radius: height
-        border.color: "#ffeaebed"
+        border.color: Style.themes.sideColor//"#ffeaebed"
 
     }
 }

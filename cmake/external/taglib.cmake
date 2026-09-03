@@ -27,6 +27,8 @@ target_include_directories(quemusic_taglib INTERFACE
     "${_taglib_root}/taglib/mpeg"
     "${_taglib_root}/taglib/mpeg/id3v2"
     "${_taglib_root}/taglib/mpeg/id3v2/frames"
+    "${_taglib_root}/taglib/flac"
+    "${_taglib_root}/taglib/mp4"
 )
 target_link_libraries(quemusic_taglib INTERFACE tag)
 

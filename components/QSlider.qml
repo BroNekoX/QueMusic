@@ -40,7 +40,7 @@ Slider {
         implicitHeight: 16
         radius: implicitHeight / 2
         color: slider.pressed ? Style.themes.secondaryColor : Style.themes.primaryColor
-        border.width: 2
+        border.width: 3
         border.color: Style.themes.themeColor
     }
 

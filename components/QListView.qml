@@ -346,6 +346,7 @@ ListView {
                     buttonColor: "transparent"
                     hoverColor: Style.themes.hoverColor
                     shadowEnabled: false
+                    tipText: "更多"
                     onClicked: {
                         menu.index = index
                         view.menu.popup()
@@ -359,6 +360,7 @@ ListView {
                     buttonColor: "transparent"
                     hoverColor: Style.themes.hoverColor
                     shadowEnabled: false
+                    tipText: "收藏"
                     onClicked: view.toolClicked(index,1)
                 }
                 SButton {
@@ -369,6 +371,7 @@ ListView {
                     buttonColor: "transparent"
                     hoverColor: Style.themes.hoverColor
                     shadowEnabled: false
+                    tipText: "加入播放列表"
                     onClicked: view.toolClicked(index,0)
                 }
             }

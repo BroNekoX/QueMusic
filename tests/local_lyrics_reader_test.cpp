@@ -10,8 +10,12 @@ private slots:
     void parsesLrcTimestampsAndSorts();
     void parsesEnhancedLrcWordTimings();
     void stripsEmptyWordLabelsFromText();
+    void splitsSameTimestampTranslations();
+    void alignsTranslationsWhenSomeLinesLackThem();
+    void leavesTranslateEmptyForSingleLanguageLrc();
     void readsSidecarBeforeEmbeddedLyrics();
     void readsEmbeddedId3LyricsWhenSidecarIsMissing();
+    void readsTranslationsFromSidecarLrc();
 };
 
 static QByteArray syncSafeSize(int size)
@@ -120,6 +124,57 @@ void LocalLyricsReaderTest::stripsEmptyWordLabelsFromText()
     QCOMPARE(lastInfo.at(0).toMap().value(QStringLiteral("offset")).toLongLong(), 200LL);
 }
 
+// 逐字 LRC + 同时间轴翻译行：翻译不再占正文一行，而是与原行同下标进入翻译表
+void LocalLyricsReaderTest::splitsSameTimestampTranslations()
+{
+    const LocalLyricsReader::Parsed parsed = LocalLyricsReader::parseLrcWithTranslation(
+        QStringLiteral("[00:00.480] <00:00.480>As <00:00.660>long <00:00.990>as <00:01.170>you "
+                       "<00:01.320>love <00:01.800>me<00:05.250>\n"
+                       "[00:00.480]只要你爱我就好\n"
+                       "[00:07.410] <00:07.410>As <00:07.590>long <00:07.920>as <00:08.100>you "
+                       "<00:08.250>love <00:08.730>me<00:11.520>\n"
+                       "[00:07.410]只要你爱我就好\n"));
+
+    QCOMPARE(parsed.lyrics.size(), 2);
+    QCOMPARE(parsed.translate.size(), 2);
+
+    const QVariantMap first = parsed.lyrics.at(0).toMap();
+    QCOMPARE(first.value(QStringLiteral("time")).toLongLong(), 480LL);
+    QCOMPARE(first.value(QStringLiteral("text")).toString(),
+             QStringLiteral("As long as you love me"));
+    // 逐字信息仍保留，逐字高亮不受影响
+    QCOMPARE(first.value(QStringLiteral("info")).toList().size(), 6);
+    QCOMPARE(parsed.translate.at(0).toString(), QStringLiteral("只要你爱我就好"));
+
+    QCOMPARE(parsed.lyrics.at(1).toMap().value(QStringLiteral("time")).toLongLong(), 7410LL);
+    QCOMPARE(parsed.translate.at(1).toString(), QStringLiteral("只要你爱我就好"));
+}
+
+// 部分原行没有翻译时，用空串占位，保证与正文下标对齐
+void LocalLyricsReaderTest::alignsTranslationsWhenSomeLinesLackThem()
+{
+    const LocalLyricsReader::Parsed parsed = LocalLyricsReader::parseLrcWithTranslation(
+        QStringLiteral("[00:06.900]I don't know if this make sense\n"
+                       "[00:08.280]But you're my hallelujah\n"
+                       "[00:08.280]但你是我的唯一\n"));
+
+    QCOMPARE(parsed.lyrics.size(), 2);
+    QCOMPARE(parsed.translate.size(), 2);
+    QCOMPARE(parsed.lyrics.at(0).toMap().value(QStringLiteral("text")).toString(),
+             QStringLiteral("I don't know if this make sense"));
+    QVERIFY(parsed.translate.at(0).toString().isEmpty());
+    QCOMPARE(parsed.translate.at(1).toString(), QStringLiteral("但你是我的唯一"));
+}
+
+void LocalLyricsReaderTest::leavesTranslateEmptyForSingleLanguageLrc()
+{
+    const LocalLyricsReader::Parsed parsed = LocalLyricsReader::parseLrcWithTranslation(
+        QStringLiteral("[00:01.00]前奏\n[00:03.50]副歌\n"));
+
+    QCOMPARE(parsed.lyrics.size(), 2);
+    QVERIFY(parsed.translate.isEmpty());
+}
+
 void LocalLyricsReaderTest::readsSidecarBeforeEmbeddedLyrics()
 {
     QTemporaryDir dir;
@@ -164,6 +219,33 @@ void LocalLyricsReaderTest::readsEmbeddedId3LyricsWhenSidecarIsMissing()
     QCOMPARE(lyrics.size(), 1);
     QCOMPARE(lyrics.first().toMap().value(QStringLiteral("time")).toLongLong(), 2000LL);
     QCOMPARE(lyrics.first().toMap().value(QStringLiteral("text")).toString(), QStringLiteral("embedded"));
+}
+
+void LocalLyricsReaderTest::readsTranslationsFromSidecarLrc()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString audioPath = dir.filePath(QStringLiteral("bilingual.mp3"));
+    QFile audio(audioPath);
+    QVERIFY(audio.open(QIODevice::WriteOnly));
+    audio.close();
+
+    QFile lrc(dir.filePath(QStringLiteral("bilingual.lrc")));
+    QVERIFY(lrc.open(QIODevice::WriteOnly | QIODevice::Text));
+    QVERIFY(lrc.write("[00:01.00]Hello\n"
+                      "[00:01.00]你好\n"
+                      "[00:04.00]World\n"
+                      "[00:04.00]世界\n") > 0);
+    lrc.close();
+
+    const QVariantMap result = LocalLyricsReader::read(audioPath);
+    QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("sidecar"));
+    QCOMPARE(result.value(QStringLiteral("lyrics")).toList().size(), 2);
+    const QVariantList translate = result.value(QStringLiteral("translate")).toList();
+    QCOMPARE(translate.size(), 2);
+    QCOMPARE(translate.at(0).toString(), QStringLiteral("你好"));
+    QCOMPARE(translate.at(1).toString(), QStringLiteral("世界"));
 }
 
 QTEST_MAIN(LocalLyricsReaderTest)

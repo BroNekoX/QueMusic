@@ -34,7 +34,7 @@ LogManager::LogManager(QObject *parent)
         const QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
         QSettings settings(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
         m_enabled = settings.value(QStringLiteral("Options/logEnabled"), true).toBool();
-        m_minimumLevel = settings.value(QStringLiteral("Options/logLevel"), int(Level::Error)).toInt();
+        m_minimumLevel = settings.value(QStringLiteral("Options/logLevel"), int(Level::Info)).toInt();
         m_minimumLevel = qBound(int(Level::Debug), m_minimumLevel, int(Level::Fatal));
     }
 

@@ -16,6 +16,10 @@
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
 
+#include <fileref.h>
+#include <tag.h>
+#include <tstring.h>
+
 namespace {
 constexpr int kSourceKugou = 0;
 constexpr int kSourceNetease = 1;
@@ -29,6 +33,12 @@ QString firstNonEmpty(const QVariantMap &m, std::initializer_list<const char *> 
             return v.toString();
     }
     return QString();
+}
+
+// TagLib 字符串统一转 UTF-8，避免中文歌词/标题乱码
+QString tagString(const TagLib::String &value)
+{
+    return QString::fromUtf8(value.toCString(true));
 }
 } // namespace
 
@@ -243,6 +253,18 @@ QVariantMap MusicApiService::readLocalLyrics(const QString &filePath)
     return LocalLyricsReader::read(filePath);
 }
 
+bool MusicApiService::moveLocalFileToTrash(const QString &filePath)
+{
+    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
+    if (localPath.isEmpty())
+        localPath = filePath;
+
+    QFile f(localPath);
+    if (!f.exists())
+        return false;
+    return f.moveToTrash();
+}
+
 void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QString &title,
                                            const QString &artist, int duration,
                                            bool allowOnlineSearch)
@@ -265,7 +287,8 @@ void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QStrin
 
                 const QVariantList lyrics = result.value(QStringLiteral("lyrics")).toList();
                 if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty())
-                    emit localLyricsReady(filePath, lyrics);
+                    emit localLyricsReady(filePath, lyrics,
+                                          result.value(QStringLiteral("translate")).toList());
                 else if (allowOnlineSearch)
                     findLocalLyrics(filePath, title, artist, duration);
                 // 其余情况保留当前歌词（如 .json 自带），不覆盖
@@ -298,7 +321,7 @@ void MusicApiService::findLocalLyrics(const QString &filePath, const QString &ti
     searchSongs(keyword, 0, 1, 10, resolvedSource);
 }
 
-// 读取本地音频同目录同名 .json 元数据；不存在返回空 map
+// 读取本地音频同目录同名 .json 元数据；不存在时回退读取音频内嵌 TAG 元数据
 QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
 {
     QVariantMap meta;
@@ -312,18 +335,38 @@ QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
     const QFileInfo fi(localPath);
     const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
                              + fi.completeBaseName() + QStringLiteral(".json");
-    if (!QFileInfo::exists(jsonPath))
+    if (QFileInfo::exists(jsonPath)) {
+        QFile f(jsonPath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+            if (doc.isObject())
+                return doc.object().toVariantMap();
+        }
+    }
+
+    // 无 .json 时读取音频内嵌 TAG，本地歌曲同样能拿到标题/歌手/歌词元数据
+    const QByteArray encodedPath = QFile::encodeName(localPath);
+    TagLib::FileRef ref(encodedPath.constData(), false);
+    if (ref.isNull() || ref.file() == nullptr)
         return meta;
 
-    QFile f(jsonPath);
-    if (!f.open(QIODevice::ReadOnly))
-        return meta;
+    const TagLib::Tag *tag = ref.tag();
+    if (tag) {
+        if (!tag->title().isEmpty())
+            meta.insert(QStringLiteral("title"), tagString(tag->title()));
+        if (!tag->artist().isEmpty())
+            meta.insert(QStringLiteral("artist"), tagString(tag->artist()));
+        if (!tag->album().isEmpty())
+            meta.insert(QStringLiteral("album"), tagString(tag->album()));
+    }
 
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-    if (!doc.isObject())
-        return meta;
+    const QVariantMap lyricMap = LocalLyricsReader::read(localPath);
+    if (lyricMap.value(QStringLiteral("found")).toBool()) {
+        meta.insert(QStringLiteral("lyrics"), lyricMap.value(QStringLiteral("lyrics")));
+        meta.insert(QStringLiteral("translate"), lyricMap.value(QStringLiteral("translate")));
+    }
 
-    return doc.object().toVariantMap();
+    return meta;
 }
 
 // setter
@@ -593,7 +636,8 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
             if (lyrics.isEmpty())
                 emit localLyricsFailed(request.filePath);
             else
-                emit localLyricsReady(request.filePath, lyrics);
+                emit localLyricsReady(request.filePath, lyrics,
+                                      d.value(QStringLiteral("translate")).toList());
         }
 
         // 歌词返回后发起下载

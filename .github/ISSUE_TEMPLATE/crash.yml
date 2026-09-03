@@ -1,0 +1,48 @@
+name: "崩溃 / 闪退反馈"
+description: "QueMusic 启动失败、运行中崩溃或闪退"
+labels: [bug, 新提交]
+body:
+- type: checkboxes
+  id: "check"
+  attributes:
+    label: "检查项"
+    description: "请逐个检查下列项目，并勾选确认。"
+    options:
+    - label: "我已在 [Issues 页面](https://github.com/BroNekoX/QueMusic/issues?q=is%3Aissue+) 中搜索，确认这一崩溃未被提交过。"
+      required: true
+    - label: "我已开启「设置 → 日志 → 启用日志」，并会在下方上传相关日志文件。"
+      required: true
+- type: input
+  id: "version"
+  attributes:
+    label: 版本 / 运行模式
+    description: "例如：Beta0.4.5、Windows / Linux / macOS。"
+    placeholder: "Beta0.4.5，Windows"
+  validations:
+    required: true
+- type: textarea
+  id: "desc"
+  attributes:
+    label: 描述
+    description: "详细描述崩溃前的操作、崩溃时的现象与错误提示。"
+  validations:
+    required: true
+- type: textarea
+  id: "steps"
+  attributes:
+    label: 重现步骤
+    description: "详细描述要怎么操作才能再次触发这个崩溃。"
+    value: |
+      1、
+      2、
+      3、
+  validations:
+    required: true
+- type: textarea
+  id: "logs"
+  attributes:
+    label: 日志与附件
+    description: "上传 QueMusic 的日志文件：logs/QueMusic_yyyyMMdd.log。"
+    placeholder: "先点击这个文本框，然后再将文件直接拖拽到文本框中以上传。"
+  validations:
+    required: true

@@ -39,14 +39,14 @@ Popup {
             color: Style.themes.fontColor
         }
         SButton {
-            iconCharacter: "\uf11b"
+            iconCharacter: "\uf025"
             x: parent.width - 50
-            y: 10
-            width: 40
-            height: 40
-            radius: 40
+            y: 12
+            width: 36
+            height: 36
+            radius: 36
+            iconSize: Style.settings.texticon + 2
             buttonColor: "transparent"
-            hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
             shadowEnabled: false
             onClicked: {
                 desktopPlayer.close()

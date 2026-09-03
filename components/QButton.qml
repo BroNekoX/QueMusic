@@ -13,6 +13,7 @@ Button {
     text: "Button"              // 按钮文字
     property string iconCharacter: ""          // 图标字符
     property string iconFontFamily: iconFont.name    // 图标字体
+    property string tipText: ""                // 鼠标悬停提示文字（为空则不显示）
 
     // ==== 样式 ====
     property color textColor: Style.themes.fontColor      // 文字颜色
@@ -97,5 +98,10 @@ Button {
                 verticalAlignment: Text.AlignVCenter
             }
         }
+    }
+
+    QTip {
+        visible: root.tipText !== "" && root.hovered
+        text: root.tipText
     }
 }

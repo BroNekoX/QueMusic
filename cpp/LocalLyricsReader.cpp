@@ -9,6 +9,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <numeric>
 
 #include <fileref.h>
 #include <mpegfile.h>
@@ -119,14 +120,74 @@ struct WordEntry
     QString text;
 };
 
+// 一行已解析但尚未定稿的歌词（多时间戳行会被展开成多条）
+struct RawLine
+{
+    qint64 time = 0;
+    QString text;
+    QVariant info; // null：整行高亮；否则 [{offset, duration, text}]
+    bool isOther = false;
+};
+
+// 双语 LRC 的写法：翻译行与原行共用同一时间轴，紧跟在原行之后
+bool isTranslationOf(const RawLine &original, const RawLine &candidate)
+{
+    return candidate.time == original.time && !candidate.text.isEmpty()
+           && candidate.text != original.text;
+}
+
+QVariantMap toLyricMap(const RawLine &line)
+{
+    QVariantMap map = lyricLine(line.time, line.text);
+    if (line.info.isValid())
+        map.insert(QStringLiteral("info"), line.info);
+    if (line.isOther)
+        map.insert(QStringLiteral("isOther"), true);
+    return map;
+}
+
+LocalLyricsReader::Parsed splitTranslations(const QList<RawLine> &raw)
+{
+    QList<RawLine> lines;
+    QStringList translations;
+    bool anyTranslation = false;
+    for (int i = 0; i < raw.size();) {
+        const bool paired = i + 1 < raw.size() && isTranslationOf(raw.at(i), raw.at(i + 1));
+        lines.append(raw.at(i));
+        translations.append(paired ? raw.at(i + 1).text : QString());
+        anyTranslation = anyTranslation || paired;
+        i += paired ? 2 : 1;
+    }
+
+    // 多时间戳行可能乱序，正文与翻译按同下标一起重排
+    QList<int> order(lines.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(), [&lines](int left, int right) {
+        return lines.at(left).time < lines.at(right).time;
+    });
+
+    LocalLyricsReader::Parsed parsed;
+    for (const int index : order) {
+        parsed.lyrics.append(toLyricMap(lines.at(index)));
+        if (anyTranslation)
+            parsed.translate.append(translations.at(index));
+    }
+    return parsed;
+}
+
 } // namespace
 
 QVariantList LocalLyricsReader::parseLrc(const QString &contents)
 {
+    return parseLrcWithTranslation(contents).lyrics;
+}
+
+LocalLyricsReader::Parsed LocalLyricsReader::parseLrcWithTranslation(const QString &contents)
+{
     static const QRegularExpression timestamp(
         QStringLiteral(R"(\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\])"));
 
-    QVariantList lyrics;
+    QList<RawLine> raw;
     const QString normalized = contents.startsWith(QChar(0xFEFF))
                                    ? contents.mid(1)
                                    : contents;
@@ -136,18 +197,16 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
     for (const QString &line : lines) {
         QRegularExpressionMatchIterator matches = timestamp.globalMatch(line);
         QString text = line;
-        bool hasTimestamp = false;
         QList<qint64> times;
         while (matches.hasNext()) {
             const QRegularExpressionMatch match = matches.next();
-            hasTimestamp = true;
             const qint64 minutes = match.captured(1).toLongLong();
             const qint64 seconds = match.captured(2).toLongLong();
             times.append((minutes * 60 + seconds) * 1000
                          + threeDigitFraction(match.captured(3)));
         }
 
-        if (!hasTimestamp)
+        if (times.isEmpty())
             continue;
         text.remove(timestamp);
         const WordLabels labels = extractWordLabels(text);
@@ -158,9 +217,13 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
                              && plainText.endsWith(QStringLiteral("）"));
 
         for (const qint64 time : times) {
+            RawLine current;
+            current.time = time;
+            current.isOther = isOther;
             // 没有字级标签的普通行：info 保持 null，走原来的整行高亮
             if (labels.words.isEmpty() && labels.leading.isEmpty()) {
-                lyrics.append(lyricLine(time, plainText));
+                current.text = plainText;
+                raw.append(current);
                 continue;
             }
 
@@ -214,19 +277,13 @@ QVariantList LocalLyricsReader::parseLrc(const QString &contents)
                 previousDuration = duration;
             }
 
-            QVariantMap item = lyricLine(time, fullText);
-            item.insert(QStringLiteral("info"), info);
-            if (isOther)
-                item.insert(QStringLiteral("isOther"), true);
-            lyrics.append(item);
+            current.text = fullText;
+            current.info = info;
+            raw.append(current);
         }
     }
 
-    std::stable_sort(lyrics.begin(), lyrics.end(), [](const QVariant &left, const QVariant &right) {
-        return left.toMap().value(QStringLiteral("time")).toLongLong()
-        < right.toMap().value(QStringLiteral("time")).toLongLong();
-    });
-    return lyrics;
+    return splitTranslations(raw);
 }
 
 QVariantList LocalLyricsReader::parsePlainLyrics(const QString &text)
@@ -240,7 +297,7 @@ QVariantList LocalLyricsReader::parsePlainLyrics(const QString &text)
     return {lyricLine(0, cleaned)};
 }
 
-QVariantList LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
+LocalLyricsReader::Parsed LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
 {
     const QByteArray encodedPath = QFile::encodeName(filePath);
     if (encodedPath.isEmpty())
@@ -284,7 +341,7 @@ QVariantList LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
                         lyrics.append(line);
                     }
                     if (!lyrics.isEmpty())
-                        return lyrics;
+                        return {lyrics, {}};
                 }
             }
 
@@ -294,12 +351,12 @@ QVariantList LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
                 if (!uslt)
                     continue;
                 const QString text = tagString(uslt->text());
-                const QVariantList timed = parseLrc(text);
-                if (!timed.isEmpty())
+                const Parsed timed = parseLrcWithTranslation(text);
+                if (!timed.lyrics.isEmpty())
                     return timed;
                 const QVariantList plain = parsePlainLyrics(text);
                 if (!plain.isEmpty())
-                    return plain;
+                    return {plain, {}};
             }
         }
     }
@@ -315,18 +372,19 @@ QVariantList LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
         const QString text = tagString(it->second.toString("")).trimmed();
         if (text.isEmpty())
             continue;
-        const QVariantList timed = parseLrc(text);
-        return timed.isEmpty() ? parsePlainLyrics(text) : timed;
+        const Parsed timed = parseLrcWithTranslation(text);
+        return timed.lyrics.isEmpty() ? Parsed{parsePlainLyrics(text), {}} : timed;
     }
     return {};
 }
 
-QVariantMap LocalLyricsReader::result(const QString &source, const QVariantList &lyrics)
+QVariantMap LocalLyricsReader::result(const QString &source, const Parsed &parsed)
 {
     QVariantMap value;
-    value.insert(QStringLiteral("found"), !lyrics.isEmpty());
+    value.insert(QStringLiteral("found"), !parsed.lyrics.isEmpty());
     value.insert(QStringLiteral("source"), source);
-    value.insert(QStringLiteral("lyrics"), lyrics);
+    value.insert(QStringLiteral("lyrics"), parsed.lyrics);
+    value.insert(QStringLiteral("translate"), parsed.translate);
     return value;
 }
 
@@ -341,13 +399,13 @@ QVariantMap LocalLyricsReader::read(const QString &filePath)
                                 + audioInfo.completeBaseName() + QStringLiteral(".lrc");
     QFile sidecar(sidecarPath);
     if (sidecar.open(QIODevice::ReadOnly)) {
-        const QVariantList lyrics = parseLrc(QString::fromUtf8(sidecar.readAll()));
-        if (!lyrics.isEmpty())
-            return result(QStringLiteral("sidecar"), lyrics);
+        const Parsed parsed = parseLrcWithTranslation(QString::fromUtf8(sidecar.readAll()));
+        if (!parsed.lyrics.isEmpty())
+            return result(QStringLiteral("sidecar"), parsed);
     }
 
-    const QVariantList embedded = parseEmbeddedLyrics(localPath);
-    if (!embedded.isEmpty())
+    const Parsed embedded = parseEmbeddedLyrics(localPath);
+    if (!embedded.lyrics.isEmpty())
         return result(QStringLiteral("embedded"), embedded);
     return result(QStringLiteral("none"), {});
 }

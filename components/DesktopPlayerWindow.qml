@@ -165,10 +165,7 @@ Window {
                     musicControlMin.cycleIndex = 0;
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "播放顺序"
-            }
+            tipText: "播放顺序"
         }
 
         SButton {
@@ -185,10 +182,7 @@ Window {
             iconColor: Style.themes.textColor
             shadowEnabled: false
             onClicked: musicControlMin.lastMedia()
-            QTip {
-                visible: parent.hovered
-                text: "上一首"
-            }
+            tipText: "上一首"
         }
         SButton {
             id: playButton
@@ -210,10 +204,7 @@ Window {
                     mainMedia.play();
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: mainMedia.playing ? "暂停" : "播放"
-            }
+            tipText: mainMedia.playing ? "暂停" : "播放"
         }
         SButton {
             id: nextButton
@@ -229,10 +220,7 @@ Window {
             iconColor: Style.themes.textColor
             shadowEnabled: false
             onClicked: musicControlMin.enterMedia()
-            QTip {
-                visible: parent.hovered
-                text: "下一首"
-            }
+            tipText: "下一首"
         }
         SButton {
             id: playListButton
@@ -256,10 +244,7 @@ Window {
                     desktopPlayerWindow.topWindow = true;
                 }
             }
-            QTip {
-                visible: parent.hovered
-                text: "顶置小窗"
-            }
+            tipText: "顶置小窗"
         }
 
         // 关闭按钮
@@ -282,10 +267,7 @@ Window {
                 desktopPlayerLoader.active = false;
             }
 
-            QTip {
-                visible: parent.hovered
-                text: "关闭"
-            }
+            tipText: "关闭"
         }
     }
 }

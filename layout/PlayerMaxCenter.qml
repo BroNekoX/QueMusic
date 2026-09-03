@@ -306,7 +306,7 @@ Item {
             running: mainMedia.onMedia
             repeat: true
             onTriggered: {
-                lyricContent.currentPlayTime = mainMedia.position;
+                lyricContent.currentPlayTime = mainMedia.position + 30;
             }
         }
         readonly property int lyricHeight: musicControlMax.standHeight / 2
@@ -334,7 +334,7 @@ Item {
                 duration: 460
                 to: fixedAnime.to
                 easing.type: Easing.BezierSpline
-                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.03, 1, 1 ]
             }
             NumberAnimation {
                 target: lyricContent
@@ -342,7 +342,7 @@ Item {
                 duration: 460
                 to: fixedAnime.to
                 easing.type: Easing.BezierSpline
-                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+                easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.03, 1, 1 ]
             }
         }
 
@@ -392,21 +392,30 @@ Item {
                     lyricContent.finalH = 0;
                     fixedAnime.running = true;
                 }
-                if(MusicApi.lyricsData[idx].info && idx + 1 < MusicApi.lyricsData.length) {
-                    var lyricLastLineData = MusicApi.lyricsData[idx].info[MusicApi.lyricsData[idx].info.length - 1];
-                    if(MusicApi.lyricsData[idx + 1].time - MusicApi.lyricsData[idx].time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > MusicApi.lyricsData[idx].time + lyricLastLineData.offset + lyricLastLineData.duration) {
-                        if(!waitAnimeSection.visible) {
-                            console.log("开始运行等待动画。");
-                            waitOpenAnime.running = false;
-                            waitOutAnime.running = false;
-                            waitOpenAnime.running = true;
-                            for (var i = 0; i <= idx; i++) {
-                                var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
-                                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
-                            }
-                            for (var i = idx + 1; i < lyricRep.count; i++) {
-                                var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
-                                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos + musicControlMax.standHeight), false);
+                var currentLineData = MusicApi.lyricsData[idx];
+                var currentInfo = currentLineData ? currentLineData.info : undefined;
+                if (currentInfo && currentInfo.length > 0 && idx + 1 < MusicApi.lyricsData.length) {
+                    var lyricLastLineData = currentInfo[currentInfo.length - 1];
+                    var nextLineData = MusicApi.lyricsData[idx + 1];
+                    if (lyricLastLineData && nextLineData
+                        && (lyricLastLineData.offset !== undefined)
+                        && (lyricLastLineData.duration !== undefined)
+                        && (nextLineData.time !== undefined)
+                        && (currentLineData.time !== undefined)) {
+                        if (nextLineData.time - currentLineData.time - lyricLastLineData.offset - lyricLastLineData.duration > 2500 && mainMedia.position > currentLineData.time + lyricLastLineData.offset + lyricLastLineData.duration) {
+                            if(!waitAnimeSection.visible) {
+                                console.log("开始运行等待动画。");
+                                waitOpenAnime.running = false;
+                                waitOutAnime.running = false;
+                                waitOpenAnime.running = true;
+                                for (var i = 0; i <= idx; i++) {
+                                    var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                    if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
+                                }
+                                for (var i = idx + 1; i < lyricRep.count; i++) {
+                                    var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                    if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos + musicControlMax.standHeight), false);
+                                }
                             }
                         }
                     }
@@ -477,7 +486,7 @@ Item {
                         duration: lyricAnime.animeMs
                         to: lyricAnime.toY
                         easing.type: Easing.BezierSpline
-                        easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.04, 1, 1 ]
+                        easing.bezierCurve: [ 0.24, 0.06, lyricContent.springValue, 1.03, 1, 1 ]
                     }
                 }
 
@@ -675,7 +684,22 @@ Item {
         SequentialAnimation {
             id: waitOpenAnime
             property int lightDuration: 2500
-            ScriptAction { script: { waitAnimeSection.visible = true; waitAnimeSection.lightState = 0; waitOpenAnime.lightDuration = MusicApi.lyricsData[lyricContent.currentLine + 1].time - MusicApi.lyricsData[lyricContent.currentLine].time - MusicApi.lyricsData[lyricContent.currentLine].info[MusicApi.lyricsData[lyricContent.currentLine].info.length - 1].offset - MusicApi.lyricsData[lyricContent.currentLine].info[MusicApi.lyricsData[lyricContent.currentLine].info.length - 1].duration - 420 } }
+            ScriptAction { script: {
+                 waitAnimeSection.visible = true;
+                 waitAnimeSection.lightState = 0;
+                 var line = MusicApi.lyricsData[lyricContent.currentLine];
+                 var next = MusicApi.lyricsData[lyricContent.currentLine + 1];
+                 if (line && next && line.info && line.info.length > 0
+                     && (next.time !== undefined) && (line.time !== undefined)) {
+                     var last = line.info[line.info.length - 1];
+                     if (last && (last.offset !== undefined) && (last.duration !== undefined))
+                         waitOpenAnime.lightDuration = next.time - line.time - last.offset - last.duration - 420;
+                     else
+                         waitOpenAnime.lightDuration = 2500;
+                 } else {
+                     waitOpenAnime.lightDuration = 2500;
+                 }
+             } }
             PauseAnimation { duration: 100 }
             ParallelAnimation {
                 NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }

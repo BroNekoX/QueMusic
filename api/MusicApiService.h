@@ -145,11 +145,13 @@ public:
     Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
     // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
     Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
+    // 把单个本地文件移入系统回收站（找不到/无法移动时返回 false）
+    Q_INVOKABLE bool moveLocalFileToTrash(const QString &filePath);
     // 工作线程解析内嵌标签（避免卡 UI）；命中经 localLyricsReady 回传，未命中自动转在线匹配
     Q_INVOKABLE void readLocalLyricsAsync(const QString &filePath, const QString &title,
                                           const QString &artist, int duration = 0,
                                           bool allowOnlineSearch = true);
-    // 本地歌词不存在时，按标题/歌手搜索在线歌词；结果通过信号返回。
+    // 本地歌词不存在时，按标题/歌手搜索在线歌词；结果与翻译通过信号返回。
     Q_INVOKABLE void findLocalLyrics(const QString &filePath, const QString &title,
                                      const QString &artist, int duration = 0,
                                      int source = -1);
@@ -171,7 +173,8 @@ signals:
     void globalinfoChanged();
     void nowIndexChanged();
     void downloadPathChanged();
-    void localLyricsReady(const QString &filePath, const QVariantList &lyrics);
+    void localLyricsReady(const QString &filePath, const QVariantList &lyrics,
+                          const QVariantList &translate);
     void localLyricsFailed(const QString &filePath);
 
 private slots:

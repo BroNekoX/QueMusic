@@ -13,6 +13,7 @@ Button {
     // ==== 外部接口 ====
     property string iconCharacter: ""          // 图标字符 (FontAwesome 等)
     property string iconFontFamily: iconFont.name    // 图标字体
+    property string tipText: ""                // 鼠标悬停提示文字（为空则不显示）
 
     // ==== 样式 ====
     property color iconColor: Style.themes.textColor
@@ -71,5 +72,11 @@ Button {
         font.family: root.iconFontFamily
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
+    }
+
+    QTip {
+        visible: root.tipText !== "" && root.hovered
+        text: root.tipText
+        delay: 480
     }
 }

@@ -15,7 +15,7 @@
 // - 接管 Qt 全局消息（qDebug/qInfo/qWarning/qCritical/qFatal），同时保留控制台输出。
 // - 中文日志，写入“安装目录/logs/QueMusic_yyyyMMdd.log”（每日一个文件，UTF-8）。
 // - 多平台：安装目录不可写时回退到用户数据目录。
-// - 支持分级筛选（默认只记录“错误/致命”），默认开启。
+// - 支持分级筛选（默认记录“信息”及以上），默认开启。
 class LogManager : public QObject
 {
     Q_OBJECT
@@ -75,7 +75,7 @@ private:
     static std::atomic<LogManager *> s_instance;
 
     bool m_enabled = true;
-    int m_minimumLevel = Level::Error;   // 默认：错误（问题）
+    int m_minimumLevel = Level::Info;  // 默认：信息
     QString m_logDir;
     QString m_logFile;
     QString m_dateStamp;
