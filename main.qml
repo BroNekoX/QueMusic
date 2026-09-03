@@ -107,8 +107,11 @@ Window {
             MusicApi.setLocalLyrics();
         MusicApi.readLocalLyricsAsync(path, title, artist, meta.duration || 0, !hasMetaLyrics);
 
-        mainMedia.source = path;
-        mainMedia.play();
+        // 淡出静音后再换源，避免爆音
+        audioFade.run(function() {
+            mainMedia.source = path;
+            mainMedia.play();
+        });
     }
 
     // 首次加载内容临时存储，防止重新加载浪费内存
@@ -688,7 +691,7 @@ Window {
             ColorExtractor {
                 id: colorExtractor
                 signal colorExtractFinished()
-                onColorsExtracted: {
+                onColorsExtracted: (colors) => {
                     coverColor.color1 = colors.length > 0 ? colors[0] : "#00b1ee";
                     coverColor.color2 = colors.length > 1 ? colors[1] : "#9d4edd";
                     coverColor.color3 = colors.length > 2 ? colors[2]
@@ -697,7 +700,7 @@ Window {
                     colorExtractFinished();
                 }
 
-                onColorsExtractedAsString: {
+                onColorsExtractedAsString: (colors) => {
                     console.log("颜色字符串:", colors);
                 }
             }
@@ -808,13 +811,16 @@ Window {
         target: MusicApi
         function onUrlplay(playurl,title,artist,cover,solve,hash,source) {
             mainMedia.urlLocal = false;
-            mainMedia.source = playurl;
             mainMedia.noTitle = title;
             window.musicTitle = title;
             window.musicArtist = artist;
             mainMedia.urlStr = cover;
-            mainMedia.play();
             colorExtractor.extractColorsFromUrl(solve);
+            // 淡出静音后再换源：上一首仍在播放，直接换 source 会截断波形产生爆音
+            audioFade.run(function() {
+                mainMedia.source = playurl;
+                mainMedia.play();
+            });
 
             var listIndex = -1;
             for(var i = 0;i < playListModel.count;i++) {
@@ -838,7 +844,99 @@ Window {
     }
 
 
-    AudioOutput { id: volumeValue; volume: Options.settings.musicVolume; device: Options.settings.useDefaultDevice ? musicDevices.defaultAudioOutput : musicDevices.audioOutputs[Options.settings.audioDevice] }
+    // ──—————————————————— 切歌爆音抑制 ──────────────────────────
+    // 给正在播放的 MediaPlayer 直接换 source（或 seek / stop），
+    // 会在波形任意相位上突然截断解码并刷新音频缓冲，输出从非零采样瞬间跳到静音，形成阶跃（DC 跳变）→ 宽频「刺」声。
+    // 关键点：QAudioOutput 的音量只在缓冲「推入」音频设备时生效——已推入设备缓冲的音频仍保留旧音量。
+    // 所以仅 60ms 淡出是不够的：设备里还排着未淡出的响亮音频，换源硬截断的就是它们。
+    // 所以（重点来了）必须在静音状态保持足够久（覆盖 QAudioSink 缓冲 + 设备延迟），把设备里的旧音频放干净再换源。
+    // 流程：淡出 -> 静音保持（排空设备缓冲）-> 换源 -> 真正起播后淡入。
+    QtObject {
+        id: audioFade
+        property real factor: 1.0        // 音量乘数，1 = 用户设定的音量
+        property bool armed: false       // 已淡出，等新音轨起播后淡入
+        property bool fadeBack: true     // 操作完成后是否需要淡回
+        property var pendingAction: null
+
+        readonly property int fadeOutMs: 120    // 可感知的淡出时长
+        readonly property int drainMs: 260      // 静音保持：排空设备侧已排队的旧音频
+        readonly property int fadeInMs: 220
+        readonly property int guardMs: 1500     // 起播兜底，防止意外卡在静音
+
+        // action: 在静音状态下执行（换源 / 跳转 / 停止）
+        // needFadeBack: 停止类操作传 false，不再淡入
+        function run(action, needFadeBack) {
+            if (!action)
+                return;
+            pendingAction = action;
+            fadeBack = (needFadeBack === undefined) ? true : needFadeBack;
+            if (mainMedia.playing) {
+                armed = fadeBack;
+                fadeOutAnim.restart();
+            } else {
+                execute();              // 当前未在播放，无需淡出
+            }
+        }
+
+        function execute() {
+            var a = pendingAction;
+            pendingAction = null;
+            if (a)
+                a();
+            if (fadeBack) {
+                armed = true;
+                fadeInGuard.restart();
+                if (mainMedia.playing)
+                    finishArm();
+            } else {
+                armed = false;
+                factor = 1.0;           // 停止场景直接复位，下次从头淡出
+            }
+        }
+
+        // 起播后淡回：由 playbackState 或兜底定时器触发，谁先到算谁
+        function finishArm() {
+            if (!armed)
+                return;
+            armed = false;
+            fadeInGuard.stop();
+            fadeInAnim.restart();
+        }
+    }
+
+    NumberAnimation {
+        id: fadeOutAnim
+        target: audioFade
+        property: "factor"
+        to: 0.0
+        duration: audioFade.fadeOutMs
+        easing.type: Easing.InOutQuad
+        // 淡出完成后不立即换源：先在静音状态保持 drainMs，让设备缓冲里
+        // 已排队的旧音频（保留着淡出前的音量）播放殆尽
+        onFinished: drainTimer.restart()
+    }
+    Timer {
+        id: drainTimer
+        interval: audioFade.drainMs
+        repeat: false
+        onTriggered: audioFade.execute()
+    }
+    NumberAnimation {
+        id: fadeInAnim
+        target: audioFade
+        property: "factor"
+        to: 1.0
+        duration: audioFade.fadeInMs
+        easing.type: Easing.InOutQuad
+    }
+    Timer {
+        id: fadeInGuard
+        interval: audioFade.guardMs
+        repeat: false
+        onTriggered: audioFade.finishArm()
+    }
+
+    AudioOutput { id: volumeValue; volume: Options.settings.musicVolume * audioFade.factor; device: Options.settings.useDefaultDevice ? musicDevices.defaultAudioOutput : musicDevices.audioOutputs[Options.settings.audioDevice] }
     MediaDevices { id: musicDevices }
     // 主媒体
     GetWave {
@@ -905,14 +1003,18 @@ Window {
                         musicControlMin.enterMedia()
                         break;
                     case 1:
-                        mainMedia.position = 0
-                        mainMedia.play()
+                        // seek 同样会刷新缓冲，走淡出/淡入
+                        audioFade.run(function() {
+                            mainMedia.position = 0
+                            mainMedia.play()
+                        })
                         break;
                     case 2:
                         musicControlMin.randomMedia()
                         break;
                     case 3:
-                        mainMedia.stop()
+                        // 停止不再淡回，直接复位音量乘数
+                        audioFade.run(function() { mainMedia.stop() }, false)
                         break;
                 }
             }
@@ -921,6 +1023,12 @@ Window {
         onUrlStrChanged: {
             if (windowsSmtc.available)
                 smtcUpdateMediaInfo()
+        }
+
+        // 新音轨真正起播后再淡回，避免音频设备重开的瞬间已经有音量
+        onPlayingChanged: {
+            if (mainMedia.playing)
+                audioFade.finishArm();
         }
     }
     // 依据播放列表上下文动态启用/禁用 SMTC 的上一首/下一首按钮
