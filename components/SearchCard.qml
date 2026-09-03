@@ -36,7 +36,7 @@ Popup {
         //  搜索弹出的内容，等待更新
         Text {
             text: "搜索历史记录"
-            font.pixelSize: Style.themes.textTip
+            font.pixelSize: Style.settings.textTip
             color: Style.themes.textColor
             x: 16
             y: 12
@@ -51,7 +51,7 @@ Popup {
             anchors.topMargin: 10
             text: "清空"
             visible: Options.settings.searchList.length > 0
-            font.pixelSize: Style.themes.textTip
+            font.pixelSize: Style.settings.textTip
             color: clearArea.containsMouse ? Style.themes.fontColor : Style.themes.textColor
             MouseArea {
                 id: clearArea
