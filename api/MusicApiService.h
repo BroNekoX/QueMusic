@@ -217,7 +217,7 @@ private:
     QVariant m_allPlaylistMenu;
     QVariant m_playlistmenuInfo;
     QVariant m_lyricsData;
-    QVariant m_lyricsTranslate;
+    QVariant m_lyricsTranslate { QVariantList() };    // 初始化为空列表：QML 侧 .length 绑定在歌词未加载时也可用
 
     // 下载流程：按 hash 暂存待下载元数据，等歌词返回后一起发起下载
     QMap<QString, QVariantMap> m_pendingDownloads;
