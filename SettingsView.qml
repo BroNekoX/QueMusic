@@ -1494,7 +1494,8 @@ Item {
                                 from: 0
                                 to: 2000
                                 stepSize: 100
-                                valueText: value + " ms"
+                                leftText: true
+                                valueText: value.toString() + " ms"
                                 value: Options.settings.fadeMs
                                 onMoved: Options.settings.fadeMs = value
                             }
@@ -1507,7 +1508,8 @@ Item {
                                 from: 1
                                 to: 120
                                 stepSize: 1
-                                valueText: value + " 分"
+                                leftText: true
+                                valueText: value.toString() + " 分"
                                 value: Options.settings.sleepMinutes
                                 onMoved: Options.settings.sleepMinutes = value
                             }
@@ -1518,9 +1520,10 @@ Item {
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 0
-                                to: 20
+                                to: 5
                                 stepSize: 1
-                                valueText: value + " 首"
+                                leftText: true
+                                valueText: value.toString() + " 首"
                                 value: Options.settings.shuffleAvoid
                                 onMoved: Options.settings.shuffleAvoid = value
                             }
@@ -1553,7 +1556,8 @@ Item {
                                 from: 20
                                 to: 500
                                 stepSize: 20
-                                valueText: value + " 条"
+                                leftText: true
+                                valueText: value.toString() + " 条"
                                 value: Options.settings.historyLimit
                                 onMoved: Options.settings.historyLimit = value
                             }
@@ -1562,9 +1566,7 @@ Item {
                         SettingItemCard {
                             label: "清空播放历史"
                             controlItem: QButton {
-                                height: 30
-                                radius: 15
-                                anchors.right: parent.right
+                                anchors.fill: parent
                                 anchors.verticalCenter: parent.verticalCenter
                                 shadowEnabled: false
                                 fontSize: Style.settings.textTip

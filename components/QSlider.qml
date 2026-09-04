@@ -12,7 +12,7 @@ Slider {
     to: 100
     stepSize: 1
     snapMode: Slider.SnapOnRelease
-    property real valueText: slider.value
+    property string valueText: slider.value
     property bool leftText: false
 
     background: Rectangle {

@@ -14,13 +14,6 @@ Rectangle {
     color: Style.themes.primaryBlurColor
     clip: false
     property int musicInfoX: 100
-    property int cycleIndex: Options.playSettings.cycleIndex
-
-    // 播放顺序持久化（跨平台：QSettings → 系统配置目录）
-    onCycleIndexChanged: {
-        if (Options.playSettings.cycleIndex !== cycleIndex)
-            Options.playSettings.cycleIndex = cycleIndex
-    }
 
     readonly property string mediaTime: (Math.floor(mainMedia.position / 60000)) + ":" + (Math.floor(mainMedia.position / 1000) % 60)
     function formatTime(ms) {
@@ -315,7 +308,7 @@ Rectangle {
         height: 46
         spacing: 4
         SButton {
-            iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][musicControlMin.cycleIndex]
+            iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][Options.settings.cycleIndex]
             width: 46
             height: 46
             radius: 46
@@ -325,10 +318,10 @@ Rectangle {
             shadowEnabled: false
             iconSize: Style.settings.texticon + 1
             onClicked: {
-                if(musicControlMin.cycleIndex < 3) {
-                    musicControlMin.cycleIndex += 1;
+                if(Options.settings.cycleIndex < 3) {
+                    Options.settings.cycleIndex += 1;
                 } else {
-                    musicControlMin.cycleIndex = 0;
+                    Options.settings.cycleIndex = 0;
                 }
             }
             tipText: "播放顺序"
@@ -560,14 +553,14 @@ Rectangle {
         id: volumeControl
         margins: 0
         parent: Overlay.overlay
-        width: 260
+        width: 180
         height: 40
         verticalPadding: 5
-        leftPadding: 12
-        rightPadding: 12
+        leftPadding: 10
+        rightPadding: 40
         delay: 360
         closePolicy: Popup.CloseOnPressOutside
-        x: parent.width - 290
+        x: parent.width - 230
         y: parent.height - 110
         background: QBlurCard {
             anchors.fill: parent
@@ -576,29 +569,18 @@ Rectangle {
             borderRadius: 23
             blurSource: mainLayout
             shadowEffect: true
-            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 260, 40)
+            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 180, 40)
             //color: Style.themes.primaryBlurColor
         }
-        contentItem: Row {
-            spacing: 8
-            QSlider {
-                z: 1
-                to: 100
-                implicitWidth: 130
-                implicitHeight: 36
-                valueText: Math.floor(value)
-                value: Options.settings.musicVolume * 100
-                onMoved: Playback.setVolume(value / 100)
-            }
-            QButton {
-                height: 30
-                radius: 15
-                shadowEnabled: false
-                fontSize: Style.settings.textTip
-                text: Playback.muted ? "已静音" : "静音"
-                buttonColor: Playback.muted ? Style.themes.themeColor : Style.themes.secondaryColor
-                textColor: Playback.muted ? Style.themes.primaryColor : Style.themes.fontColor
-                onClicked: Playback.toggleMute()
+        contentItem: QSlider {
+            z: 1
+            to: 100
+            implicitWidth: 130
+            implicitHeight: 36
+            valueText: Math.floor(value)
+            value: Options.settings.musicVolume * 100
+            onMoved: {
+                Options.settings.musicVolume = value / 100
             }
         }
         enter: Transition {
@@ -622,127 +604,5 @@ Rectangle {
 
     MusicInfo {
         id: musicInfo
-    }
-
-    QOptionDialog {
-        id: playerInfoDialog
-        title: "音乐详情"
-        dialogContentHeight: 370
-        options: Column {
-            width: parent.width
-            spacing: 16
-            SettingItem {
-                label: "文件名："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: mainMedia.noTitle
-                    color: Style.themes.textColor
-                    verticalAlignment: Text.AlignVCenter
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                }
-            }
-            SettingItem {
-                label: "歌曲名："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: window.musicTitle
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            SettingItem {
-                label: "艺术家："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: window.musicArtist
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            SettingItem {
-                label: "专辑："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: mainMedia.album
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            SettingItem {
-                label: "音频长度："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: mainMedia.duration.toString()
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            SettingItem {
-                label: "日期："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: mainMedia.date
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            SettingItem {
-                label: "音频格式："
-                controlWidth: 120
-                width: parent.width
-                TextInput {
-                    height: 36
-                    anchors.right: parent.right
-                    font.pixelSize: Style.settings.textmain
-                    text: mainMedia.type
-                    color: Style.themes.textColor
-                    readOnly: true
-                    selectByMouse: true
-                    selectionColor: Style.themes.themeColor
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-        }
     }
 }

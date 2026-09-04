@@ -976,7 +976,7 @@ Window {
                     Playback.sleepEnd();
                     return;
                 }
-                switch(musicControlMin.cycleIndex) {
+                switch(Options.settings.cycleIndex) {
                     case 0:
                         musicControlMin.enterMedia()
                         break;

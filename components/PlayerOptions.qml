@@ -7,7 +7,7 @@ import QtQuick
 QOptionDialog {
     id: options
     title: "播放器选项"
-    dialogContentHeight: 620
+    dialogContentHeight: 750
     cancelText: "重置"
     cancelIcon: "\uf0c7"
 
@@ -26,12 +26,14 @@ QOptionDialog {
         width: parent.width
         spacing: 16
 
-        SettingItemCard {
+        SettingItem {
             label: "播放倍速"
             controlWidth: 120
             width: parent.width
-            controlItem: QDrop {
-                anchors.fill: parent
+            QDrop {
+                height: 36
+                anchors.right: parent.right
+                width: 160
                 choice: Options.settings.playerRateIndex
                 model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                 onTransformed: (choiced) => {
@@ -41,13 +43,15 @@ QOptionDialog {
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "自定义倍速"
             controlWidth: 160
             width: parent.width
             opacity: Options.settings.playerRateIndex === 6 ? 1 : 0.5
-            controlItem: QSlider {
-                anchors.fill: parent
+            QSlider {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 from: 0.5
                 to: 4.0
                 stepSize: 0.1
@@ -61,49 +65,57 @@ QOptionDialog {
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "音高补偿"
             controlWidth: 120
             width: parent.width
-            controlItem: QSwitch {
-                anchors.fill: parent
+            QSwitch {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 letRight: true
                 switchTrue: mainMedia.pitchCompensation
                 onToggled: mainMedia.pitchCompensation = !mainMedia.pitchCompensation
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "在线音质"
             controlWidth: 160
             width: parent.width
-            controlItem: QDrop {
-                anchors.fill: parent
+            QDrop {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 choice: Options.settings.soundQuality
                 model: ["标准-144k","高清-320k","无损-500+k"]
                 onTransformed: (choiced) => Options.settings.soundQuality = choiced
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "默认输出设备"
             controlWidth: 120
             width: parent.width
-            controlItem: QSwitch {
-                anchors.fill: parent
+            QSwitch {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 letRight: true
                 switchTrue: Options.settings.useDefaultDevice
                 onToggled: Options.settings.useDefaultDevice = !Options.settings.useDefaultDevice
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "自定输出设备"
             controlWidth: 160
             width: parent.width
             opacity: Options.settings.useDefaultDevice ? 0.5 : 1
-            controlItem: QDrop {
-                anchors.fill: parent
+            QDrop {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 useId: true
                 choice: Options.settings.audioDevice
                 model: musicDevices.audioOutputs
@@ -111,12 +123,14 @@ QOptionDialog {
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "A-B 片段循环"
             controlWidth: 220
             width: parent.width
-            controlItem: Row {
+            Row {
                 spacing: 8
+                height: 36
+                anchors.right: parent.right
                 QButton {
                     height: 36; radius: 18; shadowEnabled: false
                     fontSize: Style.settings.text
@@ -144,110 +158,111 @@ QOptionDialog {
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "睡眠定时"
             controlWidth: 160
             width: parent.width
-            controlItem: QDrop {
-                anchors.fill: parent
+            QDrop {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 choice: Playback.sleepMode
                 model: ["关闭","倒计时","播完本首"]
                 onTransformed: (choiced) => Playback.armSleep(choiced, Options.settings.sleepMinutes)
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "定时剩余"
             controlWidth: 200
             width: parent.width
             opacity: Playback.sleepMode === 1 ? 1 : 0.5
-            controlItem: Row {
-                spacing: 8
-                QSlider {
-                    width: 120
-                    height: 36
-                    from: 1
-                    to: 120
-                    stepSize: 1
-                    valueText: value + "分"
-                    value: Options.settings.sleepMinutes
-                    onMoved: Options.settings.sleepMinutes = value
-                }
-                Text {
-                    height: 36
-                    text: Playback.sleepLabel
-                    color: Style.themes.themeColor
-                    font.bold: true
-                    font.pixelSize: Style.settings.textmain
-                    verticalAlignment: Text.AlignVCenter
-                }
+            QSlider {
+                height: 36
+                width: 160
+                anchors.right: parent.right
+                from: 1
+                to: 120
+                stepSize: 1
+                valueText: value.toString() + "分"
+                value: Options.settings.sleepMinutes
+                onMoved: Options.settings.sleepMinutes = value
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "淡入淡出"
             controlWidth: 120
             width: parent.width
-            controlItem: QSwitch {
-                anchors.fill: parent
+            QSwitch {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 letRight: true
                 switchTrue: Options.settings.fadeEnabled
                 onToggled: Options.settings.fadeEnabled = !Options.settings.fadeEnabled
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "淡变时长"
             controlWidth: 160
             width: parent.width
             opacity: Options.settings.fadeEnabled ? 1 : 0.5
-            controlItem: QSlider {
-                anchors.fill: parent
+            QSlider {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 from: 0
                 to: 2000
                 stepSize: 100
                 leftText: true
-                valueText: value + "ms"
+                valueText: value.toString() + "ms"
                 value: Options.settings.fadeMs
                 onMoved: Options.settings.fadeMs = value
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "跳转步长"
             controlWidth: 160
             width: parent.width
-            controlItem: QDrop {
-                anchors.fill: parent
+            QDrop {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 choice: options.seekSteps.indexOf(Options.settings.seekStep)
                 model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
                 onTransformed: (choiced) => Options.settings.seekStep = options.seekSteps[choiced]
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "随机避免最近"
             controlWidth: 160
             width: parent.width
-            controlItem: QSlider {
-                anchors.fill: parent
+            QSlider {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 from: 0
-                to: 20
+                to: 5
                 stepSize: 1
                 leftText: true
-                valueText: value + "首"
+                valueText: value.toString() + "首"
                 value: Options.settings.shuffleAvoid
                 onMoved: Options.settings.shuffleAvoid = value
             }
         }
 
-        SettingItemCard {
+        SettingItem {
             label: "自动播放"
             controlWidth: 120
             width: parent.width
-            bottomLine: false
-            controlItem: QSwitch {
-                anchors.fill: parent
+            QSwitch {
+                height: 36
+                width: 160
+                anchors.right: parent.right
                 letRight: true
                 switchTrue: Options.settings.autoPlay
                 onToggled: Options.settings.autoPlay = !Options.settings.autoPlay

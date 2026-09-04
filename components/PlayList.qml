@@ -53,12 +53,12 @@ Popup {
         anchors.fill: parent
 
         Label {
-            y: 8
+            y: 10
             x: 18
-            height: 30
-            text: "播放列表  " + playListModel.count + " 首"
+            height: 40
+            text: "播放列表 " + playListModel.count + "首"
             font.bold: true
-            font.pixelSize: Style.settings.textmain
+            font.pixelSize: Style.settings.textH2
             verticalAlignment: Text.AlignVCenter
             color: Style.themes.fontColor
         }
@@ -66,8 +66,8 @@ Popup {
         TextField {
             id: filterInput
             x: 18
-            y: 40
-            width: parent.width - 66
+            y: 60
+            width: parent.width - 36
             height: 32
             leftPadding: 12
             rightPadding: 30
@@ -98,44 +98,59 @@ Popup {
             }
         }
 
-        Row {
-            x: parent.width - width - 18
-            y: 74
-            spacing: 4
-            QButton {
-                height: 30
-                radius: 15
-                shadowEnabled: false
-                fontSize: Style.settings.textTip
-                text: "定位当前"
-                onClicked: playList.locateCurrent()
+        SButton {
+            iconCharacter: "\uf050"
+            x: parent.width - 130
+            y: 12
+            width: 36
+            height: 36
+            radius: 18
+            //iconSize: Style.settings.texticon + 2
+            buttonColor: "transparent"
+            tipText: "定位当前"
+            shadowEnabled: false
+            onClicked: playList.locateCurrent();
+        }
+
+        SButton {
+            iconCharacter: "\uf08e"
+            x: parent.width - 90
+            y: 12
+            width: 36
+            height: 36
+            radius: 18
+            buttonColor: "transparent"
+            tipText: "清空"
+            hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
+            shadowEnabled: false
+            onClicked: {
+                globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
+                    function() {
+                        var title = playListModel.get(playListModel.playListIndex).name;
+                        var hash = playListModel.get(playListModel.playListIndex).path;
+                        var artist = playListModel.get(playListModel.playListIndex).songer;
+                        var source = playListModel.get(playListModel.playListIndex).source;
+                        playListModel.remove( 0, playListModel.count );
+                        //playListModel.append(indexData);
+                        playListModel.append({ name: title, path: hash, songer: artist, source: source });
+                        playListModel.playListIndex = 0;
+                        Style.warned("已清空播放列表",1);
+                    }
+                );
             }
-            QButton {
-                height: 30
-                radius: 15
-                shadowEnabled: false
-                fontSize: Style.settings.textTip
-                text: "清空"
-                hoverColor: Qt.rgba(1.0, 0.5, 0.5, 0.5)
-                onClicked: {
-                    globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
-                        function() {
-                            var i = playListModel.playListIndex
-                            var e = playListModel.get(i)
-                            playListModel.remove(0, playListModel.count)
-                            playListModel.append({ name: e.name, path: e.path, songer: e.songer, source: e.source })
-                            playListModel.playListIndex = 0
-                            Style.warned("已清空播放列表", 1)
-                        })
-                }
-            }
-            QButton {
-                height: 30
-                radius: 15
-                shadowEnabled: false
-                fontSize: Style.settings.textTip
-                text: "关闭"
-                onClicked: playList.close()
+        }
+        SButton {
+            iconCharacter: "\uf025"
+            x: parent.width - 50
+            y: 12
+            width: 36
+            height: 36
+            radius: 18
+            iconSize: Style.settings.texticon + 2
+            buttonColor: "transparent"
+            shadowEnabled: false
+            onClicked: {
+                playList.close();
             }
         }
 
@@ -267,7 +282,7 @@ Popup {
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
                     // 拖拽排序：过程中只做位移，松手时一次性提交，避免频繁改动模型
-                    onPressed: {
+                    /*onPressed: {
                         playList.dragIndex = index
                         playList.dragOffset = 0
                         playList.dragOrigin = mapToItem(playListView, mouseX, mouseY).y
@@ -284,7 +299,7 @@ Popup {
                         var step = Math.round(dy / 60)
                         if (from >= 0 && step !== 0)
                             playList.moveItem(from, Math.max(0, Math.min(playListModel.count - 1, from + step)))
-                    }
+                    }*/
                     onClicked: {
                         if (model.source == -1) {
                             playListModel.playListIndex = index
@@ -308,7 +323,7 @@ Popup {
                         SButton {
                             id: playNext
                             iconCharacter: "\uf0d9"
-                            x: parent.width - 136
+                            x: parent.width - 132
                             y: 12
                             width: 36
                             height: 36
@@ -327,8 +342,8 @@ Popup {
                         }
                         SButton {
                             id: playMenu
-                            iconCharacter: "\uf050"
-                            x: parent.width - 96
+                            iconCharacter: "\uf0c8"
+                            x: parent.width - 94
                             y: 12
                             width: 36
                             height: 36

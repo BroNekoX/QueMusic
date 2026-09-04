@@ -42,12 +42,11 @@ QtObject {
         return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2)
     }
 
-    // ---- 音量 ----
+    // 音量
     function setVolume(v) { Options.settings.musicVolume = Math.max(0, Math.min(1, v)) }
     function stepVolume(d) { setVolume(Options.settings.musicVolume + d) }
     function toggleMute() { muted = !muted }
 
-    // ---- 跳转 ----
     function seekBy(ms) {
         if (!player) return
         player.position = Math.max(0, Math.min(player.duration, player.position + ms))
@@ -55,7 +54,7 @@ QtObject {
     function seekBack() { seekBy(-Options.settings.seekStep * 1000) }
     function seekForward() { seekBy(Options.settings.seekStep * 1000) }
 
-    // ---- 淡入淡出 ----
+    // 淡入淡出
     function fadeIn() { fade = 0; fadeTo(1) }
 
     function fadeTo(v, then) {
@@ -83,8 +82,8 @@ QtObject {
         fadeTo(1)
     }
 
-    NumberAnimation {
-        id: fadeAnime
+    property NumberAnimation fadeAnime: NumberAnimation {
+        //id: fadeAnime
         target: root
         property: "fade"
         easing.type: Easing.Linear
@@ -95,7 +94,7 @@ QtObject {
         }
     }
 
-    // ---- A-B 循环 ----
+    // A-B 循环
     function setAbPoint(which) {
         if (!player) return
         var p = player.position
@@ -108,7 +107,7 @@ QtObject {
     }
     function clearAb() { abA = -1; abB = -1 }
 
-    Connections {
+    property Connections connect: Connections {
         target: root.player
         function onPositionChanged() {
             if (root.abArmed && root.player.position >= root.abB)
@@ -116,7 +115,7 @@ QtObject {
         }
     }
 
-    // ---- 睡眠定时 ----
+    // 睡眠定时
     function armSleep(mode, minutes) {
         sleepMode = mode
         sleepRemain = mode === 1 ? Math.max(1, minutes || Options.settings.sleepMinutes) * 60 : 0
@@ -130,7 +129,7 @@ QtObject {
         Style.warned("睡眠定时：已停止播放", 1)
     }
 
-    Timer {
+    property Timer timeTask: Timer {
         interval: 1000
         repeat: true
         running: root.sleepMode === 1 && root.sleepRemain > 0
@@ -140,7 +139,7 @@ QtObject {
         }
     }
 
-    // ---- 播放历史 ----
+    // 播放历史
     function pushHistory(e) {
         if (history.count > 0 && history.get(0).path === e.path) {
             history.set(0, e)
@@ -186,13 +185,13 @@ QtObject {
         } catch (err) {}
     }
 
-    Timer {
-        id: saveTimer
+    property Timer saveTimer: Timer {
+        //id: saveTimer
         interval: 2000
         onTriggered: root.writeHistory()
     }
 
-    // ---- 随机牌堆 ----
+    // 随机牌堆
     function buildBag() {
         var n = root.count
         var cur = queue ? queue.playListIndex : -1
@@ -220,7 +219,7 @@ QtObject {
         if (recent.length > keep) recent = recent.slice(recent.length - keep)
     }
 
-    // ---- 切歌 ----
+    // 切歌
     function goTo(i) {
         if (i < 0 || i >= root.count) return
         queue.playListIndex = i
