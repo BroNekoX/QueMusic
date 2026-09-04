@@ -15,7 +15,6 @@ Rectangle {
     clip: false
     property int musicInfoX: 100
     property int cycleIndex: Options.playSettings.cycleIndex
-    property int playerRateIndex: 2
 
     // 播放顺序持久化（跨平台：QSettings → 系统配置目录）
     onCycleIndexChanged: {
@@ -357,14 +356,7 @@ Rectangle {
             iconColor: Style.themes.textColor
             iconSize: Style.settings.texticonH
             shadowEnabled: false
-            onClicked: {
-                if (mainMedia.playing === false) {
-                    mainMedia.play();
-                }
-                else {
-                    mainMedia.pause();
-                }
-            }
+            onClicked: Playback.togglePlay()
             tipText: mainMedia.playing ? "暂停" : "播放"
         }
         SButton {
@@ -390,13 +382,7 @@ Rectangle {
             iconColor: Style.themes.textColor
             iconSize: Style.settings.texticon + 1
             shadowEnabled: false
-            onClicked: {
-                if(playerOptionDialog.visible) {
-                    playerOptionDialog.close();
-                } else {
-                    playerOptionDialog.open();
-                }
-            }
+            onClicked: musicControlMin.openPlayerOptions()
             tipText: "播放器控制"
         }
 
@@ -471,6 +457,12 @@ Rectangle {
                     volumeControl.open();
                 }
             }
+            WheelHandler {
+                onWheel: (event) => {
+                    Playback.stepVolume(event.angleDelta.y > 0 ? 0.05 : -0.05)
+                    event.accepted = true
+                }
+            }
         }
         SButton {
             iconCharacter: "\uf0b2"
@@ -526,39 +518,35 @@ Rectangle {
         }
     }
 
-    // 上一首
-    function lastMedia() {
-        if(playListModel.playListIndex > 0) {
-            playListModel.playListIndex -= 1;
-            musicControlMin.refreshMusicPlay();
-            if(windowsSmtc.available)
-                windowsSmtc.setControlsEnabled(true, true,
-                    playListModel.playListIndex < playListModel.count - 1,
-                    playListModel.playListIndex > 0);
+    // 收藏/取消收藏当前曲目
+    function toggleFavorite() {
+        var i = playListModel.playListIndex;
+        if(i < 0 || i >= playListModel.count) return;
+        var e = playListModel.get(i);
+        if(e.source === -1) {
+            mainWarn.tiped("本地歌曲请使用本地收藏", 0);
+            return;
         }
-    }
-    // 下一首
-    function enterMedia() {
-        if(playListModel.playListIndex < playListModel.count - 1) {
-            playListModel.playListIndex += 1;
+        if(favoritesSong.isFavorite(e.path, "song")) {
+            favoritesSong.removeFavorite(e.path, "song");
+            likeButton.iconColor = Style.themes.textColor;
+            mainWarn.tiped("取消收藏", 0);
         } else {
-            playListModel.playListIndex = 0;
+            favoritesSong.addFavorite(e.path, window.musicTitle, window.musicArtist, mainMedia.urlStr,
+                                      e.source, Math.floor(mainMedia.duration / 1000), "song");
+            likeButton.iconColor = Style.themes.themeColor;
+            mainWarn.tiped("成功收藏", 1);
         }
-        musicControlMin.refreshMusicPlay();
-        if(windowsSmtc.available)
-            windowsSmtc.setControlsEnabled(true, true,
-                playListModel.playListIndex < playListModel.count - 1,
-                playListModel.playListIndex > 0);
     }
-    // 随机播放音乐
-    function randomMedia() {
-        playListModel.playListIndex = Math.floor( Math.random() * playListModel.count );
-        musicControlMin.refreshMusicPlay();
-        if(windowsSmtc.available)
-            windowsSmtc.setControlsEnabled(true, true,
-                playListModel.playListIndex < playListModel.count - 1,
-                playListModel.playListIndex > 0);
-    }
+
+    function openPlayerOptions() { playerOptions.open() }
+
+    // 上一首
+    function lastMedia() { Playback.previous() }
+    // 下一首
+    function enterMedia() { Playback.next(false) }
+    // 随机播放（洗牌牌堆，避免最近播放）
+    function randomMedia() { Playback.next(true) }
     // 切换播放列表显示
     function togglePlayList() {
         if(playList.visible) {
@@ -568,32 +556,18 @@ Rectangle {
         }
     }
 
-    // 刷新音乐播放数据
-    function refreshMusicPlay() {
-        var source = playListModel.get(playListModel.playListIndex).source;
-        if(source == -1) {
-            var sourcePath = playListModel.get(playListModel.playListIndex).path;
-            var sourcename = playListModel.get(playListModel.playListIndex).name;
-            window.playLocalSong(sourcePath, sourcename);
-        } else {
-            mainMedia.urlLocal = false;
-            var sourcePath = playListModel.get(playListModel.playListIndex).path;
-            MusicApi.getMusicInfo(sourcePath,0,source);
-        }
-    }
-
     ToolTip {
         id: volumeControl
         margins: 0
         parent: Overlay.overlay
-        width: 180
+        width: 260
         height: 40
         verticalPadding: 5
-        leftPadding: 10
-        rightPadding: 40
+        leftPadding: 12
+        rightPadding: 12
         delay: 360
         closePolicy: Popup.CloseOnPressOutside
-        x: parent.width - 230
+        x: parent.width - 290
         y: parent.height - 110
         background: QBlurCard {
             anchors.fill: parent
@@ -602,18 +576,29 @@ Rectangle {
             borderRadius: 23
             blurSource: mainLayout
             shadowEffect: true
-            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 180, 40)
+            rectXy: Qt.rect(volumeControl.x, volumeControl.y, 260, 40)
             //color: Style.themes.primaryBlurColor
         }
-        contentItem: QSlider {
-            z: 1
-            to: 100
-            implicitWidth: 130
-            implicitHeight: 36
-            valueText: Math.floor(value)
-            value: Options.settings.musicVolume * 100
-            onMoved: {
-                Options.settings.musicVolume = value / 100
+        contentItem: Row {
+            spacing: 8
+            QSlider {
+                z: 1
+                to: 100
+                implicitWidth: 130
+                implicitHeight: 36
+                valueText: Math.floor(value)
+                value: Options.settings.musicVolume * 100
+                onMoved: Playback.setVolume(value / 100)
+            }
+            QButton {
+                height: 30
+                radius: 15
+                shadowEnabled: false
+                fontSize: Style.settings.textTip
+                text: Playback.muted ? "已静音" : "静音"
+                buttonColor: Playback.muted ? Style.themes.themeColor : Style.themes.secondaryColor
+                textColor: Playback.muted ? Style.themes.primaryColor : Style.themes.fontColor
+                onClicked: Playback.toggleMute()
             }
         }
         enter: Transition {
@@ -631,134 +616,8 @@ Rectangle {
         model: playListModel
     }
 
-    QOptionDialog {
-        id: playerOptionDialog
-        title: "播放器选项"
-        dialogContentHeight: 430
-        options: Column {
-            width: parent.width
-            spacing: 16
-
-            SettingItem {
-                label: "播放倍速"
-                controlWidth: 120
-                width: parent.width
-                QDrop {
-                    height: 36; width: 120
-                    anchors.right: parent.right
-                    choice: musicControlMin.playerRateIndex
-                    model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
-                    onTransformed: (choiced) => {
-                        mainMedia.playbackRate = [0.5,0.75,1.0,1.25,1.5,2.0,1.0][choiced];
-                        musicControlMin.playerRateIndex = choiced;
-                    }
-                }
-            }
-
-            SettingItem {
-                label: "播放倍速调节"
-                controlWidth: 120
-                width: parent.width
-                opacity: musicControlMin.playerRateIndex === 6 ? 1 : 0.5
-                QSlider {
-                    height: 36; width: 160
-                    anchors.right: parent.right
-                    from: 0.1
-                    to: 4.0
-                    stepSize: 0.1
-                    leftText: true
-                    valueText: value.toFixed(1)
-                    value: mainMedia.playbackRate
-                    onMoved: {
-                        if(musicControlMin.playerRateIndex === 6) {
-                            mainMedia.playbackRate = value;
-                        }
-                    }
-                }
-            }
-
-            SettingItem {
-                label: "切换音乐自动播放"
-                controlWidth: 120
-                width: parent.width
-                QSwitch {
-                    height: 36; width: 120
-                    anchors.right: parent.right
-                    switchTrue: mainMedia.autoPlay
-                    onToggled: mainMedia.autoPlay = !mainMedia.autoPlay
-                }
-            }
-
-            SettingItem {
-                label: "启用音高补偿（倍速）"
-                controlWidth: 120
-                width: parent.width
-                QSwitch {
-                    height: 36; width: 120
-                    anchors.right: parent.right
-                    switchTrue: mainMedia.pitchCompensation
-                    onToggled: mainMedia.pitchCompensation = !mainMedia.pitchCompensation
-                }
-            }
-
-            SettingItem {
-                label: "音质"
-                controlWidth: 120
-                width: parent.width
-                QDrop {
-                    height: 36; width: 160
-                    anchors.right: parent.right
-                    choice: Options.settings.soundQuality
-                    model: ["标准-144k","高清-320k","无损-500+k"]
-                    onTransformed: (choiced) => {
-                        Options.settings.soundQuality = choiced
-                    }
-                }
-            }
-
-            SettingItem {
-                label: "使用默认输出设备"
-                controlWidth: 120
-                width: parent.width
-                QSwitch {
-                    height: 36; width: 120
-                    anchors.right: parent.right
-                    switchTrue: Options.settings.useDefaultDevice
-                    onToggled: Options.settings.useDefaultDevice = !Options.settings.useDefaultDevice
-                }
-            }
-
-            SettingItem {
-                label: "自定输出设备"
-                controlWidth: 120
-                width: parent.width
-                opacity: Options.settings.useDefaultDevice ? 0.5 : 1
-                QDrop {
-                    height: 36; width: 160
-                    anchors.right: parent.right
-                    choice: Options.settings.audioDevice
-                    model: musicDevices.audioOutputs
-                    useId: true
-                    onTransformed: (choiced) => {
-                        Options.settings.audioDevice = choiced
-                    }
-                }
-            }
-
-            SettingItem {
-                label: "均衡器"
-                controlWidth: 120
-                width: parent.width
-                QButton {
-                    height: 36; width: 120
-                    radius: Style.settings.labelRadius
-                    anchors.right: parent.right
-                    text: "默认"
-                    shadowEnabled: false
-                    //onClicked: FileDialog.open()
-                }
-            }
-        }
+    PlayerOptions {
+        id: playerOptions
     }
 
     MusicInfo {

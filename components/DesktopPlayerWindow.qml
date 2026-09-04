@@ -31,7 +31,7 @@ Window {
     Rectangle {
         id: playerCard
         anchors.fill: parent
-        radius: 16
+        radius: 12
         color: Style.themes.primaryBlurColor
         border.width: 2
         border.color: Style.themes.sideColor
@@ -69,7 +69,7 @@ Window {
         Text {
             id: playerTitle
             x: 102
-            y: 12
+            y: 16
             width: playerCard.width - 102 - 48
             height: 22
             text: window.musicTitle
@@ -84,7 +84,7 @@ Window {
         Text {
             id: playerArtist
             x: 102
-            y: 34
+            y: 38
             width: playerCard.width - 102 - 48
             height: 18
             text: window.musicArtist
@@ -98,7 +98,7 @@ Window {
         Slider {
             id: seekSlider
             x: 102
-            y: 55
+            y: 56
             width: playerCard.width - 102 - 14
             height: 16
             from: 0
@@ -192,7 +192,7 @@ Window {
             height: 40
             radius: 20
             iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
-            iconSize: Style.settings.texticonH
+            iconSize: Style.settings.texticon + 2
             buttonColor: Style.themes.secondaryBlurColor
             hoverColor: Style.themes.hoverColor
             iconColor: Style.themes.textColor
@@ -256,7 +256,7 @@ Window {
             height: 32
             radius: 16
             iconCharacter: "\uf025"
-            iconSize: 14
+            iconSize: Style.settings.texticon
             buttonColor: "transparent"
             hoverColor: Qt.rgba(1.0, 0.4, 0.4, 0.4)
             iconColor: Style.themes.textColor

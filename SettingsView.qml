@@ -1455,6 +1455,132 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "播放增强" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    Column {
+                        width: parent.width
+                        padding: 0
+                        Component.onCompleted: parent.height = height
+
+                        SettingItemCard {
+                            label: "精确跳转步长"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: [3,5,10,15,30].indexOf(Options.settings.seekStep)
+                                model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
+                                onTransformed: (choiced) => Options.settings.seekStep = [3,5,10,15,30][choiced]
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "播放淡入淡出"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Options.settings.fadeEnabled
+                                onToggled: Options.settings.fadeEnabled = !Options.settings.fadeEnabled
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "淡变时长"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 0
+                                to: 2000
+                                stepSize: 100
+                                valueText: value + " ms"
+                                value: Options.settings.fadeMs
+                                onMoved: Options.settings.fadeMs = value
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "睡眠定时默认"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 1
+                                to: 120
+                                stepSize: 1
+                                valueText: value + " 分"
+                                value: Options.settings.sleepMinutes
+                                onMoved: Options.settings.sleepMinutes = value
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "随机避免最近"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 0
+                                to: 20
+                                stepSize: 1
+                                valueText: value + " 首"
+                                value: Options.settings.shuffleAvoid
+                                onMoved: Options.settings.shuffleAvoid = value
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "恢复上次播放列表"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Options.settings.autoRestoreQueue
+                                onToggled: Options.settings.autoRestoreQueue = !Options.settings.autoRestoreQueue
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "断点续播"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Options.settings.resumePosition
+                                onToggled: Options.settings.resumePosition = !Options.settings.resumePosition
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "播放历史上限"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 20
+                                to: 500
+                                stepSize: 20
+                                valueText: value + " 条"
+                                value: Options.settings.historyLimit
+                                onMoved: Options.settings.historyLimit = value
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "清空播放历史"
+                            controlItem: QButton {
+                                height: 30
+                                radius: 15
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                shadowEnabled: false
+                                fontSize: Style.settings.textTip
+                                text: "清空"
+                                buttonColor: "#fa4642"
+                                textColor: "#ffffff"
+                                onClicked: globalDialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
+                                    function() {
+                                        Playback.clearHistory()
+                                        mainWarn.tiped("已清空播放历史", 1)
+                                    })
+                            }
+                            bottomLine: false
+                        }
+                    }
+                }
             }
         }
 

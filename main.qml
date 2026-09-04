@@ -37,6 +37,12 @@ Window {
 
         window.visible = true;
         MusicApi.songSource = Options.settings.mainMusicSource;
+
+        Playback.player = mainMedia;
+        Playback.queue = playListModel;
+        Playback.loadHistory();
+        window.restoreSession();
+
         // 更新设置项
         Style.changeUi();
         Style.changeTheme();
@@ -56,6 +62,8 @@ Window {
     property int versionCode: 45
 
     property string localLyricsRequestPath: ""
+    property int pendingSeek: 0
+    property string pendingSeekPath: ""
 
     Connections {
         target: MusicApi
@@ -130,8 +138,11 @@ Window {
             Options.lastSongs.cover = mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png";
             Options.lastSongs.hash = e.path;
             Options.lastSongs.source = e.source;
+            Options.lastSongs.position = mainMedia.position;
             console.log("保存当前音乐记录。");
         }
+        window.saveQueue();
+        Playback.flush();
         // 清理桌面悬浮窗（灵动岛 / 小窗播放器）
         desktopSpot.active = false;
         desktopLyricsLoader.active = false;
@@ -216,6 +227,67 @@ Window {
                 mainLayout.state = "";
             }
         }
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Up" // 音量+
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: {
+            Playback.stepVolume(0.05);
+            mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0);
+        }
+    }
+    Shortcut {
+        sequence: "Ctrl+Down" // 音量-
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: {
+            Playback.stepVolume(-0.05);
+            mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0);
+        }
+    }
+    Shortcut {
+        sequence: "Ctrl+Left" // 快退
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: Playback.seekBack()
+    }
+    Shortcut {
+        sequence: "Ctrl+Right" // 快进
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: Playback.seekForward()
+    }
+    Shortcut {
+        sequence: "Ctrl+M" // 静音
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: {
+            Playback.toggleMute();
+            mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0);
+        }
+    }
+    Shortcut {
+        sequence: "Ctrl+B" // A-B 片段循环
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: {
+            Playback.setAbPoint(Playback.abA < 0 || Playback.abArmed ? 0 : 1);
+            mainWarn.tiped(Playback.abArmed ? "A-B 循环已启用" : "已设置 A-B 起点", 1);
+        }
+    }
+    Shortcut {
+        sequence: "Ctrl+D" // 收藏当前曲目
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: musicControlMin.toggleFavorite()
+    }
+    Shortcut {
+        sequence: "Ctrl+T" // 播放器选项
+        context: Qt.ApplicationShortcut
+        enabled: !Options.settings.recordingShortCut
+        onActivated: musicControlMin.openPlayerOptions()
     }
 
     //加载icon库
@@ -838,7 +910,7 @@ Window {
     }
 
 
-    AudioOutput { id: volumeValue; volume: Options.settings.musicVolume; device: Options.settings.useDefaultDevice ? musicDevices.defaultAudioOutput : musicDevices.audioOutputs[Options.settings.audioDevice] }
+    AudioOutput { id: volumeValue; volume: Playback.outVolume; device: Options.settings.useDefaultDevice ? musicDevices.defaultAudioOutput : musicDevices.audioOutputs[Options.settings.audioDevice] }
     MediaDevices { id: musicDevices }
     // 主媒体
     GetWave {
@@ -900,6 +972,10 @@ Window {
 
         onMediaStatusChanged: {
             if(mainMedia.mediaStatus === MediaPlayer.EndOfMedia) {
+                if(Playback.sleepMode === 2) {
+                    Playback.sleepEnd();
+                    return;
+                }
                 switch(musicControlMin.cycleIndex) {
                     case 0:
                         musicControlMin.enterMedia()
@@ -973,6 +1049,8 @@ Window {
         target: mainMedia
 
         function onSourceChanged() {
+            Playback.clearAb() // A-B 片段按曲目绑定，切歌即失效
+            Playback.fadeIn()
             // 切歌/新曲目开始播放的瞬间：主动推送 position=0 并刷新时间线；
             // duration 尚未就绪（<=0）时由 C++ 侧走全零重置分支清空上一首的残留进度。
             if (windowsSmtc.available)
@@ -980,6 +1058,14 @@ Window {
             updateSmtcControls()
         }
         function onDurationChanged() {
+            // 断点续播：恢复的曲目首次拿到时长时跳转到上次位置
+            if (mainMedia.duration > 0 && window.pendingSeek > 0
+                && playListModel.playListIndex >= 0
+                && window.pendingSeekPath === playListModel.get(playListModel.playListIndex).path) {
+                mainMedia.position = Math.min(window.pendingSeek, mainMedia.duration - 1000)
+                window.pendingSeek = 0
+                window.pendingSeekPath = ""
+            }
             // 新歌时长加载完成：以 position=0 主动推送一条完整时间线，
             // 随后 onPositionChanged 会用实时位置持续刷新。
             if (windowsSmtc.available && mainMedia.duration > 0)
@@ -987,6 +1073,8 @@ Window {
         }
         function onPlaybackStateChanged() {
             updateSmtcControls()
+            if (mainMedia.playbackState === MediaPlayer.PlayingState)
+                window.noteNowPlaying()
             if (!windowsSmtc.available)
                 return
             switch (mainMedia.playbackState) {
@@ -1032,6 +1120,75 @@ Window {
         property int playListIndex: -1
         // 列表增删后同步 SMTC 上一首/下一首按钮可用性
         onCountChanged: updateSmtcControls()
+        onPlayListIndexChanged: updateSmtcControls()
+    }
+
+    // 播放列表持久化
+    function saveQueue() {
+        var out = []
+        for (var i = 0; i < playListModel.count; i++) {
+            var e = playListModel.get(i)
+            out.push({ name: e.name, path: e.path, songer: e.songer, source: e.source })
+        }
+        Options.settings.lastQueue = JSON.stringify(out)
+        Options.settings.lastQueueIndex = playListModel.playListIndex
+    }
+
+    // 启动恢复上次列表，并记住断点位置（首次播放时跳转）
+    function restoreSession() {
+        if (!Options.settings.autoRestoreQueue) return
+        try {
+            var arr = JSON.parse(Options.settings.lastQueue || "[]")
+            for (var i = 0; i < arr.length; i++) playListModel.append(arr[i])
+            var idx = Options.settings.lastQueueIndex
+            if (idx < 0 || idx >= playListModel.count) return
+            playListModel.playListIndex = idx
+            if (Options.settings.resumePosition && Options.lastSongs.position > 0) {
+                window.pendingSeekPath = playListModel.get(idx).path
+                window.pendingSeek = Options.lastSongs.position
+            }
+        } catch (err) {}
+    }
+
+    // 加入播放列表并立即播放
+    function playTrack(item) {
+        var listIndex = -1
+        for (var i = 0; i < playListModel.count; i++) {
+            if (playListModel.get(i).path === item.path) { listIndex = i; break }
+        }
+        if (listIndex === -1) {
+            playListModel.append({ name: item.name, path: item.path, songer: item.songer, source: item.source })
+            listIndex = playListModel.count - 1
+        }
+        playListModel.playListIndex = listIndex
+        Playback.notePlayed(listIndex)
+        window.startTrack(listIndex)
+    }
+
+    function startTrack(index) {
+        var e = playListModel.get(index)
+        if (!e) return
+        if (e.source === -1) window.playLocalSong(e.path, e.name)
+        else { mainMedia.urlLocal = false; MusicApi.getMusicInfo(e.path, 0, e.source) }
+    }
+
+    function noteNowPlaying() {
+        if (playListModel.playListIndex < 0 || playListModel.count === 0 || !window.musicTitle) return
+        var e = playListModel.get(playListModel.playListIndex)
+        Playback.pushHistory({
+            title: window.musicTitle,
+            artist: window.musicArtist,
+            path: e.path,
+            source: e.source,
+            cover: mainMedia.urlStr || "",
+            duration: Math.floor(mainMedia.duration / 1000),
+            time: Date.now()
+        })
+    }
+
+    Connections {
+        target: Playback
+        function onPlayIndex(index) { window.startTrack(index) }
     }
     SearchCard {
         id: searchCard

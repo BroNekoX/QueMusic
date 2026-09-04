@@ -61,6 +61,7 @@ endif()
 set_source_files_properties(
     components/Style.qml
     components/Options.qml
+    components/Playback.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")

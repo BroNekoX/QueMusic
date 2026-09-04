@@ -39,7 +39,21 @@ QtObject {
         property int depth: 1 //位深
         property int bufferSize: 2 //缓冲大小
         property bool autoPlay: true
-        
+        property int playerRateIndex: 2 //倍速预设
+
+        //播放增强
+        property int seekStep: 5 //精确跳转步长（秒）
+        property bool fadeEnabled: true //播放淡入淡出
+        property int fadeMs: 400 //淡入淡出时长
+        property int sleepMinutes: 30 //睡眠定时默认分钟
+        property int historyLimit: 200 //播放历史上限
+        property int shuffleAvoid: 5 //随机播放避免最近N首
+        property bool resumePosition: true //断点续播
+        property bool autoRestoreQueue: true //启动时恢复上次播放列表
+        property string playHistory: "[]" //播放历史(JSON)
+        property string lastQueue: "[]" //上次播放列表(JSON)
+        property int lastQueueIndex: -1 //上次播放位置
+
         //媒体
         property string downloadFolder: ""
         property int scanTime: 15 //自动扫描更新文件夹内容
@@ -79,6 +93,7 @@ QtObject {
         property string cover: ""
         property string hash: ""
         property int source: -1
+        property int position: 0
     }
 
     property QtObject shortCuts: QtObject {

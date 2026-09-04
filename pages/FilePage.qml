@@ -137,8 +137,7 @@ Item {
             Style.warned("成功加入播放列表 " + added + " 首", 1);
         }
         if (play && playFirst !== -1) {
-            playListModel.playListIndex = playFirst;
-            musicControlMin.refreshMusicPlay();
+            Playback.goTo(playFirst);
         }
     }
 
@@ -166,8 +165,7 @@ Item {
             Style.warned("成功加入播放列表 " + added + " 首", 1);
         }
         if (play && playFirst !== -1) {
-            playListModel.playListIndex = playFirst;
-            musicControlMin.refreshMusicPlay();
+            Playback.goTo(playFirst);
         }
     }
 

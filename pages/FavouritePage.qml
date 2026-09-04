@@ -81,6 +81,17 @@ Item {
             z: 2
             spacing: 8
             QButton {
+                visible: favouriteChildPage.lastIndex === 3
+                height: 38
+                text: "清空历史"
+                iconCharacter: "\uf08e"
+                onClicked: globalDialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
+                    function() {
+                        Playback.clearHistory()
+                        mainWarn.tiped("已清空播放历史", 1)
+                    })
+            }
+            QButton {
                 height: 38
                 text: favouritePage.setMode === 1 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
@@ -208,14 +219,54 @@ Item {
                 font.pixelSize: 14
             }
         }
-        Item {
+        QListView {
             id: history
             visible: false
-            width: favouriteChildPage.width
+            width: favouriteChildPage.width + 16
             height: favouriteChildPage.height
+            model: Playback.history
+            clip: true
+            topMargin: 72
+            menuModel: ["加入播放列表", "收藏", "移除记录"]
+            toolText0: "\uf095"
+            toolText1: "\uf0c8"
+
+            function addToQueue(e) {
+                for (var i = 0; i < playListModel.count; i++)
+                    if (playListModel.get(i).path === e.path) return
+                playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                mainWarn.tiped("成功加入播放列表", 1)
+            }
+            function toggleFav(e) {
+                if (e.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
+                if (favoritesSong.isFavorite(e.path, "song")) {
+                    favoritesSong.removeFavorite(e.path, "song")
+                    mainWarn.tiped("取消收藏", 0)
+                } else {
+                    favoritesSong.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
+                    mainWarn.tiped("成功收藏", 1)
+                }
+            }
+
+            onClicked: (index) => {
+                var e = Playback.history.get(index)
+                window.playTrack({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+            }
+            onToolClicked: (index, tool) => {
+                var e = Playback.history.get(index)
+                if (tool === 0) history.addToQueue(e)
+                else history.toggleFav(e)
+            }
+            onMenuClicked: (index, choice) => {
+                var e = Playback.history.get(index)
+                if (choice === 0) history.addToQueue(e)
+                else if (choice === 1) history.toggleFav(e)
+                else Playback.history.remove(index, 1)
+            }
             Text {
                 anchors.centerIn: parent
-                text: "历史记录"
+                visible: Playback.history.count === 0
+                text: "还没有播放记录，去听点什么吧"
                 color: Style.themes.textColor
                 font.pixelSize: 14
             }
