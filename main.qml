@@ -640,6 +640,64 @@ Window {
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1.0
             }
+            // 底部播放栏歌曲封面悬停提示：半透明遮罩 + 尖朝上的书名号
+            Rectangle {
+                z: 1
+                anchors.fill: musicpic
+                radius: musicpic.radius
+                color: "#000000"
+                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 0.32 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            }
+            Canvas {
+                z: 1
+                width: 20
+                height: 15
+                anchors.centerIn: parent
+                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    // 尖朝上的书名号
+                    ctx.beginPath();
+                    ctx.moveTo(2, 7.5);
+                    ctx.lineTo(10, 1);
+                    ctx.lineTo(18, 7.5);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(2, 14);
+                    ctx.lineTo(10, 7.5);
+                    ctx.lineTo(18, 14);
+                    ctx.stroke();
+                }
+            }
+            // 左键点击底部播放栏封面直接打开全屏播放器
+            // 播放页封面（Maxed*，此时封面为大图）左键打开"查看图片"弹窗
+            MouseArea {
+                id: coverHover
+                z: 2
+                anchors.fill: musicpic
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (mainLayout.state === "") {
+                        controlMaxLoader.active = true;
+                    } else {
+                        picWatch.dialog(mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png", window.musicTitle);
+                    }
+                }
+                QTip {
+                    visible: coverHover.containsMouse && mainLayout.state === ""
+                    text: "进入播放页"
+                }
+            }
         }
 
         // 全窗口沉浸歌词页
