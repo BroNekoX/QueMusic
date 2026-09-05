@@ -9,7 +9,7 @@ ToolTip {
     property int radius: height / 2
     horizontalPadding: 12
     verticalPadding: 8
-    delay: 360
+    delay: 480
     opacity: visible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
     //属性: parent visible text

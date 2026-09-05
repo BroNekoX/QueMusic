@@ -115,8 +115,11 @@ Window {
             MusicApi.setLocalLyrics();
         MusicApi.readLocalLyricsAsync(path, title, artist, meta.duration || 0, !hasMetaLyrics);
 
-        mainMedia.source = path;
-        mainMedia.play();
+        // 淡出静音排空设备缓冲后再换源，避免爆音
+        Playback.swap(function() {
+            mainMedia.source = path;
+            mainMedia.play();
+        });
     }
 
     // 首次加载内容临时存储，防止重新加载浪费内存
@@ -175,12 +178,7 @@ Window {
         enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutPlay
         onActivated: {
             console.log("shortcut--play");
-            if (mainMedia.playing === false) {
-                mainMedia.play();
-            }
-            else {
-                mainMedia.pause();
-            }
+            Playback.togglePlay();
         }
     }
     Shortcut {
@@ -229,65 +227,29 @@ Window {
         }
     }
 
-    Shortcut {
-        sequence: "Ctrl+Up" // 音量+
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: {
-            Playback.stepVolume(0.05);
-            mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0);
+    // 辅助快捷键：音量 / 精确跳转 / 静音 / A-B / 收藏 / 播放器选项
+    // 键位与开关都走设置页（Options.shortCuts / globalShortcut*）
+    Instantiator {
+        model: [
+            { k: "volumeUp",      a: function() { Playback.stepVolume(0.05); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
+            { k: "volumeDown",    a: function() { Playback.stepVolume(-0.05); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
+            { k: "seekBack",      a: function() { Playback.seekBack() } },
+            { k: "seekForward",   a: function() { Playback.seekForward() } },
+            { k: "mute",          a: function() { Playback.toggleMute(); mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0) } },
+            { k: "abLoop",        a: function() {
+                Playback.setAbPoint(Playback.abA < 0 || Playback.abArmed ? 0 : 1);
+                mainWarn.tiped(Playback.abArmed ? "A-B 循环已启用" : "已设置 A-B 起点", 1);
+            } },
+            { k: "favorite",      a: function() { musicControlMin.toggleFavorite() } },
+            { k: "playerOptions", a: function() { musicControlMin.openPlayerOptions() } }
+        ]
+        delegate: Shortcut {
+            readonly property string flag: "globalShortcut" + modelData.k.charAt(0).toUpperCase() + modelData.k.slice(1)
+            sequence: Options.shortCuts[modelData.k]
+            context: Qt.ApplicationShortcut
+            enabled: !Options.settings.recordingShortCut && Options.settings[flag]
+            onActivated: modelData.a()
         }
-    }
-    Shortcut {
-        sequence: "Ctrl+Down" // 音量-
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: {
-            Playback.stepVolume(-0.05);
-            mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0);
-        }
-    }
-    Shortcut {
-        sequence: "Ctrl+Left" // 快退
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: Playback.seekBack()
-    }
-    Shortcut {
-        sequence: "Ctrl+Right" // 快进
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: Playback.seekForward()
-    }
-    Shortcut {
-        sequence: "Ctrl+M" // 静音
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: {
-            Playback.toggleMute();
-            mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0);
-        }
-    }
-    Shortcut {
-        sequence: "Ctrl+B" // A-B 片段循环
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: {
-            Playback.setAbPoint(Playback.abA < 0 || Playback.abArmed ? 0 : 1);
-            mainWarn.tiped(Playback.abArmed ? "A-B 循环已启用" : "已设置 A-B 起点", 1);
-        }
-    }
-    Shortcut {
-        sequence: "Ctrl+D" // 收藏当前曲目
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: musicControlMin.toggleFavorite()
-    }
-    Shortcut {
-        sequence: "Ctrl+T" // 播放器选项
-        context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut
-        onActivated: musicControlMin.openPlayerOptions()
     }
 
     //加载icon库
@@ -498,19 +460,15 @@ Window {
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 30; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.blurOverlayColor; duration: 320 }
         }
-        SequentialAnimation {
+        ParallelAnimation {
             id: minedAnimation
-            ParallelAnimation {
-                NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: 320 }
-            }
-            ScriptAction {
-                script: {
-                    controlMaxLoader.visible = false;
-                    controlMaxLoader.active = false;
-                    controlMaxLoader.hideHeight = 0;
-                }
+            NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+            NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: 320 }
+            onFinished: {
+                controlMaxLoader.visible = false;
+                controlMaxLoader.active = false;
+                controlMaxLoader.hideHeight = 0;
             }
         }
 
@@ -709,6 +667,64 @@ Window {
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1.0
             }
+            // 底部播放栏歌曲封面悬停提示：半透明遮罩 + 尖朝上的书名号
+            Rectangle {
+                z: 1
+                anchors.fill: musicpic
+                radius: musicpic.radius
+                color: "#000000"
+                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 0.32 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            }
+            Canvas {
+                z: 1
+                width: 20
+                height: 15
+                anchors.centerIn: parent
+                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    // 尖朝上的书名号
+                    ctx.beginPath();
+                    ctx.moveTo(2, 7.5);
+                    ctx.lineTo(10, 1);
+                    ctx.lineTo(18, 7.5);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(2, 14);
+                    ctx.lineTo(10, 7.5);
+                    ctx.lineTo(18, 14);
+                    ctx.stroke();
+                }
+            }
+            // 左键点击底部播放栏封面直接打开全屏播放器
+            // 播放页封面（Maxed*，此时封面为大图）左键打开"查看图片"弹窗
+            MouseArea {
+                id: coverHover
+                z: 2
+                anchors.fill: musicpic
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (mainLayout.state === "") {
+                        controlMaxLoader.active = true;
+                    } else {
+                        picWatch.dialog(mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png", window.musicTitle);
+                    }
+                }
+                QTip {
+                    visible: coverHover.containsMouse && mainLayout.state === ""
+                    text: "进入播放页"
+                }
+            }
         }
 
         // 全窗口沉浸歌词页
@@ -760,7 +776,7 @@ Window {
             ColorExtractor {
                 id: colorExtractor
                 signal colorExtractFinished()
-                onColorsExtracted: {
+                onColorsExtracted: (colors) => {
                     coverColor.color1 = colors.length > 0 ? colors[0] : "#00b1ee";
                     coverColor.color2 = colors.length > 1 ? colors[1] : "#9d4edd";
                     coverColor.color3 = colors.length > 2 ? colors[2]
@@ -769,7 +785,7 @@ Window {
                     colorExtractFinished();
                 }
 
-                onColorsExtractedAsString: {
+                onColorsExtractedAsString: (colors) => {
                     console.log("颜色字符串:", colors);
                 }
             }
@@ -826,6 +842,8 @@ Window {
             }
         }
         Connections {
+            // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
+            enabled: Options.settings.displayFps
             target: window
             function onAfterRendering() { fpsCounter.frames++ }
         }
@@ -880,28 +898,24 @@ Window {
         target: MusicApi
         function onUrlplay(playurl,title,artist,cover,solve,hash,source) {
             mainMedia.urlLocal = false;
-            mainMedia.source = playurl;
             mainMedia.noTitle = title;
             window.musicTitle = title;
             window.musicArtist = artist;
             mainMedia.urlStr = cover;
-            mainMedia.play();
             colorExtractor.extractColorsFromUrl(solve);
+            // 淡出静音排空设备缓冲后再换源：上一首仍在播放，直接换 source 会截断波形产生爆音
+            Playback.swap(function() {
+                mainMedia.source = playurl;
+                mainMedia.play();
+            });
 
-            var listIndex = -1;
-            for(var i = 0;i < playListModel.count;i++) {
-                if(playListModel.get(i).path === hash) {
-                    listIndex = i;
-                    break;
-                }
-            }
-            if (listIndex == -1) {
+            var listIndex = Playback.indexOfPath(hash);
+            if (listIndex < 0) {
                 playListModel.append({ name: title, path: hash, songer: artist, source: source });
                 playListModel.playListIndex = playListModel.count - 1;
             } else {
                 playListModel.playListIndex = listIndex;
             }
-
         }
         // C++ 下载/提示信号
         function onWarned(text,type) {
@@ -910,6 +924,7 @@ Window {
     }
 
 
+    // 切歌爆音抑制
     AudioOutput { id: volumeValue; volume: Playback.outVolume; device: Options.settings.useDefaultDevice ? musicDevices.defaultAudioOutput : musicDevices.audioOutputs[Options.settings.audioDevice] }
     MediaDevices { id: musicDevices }
     // 主媒体
@@ -981,14 +996,18 @@ Window {
                         musicControlMin.enterMedia()
                         break;
                     case 1:
-                        mainMedia.position = 0
-                        mainMedia.play()
+                        // 重播同样会刷新缓冲，走淡出/淡入
+                        Playback.swap(function() {
+                            mainMedia.position = 0
+                            mainMedia.play()
+                        })
                         break;
                     case 2:
                         musicControlMin.randomMedia()
                         break;
                     case 3:
-                        mainMedia.stop()
+                        // 停止不再淡回，直接复位音量乘数
+                        Playback.swap(function() { mainMedia.stop() }, false)
                         break;
                 }
             }
@@ -997,6 +1016,12 @@ Window {
         onUrlStrChanged: {
             if (windowsSmtc.available)
                 smtcUpdateMediaInfo()
+        }
+
+        // 新音轨真正起播后再淡回，避免音频设备重开的瞬间已经有音量
+        onPlayingChanged: {
+            if (mainMedia.playing)
+                Playback.finishSwap();
         }
     }
     // 依据播放列表上下文动态启用/禁用 SMTC 的上一首/下一首按钮
@@ -1038,8 +1063,8 @@ Window {
     Connections {
         target: windowsSmtc
 
-        function onPlayPressed() { mainMedia.play() }
-        function onPausePressed() { mainMedia.pause() }
+        function onPlayPressed() { Playback.togglePlay() }
+        function onPausePressed() { Playback.togglePlay() }
         function onNextPressed() { musicControlMin.enterMedia() }
         function onPreviousPressed() { musicControlMin.lastMedia() }
         function onSeekRequested(pos) { mainMedia.position = pos }
@@ -1050,7 +1075,6 @@ Window {
 
         function onSourceChanged() {
             Playback.clearAb() // A-B 片段按曲目绑定，切歌即失效
-            Playback.fadeIn()
             // 切歌/新曲目开始播放的瞬间：主动推送 position=0 并刷新时间线；
             // duration 尚未就绪（<=0）时由 C++ 侧走全零重置分支清空上一首的残留进度。
             if (windowsSmtc.available)
@@ -1148,21 +1172,6 @@ Window {
                 window.pendingSeek = Options.lastSongs.position
             }
         } catch (err) {}
-    }
-
-    // 加入播放列表并立即播放
-    function playTrack(item) {
-        var listIndex = -1
-        for (var i = 0; i < playListModel.count; i++) {
-            if (playListModel.get(i).path === item.path) { listIndex = i; break }
-        }
-        if (listIndex === -1) {
-            playListModel.append({ name: item.name, path: item.path, songer: item.songer, source: item.source })
-            listIndex = playListModel.count - 1
-        }
-        playListModel.playListIndex = listIndex
-        Playback.notePlayed(listIndex)
-        window.startTrack(listIndex)
     }
 
     function startTrack(index) {

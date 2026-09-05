@@ -28,6 +28,14 @@ QtObject {
         property bool globalShortcutForward: true
         property bool globalShortcutPlayList: true
         property bool globalShortcutMusicControl: true
+        property bool globalShortcutVolumeUp: true
+        property bool globalShortcutVolumeDown: true
+        property bool globalShortcutSeekBack: true
+        property bool globalShortcutSeekForward: true
+        property bool globalShortcutMute: true
+        property bool globalShortcutAbLoop: true
+        property bool globalShortcutFavorite: true
+        property bool globalShortcutPlayerOptions: true
         property int cycleIndex: 0
         
         //播放器
@@ -45,7 +53,7 @@ QtObject {
         //播放增强
         property int seekStep: 5 //精确跳转步长（秒）
         property bool fadeEnabled: true //播放淡入淡出
-        property int fadeMs: 400 //淡入淡出时长
+        property int fadeMs: 200 //淡入淡出时长
         property int sleepMinutes: 30 //睡眠定时默认分钟
         property int historyLimit: 200 //播放历史上限
         property int shuffleAvoid: 2 //随机播放避免最近N首
@@ -90,14 +98,23 @@ QtObject {
         property int position: 0
     }
 
-    property QtObject shortCuts: QtObject {
-        //category: "ShortCuts"
-        //location: configDir + "/ShortCut.ini"
+    // 快捷键（持久化到 ShortCuts 配置组）
+    property Settings shortCuts: Settings {
+        category: "ShortCuts"
         property string play: "Space"
         property string back: "Left"
         property string forward: "Right"
         property string playList: "Alt"
         property string musicControl: "Up"
+        // 辅助快捷键
+        property string volumeUp: "Ctrl+Up"
+        property string volumeDown: "Ctrl+Down"
+        property string seekBack: "Ctrl+Left"
+        property string seekForward: "Ctrl+Right"
+        property string mute: "Ctrl+M"
+        property string abLoop: "Ctrl+B"
+        property string favorite: "Ctrl+D"
+        property string playerOptions: "Ctrl+T"
     }
     signal changeOptions()
 }

@@ -214,8 +214,8 @@ QOptionDialog {
                 width: 160
                 anchors.right: parent.right
                 from: 0
-                to: 2000
-                stepSize: 100
+                to: 500
+                stepSize: 50
                 leftText: true
                 valueText: value.toString() + "ms"
                 value: Options.settings.fadeMs

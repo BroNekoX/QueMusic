@@ -11,9 +11,6 @@ Popup {
     // 列表中： source：-1：本地 0.酷狗 1.网易云 2.qq音乐
     property alias model: playListView.model
     property string filter: ""
-    property int dragIndex: -1
-    property real dragOrigin: 0
-    property real dragOffset: 0
 
     padding: 0
     margins: -1
@@ -30,17 +27,6 @@ Popup {
         shadowEffect: true
         rectXy: Qt.rect(playList.x, playList.y, 360, playList.height)
         //color: Style.themes.primaryBlurColor
-    }
-
-    // 拖动排序：跨过半行即交换，同步修正当前播放下标
-    function moveItem(from, to) {
-        if (from === to || from < 0 || to < 0 || to >= playListModel.count) return
-        var cur = playListModel.playListIndex
-        playListModel.move(from, to, 1)
-        if (cur === from) cur = to
-        else if (from < cur && to >= cur) cur--
-        else if (from > cur && to <= cur) cur++
-        playListModel.playListIndex = cur
     }
 
     function locateCurrent() {
@@ -169,6 +155,7 @@ Popup {
             rightMargin: 12
             bottomMargin: 12
             property int scrollToY: playListView.contentY
+            reuseItems: true
             move: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
             moveDisplaced: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
 
@@ -199,6 +186,8 @@ Popup {
 
             delegate: Rectangle {
                 id: listfile
+                // 复用时清掉上一行残留的悬停态
+                //onPooled: listHover.opacity = 0
                 readonly property string songName: model.name || ""
                 readonly property string songArtist: model.songer || ""
                 readonly property bool matched: playList.filter === ""
@@ -210,8 +199,6 @@ Popup {
                 width: parent.width
                 radius: Style.settings.labelRadius
                 color: isCurrent ? Style.themes.containColor : "transparent"
-                // 拖拽时整行跟随手指，不改动 ListView 管理的 y
-                transform: Translate { y: playList.dragIndex === index ? playList.dragOffset : 0 }
                 Behavior on color { ColorAnimation { duration: 120 } }
 
                 Text {
@@ -281,25 +268,6 @@ Popup {
                     hoverEnabled: true
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
-                    // 拖拽排序：过程中只做位移，松手时一次性提交，避免频繁改动模型
-                    /*onPressed: {
-                        playList.dragIndex = index
-                        playList.dragOffset = 0
-                        playList.dragOrigin = mapToItem(playListView, mouseX, mouseY).y
-                    }
-                    onPositionChanged: {
-                        if (pressed && playList.dragIndex === index)
-                            playList.dragOffset = mapToItem(playListView, mouseX, mouseY).y - playList.dragOrigin
-                    }
-                    onReleased: {
-                        var dy = mapToItem(playListView, mouseX, mouseY).y - playList.dragOrigin
-                        var from = playList.dragIndex
-                        playList.dragIndex = -1
-                        playList.dragOffset = 0
-                        var step = Math.round(dy / 60)
-                        if (from >= 0 && step !== 0)
-                            playList.moveItem(from, Math.max(0, Math.min(playListModel.count - 1, from + step)))
-                    }*/
                     onClicked: {
                         if (model.source == -1) {
                             playListModel.playListIndex = index

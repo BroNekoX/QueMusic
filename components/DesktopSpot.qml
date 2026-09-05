@@ -103,14 +103,7 @@ Window {
             iconColor: Style.themes.textColor
             iconSize: Style.settings.texticon
             shadowEnabled: false
-            onClicked: {
-                if (mainMedia.playing === false) {
-                    mainMedia.play()
-                }
-                else {
-                    mainMedia.pause()
-                }
-            }
+            onClicked: Playback.togglePlay()
         }
 
         // 控制

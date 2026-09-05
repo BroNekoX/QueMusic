@@ -15,20 +15,15 @@ Rectangle {
     clip: false
     property int musicInfoX: 100
 
-    readonly property string mediaTime: (Math.floor(mainMedia.position / 60000)) + ":" + (Math.floor(mainMedia.position / 1000) % 60)
-    function formatTime(ms) {
-        var seconds = Math.floor(ms / 1000);
-        var minutes = Math.floor(ms / 60000);
-        return minutes + ":" + (seconds % 60);
-    }
+    readonly property string mediaTime: Playback.fmt(mainMedia.position)
     Connections {
         target: playListModel
         function onPlayListIndexChanged() {
-            if(favoritesSong.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
-                likeButton.iconColor = Style.themes.themeColor;
-            } else {
-                likeButton.iconColor = Style.themes.textColor;
-            }
+            // 空队列时 playListIndex 为 -1，get 会返回 undefined
+            if(playListModel.playListIndex < 0)
+                return;
+            likeButton.iconColor = favoritesSong.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
+                                   ? Style.themes.themeColor : Style.themes.textColor;
         }
     }
 
@@ -180,12 +175,29 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if(!window.musicTitle)  return;
-                    titleMenu.popup();
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton) {
+                        // 右键保留原有搜索菜单
+                        if(!window.musicTitle)  return;
+                        titleMenu.popup();
+                        return;
+                    }
+                    // 左键与控制栏整体点击行为一致——底部栏打开播放页，播放页点播放栏关闭
+                    if(mainLayout.state === "") {
+                        controlMaxLoader.active = true;
+                    } else {
+                        window.playermined();
+                        minedAnimation.start();
+                        mainLayout.state = "";
+                    }
+                }
+                QTip {
+                    visible: titleDisplayMouse.containsMouse
+                    text: "右键搜索"
                 }
             }
-            // 为防止误触，使用点击弹出菜单再搜索
+            // 右键弹出菜单再搜索，左键直接打开全屏播放器
             QMenu {
                 id: titleMenu
                 model: ["搜索歌曲名"]
@@ -214,16 +226,28 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if(!window.musicArtist)  return; //本地音乐没有歌手信息时，忽略
-                    var artists = musicControlMin.parseArtists(window.musicArtist);
-                    artistMenu.model = artists;// 多歌手,弹菜单
-                    artistMenu.popup();
-
-                    //else {
-                    //    doSearchSongsMessage(artists[0]);// 单歌手直接搜
-                    //}
-
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton) {
+                        // 右键保留原有搜索菜单（多歌手选择）
+                        if(!window.musicArtist)  return; //本地音乐没有歌手信息时，忽略
+                        var artists = musicControlMin.parseArtists(window.musicArtist);
+                        artistMenu.model = artists;// 多歌手,弹菜单
+                        artistMenu.popup();
+                        return;
+                    }
+                    // 左键与控制栏整体点击行为一致：底部栏态打开播放页，播放页点同一位置关闭
+                    if(mainLayout.state === "") {
+                        controlMaxLoader.active = true;
+                    } else {
+                        window.playermined();
+                        minedAnimation.start();
+                        mainLayout.state = "";
+                    }
+                }
+                QTip {
+                    visible: artistDisplayMouse.containsMouse
+                    text: "右键搜索"
                 }
             }
             //多位歌手时，显示菜单
@@ -394,7 +418,7 @@ Rectangle {
         Label {
             height: 40
             width: 80
-            text: musicControlMin.mediaTime + "/" + musicControlMin.formatTime(mainMedia.duration)
+            text: musicControlMin.mediaTime + " / " + Playback.fmt(mainMedia.duration)
             font.bold: false
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter

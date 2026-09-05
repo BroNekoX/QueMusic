@@ -262,7 +262,7 @@ Item {
 
             onClicked: (index) => {
                 var e = Playback.history.get(index)
-                window.playTrack({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                Playback.playItem({ name: e.title, path: e.path, songer: e.artist, source: e.source })
             }
             onToolClicked: (index, tool) => {
                 var e = Playback.history.get(index)

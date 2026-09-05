@@ -197,13 +197,7 @@ Window {
             hoverColor: Style.themes.hoverColor
             iconColor: Style.themes.textColor
             shadowEnabled: false
-            onClicked: {
-                if (mainMedia.playing) {
-                    mainMedia.pause();
-                } else {
-                    mainMedia.play();
-                }
-            }
+            onClicked: Playback.togglePlay()
             tipText: mainMedia.playing ? "暂停" : "播放"
         }
         SButton {

@@ -190,10 +190,7 @@ Window {
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
-                    onClicked: {
-                        if (mainMedia.playing) mainMedia.pause();
-                        else mainMedia.play();
-                    }
+                    onClicked: Playback.togglePlay()
                     QTip { visible: parent.hovered; text: mainMedia.playing ? "暂停" : "播放" }
                 }
 

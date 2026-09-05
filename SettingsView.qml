@@ -1492,8 +1492,8 @@ Item {
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 0
-                                to: 2000
-                                stepSize: 100
+                                to: 500
+                                stepSize: 50
                                 leftText: true
                                 valueText: value.toString() + " ms"
                                 value: Options.settings.fadeMs
@@ -1601,6 +1601,14 @@ Item {
                 ListElement { name: "forward"; desc: "下一首"; defau: "Right" }
                 ListElement { name: "playList"; desc: "打开/关闭播放列表"; defau: "Alt" }
                 ListElement { name: "musicControl"; desc: "音乐控制面板"; defau: "Up" }
+                ListElement { name: "volumeUp"; desc: "音量增大"; defau: "Ctrl+Up" }
+                ListElement { name: "volumeDown"; desc: "音量减小"; defau: "Ctrl+Down" }
+                ListElement { name: "seekBack"; desc: "快退"; defau: "Ctrl+Left" }
+                ListElement { name: "seekForward"; desc: "快进"; defau: "Ctrl+Right" }
+                ListElement { name: "mute"; desc: "静音切换"; defau: "Ctrl+M" }
+                ListElement { name: "abLoop"; desc: "A-B 片段循环"; defau: "Ctrl+B" }
+                ListElement { name: "favorite"; desc: "收藏当前曲目"; defau: "Ctrl+D" }
+                ListElement { name: "playerOptions"; desc: "播放器选项"; defau: "Ctrl+T" }
             }
 
             // 录制状态
@@ -1738,7 +1746,6 @@ Item {
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
                     height: shortCutColumn.height // 自适应高度
-                    clip: true
 
                     Column {
                         id: shortCutColumn

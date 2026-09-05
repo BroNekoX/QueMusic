@@ -15,7 +15,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     permissions:
-        contents: write
+      contents: write
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # ========== 安装系统依赖（容错处理） ==========
+      # ========== 安装系统依赖（包括编译 fcitx5-qt6 所需包） ==========
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -35,17 +35,36 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libfuse2 ninja-build wget file \
             libpulse-dev libpulse0 \
-            qt6-wayland
-          sudo apt-get install -y fcitx5-qt6 || echo "⚠️ fcitx5-qt6 not available, skipping"
+            extra-cmake-modules gettext \
+            libfcitx5-qt-dev fcitx5-dev \
+            cmake
           ls -la /usr/lib/x86_64-linux-gnu/libpulse*
 
+      # ========== 安装 Qt 6.10.3 并包含 qtwayland 模块 ==========
       - name: Install Qt 6.10.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
           python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 \
             -O "$HOME/Qt" \
-            -m qtmultimedia qtshadertools qt5compat
+            -m qtmultimedia qtshadertools qt5compat qtwayland
           echo "$HOME/Qt/6.10.3/gcc_64/bin" >> "$GITHUB_PATH"
+
+      # ========== 编译并安装 fcitx5-qt6（链接到我们的 Qt 6.10.3） ==========
+      - name: Build and install fcitx5-qt6
+        run: |
+          git clone --depth 1 https://github.com/fcitx/fcitx5-qt.git
+          cd fcitx5-qt
+          mkdir build && cd build
+          cmake .. \
+            -DQt6_DIR="$HOME/Qt/6.10.3/gcc_64/lib/cmake/Qt6" \
+            -DCMAKE_INSTALL_PREFIX="$HOME/Qt/6.10.3/gcc_64" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_QT5=OFF \
+            -DENABLE_QT6=ON
+          make -j"$(nproc)"
+          make install
+          # 验证插件是否生成
+          ls -l "$HOME/Qt/6.10.3/gcc_64/plugins/platforminputcontexts/"
 
       - name: Configure (CMake)
         run: |
@@ -63,66 +82,15 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
-      # ========== 准备 AppDir 并注入插件（容错） ==========
-      - name: Prepare AppDir with extra plugins and libraries
+      # ========== 准备 AppDir，复制 .desktop 和图标 ==========
+      - name: Prepare AppDir (base)
         run: |
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/plugins/platforms
-          mkdir -p AppDir/usr/plugins/platforminputcontexts
-          mkdir -p AppDir/usr/lib
-
           cp packaging/QueMusic.desktop AppDir/usr/share/applications/
           cp resources/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
 
-          declare -a PLUGINS=()
-
-          # Wayland 插件
-          if [ -f /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqwayland-generic.so ]; then
-            cp /usr/lib/x86_64-linux-gnu/qt6/plugins/platforms/libqwayland-generic.so \
-               AppDir/usr/plugins/platforms/
-            PLUGINS+=("AppDir/usr/plugins/platforms/libqwayland-generic.so")
-            echo "✅ Wayland plugin copied."
-          else
-            echo "⚠️ Wayland plugin not found, skipping."
-          fi
-
-          # fcitx5 插件（尝试多个路径）
-          FOUND_FCITX=""
-          for path in \
-            /usr/lib/x86_64-linux-gnu/qt6/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin-qt6.so \
-            /usr/lib/x86_64-linux-gnu/qt5/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so \
-            /usr/lib/*/qt6/plugins/platforminputcontexts/*fcitx5*.so; do
-            if [ -f "$path" ]; then
-              FOUND_FCITX="$path"
-              break
-            fi
-          done
-          if [ -n "$FOUND_FCITX" ]; then
-            cp "$FOUND_FCITX" AppDir/usr/plugins/platforminputcontexts/
-            PLUGINS+=("AppDir/usr/plugins/platforminputcontexts/$(basename "$FOUND_FCITX")")
-            echo "✅ fcitx5 plugin copied from $FOUND_FCITX."
-          else
-            echo "⚠️ fcitx5 input context plugin not found, skipping."
-          fi
-
-          # 复制插件依赖库
-          for plugin in "${PLUGINS[@]}"; do
-            if [ -f "$plugin" ]; then
-              ldd "$plugin" | grep "=> /" | awk '{print $3}' | xargs -I {} cp -n {} AppDir/usr/lib/ || true
-            fi
-          done
-
-          # 额外库
-          cp -n /usr/lib/x86_64-linux-gnu/libxcb*.so*    AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libxkbcommon*.so* AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libwayland*.so* AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libfcitx5*.so* AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libQt6WaylandClient.so* AppDir/usr/lib/ 2>/dev/null || true
-
-          echo "✅ AppDir preparation completed."
-
-      # ========== 生成自定义 AppRun 脚本 ==========
+      # ========== 生成自定义 AppRun 脚本（支持 Wayland 和 fcitx5） ==========
       - name: Create custom AppRun script
         run: |
           cat > AppRun.sh << 'EOF'
@@ -132,36 +100,37 @@ jobs:
           export PATH="${HERE}/usr/bin/:${HERE}/bin/:${PATH:+:$PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
+          # 让 Qt 自动选择平台（Wayland 优先），并启用 fcitx5
           export QT_IM_MODULE=fcitx
-          # export QT_QPA_PLATFORM=xcb   # 如需强制 X11 可取消注释
+          # 不强制指定 QT_QPA_PLATFORM，让 Qt 自动探测
           exec "${HERE}/usr/bin/QueMusic" "$@"
           EOF
           chmod +x AppRun.sh
 
-      # ========== 打包 AppImage（清理多余 SQL 驱动） ==========
+      # ========== 打包 AppImage（使用我们的 Qt 和 qmake） ==========
       - name: Package AppImage
         run: |
           export QMAKE="$HOME/Qt/6.10.3/gcc_64/bin/qmake"
+          export QT_QMAKE_EXECUTABLE="$QMAKE"
+          export LD_LIBRARY_PATH="$HOME/Qt/6.10.3/gcc_64/lib:$LD_LIBRARY_PATH"
           export QML_SOURCES_PATHS="$(pwd)"
-          export EXTRA_QT_MODULES="multimedia;sql;shadertools"
+          export EXTRA_QT_MODULES="multimedia;sql;shadertools;wayland"
           export QT_QPA_PLATFORM=minimal
 
-          # 删除不需要的 SQL 驱动，仅保留 sqlite（避免 OCI 依赖缺失）
-          cd "$HOME/Qt/6.10.3/gcc_64/plugins/sqldrivers"
-          # 保留 libqsqlite.so，删除其他所有 libqsql*.so
-          find . -maxdepth 1 -name "libqsql*.so" ! -name "libqsqlite.so" -exec rm -f {} \;
-          cd -
+          # 删除可能存在的冲突库（确保完全使用我们的 Qt）
+          rm -f AppDir/usr/lib/libQt6Core.so.* 2>/dev/null || true
 
-          # 现在运行 linuxdeploy，它只会复制剩余存在的驱动（即 sqlite）
+          # 使用 linuxdeploy 打包，并显式传递 qmake 路径给 qt 插件
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
             --executable build/bin/QueMusic \
             --desktop-file AppDir/usr/share/applications/QueMusic.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
-            --plugin qt \
+            --plugin qt -qmake="$QMAKE" \
             --custom-apprun AppRun.sh \
             --output appimage
 
+          # 重命名生成的 AppImage
           mv QueMusic-*.AppImage QueMusic-x86_64.AppImage 2>/dev/null || true
           ls -la QueMusic-*.AppImage
 
