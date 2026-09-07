@@ -51,7 +51,7 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.5.0"
+    property string version: "Beta-0.4.10"
     property int versionCode: 50
 
     property string localLyricsRequestPath: ""
@@ -371,9 +371,16 @@ Window {
             QWKButton {
                 id: fullDesktopButton
                 largeicon: true
+                buttonColor: musicCenter.active ? Style.themes.containColor : "transparent"
                 source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
-                    mainMessage.dialog("Error Dialog","本功能未开发完成，无法使用。","\uf11a");
+                    if(musicCenter.active) {
+                        musicCenter.active = false;
+                        musicCenter.source = "";
+                    } else {
+                        musicCenter.source = "file:///C:/Users/Administrator/Desktop/Clanguage/BromyuMusicNext/quemusicproject/FullCenterView.qml";
+                        musicCenter.active = true;
+                    }
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(fullDesktopButton, true);
             }
@@ -1179,11 +1186,18 @@ Window {
     // 桌面灵动岛（弃用？）
     Loader {
         id: desktopSpot
-        anchors.fill: parent
         active: false
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/DesktopSpot.qml"
+    }
+    // 沉浸模式
+    Loader {
+        id: musicCenter
+        active: false
+        asynchronous: true
+        visible: status == Loader.Ready
+        source: "file:///C:/Users/Administrator/Desktop/Clanguage/BromyuMusicNext/quemusicproject/FullCenterView.qml"
     }
     // 桌面小窗播放器
     Loader {
@@ -1200,7 +1214,7 @@ Window {
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/DesktopLyrics.qml"
-        property int lyricSize: 20
+        //property int lyricSize: 20
     }
     QAlertDialog {
         id: globalDialog

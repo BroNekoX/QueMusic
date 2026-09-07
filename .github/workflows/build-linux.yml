@@ -23,7 +23,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # ========== 安装系统依赖（修正包名） ==========
+      # ========== 安装系统依赖（包含 fcitx5 开发库，通过 PPA 确保存在） ==========
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -36,11 +36,17 @@ jobs:
             libgl1-mesa-dev libfuse2 ninja-build wget file \
             libpulse-dev libpulse0 \
             extra-cmake-modules gettext \
-            libfcitx5-qt-dev libfcitx5-dev fcitx5 \
+            software-properties-common \
             cmake
+
+          # 添加 fcitx5 官方 PPA（确保 libfcitx5-dev 可用）
+          sudo add-apt-repository ppa:fcitx-team/nightly -y
+          sudo apt-get update
+          sudo apt-get install -y libfcitx5-dev fcitx5
+
           ls -la /usr/lib/x86_64-linux-gnu/libpulse*
 
-      # ========== 安装 Qt 6.10.3 并包含 qtwayland 模块 ==========
+      # ========== 安装 Qt 6.10.3（包含 qtwayland 模块） ==========
       - name: Install Qt 6.10.3 (aqtinstall)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
@@ -63,7 +69,7 @@ jobs:
             -DENABLE_QT6=ON
           make -j"$(nproc)"
           make install
-          # 验证插件是否生成
+          # 验证插件已生成
           ls -l "$HOME/Qt/6.10.3/gcc_64/plugins/platforminputcontexts/"
 
       - name: Configure (CMake)
@@ -82,7 +88,7 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
-      # ========== 准备 AppDir 基础 ==========
+      # ========== 准备 AppDir 基础结构 ==========
       - name: Prepare AppDir (base)
         run: |
           mkdir -p AppDir/usr/share/applications
@@ -101,12 +107,12 @@ jobs:
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
           export QT_IM_MODULE=fcitx
-          # 让 Qt 自动选择平台（Wayland 优先）
+          # 不强制指定平台，让 Qt 自动选择（Wayland 优先）
           exec "${HERE}/usr/bin/QueMusic" "$@"
           EOF
           chmod +x AppRun.sh
 
-      # ========== 打包 AppImage ==========
+      # ========== 打包 AppImage（确保全部使用我们的 Qt） ==========
       - name: Package AppImage
         run: |
           export QMAKE="$HOME/Qt/6.10.3/gcc_64/bin/qmake"
@@ -116,10 +122,10 @@ jobs:
           export EXTRA_QT_MODULES="multimedia;sql;shadertools;wayland"
           export QT_QPA_PLATFORM=minimal
 
-          # 删除可能存在的冲突库
+          # 删除可能存在的旧 Qt 核心库（避免混用）
           rm -f AppDir/usr/lib/libQt6Core.so.* 2>/dev/null || true
 
-          # 使用 linuxdeploy 打包
+          # 执行打包，显式传递 qmake 路径
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
             --executable build/bin/QueMusic \
@@ -138,7 +144,7 @@ jobs:
           name: QueMusic-x86_64.AppImage
           path: QueMusic-x86_64.AppImage
 
-      # ========== Release 相关步骤 ==========
+      # ========== Release 步骤 ==========
       - name: Check if release tag already exists (manual trigger only)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
         env:

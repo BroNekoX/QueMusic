@@ -348,7 +348,7 @@ Rectangle {
                     Options.settings.cycleIndex = 0;
                 }
             }
-            tipText: "播放顺序"
+            tipText: ["列表循环","单曲循环","随机播放","暂停操作"][Options.settings.cycleIndex]
         }
         SButton {
             iconCharacter: "\uf0dc"

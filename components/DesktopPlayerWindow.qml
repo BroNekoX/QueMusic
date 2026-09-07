@@ -9,14 +9,68 @@ Window {
     id: desktopPlayerWindow
     width: 340
     height: 148
-    x: Screen.width - width - 60
-    y: 90
+    minimumWidth: 240
+    minimumHeight: 128
+    //x: Screen.width - width - 60
+    //y: 90
     visible: true
     color: "transparent"
     title: "QueMusic桌面播放器"
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property bool topWindow: true
+    property int bw: 3
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        z: 1
+        cursorShape: {
+            const p = Qt.point(mouseX, mouseY);
+            const b = bw + 10; // Increase the corner size slightly
+            if (p.x < b && p.y < b) return Qt.SizeFDiagCursor;
+            if (p.x >= width - b && p.y >= height - b) return Qt.SizeFDiagCursor;
+            if (p.x >= width - b && p.y < b) return Qt.SizeBDiagCursor;
+            if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor;
+            if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor;
+            if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor;
+        }
+        acceptedButtons: Qt.NoButton // don't handle actual events
+    }
+
+    DragHandler {
+        id: resizeHandler
+        grabPermissions: TapHandler.TakeOverForbidden
+        target: null
+        onActiveChanged: if (active) {
+                             const p = resizeHandler.centroid.position;
+                             const b = bw + 10; // Increase the corner size slightly
+                             let e = 0;
+                             if (p.x < b) { e |= Qt.LeftEdge }
+                             if (p.x >= width - b) { e |= Qt.RightEdge }
+                             if (p.y < b) { e |= Qt.TopEdge }
+                             if (p.y >= height - b) { e |= Qt.BottomEdge }
+                             desktopPlayerWindow.startSystemResize(e);
+                         }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        anchors.margins: 6
+        z: 0
+        property real dragOffsetX: 0
+        property real dragOffsetY: 0
+        onPressed: (mouse) => {
+            dragOffsetX = mouse.x;
+            dragOffsetY = mouse.y;
+        }
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                desktopPlayerWindow.x = desktopPlayerWindow.x + (mouse.x - dragOffsetX);
+                desktopPlayerWindow.y = desktopPlayerWindow.y + (mouse.y - dragOffsetY);
+            }
+        }
+    }
 
     // 时间格式化
     function formatTime(ms) {
@@ -32,26 +86,10 @@ Window {
         id: playerCard
         anchors.fill: parent
         radius: 12
-        color: Style.themes.primaryBlurColor
+        z: 1
+        color: Style.themes.primaryColor
         border.width: 2
         border.color: Style.themes.sideColor
-
-        MouseArea {
-            anchors.fill: parent
-            z: 0
-            property real dragOffsetX: 0
-            property real dragOffsetY: 0
-            onPressed: (mouse) => {
-                dragOffsetX = mouse.x;
-                dragOffsetY = mouse.y;
-            }
-            onPositionChanged: (mouse) => {
-                if (pressed) {
-                    desktopPlayerWindow.x = desktopPlayerWindow.x + (mouse.x - dragOffsetX);
-                    desktopPlayerWindow.y = desktopPlayerWindow.y + (mouse.y - dragOffsetY);
-                }
-            }
-        }
 
         // 封面
         Image {
@@ -146,99 +184,93 @@ Window {
             horizontalAlignment: Text.AlignRight
         }
 
-        SButton {
-            iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][musicControlMin.cycleIndex]
-            x: 66
-            y: 95
-            width: 36
-            height: 36
-            radius: 18
-            buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
-            shadowEnabled: false
-            iconSize: Style.settings.texticon
-            onClicked: {
-                if(musicControlMin.cycleIndex < 3) {
-                    musicControlMin.cycleIndex += 1;
-                } else {
-                    musicControlMin.cycleIndex = 0;
+        Row {
+            y: parent.height - 52
+            anchors.horizontalCenter: parent.horizontalCenter
+            SButton {
+                iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][Options.settings.cycleIndex]
+                width: 36
+                height: 36
+                radius: 18
+                buttonColor: "transparent"
+                hoverColor: Style.themes.hoverColor
+                iconColor: Style.themes.textColor
+                shadowEnabled: false
+                iconSize: Style.settings.texticon
+                onClicked: {
+                    if(Options.settings.cycleIndex < 3) {
+                        Options.settings.cycleIndex += 1;
+                    } else {
+                        Options.settings.cycleIndex = 0;
+                    }
                 }
+                tipText: "播放顺序"
             }
-            tipText: "播放顺序"
-        }
 
-        SButton {
-            id: lastButton
-            x: 108
-            y: 95
-            width: 36
-            height: 36
-            radius: 18
-            iconCharacter: "\uf0dc"
-            iconSize: Style.settings.texticon
-            buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
-            shadowEnabled: false
-            onClicked: musicControlMin.lastMedia()
-            tipText: "上一首"
-        }
-        SButton {
-            id: playButton
-            x: 150
-            y: 93
-            width: 40
-            height: 40
-            radius: 20
-            iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
-            iconSize: Style.settings.texticon + 2
-            buttonColor: Style.themes.secondaryBlurColor
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
-            shadowEnabled: false
-            onClicked: Playback.togglePlay()
-            tipText: mainMedia.playing ? "暂停" : "播放"
-        }
-        SButton {
-            id: nextButton
-            x: 196
-            y: 95
-            width: 36
-            height: 36
-            radius: 18
-            iconCharacter: "\uf0d9"
-            iconSize: Style.settings.texticon
-            buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
-            shadowEnabled: false
-            onClicked: musicControlMin.enterMedia()
-            tipText: "下一首"
-        }
-        SButton {
-            id: playListButton
-            x: 238
-            y: 96
-            width: 36
-            height: 36
-            radius: 17
-            iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
-            iconSize: Style.settings.texticon
-            buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
-            shadowEnabled: false
-            onClicked: {
-                if(desktopPlayerWindow.topWindow) {
-                    desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint;
-                    desktopPlayerWindow.topWindow = false;
-                } else {
-                    desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint;
-                    desktopPlayerWindow.topWindow = true;
-                }
+            SButton {
+                id: lastButton
+                width: 36
+                height: 36
+                radius: 18
+                iconCharacter: "\uf0dc"
+                iconSize: Style.settings.texticon
+                buttonColor: "transparent"
+                hoverColor: Style.themes.hoverColor
+                iconColor: Style.themes.textColor
+                shadowEnabled: false
+                onClicked: musicControlMin.lastMedia()
+                tipText: "上一首"
             }
-            tipText: "顶置小窗"
+            SButton {
+                id: playButton
+                width: 36
+                height: 36
+                radius: 18
+                iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
+                iconSize: Style.settings.texticon + 2
+                buttonColor: Style.themes.secondaryBlurColor
+                hoverColor: Style.themes.hoverColor
+                iconColor: Style.themes.textColor
+                shadowEnabled: false
+                onClicked: Playback.togglePlay()
+                tipText: mainMedia.playing ? "暂停" : "播放"
+            }
+            SButton {
+                id: nextButton
+                width: 36
+                height: 36
+                radius: 18
+                iconCharacter: "\uf0d9"
+                iconSize: Style.settings.texticon
+                buttonColor: "transparent"
+                hoverColor: Style.themes.hoverColor
+                iconColor: Style.themes.textColor
+                shadowEnabled: false
+                onClicked: musicControlMin.enterMedia()
+                tipText: "下一首"
+            }
+            SButton {
+                id: playListButton
+                width: 36
+                height: 36
+                radius: 17
+                iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
+                iconSize: Style.settings.texticon
+                buttonColor: "transparent"
+                hoverColor: Style.themes.hoverColor
+                iconColor: Style.themes.textColor
+                shadowEnabled: false
+                onClicked: {
+                    if(desktopPlayerWindow.topWindow) {
+                        desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint;
+                        desktopPlayerWindow.topWindow = false;
+                    } else {
+                        desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint;
+                        desktopPlayerWindow.topWindow = true;
+                    }
+                }
+                tipText: "顶置小窗"
+            }
         }
 
         // 关闭按钮

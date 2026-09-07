@@ -8,16 +8,19 @@ import QueMusic 1.0
 
 Window {
     id: desktopLyricsWindow
-    width: desktopLyricsLoader.lyricSize * 32
-    height: desktopLyricsLoader.lyricSize * 5 + 52
-    x: Screen.width / 2 - width / 2
-    y: Screen.height - height - 100
+    width: 640
+    height: 160
+    minimumWidth: 480
+    minimumHeight: 120
+    //x: Screen.width / 2 - width / 2
+    //y: Screen.height - height - 100
     visible: true
     color: "transparent"
     title: "QueMusic 桌面歌词"
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property bool active: true   // 外部控制显示/隐藏
+    property int lyricSize: height / 4 - 18
 
     // 歌词数据引用
     property var lyricsData: MusicApi.lyricsData || []
@@ -82,7 +85,7 @@ Window {
             text: (desktopLyricsWindow.currentIndex >= 0 && desktopLyricsWindow.currentIndex < lyricsData.length)
                   ? lyricsData[desktopLyricsWindow.currentIndex].text || ""
                   : "🎵 纯音乐，请欣赏"
-            font.pixelSize: desktopLyricsLoader.lyricSize * 1.2
+            font.pixelSize: desktopLyricsWindow.lyricSize * 1.2
             font.bold: true
             font.weight: Font.Medium
             color: Style.themes.themeColor
@@ -106,7 +109,7 @@ Window {
             text: (desktopLyricsWindow.nextIndex >= 0 && desktopLyricsWindow.nextIndex < lyricsData.length)
                   ? lyricsData[desktopLyricsWindow.nextIndex].text || ""
                   : ""
-            font.pixelSize: desktopLyricsLoader.lyricSize
+            font.pixelSize: desktopLyricsWindow.lyricSize
             font.bold: true
             color: "#fcfcfc"
             elide: Text.ElideRight
@@ -124,47 +127,81 @@ Window {
         }
     }
 
+    property int bw: 3
 
-    // 拖动区域
     MouseArea {
         anchors.fill: parent
-        z: 2
-        property real dragOffsetX: 0
-        property real dragOffsetY: 0
-        onPressed: (mouse) => {
-            dragOffsetX = mouse.x;
-            dragOffsetY = mouse.y;
-        }
-        onPositionChanged: (mouse) => {
-            if (pressed) {
-                desktopLyricsWindow.x += mouse.x - dragOffsetX;
-                desktopLyricsWindow.y += mouse.y - dragOffsetY;
-            }
-        }
         hoverEnabled: true
-        //onEntered: {
-        //    controlPanel.opacity = 1;
-        //}
-        //onExited: hideTimer.start();
-        Rectangle {
-            opacity: parent.containsMouse ? 1 : 0
+        z: 1
+        cursorShape: {
+            const p = Qt.point(mouseX, mouseY);
+            const b = bw + 10; // Increase the corner size slightly
+            if (p.x < b && p.y < b) return Qt.SizeFDiagCursor;
+            if (p.x >= width - b && p.y >= height - b) return Qt.SizeFDiagCursor;
+            if (p.x >= width - b && p.y < b) return Qt.SizeBDiagCursor;
+            if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor;
+            if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor;
+            if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor;
+        }
+        acceptedButtons: Qt.NoButton // don't handle actual events
+    }
+
+    DragHandler {
+        id: resizeHandler
+        grabPermissions: TapHandler.TakeOverForbidden
+        target: null
+        onActiveChanged: if (active) {
+                             const p = resizeHandler.centroid.position;
+                             const b = bw + 10; // Increase the corner size slightly
+                             let e = 0;
+                             if (p.x < b) { e |= Qt.LeftEdge }
+                             if (p.x >= width - b) { e |= Qt.RightEdge }
+                             if (p.y < b) { e |= Qt.TopEdge }
+                             if (p.y >= height - b) { e |= Qt.BottomEdge }
+                             desktopLyricsWindow.startSystemResize(e);
+                         }
+    }
+
+
+    Rectangle {
+        opacity: desktopLyricArea.containsMouse ? 1 : 0
+        anchors.fill: parent
+        color: "#88000000"
+        radius: Style.settings.cubeRadius
+        z: 2
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Text {
+            x: 20
+            y: 12
+            height: 36
+            width: desktopLyricsWindow.width / 2 - 80
+            text: window.musicTitle + " - " + window.musicArtist
+            verticalAlignment: Text.AlignVCenter
+            color: "#fffafafa"
+            font.pixelSize: Style.settings.text
+        }
+        // 拖动区域
+        MouseArea {
+            id: desktopLyricArea
             anchors.fill: parent
-            color: "#88000000"
-            radius: Style.settings.cubeRadius
-            Behavior on opacity { NumberAnimation { duration: 120 } }
-            Text {
-                x: 16
-                y: 12
-                height: 36
-                width: desktopLyricsWindow.width / 2 - 80
-                text: window.musicTitle + " - " + window.musicArtist
-                verticalAlignment: Text.AlignVCenter
-                color: "#fffafafa"
-                font.pixelSize: Style.settings.text
+            anchors.margins: 6
+            property real dragOffsetX: 0
+            property real dragOffsetY: 0
+            onPressed: (mouse) => {
+                dragOffsetX = mouse.x;
+                dragOffsetY = mouse.y;
             }
+            onPositionChanged: (mouse) => {
+                if (pressed) {
+                    desktopLyricsWindow.x += mouse.x - dragOffsetX;
+                    desktopLyricsWindow.y += mouse.y - dragOffsetY;
+                }
+            }
+            hoverEnabled: true
+
             // 控制按钮组
             Row {
-                y: 12
+                y: 6
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
 
@@ -209,8 +246,8 @@ Window {
             }
             // 进度条小提示（时间）
             Text {
-                x: desktopLyricsWindow.width - 60 - width
-                y: 12
+                x: desktopLyricsWindow.width - 68 - width
+                y: 6
                 height: 36
                 text: desktopLyricsWindow.formatTime(mainMedia.position) + " / " + desktopLyricsWindow.formatTime(mainMedia.duration)
                 font.pixelSize: 13
@@ -220,8 +257,8 @@ Window {
             // 关闭按钮
             SButton {
                 id: closeButton
-                x: desktopLyricsWindow.width - 48
-                y: 12
+                x: desktopLyricsWindow.width - 54
+                y: 6
                 width: 36; height: 36; radius: Style.settings.labelRadius
                 iconCharacter: "\uf025"
                 iconSize: 15

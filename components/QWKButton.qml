@@ -16,6 +16,7 @@ Button {
     property alias source: image.source
     property bool largeicon: false
     property color hoverColor: Style.themes.hoverColor
+    property color buttonColor: "transparent"
 
     contentItem: Image {
         id: image
@@ -27,7 +28,7 @@ Button {
     }
     background: Rectangle {
         border.width: 0
-        color: root.hovered ? root.hoverColor : "transparent"
+        color: root.hovered ? root.hoverColor : root.buttonColor
         radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 8
         Behavior on color { ColorAnimation { duration: 60 } }
     }

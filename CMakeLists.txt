@@ -73,6 +73,7 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     QML_FILES
         main.qml
         SettingsView.qml
+        FullCenterView.qml
         layout/MainContent.qml
         layout/PlayerControl.qml
         layout/PlayerMaxCenter.qml
