@@ -10,7 +10,7 @@ Item {
     id: root
     clip: false
 
-    // --- 公共属性 ---
+    // 公共属性
     property Item blurSource
     property real blurAmount: 1
     property bool dragable: false
@@ -28,7 +28,7 @@ Item {
     width: 244
     height: 40
 
-    // --- 捕获背景内容 ---
+    // 捕获背景内容
     ShaderEffectSource {
         id: effectSource
         anchors.fill: parent
@@ -37,7 +37,7 @@ Item {
         visible: false
     }
 
-    // === 创建遮罩 ===
+    // 创建遮罩
     Rectangle {
         id: maskItem
         z: 1
@@ -60,7 +60,7 @@ Item {
         color: Style.themes.shadowColor
     }
 
-    // === 启用遮罩 ===
+    // 启用遮罩
     MultiEffect {
         z: 2
         anchors.fill: root
@@ -75,7 +75,7 @@ Item {
         maskSource: maskItem
     }
 
-    // ====叠加主题色, 避免过亮/过透明 ====
+    // 叠加主题色, 避免过亮/过透明
     Rectangle {
         id: topCard
         anchors.fill: root
@@ -88,70 +88,64 @@ Item {
     }
 
     // 内容容器
-    Item {
-        id: contentItem
-        clip: false
-        anchors.fill: parent
+    Rectangle {
+        id: topAnine
+        y: 3
+        x: 3 + tabView.choiceIndex * root.tabWidth
         z: 4
-        Rectangle {
-            id: topAnine
-            y: 2
-            x: 2 + tabView.choiceIndex * root.tabWidth
-            z: 1
-            width: root.tabWidth
-            height: root.height - 4
-            radius: root.borderRadius
-            color: Style.themes.fullColor
-            Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
-        }
-        Row {
-            id: tabView
-            anchors.fill: parent
-            anchors.margins: 2
-            property int choiceIndex: 0
-            z: 2
-            Repeater {
-                model: root.model
+        width: root.tabWidth
+        height: root.height - 6
+        radius: root.borderRadius
+        color: Style.themes.primaryColor
+        Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
+    }
+    Row {
+        id: tabView
+        anchors.fill: parent
+        anchors.margins: 3
+        property int choiceIndex: 0
+        z: 5
+        Repeater {
+            model: root.model
 
-                delegate: Item {
-                    id: navMusic
-                    width: root.tabWidth
-                    height: root.height - 4
-                    property bool isSelected: tabView.choiceIndex === index
+            delegate: Item {
+                id: navMusic
+                width: root.tabWidth
+                height: root.height - 6
+                property bool isSelected: tabView.choiceIndex === index
 
 
-                    Rectangle {
-                        z: 0
-                        anchors.fill: navMusic
-                        radius: root.borderRadius
-                        opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
-                        color: Style.themes.hoverColor
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
-                    }
+                Rectangle {
+                    z: 0
+                    anchors.fill: navMusic
+                    radius: root.borderRadius
+                    opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
+                    color: Style.themes.hoverColor
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                }
 
 
-                    Text {
-                        anchors.fill: parent
-                        text: modelData
-                        color: navMusic.isSelected ? Style.themes.fontColor : Style.themes.textColor
-                        font.pixelSize: Style.settings.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                    }
+                Text {
+                    anchors.fill: parent
+                    text: modelData
+                    color: navMusic.isSelected ? Style.themes.fontColor : Style.themes.textColor
+                    font.pixelSize: Style.settings.text
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
 
 
-                    MouseArea {
-                        id: indexArea
-                        anchors.fill: navMusic
-                        hoverEnabled: true
-                        onClicked: {
-                            if(tabView.choiceIndex !== index) {
-                                root.tabChange(index);
-                            }
-                            tabView.choiceIndex = index;
-                            forceActiveFocus();
+                MouseArea {
+                    id: indexArea
+                    anchors.fill: navMusic
+                    hoverEnabled: true
+                    onClicked: {
+                        if(tabView.choiceIndex !== index) {
+                            root.tabChange(index);
                         }
+                        tabView.choiceIndex = index;
+                        forceActiveFocus();
                     }
                 }
             }

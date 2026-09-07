@@ -11,7 +11,7 @@ ListView {
     bottomMargin: 24
     rightMargin: 16
     property int scrollToY: view.contentY
-    property list<string> headerModel: isList ? ["标题","创建者","曲目","操作"] : ["标题","歌手","时长","操作"]//text,x
+    property list<string> headerModel: isList ? ["标题","创建者","曲目","操作"] : ["标题","歌手","时长","操作"]
     property list<string> menuModel: ["下载到本地","分享","歌曲信息"]
     property list<int> selectedIndices: []
     property bool isList: false
@@ -25,6 +25,13 @@ ListView {
     synchronousDrag: true
     reuseItems: true
     onDraggingChanged: view.scrollToY = view.contentY
+
+    // 回到顶部并同步 scrollToY，防止滚轮动画把 contentY 拉回过期位置
+    function scrollTop() {
+        listViewAnime.stop()
+        scrollToY = -topMargin
+        contentY = -topMargin
+    }
     signal clicked(int index)
     signal menuClicked(int index,int choice)
     signal toolClicked(int index,int tool)//从右往左2（菜单)，1（喜欢），0（通用）
@@ -123,18 +130,14 @@ ListView {
             listViewAnime.running = true;
         }
     }
-    SequentialAnimation {
+    NumberAnimation {
         id: listViewAnime
-        NumberAnimation {
-            target: view
-            property: "contentY"
-            duration: 240
-            to: view.scrollToY
-            easing.type: Easing.OutCubic
-        }
-        ScriptAction {
-            script: viewBar.active = false
-        }
+        target: view
+        property: "contentY"
+        duration: 240
+        to: view.scrollToY
+        easing.type: Easing.OutCubic
+        onFinished: viewBar.active = false
     }
 
     rebound: Transition {
@@ -175,15 +178,6 @@ ListView {
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
-        /*Text {
-            x: view.toolX + 70
-            height: 36
-            text: view.headerModel[3]
-            color: Style.themes.textColor
-            font.pixelSize: Style.settings.textTip
-            font.weight: Font.DemiBold
-            verticalAlignment: Text.AlignVCenter
-        }*/
         Rectangle {
             width: parent.width - 16
             height: 1
@@ -231,9 +225,6 @@ ListView {
         width: view.width - 16
         color: view.selectedIndices.indexOf(index) !== -1 ? Style.themes.containColor : "#00000000"
         radius: Style.settings.labelRadius
-
-        //radius: Style.settings.labelRadius
-        //color: index % 2 === 0 ? Style.themes.blurOverlayColor : "transparent"
 
         Rectangle {
             anchors.fill: parent
@@ -323,7 +314,7 @@ ListView {
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: (mouse) => {
                 if (mouse.button === Qt.LeftButton) {
-                    onClicked: view.clicked(index);
+                    view.clicked(index);
                 } else {
                     menu.index = index;
                     view.menu.popup();

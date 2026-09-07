@@ -10,9 +10,11 @@ import 'qrc:/QueMusic/components'
 Menu {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
-    property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property bool masked: false
+    property int current: -1
     title: "Menu"
+    parent: Overlay.overlay
     //parent: Overlay.overlay
     //closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
     property list<string> model: []
@@ -43,13 +45,15 @@ Menu {
                 radius: Style.settings.labelRadius - 2
                 width: menuItem.width - 4
                 height: menuItem.height - 4
-                color: menuItem.down || menuItem.highlighted ? Style.themes.hoverColor : "transparent"
+                color: index === dialog.current ? Style.themes.containColor
+                     : (menuItem.down || menuItem.highlighted) ? Style.themes.hoverColor
+                     : "transparent"
             }
             text: modelData
             //显式指定contentItem，
             contentItem: Text {
                 text: menuItem.text
-                color: Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
+                color: index === dialog.current ? Style.themes.themeColor : Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: 12

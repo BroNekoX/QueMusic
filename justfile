@@ -2,6 +2,10 @@
 os := `uname -s`
 preset := if os == "Darwin" { "mac-clang-release" } else if os == "Linux" { "linux-gcc-release" } else { "win-llvm-mingw-release" }
 
+# 首次使用：拉取子模块，just setup
+setup:
+    git submodule update --init --recursive
+
 # 默认构建命令：just b
 b:
     cmake --preset {{preset}}

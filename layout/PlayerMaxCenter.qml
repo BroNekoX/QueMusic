@@ -221,7 +221,6 @@ Item {
         horizontalAlignment: controlMaxLoader.lyricsType === 1 ? Text.AlignHCenter : Text.AlignLeft
 
         color: Qt.rgba(1,1,1,1)
-        //Behavior on opacity { NumberAnimation { duration: 300 } }
         layer.enabled: true
         layer.effect: DropShadow {
             horizontalOffset: 2
@@ -247,7 +246,6 @@ Item {
         verticalAlignment: Text.AlignVCenter
         visible: x !== -400 && !controlMaxLoader.basicCd
         color: Qt.rgba(1,1,1,0.7)
-        //Behavior on opacity { NumberAnimation { duration: 300 } }
     }
     Text {
         id: lyricModeText
@@ -260,7 +258,6 @@ Item {
         font.weight: 600
         font.pixelSize: 16
         verticalAlignment: Text.AlignVCenter
-        //horizontalAlignment: Text.AlignRight
         color: Qt.rgba(1,1,1,0.8)
         visible: controlMaxLoader.lyricsType === 2
         opacity: 0.8
@@ -311,10 +308,9 @@ Item {
         }
         readonly property int lyricHeight: musicControlMax.standHeight / 2
         property real alignPos: 0.32        // 当前行停在视口高度比例
-        property real lineSpacing: musicControlMax.standHeight / 1.6  // 行间距
-        //readonly property int overscan: 8
-        property int currentLine: 0         // currentIndex
-        property int springValue: 0.0
+        property real lineSpacing: musicControlMax.standHeight / 1.6
+        property int currentLine: 0
+        property real springValue: 0.0
         property bool openTranslate: true   // 是否显示翻译
         property bool isUserScrolling: false// 滚轮
         property int scrollOffset: 0       // 用户手动滚动的额外偏移量
@@ -463,7 +459,6 @@ Item {
                 x: 10
                 width: lyricContent.width - 20
                 height: lyricsText.implicitHeight + lyricTransText.height + lyricContent.lineSpacing
-                //visible: Math.abs(index - lyricContent.currentLine) <= lyricContent.overscan
 
                 readonly property bool isCurrent: index === lyricContent.currentLine
                 readonly property bool isFlowActive: modelData.info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
@@ -473,7 +468,6 @@ Item {
                 property real standY: 0.0
                 y: standY + lyricContent.scrollOffset
 
-                //y: displayY
                 SequentialAnimation {
                     id: lyricAnime
                     property int pauseMs: 0
@@ -576,9 +570,7 @@ Item {
                     id: lyricFlow
                     width: lyricItem.width
                     height: lyricItem.height
-                    //horizontalAlignment:
                     alignment: modelData.isOther ? CustomFlow.AlignRight : CustomFlow.AlignLeft
-                    //flow: Flow.LeftToRight
 
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
@@ -621,12 +613,10 @@ Item {
                                 font.family: lyricsText.font.family
                                 color: "#fff5f5f5"
                                 opacity: 0.4
-                                //Behavior on y { NumberAnimation { duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo } }
                             }
                             LinearGradient {
                                 property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
                                 Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[index].duration / mainMedia.playbackRate * (width + 16) / width } }
-                                //linesText.model[index].duration !== 0 ? (lyricItem.nowPosition - linesText.model[index].offset) / linesText.model[index].duration * width : (lyricItem.nowPosition - linesText.model[index].offset) * width
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y
@@ -647,7 +637,6 @@ Item {
 
         Item {
             id: waitAnimeSection
-            //opacity: waitSectionLoader.opacity
             scale: 0.0
             transformOrigin: Popup.BottomLeft
             y: lyricContent.height * lyricContent.alignPos + lyricContent.lyricHeight * 0.2 + lyricContent.scrollOffset
@@ -684,40 +673,36 @@ Item {
         SequentialAnimation {
             id: waitOpenAnime
             property int lightDuration: 2500
-            ScriptAction { script: {
-                 waitAnimeSection.visible = true;
-                 waitAnimeSection.lightState = 0;
-                 var line = MusicApi.lyricsData[lyricContent.currentLine];
-                 var next = MusicApi.lyricsData[lyricContent.currentLine + 1];
-                 if (line && next && line.info && line.info.length > 0
-                     && (next.time !== undefined) && (line.time !== undefined)) {
-                     var last = line.info[line.info.length - 1];
-                     if (last && (last.offset !== undefined) && (last.duration !== undefined))
-                         waitOpenAnime.lightDuration = next.time - line.time - last.offset - last.duration - 420;
-                     else
-                         waitOpenAnime.lightDuration = 2500;
-                 } else {
-                     waitOpenAnime.lightDuration = 2500;
-                 }
-             } }
+            onStarted: {
+                waitAnimeSection.visible = true;
+                waitAnimeSection.lightState = 0;
+                var line = MusicApi.lyricsData[lyricContent.currentLine];
+                var next = MusicApi.lyricsData[lyricContent.currentLine + 1];
+                if (line && next && line.info && line.info.length > 0
+                    && (next.time !== undefined) && (line.time !== undefined)) {
+                    var last = line.info[line.info.length - 1];
+                    if (last && (last.offset !== undefined) && (last.duration !== undefined))
+                        waitOpenAnime.lightDuration = next.time - line.time - last.offset - last.duration - 420;
+                    else
+                        waitOpenAnime.lightDuration = 2500;
+                } else {
+                    waitOpenAnime.lightDuration = 2500;
+                }
+            }
             PauseAnimation { duration: 100 }
             ParallelAnimation {
                 NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
                 NumberAnimation { target: waitAnimeSection; property: "scale"; from: 0; to: 1; duration: 460; easing.type: Easing.OutCubic }
             }
             NumberAnimation { target: waitAnimeSection; property: "lightState"; from: 0; to: 3; duration: waitOpenAnime.lightDuration / mainMedia.playbackRate }
-            //ScriptAction { script: console.log("动画完成:",waitOpenAnime.lightDuration); }
         }
-        SequentialAnimation {
+        ParallelAnimation {
             id: waitOutAnime
-            ParallelAnimation {
-                NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 1; to: 0; duration: 320 }
-                NumberAnimation { target: waitAnimeSection; property: "scale"; from: 1; to: 0; duration: 320 }
-            }
-            ScriptAction { script: waitAnimeSection.visible = false }
+            NumberAnimation { target: waitAnimeSection; property: "opacity"; from: 1; to: 0; duration: 320 }
+            NumberAnimation { target: waitAnimeSection; property: "scale"; from: 1; to: 0; duration: 320 }
+            onFinished: waitAnimeSection.visible = false
         }
 
-        // 滚动动画区
         WheelHandler {
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             onWheel: (event) => {
@@ -730,19 +715,13 @@ Item {
             }
         }
 
-        SequentialAnimation {
+        NumberAnimation {
             id: scrollAnime
-            property int to: 0
-            NumberAnimation {
-                target: lyricContent
-                property: "scrollOffset"
-                duration: 640
-                to: scrollAnime.to
-                easing.type: Easing.OutExpo
-            }
-            ScriptAction {
-                script: lyricContent.isUserScrolling = false;
-            }
+            target: lyricContent
+            property: "scrollOffset"
+            duration: 640
+            easing.type: Easing.OutExpo
+            onFinished: lyricContent.isUserScrolling = false
         }
     }
 

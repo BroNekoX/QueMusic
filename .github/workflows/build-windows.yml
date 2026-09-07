@@ -1,0 +1,41 @@
+name: Build Windows (MinGW)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Qt 6.10.3 (aqtinstall)
+        shell: pwsh
+        run: |
+          pip install aqtinstall
+          aqt install-qt windows desktop 6.10.3 win64_mingw -O "D:/Qt" -m qtmultimedia qtshadertools qt5compat
+          aqt install-tool windows desktop tools_mingw1310 -O "D:/Qt"
+          aqt install-tool windows desktop tools_ninja -O "D:/Qt"
+          echo "D:/Qt/6.10.3/mingw_64/bin" | Out-File -Append $env:GITHUB_PATH
+          echo "D:/Qt/Tools/mingw1310_64/bin" | Out-File -Append $env:GITHUB_PATH
+          echo "D:/Qt/Tools/Ninja" | Out-File -Append $env:GITHUB_PATH
+
+      - name: Configure (CMake)
+        shell: pwsh
+        run: |
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="D:/Qt/6.10.3/mingw_64"
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --parallel
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueMusic-windows-build
+          path: build/bin/QueMusic.exe

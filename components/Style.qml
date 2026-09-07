@@ -90,8 +90,8 @@ QtObject {
         themes.hoverColor = darkis ? "#14ffffff" : "#0c000000";
         //themes.sideColor = darkis ? "#1c1d20" : "#e5e7eb";
         //themes.sideBlurColor = darkis ? "#cc1c1d20" : "#ccf3f4f6";
-        themes.sideColor = darkis ?  "#383838" : "#eaeaea";
-        themes.sideBlurColor = darkis ? "#88383838" : "#88eaeaea";
+        themes.sideColor = darkis ?  "#484848" : "#eaeaea";
+        themes.sideBlurColor = darkis ? "#88484848" : "#88eaeaea";
 
         themes.containColor = darkis ? Qt.hsva(baseColor.hsvHue,0.9,0.4,1.0) : Qt.hsva(baseColor.hsvHue,0.2,1.0,1.0);
         themes.containOutColor = darkis ? Qt.hsva(baseColor.hsvHue,0.2,1.0,1.0) : Qt.hsva(baseColor.hsvHue,0.9,0.4,1.0);
@@ -107,13 +107,13 @@ QtObject {
         //themes.blurSecondaryColor = darkis ? "#801a1c20" : "#80f3f4f6";
         //themes.shadowColor = darkis ? "#44000000" : "#10000000";
         //themes.themeShadowColor = darkis ? Qt.hsva(baseColor.hsvHue, 1.0, 0.5, 0.30) : Qt.hsva(baseColor.hsvHue, 1.0, 0.6, 0.24);
-        themes.primaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.14,1.0) : Qt.hsva(baseColor.hsvHue,0.01,1.0,1.0);
-        themes.primaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.14,0.8) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.7);
-        themes.secondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
-        themes.secondaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.8) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.7);
-        themes.borderColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.18,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
-        themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.1,0.6) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.5);
-        themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.13,0.16,0.6) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.5);
+        themes.primaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.16,1.0) : Qt.hsva(baseColor.hsvHue,0.01,1.0,1.0);
+        themes.primaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.16,0.8) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.7);
+        themes.secondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
+        themes.secondaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,0.8) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.7);
+        themes.borderColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.2,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
+        themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,0.6) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.5);
+        themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.18,0.6) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.5);
         themes.shadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.05,0.2) : Qt.hsva(baseColor.hsvHue,1.0,0.12,0.1);
         themes.themeShadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.5,0.3) : Qt.hsva(baseColor.hsvHue,1.0,0.6,0.3);
     }

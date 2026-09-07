@@ -2,7 +2,6 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Window
 import QueMusic 1.0
 import QtCore
 import QtMultimedia
@@ -10,17 +9,12 @@ import QWindowKit 1.0
 import QtQuick.Effects
 import QtQuick.Controls.Basic
 
-//import 'qrc:/QueMusic/components'
-//import 'qrc:/QueMusic/layout'
-//import 'qrc:/QueMusic/cpp'
-
 Window {
     id: window
     width: 1140
     height: 720
     minimumWidth: 810
     minimumHeight: 540
-    //visible: true
     color: Style.themes.primaryColor
     title: "QueMusic"
     Component.onCompleted: {
@@ -36,7 +30,6 @@ Window {
         MusicApi.downloadPath = Options.settings.downloadFolder;
 
         window.visible = true;
-        MusicApi.songSource = Options.settings.mainMusicSource;
 
         Playback.player = mainMedia;
         Playback.queue = playListModel;
@@ -58,8 +51,8 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.4.5"
-    property int versionCode: 45
+    property string version: "Beta-0.5.0"
+    property int versionCode: 50
 
     property string localLyricsRequestPath: ""
     property int pendingSeek: 0
@@ -78,6 +71,16 @@ Window {
                 return;
             MusicApi.setLocalLyrics();
         }
+    }
+
+    // 统一搜索入口：清空结果、写入搜索历史并触发搜索
+    function doSearch(text) {
+        MusicApi.searchSongsResults.clear();
+        mainContent.contentIndexed(6);
+        Options.settings.searchList = Options.settings.searchList.filter(value => value !== text);
+        Options.settings.searchList.splice(0, 0, text);
+        MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
+        window.exitIndex = 1;
     }
 
     // 播放本地歌曲：同名 .lrc → 内嵌歌词 → 在线匹配 → 占位歌词
@@ -162,7 +165,7 @@ Window {
     Shortcut {
         sequence: "Esc" // 返回
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut // 录制快捷键时不抢 Esc，交给录制框处理
+        enabled: !Options.recordingShortCut // 录制快捷键时不抢 Esc，交给录制框处理
         onActivated: {
             window.exit();
             console.log("Exit");
@@ -175,7 +178,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.play // 暂停/播放
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutPlay
+        enabled: Options.settings.openShortCut && Options.settings.globalShortcutPlay
         onActivated: {
             console.log("shortcut--play");
             Playback.togglePlay();
@@ -184,7 +187,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.back // 上一首
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutBack
+        enabled: Options.settings.openShortCut && Options.settings.globalShortcutBack
         onActivated: {
             console.log("shortcut--back");
             musicControlMin.lastMedia();
@@ -193,7 +196,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.forward // 下一首
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutForward
+        enabled: Options.settings.openShortCut && Options.settings.globalShortcutForward
         onActivated: {
             console.log("shortcut--forward");
             musicControlMin.enterMedia();
@@ -202,7 +205,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.playList // 播放菜单
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutPlayList
+        enabled: Options.settings.openShortCut && Options.settings.globalShortcutPlayList
         onActivated: {
             console.log("shortcut--playList");
             if(playList.visible) {
@@ -215,7 +218,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.musicControl // 播放模式切换
         context: Qt.ApplicationShortcut
-        enabled: !Options.settings.recordingShortCut && Options.settings.globalShortcutMusicControl
+        enabled: Options.settings.openShortCut && Options.settings.globalShortcutMusicControl
         onActivated: {
             if(mainLayout.state === "") {
                 controlMaxLoader.active = true;
@@ -247,7 +250,7 @@ Window {
             readonly property string flag: "globalShortcut" + modelData.k.charAt(0).toUpperCase() + modelData.k.slice(1)
             sequence: Options.shortCuts[modelData.k]
             context: Qt.ApplicationShortcut
-            enabled: !Options.settings.recordingShortCut && Options.settings[flag]
+            enabled: Options.settings.openShortCut && Options.settings[flag]
             onActivated: modelData.a()
         }
     }
@@ -288,12 +291,10 @@ Window {
             y: 12
             Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             anchors {
-                left: parent.left // 靠左
+                left: parent.left
                 leftMargin: 16
-                //verticalCenter: titleBar.verticalCenter // 内容居中
             }
             spacing: 5
-            //width: 241
 
             QWKButton {
                 id: returnButton
@@ -306,7 +307,7 @@ Window {
                     }
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(returnButton, true);
-            }   
+            }
 
             TextField {
                 id: mainSearchInput
@@ -314,7 +315,6 @@ Window {
                 y: 0
                 height: 36
                 width: 160
-                //displayText: "搜索"
                 leftPadding: 16
                 placeholderText: "搜索"
                 color: Style.themes.textColor
@@ -323,20 +323,12 @@ Window {
                 selectionColor: Style.themes.containColor
                 focus: false
                 onReleased: searchCard.open();
-                //clip: true
-                //onTextEdited: parent.border.color = Style.themes.themeColor
-                //onEditingFinished: parent.border.color = "transparent"
                 onAccepted: {
                     if(text.trim() == "") {
                         mainWarn.tiped("请输入文本>-<",0);
                         return;
                     }
-                    MusicApi.searchSongsResults.clear();
-                    mainContent.contentIndexed(6);
-                    Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);
-                    Options.settings.searchList.splice(0, 0, mainSearchInput.text);
-                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
-                    window.exitIndex = 1;
+                    window.doSearch(text);
                     searchCard.close();
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(mainSearchInput, true);
@@ -359,12 +351,7 @@ Window {
                         mainWarn.tiped("请输入文本>-<",0);
                         return;
                     }
-                    MusicApi.searchSongsResults.clear();
-                    mainContent.contentIndexed(6);
-                    Options.settings.searchList = Options.settings.searchList.filter(value => value !== mainSearchInput.text);
-                    Options.settings.searchList.splice(0, 0, mainSearchInput.text);
-                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
-                    window.exitIndex = 1;
+                    window.doSearch(mainSearchInput.text);
                     searchCard.close();
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
@@ -380,14 +367,6 @@ Window {
             spacing: 0
             y: 10 - controlMaxLoader.hideHeight
             height: 40
-
-            //QWKButton {
-                //id: accountButton
-                //largeicon: true
-                //source: ""
-                //onClicked: window.account()
-                //Component.onCompleted: windowAgent.setHitTestVisible(accountButton, true);
-            //}
 
             QWKButton {
                 id: fullDesktopButton
@@ -414,7 +393,6 @@ Window {
                 source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
                 onClicked: window.showMinimized();
                 Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Minimize, minButton);
-                //Component.onCompleted: windowAgent.setHitTestVisible(minButton, true);
             }
 
             QWKButton {
@@ -430,7 +408,6 @@ Window {
                     }
                 }
                 Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Maximize, maxButton);
-                //Component.onCompleted: windowAgent.setHitTestVisible(maxButton, true);
             }
 
             QWKButton {
@@ -441,7 +418,6 @@ Window {
                 hoverColor: "#ee4848"
                 onClicked: window.toClosing();
                 Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Close, closeButton);
-                //Component.onCompleted: windowAgent.setHitTestVisible(closeButton, true);
             }
         }
     }
@@ -849,44 +825,33 @@ Window {
         }
     }
 
-    SequentialAnimation {
+    NumberAnimation {
         id: settingAnime
-        NumberAnimation {
-            target: settingsView
-            property: "opacity"
-            duration: 240
-            from: 0
-            to: 1
-            easing.type: Easing.OutCubic
-        }
-        ScriptAction {
-            script: {
-                mainLayout.state = "";
-                mainLayout.visible = false;
-                window.playermined();
-                //barLeftWidgets.visible = true;
-                minedAnimation.start();
-            }
+        target: settingsView
+        property: "opacity"
+        duration: 240
+        from: 0
+        to: 1
+        easing.type: Easing.OutCubic
+        onFinished: {
+            mainLayout.state = "";
+            mainLayout.visible = false;
+            window.playermined();
+            minedAnimation.start();
         }
     }
-    SequentialAnimation {
+    NumberAnimation {
         id: settingOutAnime
-        ScriptAction {
-            script: mainLayout.visible = true;
-        }
-        NumberAnimation {
-            target: settingsView
-            property: "opacity"
-            duration: 240
-            from: 1
-            to: 0
-            easing.type: Easing.OutCubic
-        }
-        ScriptAction {
-            script: {
-                settingsView.visible = false;
-                settingsView.active = false;
-            }
+        target: settingsView
+        property: "opacity"
+        duration: 240
+        from: 1
+        to: 0
+        easing.type: Easing.OutCubic
+        onStarted: mainLayout.visible = true
+        onFinished: {
+            settingsView.visible = false;
+            settingsView.active = false;
         }
     }
 
@@ -1035,8 +1000,6 @@ Window {
     }
 
     // 统一将当前曲目信息推给 SMTC。
-    // AppMediaId 取播放列表当前项的稳定标识 path（在线歌曲为歌曲 hash、本地文件为文件路径），供系统按曲目分组元信息；
-    // 列表未就绪/无当前项时传空串，C++ 侧会清除旧的 id。
     function smtcUpdateMediaInfo() {
         if (!windowsSmtc.available)
             return
@@ -1202,14 +1165,9 @@ Window {
     SearchCard {
         id: searchCard
         onSearchIndex: (index) => {
-            MusicApi.searchSongsResults.clear();
-            mainContent.contentIndexed(6);
             var name = Options.settings.searchList[index];
             mainSearchInput.text = name;
-            Options.settings.searchList = Options.settings.searchList.filter(value => value !== name);
-            Options.settings.searchList.splice(0, 0, name);
-            MusicApi.searchSongs(name,MusicApi.nowIndex,1,20);
-            window.exitIndex = 1;
+            window.doSearch(name);
             searchCard.close();
         }
     }
@@ -1250,9 +1208,7 @@ Window {
         message: "呃呃呃呃呃呃呃？(>-<)"
         isInput: false
         blurSource: mainLayout.visible ? mainLayout : settingsView
-        //standardButtons: Dialog.Ok | Dialog.Cancel
 
-        // 简单确认对话框的回调存储（由 openSimpleDialog 使用）
         property var dialogCallback: null
 
         // 通用简单确认对话框：点击"确定"后执行 callBack 回调
@@ -1285,7 +1241,6 @@ Window {
     QMessage {
         id: mainMessage
         function openSimpleDialog(title, text, callBack) {
-            //mainMessage.dialogCallback = callBack || null;
             mainMessage.dialog(title,text,"\uf11a");
         }
     }
@@ -1335,11 +1290,7 @@ Window {
                 Drag.supportedActions: Qt.CopyAction
                 Drag.imageSource: imageWatch.source
                 Drag.imageSourceSize: Qt.size(64, 64)
-                Drag.mimeData: {
-                    "text/uri-list": imageWatch.source
-
-                    //picWatch.source
-                }
+                Drag.mimeData: { "text/uri-list": imageWatch.source }
             }
 
             MouseArea {

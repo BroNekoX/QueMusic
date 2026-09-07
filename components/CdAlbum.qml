@@ -11,9 +11,8 @@ Item {
         from: cdImage.rotation
         to: cdImage.rotation + 360
         duration: 16000
-        running: true
+        running: root.rotation
         loops: Animation.Infinite
-        paused: !root.rotation
     }
 
     RectangularShadow {

@@ -1593,24 +1593,6 @@ Item {
             height: settingStack.height - 60
             visible: false
 
-            // 动作定义（名称、显示描述、默认键位）
-            ListModel {
-                id: actionDefs
-                ListElement { name: "play"; desc: "播放/暂停"; defau: "Space" }
-                ListElement { name: "back"; desc: "上一首"; defau: "Left" }
-                ListElement { name: "forward"; desc: "下一首"; defau: "Right" }
-                ListElement { name: "playList"; desc: "打开/关闭播放列表"; defau: "Alt" }
-                ListElement { name: "musicControl"; desc: "音乐控制面板"; defau: "Up" }
-                ListElement { name: "volumeUp"; desc: "音量增大"; defau: "Ctrl+Up" }
-                ListElement { name: "volumeDown"; desc: "音量减小"; defau: "Ctrl+Down" }
-                ListElement { name: "seekBack"; desc: "快退"; defau: "Ctrl+Left" }
-                ListElement { name: "seekForward"; desc: "快进"; defau: "Ctrl+Right" }
-                ListElement { name: "mute"; desc: "静音切换"; defau: "Ctrl+M" }
-                ListElement { name: "abLoop"; desc: "A-B 片段循环"; defau: "Ctrl+B" }
-                ListElement { name: "favorite"; desc: "收藏当前曲目"; defau: "Ctrl+D" }
-                ListElement { name: "playerOptions"; desc: "播放器选项"; defau: "Ctrl+T" }
-            }
-
             // 录制状态
             property string recordingAction: ""
             property bool isRecording: false
@@ -1675,7 +1657,7 @@ Item {
                 isRecording = true
                 oldShortCutState = Options.settings.openShortCut
                 Options.settings.openShortCut = false   // 关闭总开关（兼容旧逻辑）
-                Options.settings.recordingShortCut = true   // 录制期间屏蔽所有全局快捷键
+                Options.recordingShortCut = true   // 录制期间屏蔽所有全局快捷键
                 keyCapture.forceActiveFocus()
                 keyCapture.focus = true;
                 mainWarn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
@@ -1685,7 +1667,7 @@ Item {
             function stopRecording(success, sequence) {
                 isRecording = false
                 Options.settings.openShortCut = oldShortCutState
-                Options.settings.recordingShortCut = false
+                Options.recordingShortCut = false
                 if (success && sequence) {
                     Options.shortCuts[recordingAction] = sequence
                     mainWarn.tiped("已设置快捷键: " + sequence, 1)
@@ -1694,6 +1676,24 @@ Item {
                 }
                 recordingAction = ""
                 keyCapture.focus = false
+            }
+
+            // 动作定义（名称、显示描述、默认键位）
+            ListModel {
+                id: actionDefs
+                ListElement { name: "play"; desc: "播放/暂停"; defau: "Space" }
+                ListElement { name: "back"; desc: "上一首"; defau: "Left" }
+                ListElement { name: "forward"; desc: "下一首"; defau: "Right" }
+                ListElement { name: "playList"; desc: "打开/关闭播放列表"; defau: "Alt" }
+                ListElement { name: "musicControl"; desc: "音乐控制面板"; defau: "Up" }
+                ListElement { name: "volumeUp"; desc: "音量增大"; defau: "Ctrl+Up" }
+                ListElement { name: "volumeDown"; desc: "音量减小"; defau: "Ctrl+Down" }
+                ListElement { name: "seekBack"; desc: "快退"; defau: "Ctrl+Left" }
+                ListElement { name: "seekForward"; desc: "快进"; defau: "Ctrl+Right" }
+                ListElement { name: "mute"; desc: "静音切换"; defau: "Ctrl+M" }
+                ListElement { name: "abLoop"; desc: "A-B 片段循环"; defau: "Ctrl+B" }
+                ListElement { name: "favorite"; desc: "收藏当前曲目"; defau: "Ctrl+D" }
+                ListElement { name: "playerOptions"; desc: "播放器选项"; defau: "Ctrl+T" }
             }
 
             // 内容
@@ -1735,6 +1735,63 @@ Item {
                                 onToggled: Options.settings.openShortCut = !Options.settings.openShortCut
                             }
                             bottomLine: false
+                        }
+                    }
+                }
+
+                // 按键捕获器（隐藏）
+                Rectangle {
+                    id: keyCapture
+                    //y: parent.height - 56
+                    height: shortcutset.isRecording ? 60 : 0
+                    width: settingStack.standWidth
+                    color: Style.themes.fontColor
+                    border.width: 1
+                    border.color: Style.themes.sideColor
+                    radius: 16
+                    focus: false
+                    visible: true          // 必须可见才能获得焦点
+                    opacity: shortcutset.isRecording ? 1 : 0 // 透明，不干扰界面
+                    enabled: shortcutset.isRecording   // 仅在录制时启用
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                    Behavior on height { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+                    Keys.onPressed: (event) => {
+                        if (!shortcutset.isRecording) return;
+                        // 按 Esc 取消
+                        if (event.key === Qt.Key_Escape) {
+                            shortcutset.stopRecording(false)
+                            event.accepted = true
+                            mainWarn.tiped("已取消", 0)
+                            return
+                        }
+                        var seq = shortcutset.keyEventToSequence(event)
+                        if (seq) {
+                            shortcutset.stopRecording(true, seq)
+                            mainWarn.tiped("设置成功！", 1)
+                            event.accepted = true
+                        }
+                        // 如果是无效键（如单独的修饰键），不处理，等待有效组合
+                    }
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 8
+                        QButton {
+                            width: 100
+                            height: 34
+                            text: "取消[Esc]"
+                            buttonColor: Style.themes.primaryColor
+                            borderWidth: 1
+                            onClicked: {
+                                shortcutset.stopRecording(false);
+                                mainWarn.tiped("已取消", 0);
+                            }
+                        }
+                        Text {
+                            id: keyCaptureText
+                            anchors.verticalCenter: parent.verticalCenter
+                            font.pixelSize: Style.settings.textmain
+                            color: Style.themes.secondaryColor
+                            text: "正在键位录制状态，请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
                         }
                     }
                 }
@@ -1843,68 +1900,6 @@ Item {
                     color: Style.themes.textColor
                     font.pixelSize: 12
                     wrapMode: Text.Wrap
-                }
-            }
-            // 按键捕获器（隐藏）
-            Rectangle {
-                id: keyCapture
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: parent.height - 56
-                height: 40
-                width: keyCaptureText.width + 135
-                color: Style.themes.fontColor
-                border.width: 1
-                border.color: Style.themes.sideColor
-                radius: 18
-                focus: false
-                visible: true          // 必须可见才能获得焦点
-                opacity: shortcutset.isRecording ? 1 : 0 // 透明，不干扰界面
-                enabled: shortcutset.isRecording   // 仅在录制时启用
-                Behavior on opacity { NumberAnimation { duration: 240 } }
-                Keys.onPressed: (event) => {
-                    if (!shortcutset.isRecording) return;
-                    // 按 Esc 取消
-                    if (event.key === Qt.Key_Escape) {
-                        shortcutset.stopRecording(false)
-                        event.accepted = true
-                        mainWarn.tiped("已取消", 0)
-                        return
-                    }
-                    var seq = shortcutset.keyEventToSequence(event)
-                    if (seq) {
-                        shortcutset.stopRecording(true, seq)
-                        mainWarn.tiped("设置成功！", 1)
-                        event.accepted = true
-                    }
-                    // 如果是无效键（如单独的修饰键），不处理，等待有效组合
-                }
-                QButton {
-                    x: 3
-                    y: 3
-                    width: 100
-                    height: 34
-                    text: "取消[Esc]"
-                    buttonColor: Style.themes.primaryColor
-                    borderWidth: 1
-                    onClicked: {
-                        shortcutset.stopRecording(false);
-                        mainWarn.tiped("已取消", 0);
-                    }
-                }
-                Text {
-                    id: keyCaptureText
-                    x: 119
-                    anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: Style.settings.textmain
-                    color: Style.themes.secondaryColor
-                    text: "请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
-                }
-            }
-            Connections {
-                target: window
-                function onExit() {
-                    shortcutset.stopRecording(false);
-                    mainWarn.tiped("已取消", 0);
                 }
             }
         }

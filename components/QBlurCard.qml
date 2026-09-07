@@ -16,7 +16,7 @@ Item {
     property real cardOpacity: 1.0
     property rect rectXy: Qt.rect(root.x, root.y, root.width, root.height)
     property real blurMax: Style.settings.blurSize
-    property real borderRadius: Style.settings.cubeRadius
+    property int borderRadius: Style.settings.cubeRadius
     property color cardColor: Style.themes.primaryBlurColor
     property color borderColor: Style.themes.primaryBlurColor
     property bool masked: false

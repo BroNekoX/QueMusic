@@ -9,6 +9,49 @@ Item {
     id: favouritePage
     property int setMode: 0
     property list<int> chooseIndex: []
+    property var favSortOptions: [
+        { label: "默认顺序", mode: 0, desc: false },
+        { label: "标题 A→Z", mode: 1, desc: false },
+        { label: "标题 Z→A", mode: 1, desc: true },
+        { label: "歌手 A→Z", mode: 2, desc: false },
+        { label: "歌手 Z→A", mode: 2, desc: true },
+        { label: "时长 小→大", mode: 3, desc: false },
+        { label: "时长 大→小", mode: 3, desc: true }
+    ]
+
+    QSortModel {
+        id: songSort
+        model: favoritesSong
+        options: favouritePage.favSortOptions
+        nameRole: "title"
+        timeRole: "createdAt"
+        timeDesc: true
+    }
+
+    QSortModel {
+        id: listSort
+        model: favoritesList
+        options: favouritePage.favSortOptions
+        nameRole: "title"
+        timeRole: "createdAt"
+        timeDesc: true
+    }
+
+    QMenu {
+        id: sortMenu
+        model: favSortOptions.map(o => o.label)
+        blurSource: null
+        masked: true
+        current: favouriteChildPage.lastIndex === 0 ? songSort.menuIndex : listSort.menuIndex
+        onClicked: (i) => {
+            var target = favouriteChildPage.lastIndex === 0 ? songSort : listSort;
+            target.selectMenu(i);
+            favouritePage.setMode = 0;
+            favouritePage.chooseIndex = [];
+            songs.scrollTop();
+            lists.scrollTop();
+        }
+    }
 
     function chooseTotal() {
         return favouriteChildPage.lastIndex === 0 ? favoritesSong.count : favoritesList.count;
@@ -63,8 +106,8 @@ Item {
             y: 12
             z: 5
             model: ["歌曲","歌单","本地","歌手","历史"]
-            tabWidth: 80
-            width: 404
+            tabWidth: 75
+            width: 381
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: favouriteChildPage.pageList[favouriteChildPage.lastIndex]
             onTabChange: (index) => {
@@ -81,6 +124,14 @@ Item {
             z: 2
             spacing: 8
             QButton {
+                id: sortBtn
+                height: 38
+                text: "排序"
+                iconCharacter: "\uf10b"
+                buttonColor: Style.themes.primaryColor
+                onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 6)
+            }
+            QButton {
                 visible: favouriteChildPage.lastIndex === 4
                 height: 38
                 text: "清空历史"
@@ -95,7 +146,7 @@ Item {
                 height: 38
                 text: favouritePage.setMode === 1 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
-                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
+                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.primaryColor
                 onClicked: {
                     if(favouritePage.setMode === 1) {
                         favouritePage.setMode = 0;
@@ -111,7 +162,7 @@ Item {
             id: songs
             width: favouriteChildPage.width + 16
             height: favouriteChildPage.height
-            model: favoritesSong
+            model: songSort
             clip: true
             topMargin: 72
             selectedIndices: favouritePage.chooseIndex
@@ -125,34 +176,35 @@ Item {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
                     }
                 } else {
-                    MusicApi.getMusicInfo(model.get(index).id, 0, model.get(index).source);
+                    var r = songSort.at(index);
+                    MusicApi.getMusicInfo(r.id, 0, r.source);
                 }
             }
             onToolClicked: (index,tool) => {
+                var r = songSort.at(index);
                 switch(tool) {
                 case 0:
                     var listIndex = -1;
-                    var indexHash = model.get(index).id;
                     for(var i = 0;i < playListModel.count;i++) {
-                        var forUrl = playListModel.get(i).path;
-                        if(forUrl === indexHash) {
+                        if(playListModel.get(i).path === r.id) {
                             listIndex = i;
                         }
                     }
                     if (listIndex == -1) {
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).id, songer: model.get(index).artist, source: model.get(index).source });
+                        playListModel.append({ name: r.title, path: r.id, songer: r.artist, source: r.source });
                         mainWarn.tiped("成功加入播放列表",1);
                     }
                     break;
                 case 1:
-                    favoritesSong.removeFavorite(model.get(index).id, "song");
+                    favoritesSong.removeFavorite(r.id, "song");
                     mainWarn.tiped("取消收藏",0);
                 }
             }
             onMenuClicked: (index,choice) => {
+                var r = songSort.at(index);
                 switch(choice) {
                 case 0:
-                    MusicApi.getMusicInfo(model.get(index).id,1,model.get(index).source);
+                    MusicApi.getMusicInfo(r.id,1,r.source);
                     break;
                 }
             }
@@ -168,7 +220,7 @@ Item {
             id: lists
             width: favouriteChildPage.width + 16
             height: favouriteChildPage.height
-            model: favoritesList
+            model: listSort
             clip: true
             isList: true
             topMargin: 72
@@ -184,18 +236,19 @@ Item {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
                     }
                 } else {
+                    var r = listSort.at(index);
                     MusicApi.playlistSong.clear();
-                    MusicApi.globalid = model.get(index).id;
-                    MusicApi.getPlaylistSongs(model.get(index).id,1,20,model.get(index).source);
-                    playListSongsWindow.songSource = model.get(index).source;
-                    playListSongsWindow.opened(model.get(index));
+                    MusicApi.globalid = r.id;
+                    MusicApi.getPlaylistSongs(r.id,1,20,r.source);
+                    playListSongsWindow.songSource = r.source;
+                    playListSongsWindow.opened({ id: r.id, title: r.title, artist: r.artist, cover: r.cover, duration: r.duration });
                     window.exitIndex = 1;
                 }
             }
             onToolClicked: (index,tool) => {
                 switch(tool) {
                 case 1:
-                    favoritesList.removeFavorite(model.get(index).id, "playlist");
+                    favoritesList.removeFavorite(listSort.at(index).id, "playlist");
                     mainWarn.tiped("取消收藏",0);
                 }
             }
@@ -343,7 +396,7 @@ Item {
                             globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌曲",
                                 function() {
                                     for(var i=0;i<favouritePage.chooseIndex.length;i++) {
-                                        favoritesSong.removeFavorite(favoritesSong.get(favouritePage.chooseIndex[i]).id, "song");
+                                        favoritesSong.removeFavorite(songSort.at(favouritePage.chooseIndex[i]).id, "song");
                                     }
                                     favouritePage.chooseIndex = [];
                                     Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌曲",1);
@@ -354,7 +407,7 @@ Item {
                             globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌单",
                                 function() {
                                     for(var i=0;i<favouritePage.chooseIndex.length;i++) {
-                                        favoritesList.removeFavorite(favoritesList.get(favouritePage.chooseIndex[i]).id, "playlist");
+                                        favoritesList.removeFavorite(listSort.at(favouritePage.chooseIndex[i]).id, "playlist");
                                     }
                                     favouritePage.chooseIndex = [];
                                     Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌单",1);
@@ -380,15 +433,16 @@ Item {
                                 playlist.push(playListModel.get(i).path);
                             }
                             for(var a = 0;a < favouritePage.chooseIndex.length;a++) {
+                                var fav = songSort.at(favouritePage.chooseIndex[a]);
                                 var listIndex = -1;
                                 for(var b = 0;b < playlist.length;b++) {
-                                    if(favoritesSong.get(favouritePage.chooseIndex[a]).id == playlist[b]) {
+                                    if(fav.id == playlist[b]) {
                                         listIndex = b;
                                         break;
                                     }
                                 }
                                 if (listIndex == -1) {
-                                    playListModel.append({ name: favoritesSong.get(favouritePage.chooseIndex[a]).title, path: favoritesSong.get(favouritePage.chooseIndex[a]).id, songer: favoritesSong.get(favouritePage.chooseIndex[a]).artist, source: playListSongsWindow.songSource });
+                                    playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
                                     mainWarn.tiped("成功加入播放列表",1);
                                 }
                             }

@@ -28,10 +28,10 @@ Popup {
     }
     contentItem: Item {
         anchors.fill: parent
-        Label {
-            y: 10
+        Text {
+            y: 12
             x: 18
-            height: 40
+            height: 36
             text: "桌面播放器"
             font.bold: true
             font.pixelSize: Style.settings.textH2

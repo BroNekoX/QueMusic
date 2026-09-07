@@ -7,9 +7,7 @@ import QueMusic 1.0
 
 Item {
     id: root
-    //color: Style.themes.primaryColor
     z: 20
-    //border.color: Style.themes.secondaryColor
     visible: false
     property string image: ""
     anchors.fill: parent
@@ -43,9 +41,8 @@ Item {
         }
     }
 
-    SequentialAnimation {
-        id: windowOpenAnime
     ParallelAnimation {
+        id: windowOpenAnime
         NumberAnimation {
             target: root
             property: "scale"
@@ -76,14 +73,10 @@ Item {
             to: 0
             duration: 100
         }
+        onFinished: root.mainTarget.visible = false
     }
-    ScriptAction {
-        script: root.mainTarget.visible = false
-    }
-    }
-    SequentialAnimation {
-        id: windowCloseAnime
     ParallelAnimation {
+        id: windowCloseAnime
         NumberAnimation {
             target: root
             property: "scale"
@@ -114,13 +107,10 @@ Item {
             easing.type: Easing.OutExpo
             duration: 280
         }
-    }
-    ScriptAction {
-        script: {
+        onFinished: {
             loadWidget.active = false
             root.visible = false
         }
-    }
     }
 
     QPicture {
@@ -136,7 +126,7 @@ Item {
 
     Text {
         id: headTitle
-        x: 144
+        x: 136
         y: root.haveControl ? 16 : 34
         width: 200
         height: 60

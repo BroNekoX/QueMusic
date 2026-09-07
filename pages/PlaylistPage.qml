@@ -75,7 +75,7 @@ Item {
             z: 12
             model: ["歌曲","歌单","排行榜","歌手"]
             tabWidth: 80
-            width: 324
+            width: 326
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: playlistChildPage.pageList[playlistChildPage.lastIndex]
             onTabChange: (index) => {

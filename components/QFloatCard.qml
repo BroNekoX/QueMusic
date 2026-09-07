@@ -10,7 +10,7 @@ Rectangle {
     height: 120
     radius: Style.settings.cubeRadius
     color: Style.themes.primaryColor
-    border.color: Style.themes.fullColor
+    border.color: Style.themes.sideColor
     border.width: 1
     signal clicked()
     property alias controlItem: cardArea.data

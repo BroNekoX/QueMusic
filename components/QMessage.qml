@@ -22,8 +22,6 @@ ListView {
     property alias messageModel: tipModel
     ListModel {
         id: tipModel
-
-        //ListElement { icontype: ""; name: ""; text: "" }
     }
     property real viewh: tipview.contentHeight
 
@@ -31,7 +29,6 @@ ListView {
         tipModel.append({ icontype: icon, name: name, text: text });
     }
 
-    // add过渡动画（新增Item触发）
     add: Transition {
         ParallelAnimation{
             NumberAnimation {
@@ -44,7 +41,6 @@ ListView {
         }
     }
 
-    //model变化
     displaced: Transition {
         ParallelAnimation{
             NumberAnimation {
@@ -55,17 +51,6 @@ ListView {
         }
     }
 
-    /*结束动画
-        remove: Transition {
-                NumberAnimation {
-                    properties: "x"
-                    to: 400
-                    duration: 300
-                    easing.type: Easing.InCubic
-                }
-        }
-        */
-
     delegate: Rectangle {
         id: amessage
         width: ListView.view.width
@@ -75,7 +60,6 @@ ListView {
         border.width: 1
         border.color: Style.themes.textColor
 
-        scale: 1.0
         Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
         ListView.onAdd:{
@@ -89,25 +73,16 @@ ListView {
             }
         }
 
-        SequentialAnimation {
+        NumberAnimation {
             id: removeAnimation
-            NumberAnimation {
-                target: amessage
-                properties: "x"
-                to: 350
-                duration: 240
-                easing.type: Easing.InExpo
-            }
-            ScriptAction {
-                script: tipModel.remove(index);
-            }
+            target: amessage
+            properties: "x"
+            to: 350
+            duration: 240
+            easing.type: Easing.InExpo
+            onFinished: tipModel.remove(index)
         }
 
-        //Component.onCompleted: {
-        //    metip.rectXy = Qt.rect( maintip.x + 20, amessage.mapToItem(tipview, 0, 0).y - 60, 310, 80)
-        //}
-
-        // === 阴影效果 ===
         RectangularShadow {
             anchors.fill: amessage
             z: -1
@@ -121,7 +96,6 @@ ListView {
         }
 
 
-        //显示区
         Rectangle {
             x: 24
             y: 24
@@ -129,8 +103,6 @@ ListView {
             width: 32
             radius: 8
             color: Style.themes.textColor
-            //border.width: 1
-            //border.color: Style.themes.sideColor
             z: 4
             clip: false
             Text {
@@ -199,8 +171,6 @@ ListView {
             onPressed: amessage.scale = 0.96
             onReleased: amessage.scale = 1.0
             onCanceled: amessage.scale = 1.0
-            onClicked: {
-            }
         }
     }
 }

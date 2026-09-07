@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
-//
+
 import QtQuick
 import QtQuick.Controls.Basic
 
@@ -16,26 +16,14 @@ Button {
     property alias source: image.source
     property bool largeicon: false
     property color hoverColor: Style.themes.hoverColor
-    Component.onCompleted: {
-        if(largeicon) {
-            image.sourceSize.width = 17
-            image.sourceSize.height = 17
-            image.width = 17
-            image.height = 17
-        }
-    }
 
-    contentItem: Item {
-        Image {
-            id: image
-            anchors.centerIn: parent
-            //mipmap: true
-            width: 15
-            height: 15
-            sourceSize.width: 15
-            sourceSize.height: 15
-            fillMode: Image.PreserveAspectFit
-        }
+    contentItem: Image {
+        id: image
+        sourceSize.width: root.largeicon ? 17 : 15
+        sourceSize.height: root.largeicon ? 17 : 15
+        fillMode: Image.Pad
+        horizontalAlignment: Qt.AlignHCenter
+        verticalAlignment: Qt.AlignVCenter
     }
     background: Rectangle {
         border.width: 0

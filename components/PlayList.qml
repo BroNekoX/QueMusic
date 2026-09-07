@@ -38,49 +38,30 @@ Popup {
     contentItem: Item {
         anchors.fill: parent
 
-        Label {
-            y: 10
+        Text {
+            y: 12
             x: 18
-            height: 40
-            text: "播放列表 " + playListModel.count + "首"
+            height: 36
+            text: "播放列表"
             font.bold: true
             font.pixelSize: Style.settings.textH2
             verticalAlignment: Text.AlignVCenter
             color: Style.themes.fontColor
-        }
-
-        TextField {
-            id: filterInput
-            x: 18
-            y: 60
-            width: parent.width - 36
-            height: 32
-            leftPadding: 12
-            rightPadding: 30
-            placeholderText: "过滤当前列表"
-            placeholderTextColor: Style.themes.textColor
-            color: Style.themes.textColor
-            font.pixelSize: Style.settings.text
-            verticalAlignment: Text.AlignVCenter
-            selectionColor: Style.themes.containColor
-            onTextChanged: playList.filter = text.trim().toLowerCase()
-            background: Rectangle {
-                radius: 16
-                color: Style.themes.primaryColor
-                border.width: 2
-                border.color: filterInput.focus ? Style.themes.themeColor : Style.themes.sideColor
-            }
-            SButton {
-                visible: playList.filter !== ""
-                x: parent.width - 32
-                width: 28
-                height: 28
-                radius: 14
-                iconCharacter: "\uf025"
-                iconSize: 12
-                buttonColor: "transparent"
-                shadowEnabled: false
-                onClicked: filterInput.text = ""
+            Rectangle {
+                y: 6
+                x: parent.width + 8
+                height: 24
+                radius: 8
+                color: Style.themes.themeColor
+                width: songCountTag.width + 16
+                Text {
+                    id: songCountTag
+                    anchors.centerIn: parent
+                    font.bold: true
+                    font.pixelSize: Style.settings.textmain
+                    text: playListModel.count + "首"
+                    color: Style.themes.primaryColor
+                }
             }
         }
 
@@ -143,10 +124,10 @@ Popup {
         ListView {
             id: playListView
             x: 12
-            y: 112
+            y: 60
             z: 2
             width: 348
-            height: parent.height - 112
+            height: parent.height - 60
             model: playListModel
             spacing: 0
             orientation: Qt.Vertical
@@ -190,12 +171,8 @@ Popup {
                 //onPooled: listHover.opacity = 0
                 readonly property string songName: model.name || ""
                 readonly property string songArtist: model.songer || ""
-                readonly property bool matched: playList.filter === ""
-                        || songName.toLowerCase().indexOf(playList.filter) !== -1
-                        || songArtist.toLowerCase().indexOf(playList.filter) !== -1
                 readonly property bool isCurrent: playListModel.playListIndex === index
-                height: matched ? 60 : 0
-                visible: matched
+                height: 60
                 width: parent.width
                 radius: Style.settings.labelRadius
                 color: isCurrent ? Style.themes.containColor : "transparent"

@@ -7,6 +7,7 @@ import QtCore
 
 QtObject {
     //property alias settings: settings
+    property bool recordingShortCut: false
 
     // 配置存储，后续也可以存储在服务器数据库中
     // 使用存储仅需把QtObject换成Settings
@@ -21,7 +22,6 @@ QtObject {
         property bool autoUpdate: false //自动检查更新
         property list<string> searchList: [] //搜索记录
         property bool openShortCut: true
-        property bool recordingShortCut: false // 正在录制快捷键时禁用所有全局快捷键，避免组合键被拦截
         // 每个功能单独控制是否为全局快捷键（#44：不要用总开关控制所有功能）
         property bool globalShortcutPlay: true
         property bool globalShortcutBack: true

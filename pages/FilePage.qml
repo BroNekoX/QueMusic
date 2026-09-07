@@ -13,7 +13,22 @@ Item {
     property int folderNumber: 0
     property int setMode: 0
     property var chooseIndex: []
-    signal loaded()
+    property int localSortField: FolderListModel.Unsorted
+    property bool localSortReversed: false
+    property var localSortOptions: [
+        { label: "默认顺序", field: FolderListModel.Unsorted, desc: false },
+        { label: "文件名 A→Z", field: FolderListModel.Name, desc: false },
+        { label: "文件名 Z→A", field: FolderListModel.Name, desc: true },
+        { label: "修改时间 旧→新", field: FolderListModel.Time, desc: false },
+        { label: "修改时间 新→旧", field: FolderListModel.Time, desc: true },
+        { label: "大小 小→大", field: FolderListModel.Size, desc: false },
+        { label: "大小 大→小", field: FolderListModel.Size, desc: true }
+    ]
+    readonly property int localSortMenuIndex: {
+        for (var i = 0; i < localSortOptions.length; i++)
+            if (localSortOptions[i].field === localSortField && localSortOptions[i].desc === localSortReversed) return i
+        return 0
+    }
 
     // 在播放列表中查找同名/同路径歌曲，避免重复添加本地文件
     function findIndexByValue(model, key, targetValue) {
@@ -229,8 +244,8 @@ Item {
             y: 80
             z: 5
             model: ["我的文件夹","本地文件夹"]
-            tabWidth: 118
-            width: 240
+            tabWidth: 110
+            width: 226
             rectXy: Qt.rect(0, 12, 244, 40)
             blurSource: fileChildPage
             onTabChange: (index) => {
@@ -282,7 +297,6 @@ Item {
                             title: "新建文件夹"
                             message: "为文件夹设定一个名称："
                             isInput: true
-                            //standardButtons: Dialog.Ok | Dialog.Cancel
                             onConfirm: {
                                 if(input!=="") {
                                     myFolderModel.addFolder(input, "my", "");
@@ -305,7 +319,6 @@ Item {
                     headerModel: ["标题","","","菜单"]
                     function openFilePage(title,image) {
                         folderMusic.opened(title,image)
-                        filePage.loaded()
                     }
                     rebound: Transition {
                         NumberAnimation {
@@ -320,12 +333,9 @@ Item {
                         title: "重命名"
                         message: "为文件夹重新命名新名称："
                         isInput: true
-                        //property int index
                         property int folderId
                         onConfirm: {
                             if(input!=="") {
-                                //myfileModel.setProperty(index, "name", input)
-                                //var folderId = myFolderModel.data(myFolderModel.index(folderIndex), 256)
                                 myFolderModel.renameFolder(editDialog.folderId, input);
                                 mainWarn.tiped("成功修改文件夹名称",1);
                             } else {
@@ -396,6 +406,7 @@ Item {
                                     filePage.folderNumber = index;
                                     window.exitIndex = 1;
                                     songModel.folderId = model.folderId;
+                                    folderMusic.filter = "";
                                     folderView.openFilePage(model.name,"");
                                 }
                             }
@@ -436,7 +447,6 @@ Item {
                                     onClicked: {
                                         if(model.folderId !== 1) {
                                             editDialog.input = model.name;
-                                            //editDialog.index = index
                                             editDialog.folderId = model.folderId;
                                             editDialog.open();
                                         } else {
@@ -455,7 +465,6 @@ Item {
                                     tipText: "删除文件夹"
                                     onClicked: {
                                         if(model.folderId !== 1) {
-                                            //myfileModel.remove( index, 1 )
                                             globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                                 function() {
                                                     myFolderModel.deleteFolder(model.folderId);
@@ -485,6 +494,8 @@ Item {
                     id: localFileModel
                     nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
                     showDirs: false
+                    sortField: filePage.localSortField
+                    sortReversed: filePage.localSortReversed
                 }
 
                 FolderDialog {
@@ -495,7 +506,6 @@ Item {
                         var folderUrl = folderDialog.selectedFolder;
                         var folderPath = folderUrl.toString();
                         var folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
-                        //localFolderModel.append({ name: folderName, path: folderUrl, local: "true" })
                         localFolderModel.addFolder(folderName, "local", folderPath);
                         mainWarn.tiped("成功定位一个本地文件夹",1);
 
@@ -556,7 +566,6 @@ Item {
                         property int index
                         onConfirm: {
                             if(input!=="") {
-                                //localFolderModel.setProperty(index, "name", input)
                                 localFolderModel.renameFolder(editLocalDialog.index, input);
                             } else {
                                 mainWarn.opened("请输入文件名",0);
@@ -634,6 +643,7 @@ Item {
                                 } else {
                                     localFileModel.folder = model.path;
                                     window.exitIndex = 1
+                                    localFolderMusic.filter = "";
                                     localFolderMusic.opened(model.name,"");
                                 }
                             }
@@ -708,15 +718,10 @@ Item {
         id: folderMusic
         mainTarget: fileMain
         winIndex: 1
+        property string filter: ""
 
         content: Item {
             anchors.fill: parent
-            Connections {
-                target: filePage
-                function onLoaded() {
-                    console.log("更新音乐文件夹列表成功:",folderMusic.musicList);
-                }
-            }
 
             FileDialog {
                 id: musicfileDialog
@@ -751,9 +756,33 @@ Item {
                 }
             }
 
+            QSortModel {
+                id: songSort
+                model: songModel
+                options: [
+                    { label: "默认顺序", mode: 0, desc: false },
+                    { label: "文件名 A→Z", mode: 1, desc: false },
+                    { label: "文件名 Z→A", mode: 1, desc: true }
+                ]
+                nameRole: "name"
+                timeRole: "songId"
+            }
+
+            QMenu {
+                id: songSortMenu
+                model: songSort.options.map(o => o.label)
+                current: songSort.menuIndex
+                blurSource: null
+                masked: true
+                onClicked: (i) => {
+                    songSort.selectMenu(i);
+                    fileView.scrollTop();
+                }
+            }
+
             // 顶栏
             Row {
-                x: 144
+                x: 136
                 y: 76
                 height: 36
                 spacing: 6
@@ -793,14 +822,25 @@ Item {
                         filePage.refreshSongList();
                     }
                 }
+                SButton {
+                    id: songSortBtn
+                    width: 48
+                    height: 36
+                    radius: Style.settings.labelRadius
+                    iconCharacter: "\uf10b"
+                    shadowEnabled: false
+                    buttonColor: Style.themes.sideColor
+                    tipText: "排序方式（再次点击反向）"
+                    onClicked: songSortMenu.popup(songSortBtn, 0, songSortBtn.height + 6)
+                }
             }
 
             Row {
                 x: folderMusic.width - width - 24
-                y: 44
+                y: 26
                 height: 40
                 spacing: 8
-                z: 10
+                z: 2
                 QButton {
                     height: 40
                     radius: 20
@@ -826,22 +866,61 @@ Item {
                 }
             }
 
+            TextField {
+                id: filterInput1
+                x: folderMusic.width - width - 24
+                y: 76
+                z: 3
+                width: 200
+                height: 36
+                leftPadding: 12
+                rightPadding: 38
+                placeholderText: "搜索与过滤"
+                placeholderTextColor: Style.themes.textColor
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.text
+                verticalAlignment: Text.AlignVCenter
+                selectionColor: Style.themes.containColor
+                onTextChanged: folderMusic.filter = text.trim().toLowerCase()
+                background: Rectangle {
+                    radius: Style.settings.labelRadius
+                    color: Style.themes.primaryColor
+                    border.width: 2
+                    border.color: filterInput1.focus ? Style.themes.themeColor : Style.themes.sideColor
+                }
+                SButton {
+                    visible: folderMusic.filter !== ""
+                    y: 2
+                    x: parent.width - 34
+                    width: 32
+                    height: 32
+                    radius: Style.settings.labelRadius
+                    iconCharacter: "\uf025"
+                    iconSize: 15
+                    buttonColor: "transparent"
+                    shadowEnabled: false
+                    onClicked: filterInput1.text = ""
+                }
+            }
+
             QListView {
                 id: fileView
                 x: 24
                 y: 128
                 width: folderMusic.width - 32
                 height: folderMusic.height - 128
-                model: songModel//parent.visible ? folderMusic.foldercontent : []
+                model: songSort
                 clip: true
                 headerModel: ["标题","歌手","","菜单"]
                 delegate: Rectangle {
                     id: listfile
-                    height: 60
+                    height: matched ? 60 : 0
                     width: fileView.width - 16
+                    visible: matched
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 3 && filePage.chooseIndex.indexOf(model.songId) !== -1
                     color: listfile.chosen || mainMedia.noTitle == listfile.songTitle ? Style.themes.containColor : "transparent"
+                    readonly property bool matched: folderMusic.filter === "" || songTitle.toLowerCase().indexOf(folderMusic.filter) !== -1 || artistName.toLowerCase().indexOf(folderMusic.filter) !== -1
 
                     // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
                     property string coverUrl: {
@@ -979,7 +1058,6 @@ Item {
                                 shadowEnabled: false
                                 tipText: "从当前文件夹移除"
                                 onClicked: {
-                                    //myfileModel.get(filePage.folderNumber).music.remove(index)
                                     songModel.deleteSong(model.songId);
                                     Style.warned("成功移除一个音乐",1);
                                 }
@@ -1005,12 +1083,27 @@ Item {
         id: localFolderMusic
         mainTarget: fileMain
         winIndex: 1
+        property string filter: ""
 
         content: Item {
             anchors.fill: parent
+
+            QMenu {
+                id: localSortMenu
+                model: localSortOptions.map(o => o.label)
+                blurSource: null
+                masked: true
+                current: filePage.localSortMenuIndex
+                onClicked: (i) => {
+                    filePage.localSortField = localSortOptions[i].field;
+                    filePage.localSortReversed = localSortOptions[i].desc;
+                    localFileView.scrollTop();
+                }
+            }
+
             // 顶栏
             Row {
-                x: 144
+                x: 136
                 y: 76
                 height: 36
                 spacing: 6
@@ -1050,14 +1143,25 @@ Item {
                         filePage.refreshSongList();
                     }
                 }
+                SButton {
+                    id: localSortBtn
+                    width: 48
+                    height: 36
+                    radius: Style.settings.labelRadius
+                    iconCharacter: "\uf10b"
+                    shadowEnabled: false
+                    buttonColor: Style.themes.sideColor
+                    tipText: "排序方式（再次点击反向）"
+                    onClicked: localSortMenu.popup(localSortBtn, 0, localSortBtn.height + 6)
+                }
             }
 
             Row {
-                x: folderMusic.width - width - 24
-                y: 44
+                x: localFolderMusic.width - width - 24
+                y: 26
                 height: 40
                 spacing: 8
-                z: 10
+                z: 2
                 QButton {
                     height: 40
                     radius: 20
@@ -1083,12 +1187,49 @@ Item {
                 }
             }
 
+            TextField {
+                id: filterInput2
+                x: localFolderMusic.width - width - 24
+                y: 76
+                z: 3
+                width: 200
+                height: 36
+                leftPadding: 12
+                rightPadding: 38
+                placeholderText: "搜索与过滤"
+                placeholderTextColor: Style.themes.textColor
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.text
+                verticalAlignment: Text.AlignVCenter
+                selectionColor: Style.themes.containColor
+                onTextChanged: localFolderMusic.filter = text.trim().toLowerCase()
+                background: Rectangle {
+                    radius: Style.settings.labelRadius
+                    color: Style.themes.primaryColor
+                    border.width: 2
+                    border.color: filterInput2.focus ? Style.themes.themeColor : Style.themes.sideColor
+                }
+                SButton {
+                    visible: localFolderMusic.filter !== ""
+                    y: 2
+                    x: parent.width - 34
+                    width: 32
+                    height: 32
+                    radius: Style.settings.labelRadius
+                    iconCharacter: "\uf025"
+                    iconSize: 15
+                    buttonColor: "transparent"
+                    shadowEnabled: false
+                    onClicked: filterInput2.text = ""
+                }
+            }
+
             QListView {
                 id: localFileView
                 x: 24
                 y: 128
-                width: folderMusic.width - 32
-                height: folderMusic.height - 128
+                width: localFolderMusic.width - 32
+                height: localFolderMusic.height - 128
                 model: localFileModel
                 clip: true
                 headerModel: ["标题","歌手","","菜单"]
@@ -1122,11 +1263,13 @@ Item {
                 }
                 delegate: Rectangle {
                     id: listLocalFile
-                    height: 60
+                    height: matched ? 60 : 0
+                    visible: matched
                     width: localFileView.width - 16
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(model.fileUrl.toString()) !== -1
                     color: listLocalFile.chosen || mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
+                    readonly property bool matched: localFolderMusic.filter === "" || songTitle.toLowerCase().indexOf(localFolderMusic.filter) !== -1 || artistName.toLowerCase().indexOf(localFolderMusic.filter) !== -1
 
                     // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
                     property string coverUrl: {
@@ -1266,10 +1409,8 @@ Item {
                                     globalDialog.openSimpleDialog("删除本地文件", "这将把「" + targetName + "」从当前文件夹移入回收站，是否继续？",
                                         function() {
                                             if (MusicApi.moveLocalFileToTrash(targetPath)) {
+                                                filePage.refreshSongList();
                                                 Style.warned("已将文件移入回收站", 1);
-                                                var folder = localFileModel.folder;
-                                                localFileModel.folder = "";
-                                                localFileModel.folder = folder;
                                             } else {
                                                 Style.warned("移动文件失败", 0);
                                             }
@@ -1311,14 +1452,12 @@ Item {
     Rectangle {
         id: chooseArea
         x: 0
-        //y: visible ? filePage.height - 60 : filePage.height
         y: filePage.height - 60
         opacity: visible ? 1 : 0
         width: filePage.width
         height: 60
         z: 21
         visible: filePage.setMode !== 0
-        //color: Style.themes.sideColor
         gradient: Gradient {
             GradientStop { position: 0.0; color: "transparent" }
             GradientStop { position: 1.0; color: Style.themes.sideColor }

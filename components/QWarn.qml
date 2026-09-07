@@ -3,14 +3,13 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Layouts
 import QtQuick.Effects
 import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
-    property Item blurSource: mainLayout // 使用父内容作为模糊源
-    property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    //property Item blurSource: mainLayout // 使用父内容作为模糊源
+    //property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: title.text
     property int type: 0  // 0.warn 1.success 2.error
     parent: Overlay.overlay
@@ -21,7 +20,7 @@ Popup {
     height: 36
     width: contentRow.width + 24
     //onClosed: { input.text = ""; input.focus = false }
-    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
+    Behavior on width { enabled: dialog.visible; NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
     function tiped(title,type) {
         delay.running = false;
         dialog.title = title;
@@ -57,7 +56,7 @@ Popup {
             radius: Style.settings.labelRadius
             blur: 16
             spread: 0
-            color: Qt.hsva(backRec.color.hsvHue,1.0,0.3,0.2)//Style.themes.shadowColor
+            color: Qt.hsva(backRec.color.hsvHue,1.0,0.3,0.12)//Style.themes.shadowColor
         }
     }
 
@@ -67,8 +66,6 @@ Popup {
             id: contentRow
             anchors.centerIn: parent
             spacing: 16
-            Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-        
         
             Text {
                 id: icon
@@ -93,11 +90,13 @@ Popup {
         }
     }
     enter: Transition {
-        NumberAnimation { property: "y"; duration: 280; from: -60; to: 70; easing.type: Easing.OutExpo }
-        NumberAnimation { property: "opacity"; duration: 160; from: 0; to: 1 }
+        NumberAnimation { property: "y"; duration: 280; from: 30; to: 70; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "opacity"; duration: 240; from: 0; to: 1; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; duration: 280; from: 0.6; to: 1; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "y"; duration: 180; to: -60 }
-        NumberAnimation { property: "opacity"; duration: 120; to: 0 }
+        NumberAnimation { property: "y"; duration: 160; to: 30 }
+        NumberAnimation { property: "opacity"; duration: 140; to: 0 }
+        NumberAnimation { property: "scale"; duration: 160; to: 0.6 }
     }
 }

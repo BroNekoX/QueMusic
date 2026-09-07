@@ -9,10 +9,8 @@ import QueMusic 1.0
 
 Item {
     id: root
-    //color: Style.themes.primaryColor
     z: 20
     anchors.fill: parent
-    //border.color: Style.themes.secondaryColor
     visible: false
 
     property string id: ""
@@ -38,8 +36,8 @@ Item {
         root.artist = info.artist || "";
         root.cover = info.cover.replace("{size}", "128") || "qrc:/QueMusic/resources/app/musicpic.png";
         root.descript = info.album || "Not have Description";
-        root.duration = info.duration || 0;//|| parseInt(info.duration);
-        root.playcount = info.playcount || 0; //|| parseInt(info.playcount);
+        root.duration = info.duration || 0;
+        root.playcount = info.playcount || 0;
         loadWidget.active = true;
         if (favoritesList.isFavorite(root.id, "playlist")) {
             favoriteButton.iconColor = Style.themes.themeColor
@@ -65,9 +63,8 @@ Item {
         }
     }
 
-    SequentialAnimation {
-        id: windowOpenAnime
     ParallelAnimation {
+        id: windowOpenAnime
         NumberAnimation {
             target: root
             property: "scale"
@@ -98,14 +95,10 @@ Item {
             to: 0
             duration: 100
         }
+        onFinished: root.mainTarget.visible = false
     }
-    ScriptAction {
-        script: root.mainTarget.visible = false
-    }
-    }
-    SequentialAnimation {
-        id: windowCloseAnime
     ParallelAnimation {
+        id: windowCloseAnime
         NumberAnimation {
             target: root
             property: "scale"
@@ -136,13 +129,10 @@ Item {
             easing.type: Easing.OutExpo
             duration: 240
         }
-    }
-    ScriptAction {
-        script: {
+        onFinished: {
             loadWidget.active = false
             root.visible = false
         }
-    }
     }
 
     Rectangle {
@@ -177,7 +167,6 @@ Item {
             }
         }
         Text {
-            // title
             x: 160
             y: 24
             width: 300
@@ -200,7 +189,6 @@ Item {
             verticalAlignment: Text.AlignVCenter
         }
         Text {
-            // 描述
             x: 160
             y: 56
             width: root.width - 220
@@ -211,7 +199,6 @@ Item {
             text: root.descript
             wrapMode: Text.Wrap
             font.pixelSize: Style.settings.textmain
-            //verticalAlignment: Text.AlignVCenter
         }
         Rectangle {
             id: playInfoRectangle

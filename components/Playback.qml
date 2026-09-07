@@ -16,12 +16,7 @@ QtObject {
     readonly property int count: queue ? queue.count : 0
     readonly property real outVolume: muted ? 0 : Options.settings.musicVolume * factor
 
-    // 音量淡变：factor 是 AudioOutput 的音量乘数
-    // 换源直接换 source 会在波形任意相位硬截断解码缓冲产生阶跃爆音，且
-    // QAudioOutput 音量只在缓冲推入设备时生效（已排队的旧音频仍带旧音量），
-    // 所以淡出后要静音保持 drainMs 排空设备缓冲，起播后再淡回。
-    // 暂停/停止后 factor 保持 0 不回弹——设备缓冲里还留着安静采样，
-    // 此刻把乘数跳回 1 会把它们瞬间放大出「刺」声；恢复播放统一 fadeIn()。
+    // 音量淡变
     property real factor: 1
     property bool armed: false          // 已静音，等待新音轨起播后淡回
     property var nextAction: null       // 静音后要执行的动作

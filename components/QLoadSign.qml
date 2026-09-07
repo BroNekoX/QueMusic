@@ -48,25 +48,21 @@ Item {
         }
     }
 
-    SequentialAnimation {
+    ParallelAnimation {
         id: finishAnime
-        ParallelAnimation {
-            NumberAnimation {
-                target: loadImage
-                property: "scale"
-                to: 0.5
-                duration: 240
-            }
-            NumberAnimation {
-                target: loadImage
-                property: "opacity"
-                to: 0.0
-                duration: 240
-            }
+        NumberAnimation {
+            target: loadImage
+            property: "scale"
+            to: 0.5
+            duration: 240
         }
-        ScriptAction {
-            script: root.visible = false
+        NumberAnimation {
+            target: loadImage
+            property: "opacity"
+            to: 0.0
+            duration: 240
         }
+        onFinished: root.visible = false
     }
     AnimatedImage {
         id: loadImage
@@ -76,6 +72,5 @@ Item {
         height: root.height - 12
         source: "qrc:/QueMusic/resources/loader.gif"
         playing: true
-        paused: false
     }
 }
