@@ -102,14 +102,10 @@ jobs:
             echo "⚠️ fcitx5 input context plugin not found, skipping."
           fi
 
-          # 注意：不复制任何 Qt 库（libQt6*.so*）到 AppDir/usr/lib，
-          # 这些将由 linuxdeploy 自动部署正确的版本。
-          # 但仍复制一些非 Qt 的基础系统库（如 xcb、wayland-client 等）
-          # 这些库与 Qt 版本无关，且可能不包含在 linuxdeploy 的依赖扫描中。
+          # 复制一些非 Qt 的基础系统库（xcb, wayland-client 等）
           cp -n /usr/lib/x86_64-linux-gnu/libxcb*.so*    AppDir/usr/lib/ 2>/dev/null || true
           cp -n /usr/lib/x86_64-linux-gnu/libxkbcommon*.so* AppDir/usr/lib/ 2>/dev/null || true
           cp -n /usr/lib/x86_64-linux-gnu/libwayland*.so* AppDir/usr/lib/ 2>/dev/null || true
-          # 注意：不要复制 libQt6WaylandClient，让 linuxdeploy 从我们的 Qt 部署
 
           echo "✅ AppDir preparation completed."
 
@@ -123,17 +119,14 @@ jobs:
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
           # 不强制指定平台，让 Qt 自动选择（优先 Wayland）
-          # export QT_QPA_PLATFORM=wayland
-          # 启用 fcitx5 输入法
           export QT_IM_MODULE=fcitx
           exec "${HERE}/usr/bin/QueMusic" "$@"
           EOF
           chmod +x AppRun.sh
 
-      # ========== 打包 AppImage（确保使用正确的 Qt 库） ==========
+      # ========== 打包 AppImage（确保使用正确的 Qt 库，并清理多余 SQL 驱动） ==========
       - name: Package AppImage
         run: |
-          # 确保 linuxdeploy 使用我们安装的 Qt
           export LD_LIBRARY_PATH="$HOME/Qt/6.10.3/gcc_64/lib:$LD_LIBRARY_PATH"
           export QMAKE="$HOME/Qt/6.10.3/gcc_64/bin/qmake"
           export QT_QMAKE_EXECUTABLE="$QMAKE"
@@ -143,6 +136,19 @@ jobs:
 
           # 删除 AppDir 中可能遗留的旧 Qt 库（避免版本冲突）
           rm -f AppDir/usr/lib/libQt6*.so* 2>/dev/null || true
+
+          # 在 Qt 插件目录中删除不需要的 SQL 驱动，只保留 sqlite
+          QT_PLUGIN_DIR="$HOME/Qt/6.10.3/gcc_64/plugins/sqldrivers"
+          if [ -d "$QT_PLUGIN_DIR" ]; then
+            cd "$QT_PLUGIN_DIR"
+            for f in libqsql*.so; do
+              if [ "$f" != "libqsqlite.so" ] && [ -f "$f" ]; then
+                rm -f "$f"
+                echo "Removed $f"
+              fi
+            done
+            cd -
+          fi
 
           # 运行 linuxdeploy，它会自动部署所有依赖（包括 Qt 库和插件依赖）
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
