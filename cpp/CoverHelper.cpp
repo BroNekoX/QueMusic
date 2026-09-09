@@ -11,6 +11,7 @@
 #include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -112,13 +113,6 @@ QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
     return url;
 }
 
-QString CoverHelper::storageCachePath(const QString &localPath) const
-{
-    // 用内容固定的哈希，跨系统 / 跨进程结果一致，不依赖 Qt 的散列种子
-    return m_cacheDir + QStringLiteral("/cover-") + metadataCacheKey(QFileInfo(localPath))
-           + QStringLiteral(".png");
-}
-
 QString CoverHelper::findLocalCover(const QString &sourcePath)
 {
     if (sourcePath.isEmpty())
@@ -163,29 +157,33 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
     return found;
 }
 
-QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
+QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
+                                      Metadata *metaOut)
 {
     QString localPath = sourcePath;
     const QUrl asUrl(sourcePath);
     if (asUrl.isLocalFile())
         localPath = asUrl.toLocalFile();
     const QFileInfo fi(localPath);
+    if (metaOut)
+        *metaOut = Metadata();
     if (!fi.isFile())
         return QString();
 
-    // 存储缓存
-    const QString cacheFilePath = storageCachePath(localPath);
-    if (QFileInfo::exists(cacheFilePath))
+    const QString cacheFilePath = cacheDir + QStringLiteral("/cover-")
+                                  + metadataCacheKey(fi) + QStringLiteral(".png");
+    if (QFileInfo::exists(cacheFilePath)) {
+        if (metaOut)
+            *metaOut = readMetadata(fi);
         return QUrl::fromLocalFile(cacheFilePath).toString();
+    }
 
     const QByteArray encodedPath = QFile::encodeName(localPath);
     TagLib::FileRef ref(encodedPath.constData(), false);
     QString coverUrl;
     if (!ref.isNull() && ref.file() != nullptr) {
-        // 顺带读出标题 / 歌手并缓存，与封面共用同一次解析
-        const QString key = metadataCacheKey(fi);
-        if (!m_metadataCache.contains(key))
-            m_metadataCache.insert(key, readMetadata(fi, &ref));
+        if (metaOut)
+            *metaOut = readMetadata(fi, &ref);
 
         TagLib::ByteVector coverData;
 
@@ -236,12 +234,31 @@ QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
                 if (qMax(image.width(), image.height()) > kMaxCoverSize)
                     image = image.scaled(kMaxCoverSize, kMaxCoverSize, Qt::KeepAspectRatio,
                                          Qt::FastTransformation);
-                if (image.save(cacheFilePath, "PNG"))
+                QSaveFile out(cacheFilePath);
+                if (out.open(QIODevice::WriteOnly) && image.save(&out, "PNG") && out.commit())
                     coverUrl = QUrl::fromLocalFile(cacheFilePath).toString();
             }
         }
     }
 
+    return coverUrl;
+}
+
+QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
+{
+    QString localPath = sourcePath;
+    const QUrl asUrl(sourcePath);
+    if (asUrl.isLocalFile())
+        localPath = asUrl.toLocalFile();
+    const QFileInfo fi(localPath);
+    if (!fi.isFile())
+        return QString();
+
+    Metadata meta;
+    const QString coverUrl = readCoverFromTag(localPath, m_cacheDir, &meta);
+    const QString key = metadataCacheKey(fi);
+    if (!m_metadataCache.contains(key))
+        m_metadataCache.insert(key, meta);
     return coverUrl;
 }
 
@@ -253,6 +270,26 @@ QString CoverHelper::findTitle(const QString &sourcePath)
 QString CoverHelper::findArtist(const QString &sourcePath)
 {
     return metadataOf(sourcePath).artist;
+}
+
+QVariantMap CoverHelper::loadFullMetadata(const QString &sourcePath)
+{
+    QVariantMap result;
+    if (sourcePath.isEmpty()) {
+        result.insert(QStringLiteral("title"), QString());
+        result.insert(QStringLiteral("artist"), QString());
+        result.insert(QStringLiteral("coverUrl"), QString());
+        return result;
+    }
+    // findEmbeddedCover 内部用同一次 TagLib 打开并把 title/artist 写入 m_metadataCache
+    const QString embedded = findEmbeddedCover(sourcePath);
+    result.insert(QStringLiteral("title"), findTitle(sourcePath));
+    result.insert(QStringLiteral("artist"), findArtist(sourcePath));
+    QString coverUrl = embedded;
+    if (coverUrl.isEmpty())
+        coverUrl = findLocalCover(sourcePath);
+    result.insert(QStringLiteral("coverUrl"), coverUrl);
+    return result;
 }
 
 CoverHelper::Metadata CoverHelper::metadataOf(const QString &sourcePath)

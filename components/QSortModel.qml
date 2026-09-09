@@ -4,7 +4,7 @@
 import QtQuick
 import QtQml.Models
 
-// 排序代理：mode 0 默认(timeRole) 1 名称 2 歌手 3 时长，方向由 sortDesc 决定
+// 排序代理：mode 0 源模型自然顺序（免排序） 1 名称 2 歌手 3 时长，方向由 sortDesc 决定
 SortFilterProxyModel {
     id: root
     property int sortMode: 0
@@ -12,8 +12,6 @@ SortFilterProxyModel {
     property var options: []            // [{label, mode, desc}]，供菜单展示与回显
     property string nameRole: "name"
     property string artistRole: "artist"
-    property string timeRole: "createdAt"
-    property bool timeDesc: false
 
     readonly property int menuIndex: {
         for (var i = 0; i < root.options.length; i++)
@@ -31,11 +29,6 @@ SortFilterProxyModel {
     }
 
     sorters: [
-        RoleSorter {
-            roleName: root.timeRole
-            enabled: root.sortMode === 0
-            sortOrder: root.orderFor(root.timeDesc)
-        },
         StringSorter {
             roleName: root.nameRole
             enabled: root.sortMode === 1

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "Favorites.h"
+#include <QtConcurrent/QtConcurrentRun>
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
@@ -22,6 +23,47 @@ static QSqlDatabase& sharedDatabase()
 	return db;
 }
 
+// 工作线程查询：每线程独享连接，读结果仅构建内存快照
+static QVector<FavoriteItem> queryFavorites(const QString &dbPath, const QString &filterType)
+{
+	QVector<FavoriteItem> items;
+	static QAtomicInteger<int> connSeq = 0;
+	const QString conn = QStringLiteral("fav_load_%1").arg(connSeq.fetchAndAddRelaxed(1));
+	{
+		QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), conn);
+		db.setDatabaseName(dbPath);
+		db.setConnectOptions(QStringLiteral("QSQLITE_BUSY_TIMEOUT=5000"));
+		if (db.open()) {
+			QSqlQuery query(db);
+			QString sql = "SELECT id, title, artist, cover, source, duration, type, created_at FROM favorites";
+			if (!filterType.isEmpty())
+				sql += " WHERE type = :type";
+			sql += " ORDER BY created_at DESC";
+			query.prepare(sql);
+			if (!filterType.isEmpty())
+				query.bindValue(":type", filterType);
+			if (query.exec()) {
+				while (query.next()) {
+					FavoriteItem item;
+					item.id = query.value(0).toString();
+					item.title = query.value(1).toString();
+					item.artist = query.value(2).toString();
+					item.cover = query.value(3).toString();
+					item.source = query.value(4).toInt();
+					item.duration = query.value(5).toInt();
+					item.type = query.value(6).toString();
+					item.createdAt = query.value(7).toDateTime();
+					items.append(item);
+				}
+			} else {
+				qWarning() << "Refresh favorites failed:" << query.lastError().text();
+			}
+		}
+	}
+	QSqlDatabase::removeDatabase(conn);
+	return items;
+}
+
 // FavoritesModel 实现
 FavoritesModel::FavoritesModel(QObject *parent)
 : QAbstractListModel(parent)
@@ -30,6 +72,7 @@ FavoritesModel::FavoritesModel(QObject *parent)
 	if (!m_db.isOpen()) {
 		qWarning() << "Database not open!";
 	}
+	m_dbPath = m_db.databaseName();
 	createTableIfNeeded();
 	refreshModel();
 }
@@ -130,7 +173,6 @@ void FavoritesModel::addFavorite(const QString &id, const QString &title,
 		}
 	}
 	refreshModel();
-	emit countChanged();
 }
 
 bool FavoritesModel::removeFavorite(const QString &id, const QString &type)
@@ -144,7 +186,6 @@ bool FavoritesModel::removeFavorite(const QString &id, const QString &type)
 		return false;
 	}
 	refreshModel();
-	emit countChanged();
 	return true;
 }
 
@@ -174,7 +215,6 @@ void FavoritesModel::clearFavorites(const QString &type)
 		emit errorOccurred("清空收藏失败: " + query.lastError().text());
 	} else {
 		refreshModel();
-		emit countChanged();
 	}
 }
 
@@ -187,40 +227,42 @@ void FavoritesModel::setFilterType(const QString &type)
 	}
 }
 
+// 异步刷新：SQL 在工作线程执行，快照回 GUI 线程一次性提交
 void FavoritesModel::refreshModel()
 {
+	setLoading(true);
+	const int generation = m_refreshGeneration.fetchAndAddRelaxed(1) + 1;
+	const QString filter = m_filterType;
+	const QString dbPath = m_dbPath;
+
+	auto *watcher = new QFutureWatcher<QVector<FavoriteItem>>(this);
+	connect(watcher, &QFutureWatcher<QVector<FavoriteItem>>::finished, this,
+			[this, watcher, generation]() {
+				watcher->deleteLater();
+				if (generation != m_refreshGeneration.loadRelaxed())
+					return;
+				applyItems(watcher->result());
+			});
+	watcher->setFuture(QtConcurrent::run([filter, dbPath]() {
+		return queryFavorites(dbPath, filter);
+	}));
+}
+
+void FavoritesModel::applyItems(QVector<FavoriteItem> items)
+{
 	beginResetModel();
-	m_items.clear();
-	
-	QSqlQuery query(m_db);
-	QString sql = "SELECT id, title, artist, cover, source, duration, type, created_at FROM favorites";
-	if (!m_filterType.isEmpty()) {
-		sql += " WHERE type = :type";
-	}
-	sql += " ORDER BY created_at DESC"; // 最新的在前
-	
-	query.prepare(sql);
-	if (!m_filterType.isEmpty()) {
-		query.bindValue(":type", m_filterType);
-	}
-	
-	if (query.exec()) {
-		while (query.next()) {
-			FavoriteItem item;
-			item.id = query.value(0).toString();
-			item.title = query.value(1).toString();
-			item.artist = query.value(2).toString();
-			item.cover = query.value(3).toString();
-			item.source = query.value(4).toInt();
-			item.duration = query.value(5).toInt();
-			item.type = query.value(6).toString();
-			item.createdAt = query.value(7).toDateTime();
-			m_items.append(item);
-		}
-	} else {
-		qWarning() << "Refresh favorites failed:" << query.lastError().text();
-	}
+	m_items = std::move(items);
 	endResetModel();
+	setLoading(false);
+	emit countChanged();
+}
+
+void FavoritesModel::setLoading(bool loading)
+{
+	if (m_loading == loading)
+		return;
+	m_loading = loading;
+	emit loadingChanged();
 }
 
 QVariantMap FavoritesModel::get(int row) const

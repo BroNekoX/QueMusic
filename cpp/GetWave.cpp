@@ -121,7 +121,7 @@ void GetWave::onBufferReceived(const QAudioBuffer &buffer)
     m_dataReady.storeRelease(1);
 }
 
-// 渲染帧回调（主线程）：每帧调用一次，有新数据才重算频谱，跟随窗口刷新率
+// 渲染线程帧回调：每帧一次，有新数据才重算频谱，跟随窗口刷新率
 void GetWave::updateSpectrum()
 {
     if (!m_enabled) return;
@@ -133,10 +133,25 @@ void GetWave::updateSpectrum()
         QMutexLocker locker(&m_mutex);
         snapshot = m_rawBuffer;
     }
-    computeSpectrumFromFFT(snapshot, float(m_sampleRate.loadAcquire()));
-    rebuildWavePath(m_bands, 512.0, 80.0);
+    {
+        QMutexLocker locker(&m_mutex);
+        computeSpectrumFromFFT(snapshot, float(m_sampleRate.loadAcquire()));
+        rebuildWavePath(m_bands, 512.0, 80.0);
+    }
     emit spectrumChanged();
     emit wavePathChanged();
+}
+
+void GetWave::setRenderWindow(QQuickWindow *window)
+{
+    if (m_renderWindow == window) return;
+    if (m_renderWindow && m_frameConnection)
+        disconnect(m_frameConnection);
+    m_renderWindow = window;
+    if (m_renderWindow)
+        m_frameConnection = connect(m_renderWindow, &QQuickWindow::frameSwapped,
+                                    this, &GetWave::updateSpectrum, Qt::DirectConnection);
+    emit renderWindowChanged();
 }
 
 // 以下为FFT实现模块

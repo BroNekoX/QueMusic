@@ -176,7 +176,6 @@ Popup {
                 width: parent.width
                 radius: Style.settings.labelRadius
                 color: isCurrent ? Style.themes.containColor : "transparent"
-                Behavior on color { ColorAnimation { duration: 120 } }
 
                 Text {
                     y: 10
@@ -201,7 +200,6 @@ Popup {
                     color: Style.themes.fontColor
                     font.pixelSize: Style.settings.text
                     verticalAlignment: Text.AlignVCenter
-                    Behavior on color { ColorAnimation { duration: 120 } }
                 }
                 Text {
                     x: 50
@@ -215,7 +213,6 @@ Popup {
                     font.pixelSize: Style.settings.textTip
                     verticalAlignment: Text.AlignVCenter
                     visible: songArtist !== ""
-                    Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
                 Row {

@@ -144,7 +144,9 @@ int main(int argc, char *argv[])
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QGuiApplication application(argc, argv);
 
-    QQuickWindow::setDefaultAlphaBuffer(true);
+    // 仅在 dwm-blur（backmode 4）需要透明背景时开启全窗口 alpha 合成
+    if (opt.value(QStringLiteral("Style/backmode"), 0).toInt() == 4)
+        QQuickWindow::setDefaultAlphaBuffer(true);
     //QQuickWindow::setTextRenderType(QQuickWindow::CurveTextRendering);
     QQmlApplicationEngine engine;
 
@@ -154,7 +156,7 @@ int main(int argc, char *argv[])
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");
-    application.setWindowIcon(QIcon("qrc:/QPlayer/resources/icon.ico"));
+    application.setWindowIcon(QIcon("qrc:/QueMusic/resources/icon.ico"));
     application.setApplicationName("QueMusic");
 
     QSettings::setDefaultFormat(QSettings::IniFormat);

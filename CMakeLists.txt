@@ -5,7 +5,7 @@ project(QueMusic VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOMOC_PATH_PREFIX ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 统一输出目录：可执行文件与动态库放 bin/，静态库放 lib/
@@ -34,6 +34,16 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/mpeg/id3v2/frames
+)
+
+# 预编译 Qt 主头文件，降低全量编译时间
+target_precompile_headers(${PROJECT_NAME} PRIVATE
+    <QtCore/QtCore>
+    <QtGui/QtGui>
+    <QtQml/QtQml>
+    <QtQuick/QtQuick>
+    <QtNetwork/QtNetwork>
+    <QtMultimedia/QtMultimedia>
 )
 
 # 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
@@ -65,7 +75,7 @@ set_source_files_properties(
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
-
+file(GLOB_RECURSE CENTER_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "centers/*.qml")
 
 qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     URI QueMusic
@@ -86,6 +96,7 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         pages/SearchPage.qml
         api/qrcode.js
         ${QML_COMPONENTS}
+        ${CENTER_COMPONENTS}
 
     RESOURCES
         resources/window-bar/close.svg resources/window-bar/closed.svg
@@ -133,6 +144,12 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/LocalLyricsReader.h
         cpp/CustomFlow.cpp
         cpp/CustomFlow.h
+        cpp/QueueModel.cpp
+        cpp/QueueModel.h
+        cpp/LocalMusicScanner.cpp
+        cpp/LocalMusicScanner.h
+        cpp/SearchResultModel.cpp
+        cpp/SearchResultModel.h
         cpp/WindowsSmtcManager.cpp
         cpp/WindowsSmtcManager.h
         cpp/LogManager.cpp
@@ -198,8 +215,8 @@ if(WIN32)
         COMMENT "Copying QWindowKit runtime libraries next to the executable...")
 endif()
 
-# macOS 上由 macdeployqt 统一部署，避免与 qt_deploy_runtime 冲突
-if(NOT APPLE)
+# macOS 上由 macdeployqt 统一部署；Debug 构建不部署 Qt 运行时
+if(NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     qt_deploy_runtime(${PROJECT_NAME})
 endif()
 

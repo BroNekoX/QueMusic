@@ -40,7 +40,6 @@ Window {
         Style.changeUi();
         Style.changeTheme();
     }
-    onFrameSwapped: getWave.updateSpectrum();
 
     Connections {
         target: Options.settings
@@ -378,7 +377,6 @@ Window {
                         musicCenter.active = false;
                         musicCenter.source = "";
                     } else {
-                        musicCenter.source = "file:///C:/Users/Administrator/Desktop/Clanguage/BromyuMusicNext/quemusicproject/FullCenterView.qml";
                         musicCenter.active = true;
                     }
                 }
@@ -903,6 +901,7 @@ Window {
     GetWave {
         id: getWave
         mediaPlayer: mainMedia
+        renderWindow: window
         enabled: Style.settings.waveDisplay && mainMedia.playing
         bands: 128
         //audioBufferOutput: mainMedia.audioBufferOutput
@@ -1108,11 +1107,10 @@ Window {
         }
     }
 
-    // 播放列表
-    ListModel {
+    // 播放列表（C++ QueueModel：O(1) 路径查找、批量操作、角色化访问）
+    QueueModel {
         id: playListModel
-        property int playListIndex: -1
-        // 列表增删后同步 SMTC 上一首/下一首按钮可用性
+        playListIndex: -1
         onCountChanged: updateSmtcControls()
         onPlayListIndexChanged: updateSmtcControls()
     }
@@ -1197,7 +1195,7 @@ Window {
         active: false
         asynchronous: true
         visible: status == Loader.Ready
-        source: "file:///C:/Users/Administrator/Desktop/Clanguage/BromyuMusicNext/quemusicproject/FullCenterView.qml"
+        source: "qrc:/QueMusic/FullCenterView.qml"
     }
     // 桌面小窗播放器
     Loader {

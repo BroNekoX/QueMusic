@@ -5,9 +5,11 @@
 #define FAVORITES_H
 
 #include <QAbstractListModel>
+#include <QAtomicInteger>
 #include <QSqlDatabase>
 #include <QVector>
 #include <QDateTime>
+#include <QFutureWatcher>
 
 // 收藏项结构体
 struct FavoriteItem {
@@ -27,6 +29,7 @@ class FavoritesModel : public QAbstractListModel
 	Q_OBJECT
 	Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged)
 	Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+	Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
 	
 public:
 	enum Roles {
@@ -58,18 +61,25 @@ public:
 	
 	QString filterType() const { return m_filterType; }
 	void setFilterType(const QString &type);
-	
-	signals:
+	bool loading() const { return m_loading; }
+	void setLoading(bool loading);
+
+signals:
 	void filterTypeChanged();
 	void countChanged();
+	void loadingChanged();
 	void errorOccurred(const QString &message);
 	
 private:
 	void refreshModel();
+	void applyItems(QVector<FavoriteItem> items);
 	void createTableIfNeeded();
 	QSqlDatabase m_db;
 	QVector<FavoriteItem> m_items;
     QString m_filterType;
+	QString m_dbPath;
+	bool m_loading = false;
+	QAtomicInteger<int> m_refreshGeneration = 0;
 };
 
 #endif // FAVORITES_H

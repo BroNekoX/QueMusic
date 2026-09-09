@@ -2,13 +2,16 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "FolderModel.h"
+
+#include "SearchResultModel.h"
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QSqlDriver>
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
-#include <QMutexLocker>
+#include <QMetaObject>
+#include <QTimer>
 
 static QSqlDatabase& sharedDatabase()
 {
@@ -17,7 +20,6 @@ static QSqlDatabase& sharedDatabase()
         QDir().mkpath(appDataDir);
         QString dbPath = appDataDir + "/player_data.db";
 
-        // 连接到sql数据库
         QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "shared_player_db");
         db.setDatabaseName(dbPath);
         if (!db.open()) {
@@ -46,7 +48,6 @@ static QSqlDatabase& sharedDatabase()
             "FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE)"
             );
 
-        // 插入默认文件夹
         query.prepare("SELECT COUNT(*) FROM folders WHERE type='my' AND name='默认文件夹'");
         query.exec();
         if (query.next() && query.value(0).toInt() == 0) {
@@ -61,11 +62,10 @@ static QSqlDatabase& sharedDatabase()
     return db;
 }
 
-// FolderModel 实现
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = sharedDatabase();   // 使用共享连接，不再创建新连接
+    m_db = sharedDatabase();
     loadFromDatabase();
 }
 
@@ -182,11 +182,61 @@ void FolderModel::refreshModel()
     endResetModel();
 }
 
-// SongModel 构造函数
+void SongEnrichWorker::run()
+{
+    cancel.store(false);
+    QList<SongEnrichResult> batch;
+    const quint64 gen = generation.load();
+    for (const Task &t : tasks) {
+        if (cancel.load())
+            return;
+        SongEnrichResult r;
+        r.row = t.row;
+        CoverHelper::Metadata meta;
+        r.coverUrl = CoverHelper::readCoverFromTag(t.path, cacheDir, &meta);
+        r.title = meta.title;
+        r.artist = meta.artist;
+        batch.append(r);
+        if (batch.size() >= 25) {
+            emit enriched(gen, batch);
+            batch.clear();
+        }
+    }
+    if (!batch.isEmpty())
+        emit enriched(gen, batch);
+    emit enrichDone(gen, tasks.size());
+}
+
 SongModel::SongModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = sharedDatabase();   // 使用同一个连接
+    m_db = sharedDatabase();
+    qRegisterMetaType<QList<SongEnrichResult>>("QList<SongEnrichResult>");
+
+    m_searchResults = new SearchResultModel({SearchResultModel::SongIdRole,
+                                             SearchResultModel::FolderIdRole,
+                                             SearchResultModel::NameRole,
+                                             SearchResultModel::PathRole,
+                                             SearchResultModel::SingerRole,
+                                             SearchResultModel::DurationRole,
+                                             SearchResultModel::TagTitleRole,
+                                             SearchResultModel::TagArtistRole,
+                                             SearchResultModel::TagCoverUrlRole}, this);
+    m_searchTimer = new QTimer(this);
+    m_searchTimer->setInterval(0);
+    connect(m_searchTimer, &QTimer::timeout, this, &SongModel::searchStep);
+}
+
+SongModel::~SongModel()
+{
+    if (m_enrichWorker) {
+        m_enrichWorker->cancel.store(true);
+        m_enrichWorker->generation.fetch_add(1);
+        m_enrichThread.quit();
+        m_enrichThread.wait();
+    }
+    if (m_searchTimer)
+        m_searchTimer->stop();
 }
 
 int SongModel::rowCount(const QModelIndex &parent) const
@@ -202,25 +252,31 @@ QVariant SongModel::data(const QModelIndex &index, int role) const
 
     const auto &item = m_items.at(index.row());
     switch (role) {
-    case IdRole:        return item.id;
-    case FolderIdRole:  return item.folderId;
-    case NameRole:      return item.name;
-    case PathRole:      return item.path;
-    case SingerRole:    return item.singer;
-    case DurationRole:  return item.duration;
-    default:            return {};
+    case IdRole:          return item.id;
+    case FolderIdRole:    return item.folderId;
+    case NameRole:        return item.name;
+    case PathRole:        return item.path;
+    case SingerRole:      return item.singer;
+    case DurationRole:    return item.duration;
+    case TagTitleRole:    return item.tagTitle;
+    case TagArtistRole:   return item.tagArtist;
+    case TagCoverUrlRole: return item.tagCoverUrl;
+    default:              return {};
     }
 }
 
 QHash<int, QByteArray> SongModel::roleNames() const
 {
     return {
-        {IdRole,        "songId"},
-        {FolderIdRole,  "folderId"},
-        {NameRole,      "name"},
-        {PathRole,      "path"},
-        {SingerRole,    "singer"},
-        {DurationRole,  "duration"}
+        {IdRole,          "songId"},
+        {FolderIdRole,    "folderId"},
+        {NameRole,        "name"},
+        {PathRole,        "path"},
+        {SingerRole,      "singer"},
+        {DurationRole,    "duration"},
+        {TagTitleRole,    "tagTitle"},
+        {TagArtistRole,   "tagArtist"},
+        {TagCoverUrlRole, "tagCoverUrl"}
     };
 }
 
@@ -236,6 +292,9 @@ QVariantMap SongModel::get(int index) const
     map.insert(QStringLiteral("path"), item.path);
     map.insert(QStringLiteral("singer"), item.singer);
     map.insert(QStringLiteral("duration"), item.duration);
+    map.insert(QStringLiteral("tagTitle"), item.tagTitle);
+    map.insert(QStringLiteral("tagArtist"), item.tagArtist);
+    map.insert(QStringLiteral("tagCoverUrl"), item.tagCoverUrl);
     return map;
 }
 
@@ -332,6 +391,7 @@ void SongModel::setFolderId(int folderId)
 
 void SongModel::refreshModel()
 {
+    clearSearch();
     beginResetModel();
     m_items.clear();
 
@@ -356,4 +416,116 @@ void SongModel::refreshModel()
         }
     }
     endResetModel();
+    startEnrichment();
+}
+
+void SongModel::startEnrichment()
+{
+    if (m_items.isEmpty())
+        return;
+    if (!m_enrichWorker) {
+        m_enrichWorker = new SongEnrichWorker;
+        m_enrichWorker->moveToThread(&m_enrichThread);
+        connect(m_enrichWorker, &SongEnrichWorker::enriched, this, &SongModel::onEnriched);
+        connect(m_enrichWorker, &SongEnrichWorker::enrichDone, this, &SongModel::onEnrichDone);
+        m_enrichThread.start();
+    }
+    const quint64 gen = m_enrichGen.fetch_add(1) + 1;
+    m_enrichWorker->cancel.store(true);
+    m_enrichWorker->generation.store(gen);
+    m_enrichWorker->tasks.clear();
+    for (int i = 0; i < m_items.size(); ++i)
+        m_enrichWorker->tasks.append({i, m_items.at(i).path});
+    m_enrichWorker->cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                               + QStringLiteral("/cache");
+    QDir().mkpath(m_enrichWorker->cacheDir);
+    QMetaObject::invokeMethod(m_enrichWorker, "run", Qt::QueuedConnection);
+}
+
+void SongModel::onEnriched(quint64 gen, QList<SongEnrichResult> results)
+{
+    if (gen != m_enrichGen.load())
+        return;
+    const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole};
+    for (const SongEnrichResult &r : results) {
+        if (r.row < 0 || r.row >= m_items.size())
+            continue;
+        m_items[r.row].tagTitle = r.title;
+        m_items[r.row].tagArtist = r.artist;
+        m_items[r.row].tagCoverUrl = r.coverUrl;
+        emit dataChanged(index(r.row), index(r.row), roles);
+    }
+}
+
+void SongModel::onEnrichDone(quint64 gen, int count)
+{
+    if (gen != m_enrichGen.load())
+        return;
+    emit metadataReady(count);
+}
+
+void SongModel::startSearch(const QString &text)
+{
+    m_searchText = text.trimmed();
+    m_searchResults->clearRows();
+    m_searchPos = 0;
+    if (m_searchText.isEmpty()) {
+        if (m_searchActive) {
+            m_searchActive = false;
+            emit searchActiveChanged();
+        }
+        m_searchTimer->stop();
+        emit searchFinished(0);
+        return;
+    }
+    if (!m_searchActive) {
+        m_searchActive = true;
+        emit searchActiveChanged();
+    }
+    m_searchTimer->start();
+}
+
+void SongModel::clearSearch()
+{
+    m_searchTimer->stop();
+    m_searchText.clear();
+    m_searchResults->clearRows();
+    m_searchPos = 0;
+    if (m_searchActive) {
+        m_searchActive = false;
+        emit searchActiveChanged();
+    }
+}
+
+void SongModel::searchStep()
+{
+    const int chunk = 400;
+    const int total = m_items.size();
+    const QString needle = m_searchText;
+    QList<SearchResultModel::Row> batch;
+    for (int i = 0; i < chunk && m_searchPos < total; ++m_searchPos, ++i) {
+        const SongItem &it = m_items.at(m_searchPos);
+        if (it.name.contains(needle, Qt::CaseInsensitive)
+                || it.singer.contains(needle, Qt::CaseInsensitive)
+                || it.tagTitle.contains(needle, Qt::CaseInsensitive)
+                || it.tagArtist.contains(needle, Qt::CaseInsensitive)) {
+            SearchResultModel::Row row;
+            row.songId = it.id;
+            row.folderId = it.folderId;
+            row.name = it.name;
+            row.path = it.path;
+            row.singer = it.singer;
+            row.duration = it.duration;
+            row.tagTitle = it.tagTitle;
+            row.tagArtist = it.tagArtist;
+            row.tagCoverUrl = it.tagCoverUrl;
+            batch.append(row);
+        }
+    }
+    if (!batch.isEmpty())
+        m_searchResults->appendBatch(batch);
+    if (m_searchPos >= total) {
+        m_searchTimer->stop();
+        emit searchFinished(m_searchResults->rowCount());
+    }
 }

@@ -26,6 +26,9 @@ Rectangle {
     //signal stackChange(int index)
     function contentIndexed(choice) {
         if(choice !== mainContent.pageIndex) {
+            //pageAnineOn.stop();
+            //pageAnineOn.target = mainContent.pages[mainContent.pageIndex];
+            //pageAnineOn.start();
             mainContent.pages[mainContent.pageIndex].visible = false;
             mainContent.pages[mainContent.pageIndex].active = false;
             mainContent.pages[choice].active = true;
@@ -47,7 +50,7 @@ Rectangle {
             from: 0
             to: 1
             duration: 320
-            easing.type: Easing.OutExpo
+            easing.type: Easing.OutCubic
         }
         NumberAnimation {
             property: "y"
@@ -134,14 +137,14 @@ Rectangle {
         sourceComponent: DownloadPage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(5) }
     }
-    
+
     // 搜索页
     Loader {
         id: searchPage
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
+        asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false

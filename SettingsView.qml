@@ -596,6 +596,9 @@ Item {
                                     Style.settings.backmode = choiced
                                     Style.changeUi()
                                     Style.changeTheme()
+                                    if(choiced === 4) {
+                                        mainMessage.openSimpleDialog("提示", "重启本应用以生效模糊窗口功能.", null);
+                                    }
                                 }
                             }
                         }

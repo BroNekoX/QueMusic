@@ -24,8 +24,6 @@ Item {
         model: favoritesSong
         options: favouritePage.favSortOptions
         nameRole: "title"
-        timeRole: "createdAt"
-        timeDesc: true
     }
 
     QSortModel {
@@ -33,8 +31,6 @@ Item {
         model: favoritesList
         options: favouritePage.favSortOptions
         nameRole: "title"
-        timeRole: "createdAt"
-        timeDesc: true
     }
 
     QMenu {
@@ -208,9 +204,15 @@ Item {
                     break;
                 }
             }
+            AnimatedImage {
+                anchors.centerIn: parent
+                visible: favoritesSong.loading
+                playing: visible
+                source: "qrc:/QueMusic/resources/loader.gif"
+            }
             Text {
                 anchors.centerIn: parent
-                visible: favoritesSong.count === 0
+                visible: !favoritesSong.loading && favoritesSong.count === 0
                 text: "没有收藏的内容？快去收藏一些歌曲吧"
                 color: Style.themes.textColor
                 font.pixelSize: 14
@@ -252,9 +254,15 @@ Item {
                     mainWarn.tiped("取消收藏",0);
                 }
             }
+            AnimatedImage {
+                anchors.centerIn: parent
+                visible: favoritesList.loading
+                playing: visible
+                source: "qrc:/QueMusic/resources/loader.gif"
+            }
             Text {
                 anchors.centerIn: parent
-                visible: favoritesList.count === 0
+                visible: !favoritesList.loading && favoritesList.count === 0
                 text: "没有收藏的内容？快去收藏一些歌单吧"
                 color: Style.themes.textColor
                 font.pixelSize: 14

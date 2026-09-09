@@ -16,6 +16,7 @@
 #include <complex>
 #include <algorithm>
 #include <QtQmlIntegration/qqmlintegration.h>
+#include <QtQuick/QQuickWindow>
 
 using Complex = std::complex<float>;
 
@@ -28,6 +29,7 @@ class GetWave : public QObject
     Q_PROPERTY(int bands READ bands WRITE setBands NOTIFY bandsChanged)
     Q_PROPERTY(QVector<QPointF> wavePath READ wavePath NOTIFY wavePathChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(QQuickWindow* renderWindow READ renderWindow WRITE setRenderWindow NOTIFY renderWindowChanged)
 
 public:
     explicit GetWave(QObject *parent = nullptr);
@@ -46,12 +48,16 @@ public:
     bool enabled() const { return m_enabled; }
     void setEnabled(bool e);
 
+    QQuickWindow* renderWindow() const { return m_renderWindow; }
+    void setRenderWindow(QQuickWindow *window);
+
 signals:
     void mediaPlayerChanged();
     void spectrumChanged();
     void bandsChanged();
     void wavePathChanged();
     void enabledChanged();
+    void renderWindowChanged();
 
 private slots:
     void onBufferReceived(const QAudioBuffer &buffer);
@@ -84,6 +90,9 @@ private:
     // 帧驱动：窗口每帧触发 updateSpectrum()，有新数据才重算
     QAtomicInteger<int> m_dataReady = 0;
     QAtomicInteger<int> m_sampleRate = 48000;
+
+    QQuickWindow *m_renderWindow = nullptr;
+    QMetaObject::Connection m_frameConnection;
 };
 
 #endif // GETWAVE_H

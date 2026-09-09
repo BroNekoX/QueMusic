@@ -240,11 +240,9 @@ QtObject {
         onTriggered: root.writeHistory()
     }
 
-    // 队列操作
+    // 队列操作（路径查找由 C++ QueueModel 哈希表 O(1) 完成）
     function indexOfPath(p) {
-        for (var i = 0; i < root.count; i++)
-            if (queue.get(i).path === p) return i
-        return -1
+        return queue ? queue.indexOfPath(p) : -1
     }
 
     // 播放一首曲目：已在队列则直接跳转，否则追加到队尾

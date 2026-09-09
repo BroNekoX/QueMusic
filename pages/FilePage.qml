@@ -30,17 +30,6 @@ Item {
         return 0
     }
 
-    // 在播放列表中查找同名/同路径歌曲，避免重复添加本地文件
-    function findIndexByValue(model, key, targetValue) {
-        for (var i = 0; i < model.count; i++) {
-            var element = model.get(i);
-            if (element && element[key] === targetValue) {
-                return i;
-            }
-        }
-        return -1; // 未找到返回 -1
-    }
-
     function toggleChoose(key) {
         filePage.chooseIndex = filePage.chooseIndex.indexOf(key) === -1
             ? filePage.chooseIndex.concat([key])
@@ -52,9 +41,32 @@ Item {
         filePage.setMode = 0;
     }
 
+    Connections {
+        target: songModel
+        function onMetadataReady(count) {
+            if (count > 0)
+                mainWarn.tiped("歌曲信息已就绪（" + count + " 首）", 1);
+        }
+        function onSearchFinished(count) {
+            if (folderMusic.searching)
+                mainWarn.tiped(count > 0 ? "找到 " + count + " 个结果" : "没有找到匹配的歌曲", count > 0 ? 1 : 0);
+        }
+    }
+    Connections {
+        target: localFileModel
+        function onMetadataReady(count) {
+            if (count > 0)
+                mainWarn.tiped("歌曲信息已就绪（" + count + " 首）", 1);
+        }
+        function onSearchFinished(count) {
+            if (localFolderMusic.searching)
+                mainWarn.tiped(count > 0 ? "找到 " + count + " 个结果" : "没有找到匹配的歌曲", count > 0 ? 1 : 0);
+        }
+    }
+
     function chooseTotal() {
-        if (filePage.setMode === 3) return songModel.rowCount();
-        if (filePage.setMode === 4) return localFileModel.count;
+        if (filePage.setMode === 3) return folderMusic.searching ? songModel.searchResults.count : songModel.rowCount();
+        if (filePage.setMode === 4) return localFolderMusic.searching ? localFileModel.searchResults.count : localFileModel.count;
         return 0;
     }
 
@@ -71,9 +83,17 @@ Item {
         var all = [];
         var i = 0;
         if (filePage.setMode === 3) {
-            for (i = 0; i < songModel.rowCount(); i++) all.push(songModel.get(i).songId);
+            if (folderMusic.searching) {
+                for (i = 0; i < songModel.searchResults.count; i++) all.push(songModel.searchResults.getRow(i).songId);
+            } else {
+                for (i = 0; i < songModel.rowCount(); i++) all.push(songModel.get(i).songId);
+            }
         } else if (filePage.setMode === 4) {
-            for (i = 0; i < localFileModel.count; i++) all.push(localFileModel.get(i, "fileUrl").toString());
+            if (localFolderMusic.searching) {
+                for (i = 0; i < localFileModel.searchResults.count; i++) all.push(localFileModel.searchResults.getRow(i).fileUrl.toString());
+            } else {
+                for (i = 0; i < localFileModel.count; i++) all.push(localFileModel.get(i, "fileUrl").toString());
+            }
         }
         filePage.chooseIndex = all;
     }
@@ -86,19 +106,34 @@ Item {
         }
         var added = 0;
         if (filePage.setMode === 3) {
+            var exists = {};
+            for (var p = 0; p < playListModel.count; p++)
+                exists[playListModel.get(p).path] = true;
             for (var i = 0; i < songModel.rowCount(); i++) {
                 var song = songModel.get(i);
                 if (!song || !song.path || filePage.chooseIndex.indexOf(song.songId) === -1) continue;
-                if (filePage.findIndexByValue(playListModel, "path", song.path) !== -1) continue;
+                if (exists[song.path]) continue;
                 playListModel.append({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
+                exists[song.path] = true;
                 added++;
             }
         } else if (filePage.setMode === 4) {
+            var exists = {};
+            for (var p = 0; p < playListModel.count; p++)
+                exists[playListModel.get(p).path] = true;
             for (var j = 0; j < localFileModel.count; j++) {
                 var path = localFileModel.get(j, "fileUrl").toString();
                 if (filePage.chooseIndex.indexOf(path) === -1) continue;
-                if (filePage.findIndexByValue(playListModel, "path", path) !== -1) continue;
-                playListModel.append({ name: coverHelper.findTitle(path) || localFileModel.get(j, "fileName"), path: path, songer: coverHelper.findArtist(path) || "", source: -1 });
+                if (exists[path]) continue;
+                var title = localFileModel.get(j, "title") || "";
+                var artist = localFileModel.get(j, "artist") || "";
+                if (title === "") {
+                    var meta = coverHelper.loadFullMetadata(path);
+                    title = meta.title;
+                    artist = artist || meta.artist;
+                }
+                playListModel.append({ name: title || localFileModel.get(j, "fileName"), path: path, songer: artist || "", source: -1 });
+                exists[path] = true;
                 added++;
             }
         }
@@ -132,17 +167,23 @@ Item {
 
     // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
     function addAllSongModelToList(play) {
-        if (songModel.rowCount() === 0) {
+        var searching = folderMusic.searching;
+        var total = searching ? songModel.searchResults.count : songModel.rowCount();
+        if (total === 0) {
             Style.warned("当前文件夹没有歌曲", 0);
             return;
         }
         var playFirst = -1;
         var added = 0;
-        for (var i = 0; i < songModel.rowCount(); i++) {
-            var item = songModel.get(i);
+        var exists = {};
+        for (var p = 0; p < playListModel.count; p++)
+            exists[playListModel.get(p).path] = true;
+        for (var i = 0; i < total; i++) {
+            var item = searching ? songModel.searchResults.getRow(i) : songModel.get(i);
             if (!item || !item.name || !item.path) continue;
-            if (filePage.findIndexByValue(playListModel, "path", item.path) !== -1) continue;
-            playListModel.append({ name: item.name, path: item.path, songer: item.singer || "", source: -1 });
+            if (exists[item.path]) continue;
+            playListModel.append({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
+            exists[item.path] = true;
             if (playFirst === -1) playFirst = playListModel.count - 1;
             added++;
         }
@@ -158,19 +199,25 @@ Item {
 
     // 把「本地文件夹」里扫描到的音频文件全部加入播放列表，play=true 时立即播放
     function addAllLocalFilesToList(play) {
-        if (localFileModel.count === 0) {
+        var searching = localFolderMusic.searching;
+        var total = searching ? localFileModel.searchResults.count : localFileModel.count;
+        if (total === 0) {
             Style.warned("当前文件夹没有音频文件", 0);
             return;
         }
         var playFirst = -1;
         var added = 0;
-        for (var i = 0; i < localFileModel.count; i++) {
-            var name = localFileModel.get(i, "fileName");
-            var fileUrl = localFileModel.get(i, "fileUrl");
-            if (!name || !fileUrl) continue;
-            var path = fileUrl.toString();
-            if (filePage.findIndexByValue(playListModel, "path", path) !== -1) continue;
-            playListModel.append({ name: name, path: path, songer: "", source: -1 });
+        var exists = {};
+        for (var p = 0; p < playListModel.count; p++)
+            exists[playListModel.get(p).path] = true;
+        for (var i = 0; i < total; i++) {
+            var row = searching ? localFileModel.searchResults.getRow(i) : null;
+            var name = row ? (row.title || row.name) : localFileModel.get(i, "fileName");
+            var path = row ? row.fileUrl.toString() : localFileModel.get(i, "fileUrl").toString();
+            if (!name || !path) continue;
+            if (exists[path]) continue;
+            playListModel.append({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
+            exists[path] = true;
             if (playFirst === -1) playFirst = playListModel.count - 1;
             added++;
         }
@@ -200,10 +247,16 @@ Item {
 
     // 刷新当前浏览的音频列表：重新从磁盘/数据库读取
     function refreshSongList() {
+        songModel.clearSearch();
+        folderMusic.searching = false;
+        filterInput1.text = "";
         if (songModel.folderId >= 0) {
             songModel.loadByFolder(songModel.folderId);
         }
         if (localFileModel.folder.toString()) {
+            localFileModel.clearSearch();
+            localFolderMusic.searching = false;
+            filterInput2.text = "";
             var folder = localFileModel.folder;
             localFileModel.folder = "";
             localFileModel.folder = folder;
@@ -406,7 +459,8 @@ Item {
                                     filePage.folderNumber = index;
                                     window.exitIndex = 1;
                                     songModel.folderId = model.folderId;
-                                    folderMusic.filter = "";
+                                    songModel.clearSearch();
+                                    folderMusic.searching = false;
                                     folderView.openFilePage(model.name,"");
                                 }
                             }
@@ -490,12 +544,16 @@ Item {
                 visible: false
                 //用于存储本地文件夹目录
                 //用于存放文件夹内显示音频文件
-                FolderListModel {
+                LocalMusicScanner {
                     id: localFileModel
                     nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
                     showDirs: false
                     sortField: filePage.localSortField
                     sortReversed: filePage.localSortReversed
+                    onScanFinished: function(count) {
+                        if (count > 0)
+                            mainWarn.tiped("已加载 " + count + " 个音频文件", 1);
+                    }
                 }
 
                 FolderDialog {
@@ -643,7 +701,8 @@ Item {
                                 } else {
                                     localFileModel.folder = model.path;
                                     window.exitIndex = 1
-                                    localFolderMusic.filter = "";
+                                    localFileModel.clearSearch();
+                                    localFolderMusic.searching = false;
                                     localFolderMusic.opened(model.name,"");
                                 }
                             }
@@ -718,7 +777,7 @@ Item {
         id: folderMusic
         mainTarget: fileMain
         winIndex: 1
-        property string filter: ""
+        property bool searching: false
 
         content: Item {
             anchors.fill: parent
@@ -765,7 +824,13 @@ Item {
                     { label: "文件名 Z→A", mode: 1, desc: true }
                 ]
                 nameRole: "name"
-                timeRole: "songId"
+            }
+
+            QSortModel {
+                id: songSearchSort
+                model: songModel.searchResults
+                options: songSort.options
+                nameRole: "name"
             }
 
             QMenu {
@@ -776,6 +841,7 @@ Item {
                 masked: true
                 onClicked: (i) => {
                     songSort.selectMenu(i);
+                    songSearchSort.selectMenu(i);
                     fileView.scrollTop();
                 }
             }
@@ -881,7 +947,7 @@ Item {
                 font.pixelSize: Style.settings.text
                 verticalAlignment: Text.AlignVCenter
                 selectionColor: Style.themes.containColor
-                onTextChanged: folderMusic.filter = text.trim().toLowerCase()
+                onTextChanged: filterDebounce1.restart()
                 background: Rectangle {
                     radius: Style.settings.labelRadius
                     color: Style.themes.primaryColor
@@ -889,7 +955,7 @@ Item {
                     border.color: filterInput1.focus ? Style.themes.themeColor : Style.themes.sideColor
                 }
                 SButton {
-                    visible: folderMusic.filter !== ""
+                    visible: filterInput1.text !== ""
                     y: 2
                     x: parent.width - 34
                     width: 32
@@ -899,7 +965,25 @@ Item {
                     iconSize: 15
                     buttonColor: "transparent"
                     shadowEnabled: false
-                    onClicked: filterInput1.text = ""
+                    onClicked: {
+                        filterInput1.text = "";
+                        songModel.clearSearch();
+                        folderMusic.searching = false;
+                    }
+                }
+                Timer {
+                    id: filterDebounce1
+                    interval: 250
+                    onTriggered: {
+                        var t = filterInput1.text.trim();
+                        if (t === "") {
+                            songModel.clearSearch();
+                            folderMusic.searching = false;
+                        } else {
+                            folderMusic.searching = true;
+                            songModel.startSearch(t);
+                        }
+                    }
                 }
             }
 
@@ -909,35 +993,27 @@ Item {
                 y: 128
                 width: folderMusic.width - 32
                 height: folderMusic.height - 128
-                model: songSort
+                model: folderMusic.searching ? songSearchSort : songSort
                 clip: true
+                reuseItems: true
                 headerModel: ["标题","歌手","","菜单"]
                 delegate: Rectangle {
                     id: listfile
-                    height: matched ? 60 : 0
+                    height: 60
                     width: fileView.width - 16
-                    visible: matched
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 3 && filePage.chooseIndex.indexOf(model.songId) !== -1
                     color: listfile.chosen || mainMedia.noTitle == listfile.songTitle ? Style.themes.containColor : "transparent"
-                    readonly property bool matched: folderMusic.filter === "" || songTitle.toLowerCase().indexOf(folderMusic.filter) !== -1 || artistName.toLowerCase().indexOf(folderMusic.filter) !== -1
 
-                    // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
                     property string coverUrl: {
+                        if (model.tagCoverUrl !== "") return model.tagCoverUrl;
                         if (!model.path) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        var path = model.path;
-                        var embedded = coverHelper.findEmbeddedCover(path);
-                        if (embedded) return embedded;
-                        var local = coverHelper.findLocalCover(path);
-                        if (local) return local;
-                        var meta = MusicApi.readLocalMetadata(path);
+                        var meta = MusicApi.readLocalMetadata(model.path);
                         if (meta && meta.cover) return meta.cover;
                         return "qrc:/QueMusic/resources/app/musicpic.png";
                     }
-
-                    // 歌曲名优先，取不到再回退到文件名
-                    property string songTitle: model.path ? (coverHelper.findTitle(model.path) || model.name) : model.name
-                    property string artistName: model.path ? coverHelper.findArtist(model.path) : ""
+                    property string songTitle: model.tagTitle || model.name
+                    property string artistName: model.tagArtist || model.singer || ""
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -1083,7 +1159,7 @@ Item {
         id: localFolderMusic
         mainTarget: fileMain
         winIndex: 1
-        property string filter: ""
+        property bool searching: false
 
         content: Item {
             anchors.fill: parent
@@ -1202,7 +1278,7 @@ Item {
                 font.pixelSize: Style.settings.text
                 verticalAlignment: Text.AlignVCenter
                 selectionColor: Style.themes.containColor
-                onTextChanged: localFolderMusic.filter = text.trim().toLowerCase()
+                onTextChanged: filterDebounce2.restart()
                 background: Rectangle {
                     radius: Style.settings.labelRadius
                     color: Style.themes.primaryColor
@@ -1210,7 +1286,7 @@ Item {
                     border.color: filterInput2.focus ? Style.themes.themeColor : Style.themes.sideColor
                 }
                 SButton {
-                    visible: localFolderMusic.filter !== ""
+                    visible: filterInput2.text !== ""
                     y: 2
                     x: parent.width - 34
                     width: 32
@@ -1220,7 +1296,25 @@ Item {
                     iconSize: 15
                     buttonColor: "transparent"
                     shadowEnabled: false
-                    onClicked: filterInput2.text = ""
+                    onClicked: {
+                        filterInput2.text = "";
+                        localFileModel.clearSearch();
+                        localFolderMusic.searching = false;
+                    }
+                }
+                Timer {
+                    id: filterDebounce2
+                    interval: 250
+                    onTriggered: {
+                        var t = filterInput2.text.trim();
+                        if (t === "") {
+                            localFileModel.clearSearch();
+                            localFolderMusic.searching = false;
+                        } else {
+                            localFolderMusic.searching = true;
+                            localFileModel.startSearch(t);
+                        }
+                    }
                 }
             }
 
@@ -1230,8 +1324,9 @@ Item {
                 y: 128
                 width: localFolderMusic.width - 32
                 height: localFolderMusic.height - 128
-                model: localFileModel
+                model: localFolderMusic.searching ? localFileModel.searchResults : localFileModel
                 clip: true
+                reuseItems: true
                 headerModel: ["标题","歌手","","菜单"]
                 populate: Transition {
                     id: localFileLoadAnime
@@ -1263,30 +1358,22 @@ Item {
                 }
                 delegate: Rectangle {
                     id: listLocalFile
-                    height: matched ? 60 : 0
-                    visible: matched
+                    height: 60
                     width: localFileView.width - 16
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(model.fileUrl.toString()) !== -1
                     color: listLocalFile.chosen || mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
-                    readonly property bool matched: localFolderMusic.filter === "" || songTitle.toLowerCase().indexOf(localFolderMusic.filter) !== -1 || artistName.toLowerCase().indexOf(localFolderMusic.filter) !== -1
 
-                    // 列表内封面：内嵌封面 -> 同目录封面 -> .json 封面 -> 默认图标
+                    readonly property string rowPath: model.fileUrl ? model.fileUrl.toString() : ""
                     property string coverUrl: {
-                        if (!model.fileUrl) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        var path = model.fileUrl.toString();
-                        var embedded = coverHelper.findEmbeddedCover(path);
-                        if (embedded) return embedded;
-                        var local = coverHelper.findLocalCover(path);
-                        if (local) return local;
-                        var meta = MusicApi.readLocalMetadata(path);
+                        if (model.coverUrl !== "") return model.coverUrl;
+                        if (!rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
+                        var meta = MusicApi.readLocalMetadata(rowPath);
                         if (meta && meta.cover) return meta.cover;
                         return "qrc:/QueMusic/resources/app/musicpic.png";
                     }
-
-                    // 歌曲名优先，取不到再回退到文件名
-                    property string songTitle: model.fileUrl ? (coverHelper.findTitle(model.fileUrl.toString()) || model.fileName) : model.fileName
-                    property string artistName: model.fileUrl ? coverHelper.findArtist(model.fileUrl.toString()) : ""
+                    property string songTitle: model.title || model.fileName
+                    property string artistName: model.artist || ""
 
                     Behavior on color { ColorAnimation { duration: 120 } }
 

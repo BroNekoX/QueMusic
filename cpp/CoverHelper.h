@@ -42,24 +42,32 @@ public:
     // 读取音频文件歌手，未命中返回空
     Q_INVOKABLE QString findArtist(const QString &sourcePath);
 
+    // 一次性读出 {title, artist, coverUrl}，共享同一次 TagLib 打开，
+    // 替代逐项多次 Q_INVOKABLE 调用，避免每行 delegate 重复打开音频文件。
+    Q_INVOKABLE QVariantMap loadFullMetadata(const QString &sourcePath);
+
     Q_INVOKABLE void clearCache();
 
 signals:
     void currentCoverUrlChanged();
 
-private:
+public:
     struct Metadata {
         QString title;
         QString artist;
     };
 
+    // 单次 TagLib 打开：提取内嵌封面缩略图写入 cacheDir 并返回 file:// URL；
+    // metaOut 非空时顺带带回 title/artist（同名 .json 优先）。
+    // 无共享可变状态，可在工作线程调用。
+    static QString readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
+                                    Metadata *metaOut = nullptr);
+    static Metadata readMetadata(const QFileInfo &fileInfo, TagLib::FileRef *openRef = nullptr);
+
+private:
     void setCoverUrl(const QString &url);
     static QImage toImage(const QVariant &value);
-    // 存储缓存文件路径：由「绝对路径 + 修改时间」派生，进程重启后仍然命中
-    QString storageCachePath(const QString &localPath) const;
-    // openRef 非空时复用已打开的文件，避免同一文件重复解析
     Metadata metadataOf(const QString &sourcePath);
-    static Metadata readMetadata(const QFileInfo &fileInfo, TagLib::FileRef *openRef = nullptr);
     static Metadata metadataFromTag(TagLib::FileRef &ref);
 
     QString m_currentCoverUrl;

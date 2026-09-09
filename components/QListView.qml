@@ -14,6 +14,7 @@ ListView {
     property list<string> headerModel: isList ? ["标题","创建者","曲目","操作"] : ["标题","歌手","时长","操作"]
     property list<string> menuModel: ["下载到本地","分享","歌曲信息"]
     property list<int> selectedIndices: []
+    readonly property var selectedSet: new Set(selectedIndices)
     property bool isList: false
     property int artistX: width / 2 - 32
     property int toolX: width - 210
@@ -203,17 +204,10 @@ ListView {
     add: Transition {
         ParallelAnimation {
             NumberAnimation {
-                properties: "x"
-                from: 400
-                to: 0
-                duration: 350
-                easing.type: Easing.OutExpo
-            }
-            NumberAnimation {
                 properties: "opacity"
                 from: 0
                 to: 1
-                duration: 350
+                duration: 320
                 easing.type: Easing.OutExpo
             }
         }
@@ -221,9 +215,10 @@ ListView {
 
     delegate: Rectangle {
         id: listDel
+        //required property int index
         height: 60
         width: view.width - 16
-        color: view.selectedIndices.indexOf(index) !== -1 ? Style.themes.containColor : "#00000000"
+        color: view.selectedSet.has(index) ? Style.themes.containColor : "#00000000"
         radius: Style.settings.labelRadius
 
         Rectangle {
@@ -257,7 +252,6 @@ ListView {
             font.pixelSize: Style.settings.textmain
             verticalAlignment: Text.AlignVCenter
             visible: true
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
         Rectangle {
             color: Style.themes.containColor
@@ -287,16 +281,13 @@ ListView {
             font.pixelSize: Style.settings.text
             verticalAlignment: Text.AlignVCenter
             visible: true
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
         Text {
             x: view.width - 92
             y: 16
             width: 60
             height: 28
-            // 声明式绑定，避免复用 delegate 残留上一行数据
-            text: view.isList ? model.duration + "首"
-                              : Math.floor(model.duration / 60) + ":" + (model.duration % 60)
+            text: view.isList ? model.duration + "首" : Math.floor(model.duration / 60) + ":" + (model.duration % 60)
             color: Style.themes.textColor
             font.bold: false
             elide: Text.ElideRight
@@ -304,7 +295,6 @@ ListView {
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
             visible: true
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
 
         MouseArea {
