@@ -322,7 +322,7 @@ void MusicApiService::findLocalLyrics(const QString &filePath, const QString &ti
 }
 
 // 读取本地音频同目录同名 .json 元数据；不存在时回退读取音频内嵌 TAG 元数据
-QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
+QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
 {
     QVariantMap meta;
     if (filePath.isEmpty())
@@ -367,6 +367,48 @@ QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
     }
 
     return meta;
+}
+
+QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
+{
+    return readLocalMetadataBlocking(filePath);
+}
+
+void MusicApiService::readLocalMetadataAsync(const QString &filePath)
+{
+    if (filePath.isEmpty()) {
+        emit localMetadataReady(filePath, {});
+        return;
+    }
+    auto *watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this, [this, watcher, filePath]() {
+        watcher->deleteLater();
+        emit localMetadataReady(filePath, watcher->result());
+    });
+    watcher->setFuture(QtConcurrent::run(&MusicApiService::readLocalMetadataBlocking, filePath));
+}
+
+QString MusicApiService::readLocalCoverHint(const QString &filePath)
+{
+    if (filePath.isEmpty())
+        return QString();
+    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
+    if (localPath.isEmpty())
+        localPath = filePath;
+    if (auto it = m_coverHintCache.constFind(localPath); it != m_coverHintCache.constEnd())
+        return it.value();
+
+    const QFileInfo fi(localPath);
+    const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
+                             + fi.completeBaseName() + QStringLiteral(".json");
+    QString hint;
+    QFile f(jsonPath);
+    if (f.open(QIODevice::ReadOnly)) {
+        const QVariantMap meta = QJsonDocument::fromJson(f.readAll()).object().toVariantMap();
+        hint = meta.value(QStringLiteral("cover")).toString();
+    }
+    m_coverHintCache.insert(localPath, hint);
+    return hint;
 }
 
 // setter

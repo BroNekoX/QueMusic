@@ -40,6 +40,7 @@ public:
     Q_INVOKABLE void move(int from, int to, int count = 1);
     Q_INVOKABLE void clear();
     Q_INVOKABLE int indexOfPath(const QString &path) const;
+    Q_INVOKABLE int indexOfName(const QString &name) const;
 
     int count() const { return m_items.size(); }
     int playListIndex() const { return m_playListIndex; }

@@ -7,8 +7,6 @@ import QtQuick.Shapes
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects   // 仅歌词逐字染色仍用 LinearGradient
 import QueMusic 1.0
-// GetWave 已注册到 QueMusic 模块；MeshGradientItem 为独立模块（C++ QML_ELEMENT）
-import MeshGradientItem 1.0
 import 'qrc:/QueMusic/components'
 
 Item {
@@ -77,27 +75,21 @@ Item {
         visible: Style.settings.waveDisplay
     }
 
-    // 动态背景：MeshGradient 移植
     MeshGradientItem {
-        id: bgMesh
         anchors.fill: parent
-        visible: Style.settings.backFlowQuality !== 2
-        coverUrl: colorExtractor.renderUrl || mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
-        volume: 0
-        flowSpeed: 1.0
-        animating: Style.settings.backFlowQuality === 0
-        subDivisions: Style.settings.backFlowQuality === 0 ? 32 : 16
-        // 网格渐变主色：跟随封面的主色调（AMLL 流体感的来源）
+        coverUrl: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
         color1: musicControlMax.mainColor
         color2: musicControlMax.secondColor
         color3: musicControlMax.thirdColor
+        algorithm: Style.settings.flowStyle
+        animating: true
         clip: true
     }
 
     // 静态渐变背景（关闭流动时）
     Rectangle {
         anchors.fill: parent
-        visible: Style.settings.backFlowQuality === 2
+        visible: Style.settings.flowStyle === 2
         gradient: Gradient {
             GradientStop {
                 position: 0.0
@@ -293,7 +285,7 @@ Item {
             property real blurBottom: 0.5
             property real blurRadius: Style.settings.maskBlur ? 8 : 0
             property vector2d srcSize: Qt.vector2d(lyricContent.width, lyricContent.height)
-            fragmentShader: "qrc:/shaders/resources/app/shaders/lyricfade.frag.qsb"
+            fragmentShader: "qrc:/shaders/shaders/lyricfade.frag.qsb"
         }
 
         property int currentPlayTime: 0

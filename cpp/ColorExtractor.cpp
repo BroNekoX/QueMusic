@@ -2,9 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 #include "ColorExtractor.h"
-#include "../meshgradient/MeshGradientItem.h"
 
-#include <QBuffer>
 #include <QNetworkReply>
 #include <QtConcurrent>
 
@@ -32,19 +30,6 @@ ColorExtractor::ColorExtractor(QObject *parent)
     m_cache.setMaxCost(128);
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, &ColorExtractor::onImageDownloaded);
-    ensureDefaultRenderUrl();
-}
-
-// 默认封面处理成 data URI，作为无封面时的兜底渲染图
-void ColorExtractor::ensureDefaultRenderUrl()
-{
-    QImage defaultImage(QStringLiteral(":/QueMusic/resources/app/musicpic.png"));
-    if (defaultImage.isNull())
-        return;
-
-    const QImage render = MeshGradientItem::processCoverImage(defaultImage);
-    if (!render.isNull())
-        m_renderUrl = encodeDataUri(render);
 }
 
 QUrl ColorExtractor::imageSource() const
@@ -64,11 +49,6 @@ void ColorExtractor::setImageSource(const QUrl &source)
 QVector<QColor> ColorExtractor::dominantColors() const
 {
     return m_dominantColors;
-}
-
-QUrl ColorExtractor::renderUrl() const
-{
-    return m_renderUrl;
 }
 
 bool ColorExtractor::busy() const
@@ -156,7 +136,7 @@ void ColorExtractor::runTask(const QString &cacheKey, const std::function<Extrac
                 if (generation != m_generation)
                     return;
 
-                if (!result.colors.isEmpty() || result.renderUrl.isValid())
+                if (!result.colors.isEmpty())
                     m_cache.insert(cacheKey, new ExtractionResult(result));
                 applyResult(result);
                 setBusy(false);
@@ -174,11 +154,6 @@ void ColorExtractor::applyResult(const ExtractionResult &result)
     for (const QColor &color : m_dominantColors)
         colorStrings.append(color.name());
     emit colorsExtractedAsString(colorStrings);
-
-    if (result.renderUrl.isValid() && result.renderUrl != m_renderUrl) {
-        m_renderUrl = result.renderUrl;
-        emit renderUrlChanged();
-    }
 }
 
 void ColorExtractor::setBusy(bool busy)
@@ -189,7 +164,7 @@ void ColorExtractor::setBusy(bool busy)
     emit busyChanged();
 }
 
-// 工作线程：取色 + 生成渲染图
+// 工作线程：封面取色
 ExtractionResult ColorExtractor::extract(const QImage &image)
 {
     ExtractionResult result;
@@ -199,11 +174,6 @@ ExtractionResult ColorExtractor::extract(const QImage &image)
     }
 
     result.colors = computeDominantColors(image, kColorCount);
-
-    const QImage render = MeshGradientItem::processCoverImage(image);
-    if (!render.isNull())
-        result.renderUrl = encodeDataUri(render);
-
     return result;
 }
 
@@ -302,16 +272,4 @@ QVector<QColor> ColorExtractor::computeDominantColors(const QImage &image, int c
     }
 
     return result.isEmpty() ? defaultColors() : result;
-}
-
-QUrl ColorExtractor::encodeDataUri(const QImage &image)
-{
-    QByteArray bytes;
-    QBuffer buffer(&bytes);
-    buffer.open(QIODevice::WriteOnly);
-    image.save(&buffer, "PNG");
-    buffer.close();
-
-    return QUrl(QStringLiteral("data:image/png;base64,")
-                + QString::fromLatin1(bytes.toBase64()));
 }

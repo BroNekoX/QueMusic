@@ -92,11 +92,11 @@ Popup {
     enter: Transition {
         NumberAnimation { property: "y"; duration: 280; from: 30; to: 70; easing.type: Easing.OutExpo }
         NumberAnimation { property: "opacity"; duration: 240; from: 0; to: 1; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "scale"; duration: 280; from: 0.6; to: 1; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "scale"; duration: 280; from: 0.7; to: 1; easing.type: Easing.OutExpo }
     }
     exit: Transition {
         NumberAnimation { property: "y"; duration: 160; to: 30 }
         NumberAnimation { property: "opacity"; duration: 140; to: 0 }
-        NumberAnimation { property: "scale"; duration: 160; to: 0.6 }
+        NumberAnimation { property: "scale"; duration: 160; to: 0.7 }
     }
 }

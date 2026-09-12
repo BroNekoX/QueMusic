@@ -29,9 +29,9 @@ ListView {
 
     // 回到顶部并同步 scrollToY，防止滚轮动画把 contentY 拉回过期位置
     function scrollTop() {
-        listViewAnime.stop()
-        scrollToY = -topMargin
-        contentY = -topMargin
+        listViewAnime.stop();
+        scrollToY = view.originY - view.topMargin;
+        contentY = view.originY - view.topMargin;
     }
     signal clicked(int index)
     signal menuClicked(int index,int choice)
@@ -122,10 +122,11 @@ ListView {
     }
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+        readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin + view.originY
         onWheel: (event) => {
             listViewAnime.running = false;
-            view.scrollToY = Math.max( -32 - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), view.contentHeight - view.height + view.bottomMargin));
+            view.scrollToY = Math.max(view.originY - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
             viewBar.active = true;
             event.accepted = true;
             listViewAnime.running = true;
@@ -204,11 +205,18 @@ ListView {
     add: Transition {
         ParallelAnimation {
             NumberAnimation {
+                properties: "transY"
+                from: 60
+                to: 0
+                duration: 320
+                easing.type: Easing.OutQuint
+            }
+            NumberAnimation {
                 properties: "opacity"
                 from: 0
                 to: 1
-                duration: 320
-                easing.type: Easing.OutExpo
+                duration: 280
+                easing.type: Easing.OutCubic
             }
         }
     }
@@ -220,6 +228,8 @@ ListView {
         width: view.width - 16
         color: view.selectedSet.has(index) ? Style.themes.containColor : "#00000000"
         radius: Style.settings.labelRadius
+        property int transY: 0
+        transform: Translate { y: listDel.transY }
 
         Rectangle {
             anchors.fill: parent
@@ -251,7 +261,6 @@ ListView {
             elide: Text.ElideRight
             font.pixelSize: Style.settings.textmain
             verticalAlignment: Text.AlignVCenter
-            visible: true
         }
         Rectangle {
             color: Style.themes.containColor
@@ -280,7 +289,6 @@ ListView {
             elide: Text.ElideRight
             font.pixelSize: Style.settings.text
             verticalAlignment: Text.AlignVCenter
-            visible: true
         }
         Text {
             x: view.width - 92
@@ -294,7 +302,6 @@ ListView {
             font.pixelSize: Style.settings.text
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
-            visible: true
         }
 
         MouseArea {

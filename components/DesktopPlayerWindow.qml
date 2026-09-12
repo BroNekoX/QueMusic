@@ -100,7 +100,6 @@ Window {
             source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
             sourceSize: Qt.size(128, 128)
             fillMode: Image.PreserveAspectCrop
-            cache: false
         }
 
         // 标题

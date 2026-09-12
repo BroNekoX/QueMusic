@@ -11,7 +11,6 @@ import QtQuick
 import QtQuick.Effects
 import QtMultimedia
 import QueMusic 1.0
-import MeshGradientItem 1.0
 import 'qrc:/QueMusic/components'
 import 'qrc:/QueMusic/centers'
 
@@ -186,26 +185,7 @@ Window {
             pages.item.switchTab(0)
     }
 
-    // ==== 背景 ====
-    MeshGradientItem {
-        anchors.fill: parent
-        coverUrl: extractor.renderUrl || center.cover
-        color1: center.c1
-        color2: center.c2
-        color3: center.c3
-        animating: center.visible && Style.settings.backFlowQuality === 0
-        subDivisions: Style.settings.backFlowQuality === 0 ? 28 : 14
-        flowSpeed: 0.9
-        visible: Style.settings.backFlowQuality !== 2
-    }
-    Rectangle {
-        anchors.fill: parent
-        visible: Style.settings.backFlowQuality === 2
-        gradient: Gradient {
-            GradientStop { position: 0; color: center.c1 }
-            GradientStop { position: 1; color: center.c2 }
-        }
-    }
+    // ==== 背景蒙层 ====
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
@@ -253,6 +233,21 @@ Window {
                     font.family: "Poppins"
                     font.weight: Font.DemiBold
                     color: "#eef1f6"
+                }
+                Rectangle {
+                    x: 150
+                    y: 20
+                    width: 40
+                    height: 20
+                    color: Style.themes.themeColor
+                    radius: 6
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Dev"
+                        font.pixelSize: 13
+                        color:  Style.themes.primaryColor
+
+                    }
                 }
             }
 

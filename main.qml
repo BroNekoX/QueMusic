@@ -33,12 +33,15 @@ Window {
 
         Playback.player = mainMedia;
         Playback.queue = playListModel;
-        Playback.loadHistory();
-        window.restoreSession();
 
-        // 更新设置项
         Style.changeUi();
         Style.changeTheme();
+
+        // 会话恢复与历史加载移出首帧：启动只做装配，数据就绪后回填
+        Qt.callLater(function() {
+            Playback.loadHistory();
+            window.restoreSession();
+        });
     }
 
     Connections {
@@ -50,12 +53,12 @@ Window {
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
-    property string version: "Beta-0.4.10"
-    property int versionCode: 50
 
     property string localLyricsRequestPath: ""
     property int pendingSeek: 0
     property string pendingSeekPath: ""
+    property int smtcLastTimeline: 0
+    property int smtcLastPosition: 0
 
     Connections {
         target: MusicApi
@@ -70,6 +73,41 @@ Window {
                 return;
             MusicApi.setLocalLyrics();
         }
+        function onLocalMetadataReady(filePath, meta) {
+            if (filePath !== window.localLyricsRequestPath)
+                return;
+            if (meta.title)
+                window.musicTitle = meta.title;
+            if (meta.artist)
+                window.musicArtist = meta.artist;
+            if (meta.album)
+                mainMedia.album = meta.album;
+            var hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
+            MusicApi.lyricsData = meta.lyrics || [];
+            MusicApi.lyricsTranslate = meta.translate || [];
+            if (!hasMetaLyrics)
+                MusicApi.setLocalLyrics();
+            MusicApi.readLocalLyricsAsync(filePath, meta.title || mainMedia.noTitle,
+                                          meta.artist || "", meta.duration || 0, !hasMetaLyrics);
+            if (meta.cover) {
+                mainMedia.urlStr = meta.cover;
+                colorExtractor.extractColorsFromUrl(meta.cover);
+            } else {
+                coverHelper.findEmbeddedCoverAsync(filePath);
+            }
+        }
+    }
+
+    Connections {
+        target: coverHelper
+        function onLocalCoverReady(path, coverUrl) {
+            if (path !== window.localLyricsRequestPath)
+                return;
+            var localCover = coverUrl || coverHelper.findLocalCover(path);
+            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
+            if (localCover)
+                colorExtractor.extractColorsFromUrl(localCover);
+        }
     }
 
     // 统一搜索入口：清空结果、写入搜索历史并触发搜索
@@ -82,42 +120,17 @@ Window {
         window.exitIndex = 1;
     }
 
-    // 播放本地歌曲：同名 .lrc → 内嵌歌词 → 在线匹配 → 占位歌词
+    // 播放本地歌曲：立即起播不阻塞，元数据/封面/歌词在工作线程就绪后回填
     function playLocalSong(path, name) {
-        var meta = MusicApi.readLocalMetadata(path) || {};
-        var hasMeta = Object.keys(meta).length > 0;
-        var hasMetaLyrics = hasMeta && meta.lyrics && meta.lyrics.length > 0;
-        var title = meta.title || name;
-        var artist = meta.artist || "";
         window.localLyricsRequestPath = path;
+        mainMedia.urlLocal = true;
+        mainMedia.noTitle = name;
+        window.musicTitle = name;
+        window.musicArtist = "";
+        MusicApi.lyricsData = [];
+        MusicApi.lyricsTranslate = [];
+        MusicApi.readLocalMetadataAsync(path);
 
-        if (hasMeta) {
-            mainMedia.urlLocal = false;
-            mainMedia.noTitle = title;
-            var localCover = meta.cover || coverHelper.findEmbeddedCover(path)
-                             || coverHelper.findLocalCover(path);
-            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
-            window.musicTitle = title;
-            window.musicArtist = artist;
-            MusicApi.lyricsData = meta.lyrics || [];
-            MusicApi.lyricsTranslate = meta.translate || [];
-            if (localCover)
-                colorExtractor.extractColorsFromUrl(localCover);
-        } else {
-            mainMedia.urlLocal = true;
-            mainMedia.noTitle = name;
-            window.musicTitle = name;
-            window.musicArtist = "";
-            MusicApi.lyricsData = [];
-            MusicApi.lyricsTranslate = [];
-        }
-
-        // 歌词解析在工作线程完成，命中回填，未命中自动转在线匹配
-        if (!hasMetaLyrics)
-            MusicApi.setLocalLyrics();
-        MusicApi.readLocalLyricsAsync(path, title, artist, meta.duration || 0, !hasMetaLyrics);
-
-        // 淡出静音排空设备缓冲后再换源，避免爆音
         Playback.swap(function() {
             mainMedia.source = path;
             mainMedia.play();
@@ -148,7 +161,7 @@ Window {
         }
         window.saveQueue();
         Playback.flush();
-        // 清理桌面悬浮窗（灵动岛 / 小窗播放器）
+        // 清理桌面悬浮窗
         desktopSpot.active = false;
         desktopLyricsLoader.active = false;
         desktopPlayerLoader.active = false;
@@ -164,7 +177,7 @@ Window {
     Shortcut {
         sequence: "Esc" // 返回
         context: Qt.ApplicationShortcut
-        enabled: !Options.recordingShortCut // 录制快捷键时不抢 Esc，交给录制框处理
+        enabled: !Options.recordingShortCut
         onActivated: {
             window.exit();
             console.log("Exit");
@@ -629,7 +642,6 @@ Window {
                 visible: false
                 source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
                 sourceSize: Qt.size(512, 512)
-                cache: false
             }
             Rectangle {
                 id: maskpic
@@ -648,64 +660,7 @@ Window {
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1.0
             }
-            // 底部播放栏歌曲封面悬停提示：半透明遮罩 + 尖朝上的书名号
-            Rectangle {
-                z: 1
-                anchors.fill: musicpic
-                radius: musicpic.radius
-                color: "#000000"
-                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 0.32 : 0
-                visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-            }
-            Canvas {
-                z: 1
-                width: 20
-                height: 15
-                anchors.centerIn: parent
-                opacity: (coverHover.containsMouse && mainLayout.state === "") ? 1 : 0
-                visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                onPaint: {
-                    var ctx = getContext("2d");
-                    ctx.reset();
-                    ctx.strokeStyle = "#ffffff";
-                    ctx.lineWidth = 2;
-                    ctx.lineCap = "round";
-                    ctx.lineJoin = "round";
-                    // 尖朝上的书名号
-                    ctx.beginPath();
-                    ctx.moveTo(2, 7.5);
-                    ctx.lineTo(10, 1);
-                    ctx.lineTo(18, 7.5);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(2, 14);
-                    ctx.lineTo(10, 7.5);
-                    ctx.lineTo(18, 14);
-                    ctx.stroke();
-                }
-            }
-            // 左键点击底部播放栏封面直接打开全屏播放器
-            // 播放页封面（Maxed*，此时封面为大图）左键打开"查看图片"弹窗
-            MouseArea {
-                id: coverHover
-                z: 2
-                anchors.fill: musicpic
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (mainLayout.state === "") {
-                        controlMaxLoader.active = true;
-                    } else {
-                        picWatch.dialog(mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png", window.musicTitle);
-                    }
-                }
-                QTip {
-                    visible: coverHover.containsMouse && mainLayout.state === ""
-                    text: "进入播放页"
-                }
-            }
+            // 为优化性能，取消鼠标点击相关设计，下载封面可到关于歌曲下载
         }
 
         // 全窗口沉浸歌词页
@@ -788,45 +743,47 @@ Window {
         }
     }
 
-    Item {
-        id: fpsCounter
-        visible: Options.settings.displayFps
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 68
-        anchors.rightMargin: 16
-        z: 99
-        property int frames: 0
-        property real fps: 0
-        width: 78
-        height: 24
-        Rectangle {
-            anchors.fill: parent
-            radius: 12
-            color: Style.themes.shadowColor
-            opacity: 0.75
-        }
-        Text {
-            anchors.centerIn: parent
-            text: fpsCounter.fps.toFixed(0) + " FPS"
-            color: Style.themes.fontColor
-            font.pixelSize: 11
-            font.bold: true
-        }
-        Timer {
-            interval: 500
-            repeat: true
-            running: fpsCounter.visible
-            onTriggered: {
-                fpsCounter.fps = fpsCounter.frames * 2;
-                fpsCounter.frames = 0;
+    Loader {
+        active: Options.settings.displayFps
+        sourceComponent: Item {
+            id: fpsCounter
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 68
+            anchors.rightMargin: 16
+            visible: Options.settings.displayFps
+            z: 99
+            property int frames: 0
+            property real fps: 0
+            width: 78
+            height: 24
+            Rectangle {
+                anchors.fill: parent
+                radius: 12
+                color: Style.themes.shadowColor
+                opacity: 0.75
             }
-        }
-        Connections {
-            // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
-            enabled: Options.settings.displayFps
-            target: window
-            function onAfterRendering() { fpsCounter.frames++ }
+            Text {
+                anchors.centerIn: parent
+                text: fpsCounter.fps.toFixed(0) + " FPS"
+                color: Style.themes.fontColor
+                font.pixelSize: 11
+                font.bold: true
+            }
+            Timer {
+                interval: 500
+                repeat: true
+                running: fpsCounter.visible
+                onTriggered: {
+                    fpsCounter.fps = fpsCounter.frames * 2;
+                    fpsCounter.frames = 0;
+                }
+            }
+            Connections {
+                // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
+                target: window
+                function onAfterRendering() { fpsCounter.frames++ }
+            }
         }
     }
 
@@ -908,6 +865,7 @@ Window {
     }
 
     MediaPlayer {
+        id: mainMedia
         property string noTitle
         property string urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
         property string album
@@ -915,7 +873,6 @@ Window {
         property string type
         property bool urlLocal
         property bool onMedia: mediaStatus !== MediaPlayer.NoMedia
-        id: mainMedia
         audioOutput: volumeValue
         //audioBufferOutput: getWave.audioBufferOutput
 
@@ -925,13 +882,13 @@ Window {
             if(!urlLocal)
                 return;
 
-            var title = mainMedia.metaData.stringValue(MediaMetaData.Title)
-            var artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author)
-            var album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle)
-            var date = mainMedia.metaData.value(MediaMetaData.Date)
-            var type = mainMedia.metaData.value(MediaMetaData.MediaType)
+            var title = mainMedia.metaData.stringValue(MediaMetaData.Title);
+            var artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author);
+            var album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle);
+            var date = mainMedia.metaData.value(MediaMetaData.Date);
+            var type = mainMedia.metaData.value(MediaMetaData.MediaType);
             // 内嵌封面：优先大图，退化到缩略图
-            var cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage)
+            var cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage);
 
             window.musicTitle = title || noTitle
             if (artist)
@@ -944,54 +901,62 @@ Window {
                 mainMedia.type = type.toString()
 
             if (cover) {
-                // 取色吃封面像素（工作线程）；封面存缓存文件供加载
                 colorExtractor.extractColorsFromImage(cover)
                 urlStr = coverHelper.convertVariantToUrl(cover)
             } else {
-                // 无内嵌封面：尝试同目录同名/常见命名封面兜底
-                var localCover = coverHelper.findLocalCover(mainMedia.source)
-                urlStr = localCover || null
-                if (localCover)
-                    colorExtractor.extractColorsFromUrl(localCover)
+                //var localCover = coverHelper.findLocalCover(mainMedia.source)
+                //urlStr = localCover || null
+                //if (localCover)
+                //    colorExtractor.extractColorsFromUrl(localCover)
             }
         }
 
         onMediaStatusChanged: {
-            if(mainMedia.mediaStatus === MediaPlayer.EndOfMedia) {
+            if(mediaStatus === MediaPlayer.EndOfMedia) {
                 if(Playback.sleepMode === 2) {
                     Playback.sleepEnd();
                     return;
                 }
                 switch(Options.settings.cycleIndex) {
                     case 0:
-                        musicControlMin.enterMedia()
+                        musicControlMin.enterMedia();
                         break;
                     case 1:
                         // 重播同样会刷新缓冲，走淡出/淡入
                         Playback.swap(function() {
-                            mainMedia.position = 0
-                            mainMedia.play()
+                            mainMedia.position = 0;
+                            mainMedia.play();
                         })
                         break;
                     case 2:
-                        musicControlMin.randomMedia()
+                        musicControlMin.randomMedia();
                         break;
                     case 3:
                         // 停止不再淡回，直接复位音量乘数
-                        Playback.swap(function() { mainMedia.stop() }, false)
+                        Playback.swap(function() { mainMedia.stop() }, false);
                         break;
                 }
             }
         }
 
+        onErrorOccurred: {
+            if(playListModel.count < 2) return;
+            Style.warned("当前歌曲无法播放，已自动跳过",0);
+            if(Options.settings.cycleIndex === 2) {
+                musicControlMin.randomMedia();
+            } else {
+                musicControlMin.enterMedia();
+            }
+        }
+
         onUrlStrChanged: {
             if (windowsSmtc.available)
-                smtcUpdateMediaInfo()
+                smtcUpdateMediaInfo();
         }
 
         // 新音轨真正起播后再淡回，避免音频设备重开的瞬间已经有音量
         onPlayingChanged: {
-            if (mainMedia.playing)
+            if (playing)
                 Playback.finishSwap();
         }
     }
@@ -1015,8 +980,7 @@ Window {
             if (item)
                 mediaId = item.path
         }
-        windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist,
-                                    mainMedia.album, mainMedia.urlStr, mediaId)
+        windowsSmtc.updateMediaInfo(window.musicTitle, window.musicArtist, mainMedia.album, mainMedia.urlStr, mediaId)
     }
 
     // Windows SMTC
@@ -1025,18 +989,13 @@ Window {
 
         Component.onCompleted: {
             windowsSmtc.initialize(window);
-            updateSmtcControls()
+            updateSmtcControls();
         }
-    }
-
-    Connections {
-        target: windowsSmtc
-
-        function onPlayPressed() { Playback.togglePlay() }
-        function onPausePressed() { Playback.togglePlay() }
-        function onNextPressed() { musicControlMin.enterMedia() }
-        function onPreviousPressed() { musicControlMin.lastMedia() }
-        function onSeekRequested(pos) { mainMedia.position = pos }
+        onPlayPressed: { Playback.togglePlay() }
+        onPausePressed: { Playback.togglePlay() }
+        onNextPressed: { musicControlMin.enterMedia() }
+        onPreviousPressed: { musicControlMin.lastMedia() }
+        onSeekRequested: (pos) => { mainMedia.position = pos }
     }
 
     Connections {
@@ -1089,22 +1048,26 @@ Window {
             }
         }
         function onPositionChanged() {
-            if (windowsSmtc.available)
-                windowsSmtc.updateTimeline(mainMedia.position, mainMedia.duration)
+            if (!windowsSmtc.available)
+                return
+            var now = Date.now()
+            var jump = Math.abs(mainMedia.position - window.smtcLastPosition)
+            if (now - window.smtcLastTimeline < 5000 && jump < 3000
+                && mainMedia.duration - mainMedia.position > 5000)
+                return
+            window.smtcLastTimeline = now
+            window.smtcLastPosition = mainMedia.position
+            windowsSmtc.updateTimeline(mainMedia.position, mainMedia.duration)
         }
     }
 
-    Connections {
-        target: window
-
-        function onMusicTitleChanged() {
-            if (windowsSmtc.available)
-                smtcUpdateMediaInfo()
-        }
-        function onMusicArtistChanged() {
-            if (windowsSmtc.available)
-                smtcUpdateMediaInfo()
-        }
+    onMusicTitleChanged: {
+        if (windowsSmtc.available)
+            smtcUpdateMediaInfo();
+    }
+    onMusicArtistChanged: {
+        if (windowsSmtc.available)
+            smtcUpdateMediaInfo();
     }
 
     // 播放列表（C++ QueueModel：O(1) 路径查找、批量操作、角色化访问）

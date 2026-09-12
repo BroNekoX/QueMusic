@@ -8,6 +8,8 @@ import QtCore
 QtObject {
     //property alias settings: settings
     property bool recordingShortCut: false
+    property string version: "Beta-0.5.0"
+    property int versionCode: 50
 
     // 配置存储，后续也可以存储在服务器数据库中
     // 使用存储仅需把QtObject换成Settings

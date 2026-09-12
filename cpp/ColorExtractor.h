@@ -17,11 +17,10 @@
 
 #include <functional>
 
-// 取色结果（值类型，可跨线程）：主色 + MeshGradient 渲染图
+// 取色结果（值类型，可跨线程）：封面主色
 struct ExtractionResult
 {
     QVector<QColor> colors;
-    QUrl renderUrl;
 };
 
 // 封面取色全部在工作线程完成，切歌不阻塞 UI
@@ -31,7 +30,6 @@ class ColorExtractor : public QObject
     QML_ELEMENT
     Q_PROPERTY(QUrl imageSource READ imageSource WRITE setImageSource NOTIFY imageSourceChanged)
     Q_PROPERTY(QVector<QColor> dominantColors READ dominantColors NOTIFY colorsExtracted)
-    Q_PROPERTY(QUrl renderUrl READ renderUrl NOTIFY renderUrlChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 
 public:
@@ -40,7 +38,6 @@ public:
     QUrl imageSource() const;
     void setImageSource(const QUrl &source);
     QVector<QColor> dominantColors() const;
-    QUrl renderUrl() const;
     bool busy() const;
 
     // 三个入口均立即返回，结果经信号回传
@@ -52,7 +49,6 @@ signals:
     void imageSourceChanged();
     void colorsExtracted(const QVector<QColor> &colors);
     void colorsExtractedAsString(const QStringList &colors);
-    void renderUrlChanged();
     void busyChanged();
 
 private slots:
@@ -63,15 +59,12 @@ private:
     void runTask(const QString &cacheKey, const std::function<ExtractionResult()> &task);
     void applyResult(const ExtractionResult &result);
     void setBusy(bool busy);
-    void ensureDefaultRenderUrl();
 
     static ExtractionResult extract(const QImage &image);
     static QVector<QColor> computeDominantColors(const QImage &image, int count);
-    static QUrl encodeDataUri(const QImage &image);
 
     QUrl m_imageSource;
     QVector<QColor> m_dominantColors;
-    QUrl m_renderUrl;
     QNetworkAccessManager *m_networkManager;
     QCache<QString, ExtractionResult> m_cache;
     int m_generation = 0; // 代次：丢弃切歌后的过期结果

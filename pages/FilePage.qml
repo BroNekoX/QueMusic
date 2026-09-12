@@ -41,7 +41,7 @@ Item {
         filePage.setMode = 0;
     }
 
-    Connections {
+    /*Connections {
         target: songModel
         function onMetadataReady(count) {
             if (count > 0)
@@ -62,7 +62,7 @@ Item {
             if (localFolderMusic.searching)
                 mainWarn.tiped(count > 0 ? "找到 " + count + " 个结果" : "没有找到匹配的歌曲", count > 0 ? 1 : 0);
         }
-    }
+    }*/
 
     function chooseTotal() {
         if (filePage.setMode === 3) return folderMusic.searching ? songModel.searchResults.count : songModel.rowCount();
@@ -106,25 +106,18 @@ Item {
         }
         var added = 0;
         if (filePage.setMode === 3) {
-            var exists = {};
-            for (var p = 0; p < playListModel.count; p++)
-                exists[playListModel.get(p).path] = true;
             for (var i = 0; i < songModel.rowCount(); i++) {
                 var song = songModel.get(i);
                 if (!song || !song.path || filePage.chooseIndex.indexOf(song.songId) === -1) continue;
-                if (exists[song.path]) continue;
+                if (playListModel.indexOfPath(song.path) !== -1) continue;
                 playListModel.append({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
-                exists[song.path] = true;
                 added++;
             }
         } else if (filePage.setMode === 4) {
-            var exists = {};
-            for (var p = 0; p < playListModel.count; p++)
-                exists[playListModel.get(p).path] = true;
             for (var j = 0; j < localFileModel.count; j++) {
                 var path = localFileModel.get(j, "fileUrl").toString();
                 if (filePage.chooseIndex.indexOf(path) === -1) continue;
-                if (exists[path]) continue;
+                if (playListModel.indexOfPath(path) !== -1) continue;
                 var title = localFileModel.get(j, "title") || "";
                 var artist = localFileModel.get(j, "artist") || "";
                 if (title === "") {
@@ -133,7 +126,6 @@ Item {
                     artist = artist || meta.artist;
                 }
                 playListModel.append({ name: title || localFileModel.get(j, "fileName"), path: path, songer: artist || "", source: -1 });
-                exists[path] = true;
                 added++;
             }
         }
@@ -175,15 +167,11 @@ Item {
         }
         var playFirst = -1;
         var added = 0;
-        var exists = {};
-        for (var p = 0; p < playListModel.count; p++)
-            exists[playListModel.get(p).path] = true;
         for (var i = 0; i < total; i++) {
             var item = searching ? songModel.searchResults.getRow(i) : songModel.get(i);
             if (!item || !item.name || !item.path) continue;
-            if (exists[item.path]) continue;
+            if (playListModel.indexOfPath(item.path) !== -1) continue;
             playListModel.append({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
-            exists[item.path] = true;
             if (playFirst === -1) playFirst = playListModel.count - 1;
             added++;
         }
@@ -207,17 +195,13 @@ Item {
         }
         var playFirst = -1;
         var added = 0;
-        var exists = {};
-        for (var p = 0; p < playListModel.count; p++)
-            exists[playListModel.get(p).path] = true;
         for (var i = 0; i < total; i++) {
             var row = searching ? localFileModel.searchResults.getRow(i) : null;
             var name = row ? (row.title || row.name) : localFileModel.get(i, "fileName");
             var path = row ? row.fileUrl.toString() : localFileModel.get(i, "fileUrl").toString();
             if (!name || !path) continue;
-            if (exists[path]) continue;
+            if (playListModel.indexOfPath(path) !== -1) continue;
             playListModel.append({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
-            exists[path] = true;
             if (playFirst === -1) playFirst = playListModel.count - 1;
             added++;
         }
@@ -243,25 +227,6 @@ Item {
         } else {
             Style.warned("无法定位所在文件夹", 0);
         }
-    }
-
-    // 刷新当前浏览的音频列表：重新从磁盘/数据库读取
-    function refreshSongList() {
-        songModel.clearSearch();
-        folderMusic.searching = false;
-        filterInput1.text = "";
-        if (songModel.folderId >= 0) {
-            songModel.loadByFolder(songModel.folderId);
-        }
-        if (localFileModel.folder.toString()) {
-            localFileModel.clearSearch();
-            localFolderMusic.searching = false;
-            filterInput2.text = "";
-            var folder = localFileModel.folder;
-            localFileModel.folder = "";
-            localFileModel.folder = folder;
-        }
-        Style.warned("已刷新当前列表", 1);
     }
 
     // 首页面
@@ -885,7 +850,14 @@ Item {
                     buttonColor: Style.themes.sideColor
                     tipText: "刷新当前文件夹"
                     onClicked: {
-                        filePage.refreshSongList();
+                        songModel.clearSearch();
+                        folderMusic.searching = false;
+                        filterInput1.text = "";
+                        if (songModel.folderId >= 0) {
+                            songModel.loadByFolder(songModel.folderId);
+                        }
+                        fileView.scrollTop();
+                        Style.warned("已刷新当前列表", 1);
                     }
                 }
                 SButton {
@@ -997,20 +969,50 @@ Item {
                 clip: true
                 reuseItems: true
                 headerModel: ["标题","歌手","","菜单"]
+                property int transY: 0
+                transform: Translate { y: fileView.transY }
+                populate: Transition {
+                    id: localFileLoadAnime2
+                    SequentialAnimation {
+                        PropertyAction {
+                            property: "opacity"
+                            value: 0
+                        }
+                        PauseAnimation {
+                            duration: localFileLoadAnime2.ViewTransition.index * 40
+                        }
+                        ParallelAnimation {
+                            NumberAnimation {
+                                properties: "transY"
+                                from: 60
+                                to: 0
+                                duration: 320
+                                easing.type: Easing.OutQuint
+                            }
+                            NumberAnimation {
+                                properties: "opacity"
+                                from: 0
+                                to: 1
+                                duration: 280
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                }
                 delegate: Rectangle {
                     id: listfile
                     height: 60
                     width: fileView.width - 16
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 3 && filePage.chooseIndex.indexOf(model.songId) !== -1
-                    color: listfile.chosen || mainMedia.noTitle == listfile.songTitle ? Style.themes.containColor : "transparent"
+                    color: listfile.chosen || mainMedia.source == model.path ? Style.themes.containColor : "transparent"
+                    property int transY: 0
+                    transform: Translate { y: listfile.transY }
 
-                    property string coverUrl: {
+                    readonly property string coverUrl: {
                         if (model.tagCoverUrl !== "") return model.tagCoverUrl;
                         if (!model.path) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        var meta = MusicApi.readLocalMetadata(model.path);
-                        if (meta && meta.cover) return meta.cover;
-                        return "qrc:/QueMusic/resources/app/musicpic.png";
+                        return MusicApi.readLocalCoverHint(model.path) || "qrc:/QueMusic/resources/app/musicpic.png";
                     }
                     property string songTitle: model.tagTitle || model.name
                     property string artistName: model.tagArtist || model.singer || ""
@@ -1077,7 +1079,7 @@ Item {
                             window.playLocalSong(model.path, listfile.songTitle);
                             var musicName = listfile.songTitle;
                             var musicPath = model.path;
-                            var listIndex = listfile.findIndexByValue(playListModel, "name", musicName);
+                            var listIndex = playListModel.indexOfName(musicName);
                             if (listIndex == -1) {
                                 playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
                                 playListModel.playListIndex = playListModel.count - 1;
@@ -1102,7 +1104,7 @@ Item {
                                 onClicked: {
                                     var musicName = listfile.songTitle;
                                     var musicPath = model.path;
-                                    var listIndex = listfile.findIndexByValue(playListModel, "name", musicName);
+                                    var listIndex = playListModel.indexOfName(musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
                                         Style.warned("成功加入播放列表",1);
@@ -1141,15 +1143,6 @@ Item {
                         }
                     }
 
-                    function findIndexByValue(model, key, targetValue) {
-                        for (var i = 0; i < model.count; i++) {
-                            var element = model.get(i);
-                            if (element[key] === targetValue) {
-                                return i; // 返回找到的索引
-                            }
-                        }
-                        return -1; // 未找到返回 -1
-                    }
                 }
             }
         }
@@ -1216,7 +1209,14 @@ Item {
                     buttonColor: Style.themes.sideColor
                     tipText: "刷新当前文件夹"
                     onClicked: {
-                        filePage.refreshSongList();
+                        localFileModel.clearSearch();
+                        localFolderMusic.searching = false;
+                        filterInput2.text = "";
+                        var folder = localFileModel.folder;
+                        localFileModel.folder = "";
+                        localFileModel.folder = folder;
+                        localFileView.scrollTop();
+                        Style.warned("已刷新当前列表", 1);
                     }
                 }
                 SButton {
@@ -1336,22 +1336,22 @@ Item {
                             value: 0
                         }
                         PauseAnimation {
-                            duration: localFileLoadAnime.ViewTransition.index * 80
+                            duration: localFileLoadAnime.ViewTransition.index * 40
                         }
                         ParallelAnimation {
                             NumberAnimation {
-                                properties: "x"
-                                from: 400
+                                properties: "transY"
+                                from: 60
                                 to: 0
-                                duration: 350
-                                easing.type: Easing.OutExpo
+                                duration: 320
+                                easing.type: Easing.OutQuint
                             }
                             NumberAnimation {
                                 properties: "opacity"
                                 from: 0
                                 to: 1
-                                duration: 350
-                                easing.type: Easing.OutExpo
+                                duration: 280
+                                easing.type: Easing.OutCubic
                             }
                         }
                     }
@@ -1363,14 +1363,14 @@ Item {
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(model.fileUrl.toString()) !== -1
                     color: listLocalFile.chosen || mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
+                    property int transY: 0
+                    transform: Translate { y: listLocalFile.transY }
 
                     readonly property string rowPath: model.fileUrl ? model.fileUrl.toString() : ""
-                    property string coverUrl: {
+                    readonly property string coverUrl: {
                         if (model.coverUrl !== "") return model.coverUrl;
                         if (!rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        var meta = MusicApi.readLocalMetadata(rowPath);
-                        if (meta && meta.cover) return meta.cover;
-                        return "qrc:/QueMusic/resources/app/musicpic.png";
+                        return MusicApi.readLocalCoverHint(rowPath) || "qrc:/QueMusic/resources/app/musicpic.png";
                     }
                     property string songTitle: model.title || model.fileName
                     property string artistName: model.artist || ""
@@ -1438,7 +1438,7 @@ Item {
                             window.playLocalSong(model.fileUrl.toString(), listLocalFile.songTitle);
                             var musicName = listLocalFile.songTitle;
                             var musicPath = model.fileUrl.toString();
-                            var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
+                            var listIndex = playListModel.indexOfName(musicName);
                             if (listIndex == -1) {
                                 playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
                                 playListModel.playListIndex = playListModel.count - 1;
@@ -1462,7 +1462,7 @@ Item {
                                 onClicked: {
                                     var musicName = listLocalFile.songTitle;
                                     var musicPath = model.fileUrl.toString();
-                                    var listIndex = listLocalFile.findIndexByValue(playListModel, "name", musicName);
+                                    var listIndex = playListModel.indexOfName(musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
                                     }
@@ -1508,15 +1508,6 @@ Item {
                         }
                     }
 
-                    function findIndexByValue(model, key, targetValue) {
-                        for (var i = 0; i < model.count; i++) {
-                            var element = model.get(i);
-                            if (element[key] === targetValue) {
-                                return i; // 返回找到的索引
-                            }
-                        }
-                        return -1; // 未找到返回 -1
-                    }
                 }
             }
         }

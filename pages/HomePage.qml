@@ -335,15 +335,8 @@ Item {
                                 hoverColor: Style.themes.hoverColor
                                 shadowEnabled: false
                                 onClicked: {
-                                    var listIndex = -1;
                                     var indexHash = Options.lastSongs.hash;
-                                    for(var i = 0;i < playListModel.count;i++) {
-                                        var forUrl = playListModel.get(i).path;
-                                        if(forUrl === indexHash) {
-                                            listIndex = i;
-                                        }
-                                    }
-                                    if (listIndex == -1) {
+                                    if (playListModel.indexOfPath(indexHash) === -1) {
                                         playListModel.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
                                         mainWarn.tiped("成功加入播放列表",1);
                                     }
@@ -802,15 +795,7 @@ Item {
                 onToolClicked: (index,tool) => {
                                    switch(tool) {
                                    case 0:
-                                       var listIndex = -1;
-                                       var indexHash = model.get(index).hash;
-                                       for(var i = 0;i < playListModel.count;i++) {
-                                           var forUrl = playListModel.get(i).path;
-                                           if(forUrl === indexHash) {
-                                               listIndex = i;
-                                           }
-                                       }
-                                       if (listIndex == -1) {
+                                       if (playListModel.indexOfPath(model.get(index).hash) === -1) {
                                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
                                            mainWarn.tiped("成功加入播放列表",1);
                                        }
@@ -875,15 +860,7 @@ Item {
                 onToolClicked: (index,tool) => {
                     switch(tool) {
                     case 0:
-                        var listIndex = -1;
-                        var indexHash = model.get(index).hash;
-                        for(var i = 0;i < playListModel.count;i++) {
-                            var forUrl = playListModel.get(i).path;
-                            if(forUrl === indexHash) {
-                                listIndex = i;
-                            }
-                        }
-                        if (listIndex == -1) {
+                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
                             playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
                             mainWarn.tiped("成功加入播放列表",1);
                         }
@@ -992,15 +969,7 @@ Item {
                 onToolClicked: (index,tool) => {
                                    switch(tool) {
                                    case 0:
-                                       var listIndex = -1;
-                                       var indexHash = model.get(index).hash;
-                                       for(var i = 0;i < playListModel.count;i++) {
-                                           var forUrl = playListModel.get(i).path;
-                                           if(forUrl === indexHash) {
-                                               listIndex = i;
-                                           }
-                                       }
-                                       if (listIndex == -1) {
+                                       if (playListModel.indexOfPath(model.get(index).hash) === -1) {
                                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
                                            mainWarn.tiped("成功加入播放列表",1);
                                        }

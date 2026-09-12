@@ -301,8 +301,8 @@ Item {
         id: loadWidget
         active: false
         onLoaded: {
-            root.visible = true
-            windowOpenAnime.start()
+            root.visible = true;
+            windowOpenAnime.start();
         }
     }
 }

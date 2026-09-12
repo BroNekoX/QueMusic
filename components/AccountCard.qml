@@ -7,7 +7,7 @@ Rectangle {
     width: settingStack.standWidth / 2 - 12
     height: 88
     radius: 16
-    color: cardArea.containsMouse ? Style.themes.containColor : Style.themes.fullColor
+    color: cardArea.containsMouse ? Style.themes.containColor : Style.themes.primaryColor
     border.color: Style.themes.secondaryColor
     border.width: 2
     property url source: "qrc:/QueMusic/resources/app/header.png"

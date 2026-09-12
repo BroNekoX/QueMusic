@@ -370,13 +370,7 @@ Item {
                         return;
                     window.playLocalSong(item.fileUrl, item.fileName);
 
-                    var listIndex = -1;
-                    for (var i = 0; i < playListModel.count; i++) {
-                        if (playListModel.get(i).path === item.fileUrl) {
-                            listIndex = i;
-                            break;
-                        }
-                    }
+                    var listIndex = playListModel.indexOfPath(item.fileUrl);
                     if (listIndex === -1) {
                         playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
                         playListModel.playListIndex = playListModel.count - 1;
@@ -390,14 +384,7 @@ Item {
                         var item = downloadedModel.get(index);
                         if (!item || !item.fileUrl)
                             return;
-                        var listIndex = -1;
-                        for (var i = 0; i < playListModel.count; i++) {
-                            if (playListModel.get(i).path === item.fileUrl) {
-                                listIndex = i;
-                                break;
-                            }
-                        }
-                        if (listIndex === -1) {
+                        if (playListModel.indexOfPath(item.fileUrl) === -1) {
                             playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
                             mainWarn.tiped("成功加入播放列表", 1);
                         }

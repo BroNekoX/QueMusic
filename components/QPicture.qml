@@ -14,11 +14,11 @@ Item {
     property url source//: "qrc:/QueMusic/resources/app/musicpic.png"
     property int radius: width / 2
     property bool cache: false
-    property alias radius1: maskRectangle.topLeftRadius
-    property alias radius2: maskRectangle.topRightRadius
-    property alias radius3: maskRectangle.bottomLeftRadius
-    property alias radius4: maskRectangle.bottomRightRadius
-    property alias picScale: maskRectangle.scale
+    property alias radius1: mask.topLeftRadius
+    property alias radius2: mask.topRightRadius
+    property alias radius3: mask.bottomLeftRadius
+    property alias radius4: mask.bottomRightRadius
+    property alias picScale: mask.scale
     property size sourceSize: Qt.size(width,height)
 
     // 原始图像，隐藏
@@ -30,6 +30,7 @@ Item {
         cache: root.cache
         fillMode: Image.PreserveAspectCrop
         visible: false
+        onStatusChanged: if(status === Image.Error) source = "qrc:/QueMusic/resources/app/musicpic.png";
     }
 
     //
@@ -46,19 +47,13 @@ Item {
     }
 
     // 圆形黑色矩形（用于遮罩）
-    Item {
+    Rectangle {
         id: mask
         width: sourceItem.width
         height: sourceItem.height
+        radius: root.radius
+        color: "#000000"
         layer.enabled: true
         visible: false
-        
-
-        Rectangle {
-            id: maskRectangle
-            anchors.fill: parent
-            radius: root.radius
-            color: "black" // 黑色用于掩码：纯黑表示完全不透明
-        }
     }
 }

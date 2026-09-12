@@ -3,6 +3,9 @@
 //
 #include "CoverHelper.h"
 
+#include <QtConcurrent/QtConcurrentRun>
+#include <QVariantList>
+
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -32,7 +35,6 @@ namespace {
 // 封面限制边长，降低编码耗时与磁盘占用
 constexpr int kMaxCoverSize = 512;
 
-// 元数据缓存键：由「绝对路径 + 修改时间」派生，文件被改写后自动失效
 QString metadataCacheKey(const QFileInfo &fi)
 {
     const QByteArray seed = (fi.absoluteFilePath() + QLatin1Char('@')
@@ -260,6 +262,39 @@ QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
     if (!m_metadataCache.contains(key))
         m_metadataCache.insert(key, meta);
     return coverUrl;
+}
+
+void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
+{
+    QString localPath = sourcePath;
+    const QUrl asUrl(sourcePath);
+    if (asUrl.isLocalFile())
+        localPath = asUrl.toLocalFile();
+    const QString cacheDir = m_cacheDir;
+
+    auto *watcher = new QFutureWatcher<QVariantList>(this);
+    connect(watcher, &QFutureWatcher<QVariantList>::finished, this, [this, watcher, sourcePath]() {
+        watcher->deleteLater();
+        const QVariantList result = watcher->result();
+        const QString coverUrl = result.value(0).toString();
+        const QString title = result.value(1).toString();
+        const QString artist = result.value(2).toString();
+
+        QString localPath = sourcePath;
+        const QUrl asUrl(sourcePath);
+        if (asUrl.isLocalFile())
+            localPath = asUrl.toLocalFile();
+        const QString key = metadataCacheKey(QFileInfo(localPath));
+        if (!m_metadataCache.contains(key) && (!title.isEmpty() || !artist.isEmpty()))
+            m_metadataCache.insert(key, { title, artist });
+
+        emit localCoverReady(sourcePath, coverUrl);
+    });
+    watcher->setFuture(QtConcurrent::run([localPath, cacheDir]() {
+        Metadata meta;
+        const QString coverUrl = readCoverFromTag(localPath, cacheDir, &meta);
+        return QVariantList{ coverUrl, meta.title, meta.artist };
+    }));
 }
 
 QString CoverHelper::findTitle(const QString &sourcePath)

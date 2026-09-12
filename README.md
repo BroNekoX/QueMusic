@@ -193,6 +193,7 @@ cmake --build build --parallel
 cmake -B build -G Ninja \
   -DCMAKE_PREFIX_PATH=/path/to/Qt/6.10.3/mingw_64
 ```
+
 #### Linux 构建
 
 ```bash
@@ -228,10 +229,11 @@ cmake --build build -j 8
 QueMusic/
 ├── CMakeLists.txt              # 顶层构建配置
 ├── cmake/                      # CMake 模块
-│   ├── external/qwindowkit.cmake # QWindowKit 子模块集成
+│   ├── external                # 子模块cmake快速集成
 │   └── qtruntime.cmake
 ├── main.cpp                    # C++ 程序入口
 ├── main.qml                    # QML 主入口
+├── SettingsView.qml            # 设置布局页面
 ├── cpp/                        # C++ 后端模块
 │   ├── CoverHelper.cpp/h       # 封面图片处理
 │   ├── ColorExtractor.cpp/h    # 颜色提取（自适应主题色）
@@ -239,13 +241,8 @@ QueMusic/
 │   ├── FolderModel.cpp/h       # 本地文件夹模型
 │   ├── DownloadManager.cpp/h   # 下载管理器
 │   ├── LocalLyricsReader.cpp/h # .lrc 与音频内嵌歌词读取
-│   └── Favorites.cpp/h         # 收藏管理
-├── meshgradient/               # 🧩 独立 Mesh Gradient 背景组件（AGPL-3.0）
-│   ├── CMakeLists.txt          # 独立库 target：quemusic_meshgradient
-│   ├── LICENSE                 # GNU AGPL v3.0 全文
-│   ├── README.md               # 组件说明 / 来源 / 修改记录
-│   ├── MeshGradientItem.cpp/h  # 网格渐变渲染（衍生自 AMLL）
-│   └── shaders/                # meshgradient.vert/.frag（衍生自 AMLL）
+│   ├── Favorites.cpp/h         # 收藏管理
+│   └── ...                     # 等其他相关C++模块
 ├── api/                        # JavaScript API 层
 │   ├── QCloudMusicApi/         # 存放QCloudMusicApi第三方项目
 │   ├── MusicApiService.cpp/h   # 在线音乐 API总部
@@ -276,8 +273,10 @@ QueMusic/
 │   ├── window-bar/             # 窗口按钮图标
 │   ├── pic/                    # 背景图片
 │   └── app/shaders/            # GLSL 着色器
+├── shaders/                    # 着色器文件
 ├── ThirdParty/
 │   └── qwindowkit/             # Git Submodule — 无边框窗口框架
+├── centers/                    # 存放沉浸中心相关QML组件文件
 ├── .gitignore
 ├── .gitattributes
 ├── .gitmodules
@@ -340,20 +339,27 @@ Copyright (c) 2025-2026 QueMusic Contributors
 
 > 💡 **Apache-2.0 要点**：允许商用、修改、分发；需在衍生作品中保留原始版权声明与 NOTICE；对专利授权有明确条款，为用户提供额外保护。
 
-### 🧩 第三方组件：Mesh Gradient 背景（AGPL-3.0）
+---
 
-本项目中的 **`meshgradient/` 独立组件**（动态流体渐变背景）衍生自
-[AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics)，
-以 **GNU Affero General Public License v3.0** 单独授权：
+## 🎨 背景着色器变更
 
-- 该组件作为**独立库**（`quemusic_meshgradient`）编译，与主体保持"聚合"关系；
-- 组件许可证不影响 QueMusic 其余 Apache-2.0 代码；
-- 来源文件、修改内容详见 [`meshgradient/README.md`](meshgradient/README.md)；
-- 全部第三方组件声明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+在 **Beta 0.5.0** 之前的版本使用了 [AMLL-Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) 项目的背景着色器并移植到Qt当中
 
-> ⚠️ **许可边界说明**：上述"聚合"主张基于"独立编译的静态库 + 主体仅经公开接口调用"这一事实；但主流解释认为主程序与其动态链接库的组合可能构成派生作品，若该解释成立，QueMusic 整体分发物需遵循 AGPL-3.0。后续方案（更换宽松许可实现 / 整体改用 AGPL-3.0 / 维持现状）详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中的风险提示，最终决策由项目维护者确认。
+开发者深知该做法可能触碰到了许可证边界，虽然相对妥协做出较合规的操作，但为了进一步优秀发展，让QueMusic变得更好，遂做出更改。
+
+**Beta 0.5.0** 之后的版本将使用基于自主框架的背景着色器，并新增多个背景着色器选择，用于代替之前使用的AMLL背景着色器：
+
+- **Fluid**： 使用了 [Paper-design/shaders](https://github.com/paper-design/shaders) 的着色器，并移植到Qt当中，该项目使用Apache License 2.0协议，因此本项目使用了该项目，这完全合规。
+- **Classic**： 该着色器为自主设置，尽可能靠拢AMLL的效果。参考了AMLL的实现方法，但算法、代码实现、数值均未直接抄袭于照搬AMLL，算法均为公开的算法。
+
+> **Classic** 的着色器算法大致思路：
+> 切换封面：封面>高斯模糊>后处理（亮度/饱和）>做为背景贴图源；
+> 封面渲染：贴图源（source）>多个重复取样>旋转=>3d变形背景>后处理(暗角，抖动，噪声等)>组件显示区域
+
+由于着色器变更，效果可能不如 **0.5.0** 往前的版本，QueMusic将会持续优化背景效果，使得效果再进一步更华丽。
 
 ---
+
 
 ## 📢 免责声明
 
@@ -385,7 +391,6 @@ Copyright (c) 2025-2026 QueMusic Contributors
 
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案
-- [AMLL Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的算法（AGPL-3.0，见 `meshgradient/` 组件）
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 使用了本项目api服务，以实现在线音乐网易云音乐平台部分
 - [Cryptopp](https://github.com/weidai11/cryptopp) — 用于QCloudMusicApi解析
@@ -393,8 +398,12 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [Taglib](https://github.com/taglib/taglib) — 用于解析本地音乐部分数据
 - [SMTC-Bridge-Cpp](https://github.com/Cainongw/SMTC-Bridge-Cpp) — Windows 系统媒体控件(SMTC)桥接参考实现(C++)
 - [smtc_bridge_rust](https://github.com/Cainongw/smtc_bridge_rust) — Windows 系统媒体控件(SMTC)桥接参考实现(Rust)
-- 以下参考了他们的部分代码实现，特此致谢。
+
+#### 其他对于本项目有帮助的
+
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
+- [AMLL-Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的实现方法参考
+- [Paper-design/shaders](https://github.com/paper-design/shaders) — 背景着色器"Fluid"的算法移植
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
 - 所有贡献者与测试者
 
@@ -418,6 +427,7 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何Pro、Ultra
 ---
 
 <p align="center">
-  <sub>Written by QueMusic Project</sub><br/>
-  <sub>最后更新：2026-9-7</sub>
+  <sub>Written for QueMusic Project</sub><br/>
+  <sub>最后更新：2026-9-12</sub>
 </p>
+

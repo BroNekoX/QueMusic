@@ -17,14 +17,11 @@
 #include "cpp/AccountManager.h"
 #include "api/MusicApiService.h"
 #include "cpp/LogManager.h"
-#include "meshgradient/MeshGradientItem.h"
 #include <QWKQuick/qwkquickglobal.h>
 
 #include <QtQml/QQmlExtensionPlugin>
-Q_IMPORT_QML_PLUGIN(MeshGradientItemPlugin)
 
 extern void qml_register_types_QueMusic();
-extern void qml_register_types_MeshGradientItem();
 
 #if defined(Q_OS_WIN)
 // 注册Windows SMTC
@@ -144,15 +141,12 @@ int main(int argc, char *argv[])
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QGuiApplication application(argc, argv);
 
-    // 仅在 dwm-blur（backmode 4）需要透明背景时开启全窗口 alpha 合成
-    if (opt.value(QStringLiteral("Style/backmode"), 0).toInt() == 4)
-        QQuickWindow::setDefaultAlphaBuffer(true);
+    QQuickWindow::setDefaultAlphaBuffer(true);
     //QQuickWindow::setTextRenderType(QQuickWindow::CurveTextRendering);
     QQmlApplicationEngine engine;
 
     // 显式注册QML_ELEMENT 类型
     qml_register_types_QueMusic();
-    qml_register_types_MeshGradientItem();
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");

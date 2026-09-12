@@ -66,7 +66,7 @@ QtObject {
         
         // 歌词界面
         property int lyricSize: 10
-        property int backFlowQuality: 0
+        property int flowStyle: 1 // 流体背景算法：0=Fluid 1=Classic 2=静态渐变
         property bool waveDisplay: true //显示音波效果
         property bool premiumLyricAnime: true //高级逐行弹簧动画
         property int textWidth: 600

@@ -139,9 +139,9 @@ Popup {
     }
 
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 420; from: desktopPlayer.parent.width; to: desktopPlayer.parent.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 450; from: window.width; to: window.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 210; to: desktopPlayer.parent.width; easing.type: Easing.InCubic }
+        NumberAnimation { property: "x"; duration: 240; to: window.width; easing.type: Easing.OutCubic }
     }
 }

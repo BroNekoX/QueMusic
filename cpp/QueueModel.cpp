@@ -123,6 +123,14 @@ int QueueModel::indexOfPath(const QString &path) const
     return m_indexOfPath.value(path, -1);
 }
 
+int QueueModel::indexOfName(const QString &name) const
+{
+    for (int i = 0; i < m_items.size(); ++i)
+        if (m_items.at(i).name == name)
+            return i;
+    return -1;
+}
+
 void QueueModel::rebuildIndex()
 {
     m_indexOfPath.clear();

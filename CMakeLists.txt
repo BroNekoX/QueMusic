@@ -18,15 +18,13 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concu
 # 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
 add_subdirectory(cmake)
 
-# 独立 Mesh Gradient 组件（AGPL-3.0，衍生自 AMLL）：以独立库 target 聚合
-add_subdirectory(meshgradient)
-
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     $<$<PLATFORM_ID:Windows>:icon.rc>
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
@@ -120,10 +118,11 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         resources/app/cd.png
         resources/app/cdpoint.png
         resources/app/icons/bronekox.jpg
-        resources/app/icons/amll.svg
         resources/app/icons/qticon.png
         resources/app/icons/qwk.png
     SOURCES
+        shaders/MeshGradientItem.cpp
+        shaders/MeshGradientItem.h
         cpp/CoverHelper.cpp
         cpp/CoverHelper.h
         cpp/ColorExtractor.cpp
@@ -170,9 +169,17 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
         "/shaders"
     BATCHABLE
     FILES
-        resources/app/shaders/lyricfade.frag
-        meshgradient/shaders/meshgradient.frag
-        meshgradient/shaders/meshgradient.vert
+        shaders/lyricfade.frag
+)
+
+qt6_add_shaders(${PROJECT_NAME} "bgshaders"
+    PREFIX
+        "/"
+    BATCHABLE
+    FILES
+        shaders/background.vert
+        shaders/fluid.frag
+        shaders/classic.frag
 )
 
 # QCloudMusicApi：网易云音乐在线接口（crypto++ 随其源码放在 api/QCloudMusicApi/3rdparty）
@@ -195,7 +202,6 @@ target_link_libraries(${PROJECT_NAME}
         QCloudMusicApi
         quemusic::taglib
         cryptopp::cryptopp
-        quemusic_meshgradientplugin
         quemusic::zlib
     PUBLIC
         QWindowKit::Quick

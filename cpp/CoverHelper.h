@@ -5,6 +5,7 @@
 #define COVERHELPER_H
 
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QHash>
 #include <QImage>
 #include <QObject>
@@ -36,6 +37,9 @@ public:
     // 读取音频文件内嵌封面（ID3v2 APIC / FLAC Picture / MP4 covr）
     Q_INVOKABLE QString findEmbeddedCover(const QString &sourcePath);
 
+    // 工作线程提取内嵌封面（含图像解码与缓存落盘），经 localCoverReady 回传
+    Q_INVOKABLE void findEmbeddedCoverAsync(const QString &sourcePath);
+
     // 读取音频文件标题：同名 .json -> 内嵌 TAG，未命中返回空
     Q_INVOKABLE QString findTitle(const QString &sourcePath);
 
@@ -50,6 +54,7 @@ public:
 
 signals:
     void currentCoverUrlChanged();
+    void localCoverReady(const QString &sourcePath, const QString &coverUrl);
 
 public:
     struct Metadata {

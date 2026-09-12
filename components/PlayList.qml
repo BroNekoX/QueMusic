@@ -330,9 +330,9 @@ Popup {
         }
     }
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 420; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 450; from: window.width; to: window.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 210; to: playList.parent.width; easing.type: Easing.InCubic }
+        NumberAnimation { property: "x"; duration: 240; to: window.width; easing.type: Easing.OutCubic }
     }
 }

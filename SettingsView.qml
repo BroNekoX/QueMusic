@@ -1101,14 +1101,14 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "歌词界面背景"
+                            label: "背景着色器样式"
                             isBigItem: true
                             controlItem: QWideDrop {
                                 anchors.fill: parent
-                                model: ["动态流体","静态烘培","静态渐变"]
-                                choice: Style.settings.backFlowQuality
+                                model: ["Fluid", "Classic", "静态渐变"]
+                                choice: Style.settings.flowStyle
                                 onTransformed: (choiced) => {
-                                    Style.settings.backFlowQuality = choiced
+                                    Style.settings.flowStyle = choiced
                                 }
                             }
                         }
@@ -2050,20 +2050,21 @@ Item {
                     font.letterSpacing: -0.3
                 }
 
-                QPicture {
+                /*QPicture {
                     id: logoSection
                     width: settingStack.standWidth
-                    height: 420
+                    height: 480
                     radius: Style.settings.cubeRadius
                     source: "qrc:/QueMusic/resources/pic/back2.jpg"
 
                     sourceSize: Qt.size(1424,750)
 
-                    Row {
+                    Column {
                         anchors.centerIn: parent
                         spacing: 32
                         //icon
                         Image {
+                            anchors.horizontalCenter: parent.horizontalCenter
                             width: 80
                             height: 80
                             source: "qrc:/QueMusic/resources/icon.ico"
@@ -2072,8 +2073,8 @@ Item {
 
                         // App Title
                         Text {
-                            height: 80
-                            width: implicitWidth + 96
+                            height: 64
+                            width: implicitWidth// + 96
                             text: "QueMusic"
                             font.family: textFont.name
                             font.pixelSize: 64
@@ -2098,7 +2099,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 15
                             Label {
-                                text: " 版本: " + window.version + "-" + window.versionCode
+                                text: " 版本: " + Options.version + "-" + Options.versionCode
                                 font.pixelSize: Style.settings.textmain
                                 color: "black"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -2109,6 +2110,83 @@ Item {
                                 radius: 18
                                 text: "检查更新"
                                 anchors.verticalCenter: parent.verticalCenter
+                                onClicked: {
+                                    updater.checkForUpdate();
+                                }
+                            }
+                        }
+                    }
+                }*/
+                // 头标
+                Column {
+                    width: settingStack.standWidth
+                    spacing: 32
+                    topPadding: 64
+                    bottomPadding: 64
+                    //icon
+                    Image {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 96
+                        height: 96
+                        source: "qrc:/QueMusic/resources/icon.ico"
+                        sourceSize: Qt.size(96, 96)
+                    }
+
+                    // App Title
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        height: 56
+                        width: implicitWidth// + 96
+                        text: "QueMusic"
+                        font.family: textFont.name
+                        font.pixelSize: 56
+                        font.bold: false
+                        verticalAlignment: Text.AlignVCenter
+                        color: Style.themes.fontColor
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "一款基于 C++/Qt Quick 框架开发的高性能音乐播放器"
+                        //height: implicitHeight + 64
+                        wrapMode: Text.Wrap
+                        color: Style.themes.textColor
+                        font.bold: false
+                        font.pixelSize: Style.settings.textH2
+                    }
+                }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: 60
+                    color: Style.themes.primaryColor
+                    radius: Style.settings.cubeRadius
+                    SettingItem {
+                        width: settingStack.standWidth - 32
+                        label: "QueMusic Beta (测试版本)"
+                        controlWidth: 120
+                        height: 36
+                        x: 16
+                        y: 12
+                        Row {
+                            anchors.right: parent.right
+                            height: 36
+                            spacing: 12
+                            Text {
+                                height: 36
+                                text: Options.version + " (" + Options.versionCode + ")"
+                                color: Style.themes.textColor
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            QButton {
+                                height: 36
+                                width: 100
+                                text: "检查更新"
+                                buttonColor: Style.themes.themeColor
+                                textColor: Style.themes.primaryColor
+                                iconColor: Style.themes.primaryColor
+                                shadowEnabled: false
                                 onClicked: {
                                     updater.checkForUpdate();
                                 }
@@ -2253,7 +2331,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: window.version + " (" + window.versionCode + ")"
+                                text: Options.version + " (" + Options.versionCode + ")"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2332,7 +2410,7 @@ Item {
                 Grid {
                     spacing: 24
                     columns: 2
-                    rows: 4
+                    rows: 2
                     width: settingStack.standWidth
                     AccountCard {
                         source: "qrc:/QueMusic/resources/app/icons/qwk.png"
@@ -2345,12 +2423,6 @@ Item {
                         title: "Qt Community"
                         text: "强大的开源软件包框架"
                         openUrl: "https://github.com/qt"
-                    }
-                    AccountCard {
-                        source: "qrc:/QueMusic/resources/app/icons/amll.svg"
-                        title: "AMLL Core"
-                        text: "使用了AMLL的背景效果部分来实现炫酷的歌词界面背景，使用AGPL-3.0授权"
-                        openUrl: "https://github.com/amll-dev/applemusic-like-lyrics"
                     }
                     AccountCard {
                         source: ""
@@ -2369,7 +2441,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: 150
+                    height: 200
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
@@ -2409,6 +2481,19 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "695207057"
+                                color: Style.themes.textColor
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        SettingItem {
+                            width: settingStack.standWidth - 32
+                            label: "QQ群组"
+                            controlWidth: 120
+                            Text {
+                                anchors.right: parent.right
+                                height: 36
+                                text: "1105114511"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2693,11 +2778,11 @@ Item {
         id: updater
 
         // 从文件或宏定义中获取的本地版本号
-        property int localVersion: window.versionCode
+        property int localVersion: Options.versionCode
 
         // 远程 version.txt 的 URL
-        property string remoteVersionUrl: "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/version.txt"
-        property int newVersion: window.versionCode
+        property string remoteVersionUrl: "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt"
+        property int newVersion: Options.versionCode
 
         function checkForUpdate() {
             console.log("正在检查更新...");
@@ -2707,7 +2792,8 @@ Item {
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === XMLHttpRequest.DONE) {
                     if (xhr.status === 200) {
-                        var remoteVersion = parseInt(xhr.responseText.trim());
+                        var text = xhr.responseText.trim();
+                        var remoteVersion = parseInt(text.substring(3));
                         console.log("远程版本号:", remoteVersion);
 
                         if (remoteVersion > localVersion) {

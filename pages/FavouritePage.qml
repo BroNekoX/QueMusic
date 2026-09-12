@@ -32,7 +32,6 @@ Item {
         options: favouritePage.favSortOptions
         nameRole: "title"
     }
-
     QMenu {
         id: sortMenu
         model: favSortOptions.map(o => o.label)
@@ -180,13 +179,7 @@ Item {
                 var r = songSort.at(index);
                 switch(tool) {
                 case 0:
-                    var listIndex = -1;
-                    for(var i = 0;i < playListModel.count;i++) {
-                        if(playListModel.get(i).path === r.id) {
-                            listIndex = i;
-                        }
-                    }
-                    if (listIndex == -1) {
+                    if (playListModel.indexOfPath(r.id) === -1) {
                         playListModel.append({ name: r.title, path: r.id, songer: r.artist, source: r.source });
                         mainWarn.tiped("成功加入播放列表",1);
                     }
@@ -305,8 +298,7 @@ Item {
             toolText1: "\uf0c8"
 
             function addToQueue(e) {
-                for (var i = 0; i < playListModel.count; i++)
-                    if (playListModel.get(i).path === e.path) return
+                if (playListModel.indexOfPath(e.path) !== -1) return
                 playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
                 mainWarn.tiped("成功加入播放列表", 1)
             }
@@ -436,20 +428,9 @@ Item {
                     onClicked: {
                         switch(favouritePage.setMode) {
                         case 1:
-                            var playlist = [];
-                            for(var i = 0;i < playListModel.count;i++) {
-                                playlist.push(playListModel.get(i).path);
-                            }
                             for(var a = 0;a < favouritePage.chooseIndex.length;a++) {
                                 var fav = songSort.at(favouritePage.chooseIndex[a]);
-                                var listIndex = -1;
-                                for(var b = 0;b < playlist.length;b++) {
-                                    if(fav.id == playlist[b]) {
-                                        listIndex = b;
-                                        break;
-                                    }
-                                }
-                                if (listIndex == -1) {
+                                if (playListModel.indexOfPath(fav.id) === -1) {
                                     playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
                                     mainWarn.tiped("成功加入播放列表",1);
                                 }
@@ -508,15 +489,7 @@ Item {
                 onToolClicked: (index,tool) => {
                     switch(tool) {
                     case 0:
-                        var listIndex = -1;
-                        var indexHash = model.get(index).hash;
-                        for(var i = 0;i < playListModel.count;i++) {
-                            var forUrl = playListModel.get(i).path;
-                            if(forUrl === indexHash) {
-                               listIndex = i;
-                            }
-                        }
-                        if (listIndex == -1) {
+                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
                             playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: playListSongsWindow.songSource });
                             mainWarn.tiped("成功加入播放列表",1);
                         }

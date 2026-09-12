@@ -5,6 +5,7 @@
 #define MUSICAPISERVICE_H
 
 #include <QFutureWatcher>
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QVariant>
@@ -143,6 +144,10 @@ public:
     Q_INVOKABLE void setLocalLyrics();
     // 读取本地音频同目录同名 .json 元数据（不存在返回空 map）
     Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
+    // 工作线程读取本地元数据，经 localMetadataReady 回传（GUI 线程零文件 IO）
+    Q_INVOKABLE void readLocalMetadataAsync(const QString &filePath);
+    // 仅读取同目录同名 .json 中的 cover 字段（不解析音频文件），带缓存
+    Q_INVOKABLE QString readLocalCoverHint(const QString &filePath);
     // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
     Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
     // 把单个本地文件移入系统回收站（找不到/无法移动时返回 false）
@@ -176,12 +181,14 @@ signals:
     void localLyricsReady(const QString &filePath, const QVariantList &lyrics,
                           const QVariantList &translate);
     void localLyricsFailed(const QString &filePath);
+    void localMetadataReady(const QString &filePath, const QVariantMap &meta);
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
 
 private:
     int resolve(int source) const; // source<0 → 默认源
+    static QVariantMap readLocalMetadataBlocking(const QString &filePath);
     void syncCookie(int source);   // 同步 AccountManager 登录态 Cookie
     QVariantMap normalizeItem(const QVariantMap &raw); // 字段归一化 + 旧字段别名
     QVariantList normalizeList(const QVariant &v);
@@ -196,6 +203,7 @@ private:
 
     int m_source = 0;
     int m_localLyricsGeneration = 0; // 连续切歌时丢弃过期的歌词解析结果
+    QHash<QString, QString> m_coverHintCache;
     NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
     KugouApi m_kugou;
     AccountManager *m_account = nullptr;
