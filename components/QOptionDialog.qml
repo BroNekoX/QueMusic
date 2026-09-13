@@ -12,13 +12,12 @@ Popup {
     property Item blurSource: mainLayout // 使用父内容作为模糊源
     property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
-    default property alias options: dialogContent.contentData
+    default property alias options: dialogContent.contentChildren
     property string cancelText: ""
     property string cancelIcon: "\uf10f"
     property string confirmText: "完成"
     property bool isInput: false
     property bool dismissOnOverlay: true
-    property int dialogContentHeight: 320
     signal confirm()
     signal cancel()
     parent: Overlay.overlay
@@ -57,9 +56,8 @@ Popup {
         ScrollView {
             id: dialogContent
             width: contentCol.width + 10
-            height: dialog.dialogContentHeight > window.height - 320 ? window.height - 320 : dialog.dialogContentHeight
+            height: contentHeight > window.height - 320 ? window.height - 320 : contentHeight
             contentWidth: contentCol.width
-            contentHeight: dialog.dialogContentHeight
             clip: true
         }
 

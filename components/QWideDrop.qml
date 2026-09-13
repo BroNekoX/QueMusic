@@ -5,12 +5,12 @@
 import QtQuick
 import QtQuick.Layouts
 
-Rectangle {
+Item {
     id: root
     width: 360
     height: 40
-    color: "transparent"
-    radius: Style.settings.labelRadius
+    //color: "transparent"
+    //radius: Style.settings.labelRadius
     property list<string> model: ["Click1","Click2","Click3"]
     property int singleWidth: width / model.length - 16
     property int choice: 0
@@ -37,7 +37,7 @@ Rectangle {
                     id: hover
                     color: Style.themes.hoverColor
                     anchors.fill: parent
-                    radius: root.radius
+                    radius: parent.radius
                     opacity: 0
                     visible: opacity > 0
                     Behavior on opacity { NumberAnimation { duration: 80 } }

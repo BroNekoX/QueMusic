@@ -67,6 +67,8 @@ public:
     QString kugouNickname() const { return m_kugouNickname; }
     QString kugouAvatar() const { return m_kugouAvatar; }
     QString kugouCookie() const { return m_kugouCookie; }
+    QString kugouMid() const { return m_kugouMid; }
+    QString kugouDfid() const { return m_kugouDfid; }
     QString kugouQrText() const { return m_kugouQrText; }
     int kugouQrState() const { return m_kugouQrState; }
     QString kugouQrMessage() const { return m_kugouQrMessage; }

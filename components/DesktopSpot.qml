@@ -2,7 +2,6 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Controls.Basic
 
 Window {
@@ -16,6 +15,7 @@ Window {
     title: "DesktopSpot"
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    readonly property int animeDuration: Style.settings.spotSpeed === 0 ? 160 : Style.settings.spotSpeed === 2 ? 480 : 320
     Rectangle {
         id: spotCard
         //x: 30
@@ -48,11 +48,11 @@ Window {
         Transition {
             to: "*"
             ParallelAnimation {
-                NumberAnimation { target: spotCard; property: "x"; duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                NumberAnimation { target: spotCard; property: "width"; duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                NumberAnimation { target: spotCard; property: "height"; duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                NumberAnimation { target: spotPlayButton; property: "x"; duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-                NumberAnimation { target: spotInfoPlayer; property: "opacity"; duration: 320; easing.type: Easing.OutExpo }
+                NumberAnimation { target: spotCard; property: "x"; duration: desktopSpot.animeDuration; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+                NumberAnimation { target: spotCard; property: "width"; duration: desktopSpot.animeDuration; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+                NumberAnimation { target: spotCard; property: "height"; duration: desktopSpot.animeDuration; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+                NumberAnimation { target: spotPlayButton; property: "x"; duration: desktopSpot.animeDuration; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
+                NumberAnimation { target: spotInfoPlayer; property: "opacity"; duration: desktopSpot.animeDuration; easing.type: Easing.OutExpo }
             }
         }
         ]

@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHashFunctions>
+#include <QMultiMap>
 #include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -416,6 +417,42 @@ void CoverHelper::clearCache()
         qWarning() << "Failed to recreate cache directory:" << m_cacheDir;
 
     setCoverUrl(QString());
+}
+
+void CoverHelper::setCacheDir(const QString &path)
+{
+    if (path.isEmpty() || path == m_cacheDir)
+        return;
+    m_cacheDir = path;
+    if (!QDir().mkpath(m_cacheDir))
+        qWarning() << "Failed to create cache directory:" << m_cacheDir;
+    setCoverUrl(QString());
+}
+
+void CoverHelper::pruneCache(int maxMB)
+{
+    if (maxMB <= 0)
+        return;
+    QDir dir(m_cacheDir);
+    if (!dir.exists())
+        return;
+
+    const qint64 limit = qint64(maxMB) * 1024 * 1024;
+    QMultiMap<qint64, QFileInfo> entries;
+    qint64 total = 0;
+    const QFileInfoList files = dir.entryInfoList(QDir::Files);
+    for (const QFileInfo &fi : files) {
+        total += fi.size();
+        entries.insert(fi.lastModified().toMSecsSinceEpoch(), fi);
+    }
+
+    while (total > limit && !entries.isEmpty()) {
+        auto it = entries.begin();
+        const QFileInfo fi = it.value();
+        entries.erase(it);
+        total -= fi.size();
+        QFile::remove(fi.absoluteFilePath());
+    }
 }
 
 void CoverHelper::setCoverUrl(const QString &url)

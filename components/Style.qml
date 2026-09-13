@@ -10,6 +10,10 @@ QtObject {
     //property alias settings: settings
     // Style.themes.name
     readonly property bool darkis: settings.theme === 0 ? false : settings.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
+    //全局过渡动画时长：关闭高级动画时统一降为轻量时长
+    readonly property int animeDuration: settings.premiumAnime
+        ? (settings.animeSpeed === 0 ? 480 : settings.animeSpeed === 2 ? 180 : 320)
+        : 120
     //readonly property var themes: darkis ? darkThemes[settings.color] : lightThemes[settings.color]
     onDarkisChanged: {
         Style.changeTheme();
@@ -55,6 +59,8 @@ QtObject {
         property bool layerEnabled: true
         property bool premiumAnime: true //高级动画
         property int animeSpeed: 1
+        property int homeLayout: 0 //首页布局 0.默认 1.竖向 2.混合
+        property int spotSpeed: 1 //桌面部件动画速度 0.快 1.默认 2.慢
 
         // UI设置
         property bool sidebarColor: false

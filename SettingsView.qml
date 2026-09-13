@@ -41,13 +41,12 @@ Item {
         title: "网易云音乐 - 扫码登录"
         cancelText: "取消"
         confirmText: "关闭"
-        dialogContentHeight: 330
         blurSource: settingsView
         onCancel: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
         onConfirm: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
         onClosed: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
 
-        Column {
+        options: Column {
             width: parent.width
             spacing: 14
             Rectangle {
@@ -96,13 +95,12 @@ Item {
         title: "酷狗音乐 - 扫码登录"
         cancelText: "取消"
         confirmText: "关闭"
-        dialogContentHeight: 330
         blurSource: settingsView
         onCancel: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
         onConfirm: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
         onClosed: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
 
-        Column {
+        options: Column {
             width: parent.width
             spacing: 14
             Rectangle {
@@ -800,7 +798,17 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "自动检查更新(x)"
+                            label: "记住窗口位置和大小"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Options.settings.rememberWindow
+                                onToggled: Options.settings.rememberWindow = !Options.settings.rememberWindow
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "自动检查更新"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -948,7 +956,7 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "高质量模糊效果(x)"
+                            label: "高级材质"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -990,7 +998,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "高级动画效果(x)"
+                            label: "高级动画效果"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -1000,7 +1008,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "全局动画速率(x)"
+                            label: "全局动画速率"
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Style.settings.animeSpeed
@@ -1027,11 +1035,12 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "首页默认布局(x)"
+                            label: "首页默认布局"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: 1
+                                choice: Style.settings.homeLayout
                                 model: ["默认","竖向","混合"]
+                                onTransformed: (choiced) => Style.settings.homeLayout = choiced
                             }
                             bottomLine: false
                         }
@@ -1169,11 +1178,12 @@ Item {
                             parent.height = height
                         }
                         SettingItemCard {
-                            label: "动画速度(x)"
+                            label: "动画速度"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: 1
+                                choice: Style.settings.spotSpeed
                                 model: ["默认","快","慢"]
+                                onTransformed: (choiced) => Style.settings.spotSpeed = choiced
                             }
                             bottomLine: false
                         }
@@ -1220,10 +1230,27 @@ Item {
                         Component.onCompleted: parent.height = height
 
                         SettingItemCard {
-                            label: "默认缓存位置(x)"
-                            controlItem: QInput {
+                            label: "默认缓存位置"
+                            controlItem: QButton {
                                 anchors.fill: parent
-                                inputText: "选择目录"
+                                shadowEnabled: false
+                                radius: Style.settings.labelRadius
+                                borderWidth: 2
+                                text: Options.settings.cacheUrl ? "自定义目录" : "系统默认"
+                                fontSize: Style.settings.text
+                                onClicked: cacheFolderDialog.open()
+                            }
+                            FolderDialog {
+                                id: cacheFolderDialog
+                                title: "选择缓存目录"
+                                onAccepted: {
+                                    var p = cacheFolderDialog.selectedFolder.toString();
+                                    if (p.indexOf("file:///") === 0)
+                                        p = p.substring(8);
+                                    Options.settings.cacheUrl = p;
+                                    coverHelper.setCacheDir(p);
+                                    mainWarn.tiped("已设置封面缓存目录", 1);
+                                }
                             }
                         }
 
@@ -1298,7 +1325,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "缓存大小/MB(x)"
+                            label: "缓存大小/MB"
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 200
@@ -1309,6 +1336,7 @@ Item {
                                 value: Options.settings.cacheSize
                                 onMoved: {
                                     Options.settings.cacheSize = value
+                                    coverHelper.pruneCache(value)
                                 }
                             }
                             bottomLine: false
@@ -1435,6 +1463,20 @@ Item {
                                 letRight: true
                                 switchTrue: Options.settings.autoPlay
                                 onToggled: Options.settings.autoPlay = !Options.settings.autoPlay
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "音量步长"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 1
+                                to: 20
+                                stepSize: 1
+                                leftText: true
+                                valueText: value.toString() + " %"
+                                value: Options.settings.volumeStep
+                                onMoved: Options.settings.volumeStep = value
                             }
                         }
 
@@ -1856,10 +1898,10 @@ Item {
                                     width: 96
                                     height: 36
                                     //letRight: true
-                                    switchTrue: Options.settings[shortcutset.globalPropertyName(model.name)]
+                                    switchTrue: Options.shortCuts[shortcutset.globalPropertyName(model.name)]
                                     onToggled: {
                                         var prop = shortcutset.globalPropertyName(model.name);
-                                        Options.settings[prop] = !Options.settings[prop];
+                                        Options.shortCuts[prop] = !Options.shortCuts[prop];
                                     }
                                 }
 
@@ -2677,7 +2719,7 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "调试模式(x)"
+                            label: "调试模式"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true

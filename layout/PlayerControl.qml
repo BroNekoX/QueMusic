@@ -103,7 +103,7 @@ Rectangle {
             // 可选：在滑块手柄上显示预览时间
             ToolTip {
                 parent: progressSlider.handle
-                visible: progressSlider.pressed
+                visible: progressSlider.hovered
                 text: musicControlMin.mediaTime
                 horizontalPadding: 8
                 background: Rectangle {
@@ -476,7 +476,7 @@ Rectangle {
             }
             WheelHandler {
                 onWheel: (event) => {
-                    Playback.stepVolume(event.angleDelta.y > 0 ? 0.05 : -0.05)
+                    Playback.stepVolume(event.angleDelta.y > 0 ? Playback.volumeStep : -Playback.volumeStep)
                     event.accepted = true
                 }
             }

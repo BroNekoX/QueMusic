@@ -3,8 +3,6 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Layouts
-import QtQuick.Effects
 import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {

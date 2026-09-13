@@ -124,6 +124,7 @@ QtObject {
     }
 
     // 音量
+    readonly property real volumeStep: Options.settings.volumeStep / 100
     function setVolume(v) { Options.settings.musicVolume = Math.max(0, Math.min(1, v)) }
     function stepVolume(d) { setVolume(Options.settings.musicVolume + d) }
     function toggleMute() { muted = !muted }

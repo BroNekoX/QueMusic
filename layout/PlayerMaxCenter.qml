@@ -530,11 +530,11 @@ Item {
                     text: modelData.text || ""
                     font.weight: Style.settings.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: modelData.info ? Qt.rgba(0.96,0.96,0.96,1.0) : Qt.rgba(0.96 + lyricItem.opacityAnime * 0.04,0.96 + lyricItem.opacityAnime * 0.04,0.96 + lyricItem.opacityAnime * 0.04,1.0)
+                    color: modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
                     scale: lyricItem.isCurrent && !modelData.info ? 1.02 : 1.00
-                    opacity: modelData.info ? 0.4 : (0.4 + lyricItem.opacityAnime * 0.5)
+                    opacity: modelData.info ? 0.5 : (0.5 + lyricItem.opacityAnime * 0.4)
                     visible: modelData.info ? !lyricItem.isFlowActive : true
                     horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -552,8 +552,8 @@ Item {
                     horizontalAlignment: controlMaxLoader.lyricsType === 2 ? Text.AlignHCenter : modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.settings.textWidth
-                    color: "#fff5f5f5"
-                    opacity: 0.4 + lyricItem.opacityAnime * 0.2
+                    color: "#ffe8e8e8"
+                    opacity: 0.5 + lyricItem.opacityAnime * 0.2
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
@@ -603,8 +603,8 @@ Item {
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
-                                color: "#fff5f5f5"
-                                opacity: 0.4
+                                color: "#ffe8e8e8"
+                                opacity: 0.5
                             }
                             LinearGradient {
                                 property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
@@ -618,7 +618,7 @@ Item {
                                 end: Qt.point(countToWidth, 0)
                                 gradient: Gradient {
                                     GradientStop { position: 0.0; color: "#ffffffff" }
-                                    GradientStop { position: 1.0; color: "#66f5f5f5" }
+                                    GradientStop { position: 1.0; color: "#66e8e8e8" }
                                 }
                             }
                         }
@@ -721,7 +721,6 @@ Item {
     QOptionDialog {
         id: maxLyricsDialog
         title: "播放器样式"
-        dialogContentHeight: 460
         options: Column {
             width: parent.width
             spacing: 16

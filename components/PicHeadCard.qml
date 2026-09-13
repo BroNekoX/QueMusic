@@ -65,19 +65,14 @@ Item {
         }
 
         // 圆形黑色矩形（用于遮罩）
-        Item {
+        Rectangle {
             id: mask
             width: sourceItem.width
             height: sourceItem.height
             layer.enabled: true
             visible: false
-
-
-            Rectangle {
-                anchors.fill: parent
-                radius: root.radius
-                color: "black" // 黑色用于掩码：纯黑表示完全不透明
-            }
+            radius: root.radius
+            color: "#000000"
         }
     }
 

@@ -52,6 +52,12 @@ public:
 
     Q_INVOKABLE void clearCache();
 
+    // 自定义封面缓存目录（空串忽略；与当前目录相同则不变更）
+    Q_INVOKABLE void setCacheDir(const QString &path);
+
+    // 缓存超出上限时按最旧优先删除缓存文件
+    Q_INVOKABLE void pruneCache(int maxMB);
+
 signals:
     void currentCoverUrlChanged();
     void localCoverReady(const QString &sourcePath, const QString &coverUrl);

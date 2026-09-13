@@ -398,12 +398,12 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [Taglib](https://github.com/taglib/taglib) — 用于解析本地音乐部分数据
 - [SMTC-Bridge-Cpp](https://github.com/Cainongw/SMTC-Bridge-Cpp) — Windows 系统媒体控件(SMTC)桥接参考实现(C++)
 - [smtc_bridge_rust](https://github.com/Cainongw/smtc_bridge_rust) — Windows 系统媒体控件(SMTC)桥接参考实现(Rust)
+- [Paper-design/shaders](https://github.com/paper-design/shaders) — 背景着色器"Fluid"的算法移植
 
 #### 其他对于本项目有帮助的
 
 - [EvolveUI](https://evolveui.top/) — 部分组件设计参考
 - [AMLL-Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) — 背景着色器的实现方法参考
-- [Paper-design/shaders](https://github.com/paper-design/shaders) — 背景着色器"Fluid"的算法移植
 - [ShaderToy](https://www.shadertoy.com/) — 着色器灵感来源
 - 所有贡献者与测试者
 

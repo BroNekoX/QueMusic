@@ -8,7 +8,7 @@ ScrollView {
     id: view
     contentWidth: availableWidth
     wheelEnabled: false
-    property real scrollToPosition: 0.0
+    property real scrollToPosition: 0
     property int barMargin: 18
     onContentHeightChanged: {
         scrollToPosition = viewBar.position;
@@ -37,7 +37,7 @@ ScrollView {
 
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines / view.contentHeight * 0.25
+        readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines / view.contentHeight * 0.25
         onWheel: (event) => {
             viewAnime.running = false;
             viewBar.active = true;

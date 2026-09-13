@@ -219,7 +219,7 @@ Rectangle {
             tipText: "静音"
             WheelHandler {
                 onWheel: e => {
-                    Playback.stepVolume(e.angleDelta.y > 0 ? 0.05 : -0.05)
+                    Playback.stepVolume(e.angleDelta.y > 0 ? Playback.volumeStep : -Playback.volumeStep)
                     e.accepted = true
                 }
             }

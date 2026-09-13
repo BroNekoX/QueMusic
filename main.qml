@@ -29,6 +29,13 @@ Window {
         MusicApi.songSource = Options.settings.mainMusicSource;
         MusicApi.downloadPath = Options.settings.downloadFolder;
 
+        if(Options.settings.rememberWindow && Options.settings.winW > 0) {
+            window.x = Options.settings.winX;
+            window.y = Options.settings.winY;
+            window.width = Options.settings.winW;
+            window.height = Options.settings.winH;
+        }
+
         window.visible = true;
 
         Playback.player = mainMedia;
@@ -42,6 +49,32 @@ Window {
             Playback.loadHistory();
             window.restoreSession();
         });
+
+        if(Options.settings.cacheUrl)
+            coverHelper.setCacheDir(Options.settings.cacheUrl);
+        coverHelper.pruneCache(Options.settings.cacheSize);
+
+        if(Options.settings.autoUpdate)
+            autoUpdateTimer.start();
+    }
+
+    function silentUpdateCheck() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                var remote = parseInt(xhr.responseText.trim().substring(3));
+                if (remote > Options.versionCode)
+                    mainWarn.tiped("发现新版本 v" + remote + "，请在设置-关于中查看", 1);
+            }
+        }
+        xhr.open("GET", "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt");
+        xhr.send();
+    }
+
+    Timer {
+        id: autoUpdateTimer
+        interval: 3000
+        onTriggered: window.silentUpdateCheck()
     }
 
     Connections {
@@ -59,56 +92,6 @@ Window {
     property string pendingSeekPath: ""
     property int smtcLastTimeline: 0
     property int smtcLastPosition: 0
-
-    Connections {
-        target: MusicApi
-        function onLocalLyricsReady(filePath, lyrics, translate) {
-            if (filePath !== window.localLyricsRequestPath)
-                return;
-            MusicApi.lyricsData = lyrics;
-            MusicApi.lyricsTranslate = translate || [];
-        }
-        function onLocalLyricsFailed(filePath) {
-            if (filePath !== window.localLyricsRequestPath)
-                return;
-            MusicApi.setLocalLyrics();
-        }
-        function onLocalMetadataReady(filePath, meta) {
-            if (filePath !== window.localLyricsRequestPath)
-                return;
-            if (meta.title)
-                window.musicTitle = meta.title;
-            if (meta.artist)
-                window.musicArtist = meta.artist;
-            if (meta.album)
-                mainMedia.album = meta.album;
-            var hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
-            MusicApi.lyricsData = meta.lyrics || [];
-            MusicApi.lyricsTranslate = meta.translate || [];
-            if (!hasMetaLyrics)
-                MusicApi.setLocalLyrics();
-            MusicApi.readLocalLyricsAsync(filePath, meta.title || mainMedia.noTitle,
-                                          meta.artist || "", meta.duration || 0, !hasMetaLyrics);
-            if (meta.cover) {
-                mainMedia.urlStr = meta.cover;
-                colorExtractor.extractColorsFromUrl(meta.cover);
-            } else {
-                coverHelper.findEmbeddedCoverAsync(filePath);
-            }
-        }
-    }
-
-    Connections {
-        target: coverHelper
-        function onLocalCoverReady(path, coverUrl) {
-            if (path !== window.localLyricsRequestPath)
-                return;
-            var localCover = coverUrl || coverHelper.findLocalCover(path);
-            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
-            if (localCover)
-                colorExtractor.extractColorsFromUrl(localCover);
-        }
-    }
 
     // 统一搜索入口：清空结果、写入搜索历史并触发搜索
     function doSearch(text) {
@@ -159,10 +142,15 @@ Window {
             Options.lastSongs.position = mainMedia.position;
             console.log("保存当前音乐记录。");
         }
+        if(Options.settings.rememberWindow && window.visibility === Window.Windowed) {
+            Options.settings.winX = window.x;
+            Options.settings.winY = window.y;
+            Options.settings.winW = window.width;
+            Options.settings.winH = window.height;
+        }
         window.saveQueue();
         Playback.flush();
         // 清理桌面悬浮窗
-        desktopSpot.active = false;
         desktopLyricsLoader.active = false;
         desktopPlayerLoader.active = false;
         window.close();
@@ -190,7 +178,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.play // 暂停/播放
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut && Options.settings.globalShortcutPlay
+        enabled: Options.settings.openShortCut && Options.shortCuts.globalShortcutPlay
         onActivated: {
             console.log("shortcut--play");
             Playback.togglePlay();
@@ -199,7 +187,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.back // 上一首
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut && Options.settings.globalShortcutBack
+        enabled: Options.settings.openShortCut && Options.shortCuts.globalShortcutBack
         onActivated: {
             console.log("shortcut--back");
             musicControlMin.lastMedia();
@@ -208,7 +196,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.forward // 下一首
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut && Options.settings.globalShortcutForward
+        enabled: Options.settings.openShortCut && Options.shortCuts.globalShortcutForward
         onActivated: {
             console.log("shortcut--forward");
             musicControlMin.enterMedia();
@@ -217,7 +205,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.playList // 播放菜单
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut && Options.settings.globalShortcutPlayList
+        enabled: Options.settings.openShortCut && Options.shortCuts.globalShortcutPlayList
         onActivated: {
             console.log("shortcut--playList");
             if(playList.visible) {
@@ -230,7 +218,7 @@ Window {
     Shortcut {
         sequence: Options.shortCuts.musicControl // 播放模式切换
         context: Qt.ApplicationShortcut
-        enabled: Options.settings.openShortCut && Options.settings.globalShortcutMusicControl
+        enabled: Options.settings.openShortCut && Options.shortCuts.globalShortcutMusicControl
         onActivated: {
             if(mainLayout.state === "") {
                 controlMaxLoader.active = true;
@@ -246,8 +234,8 @@ Window {
     // 键位与开关都走设置页（Options.shortCuts / globalShortcut*）
     Instantiator {
         model: [
-            { k: "volumeUp",      a: function() { Playback.stepVolume(0.05); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
-            { k: "volumeDown",    a: function() { Playback.stepVolume(-0.05); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
+            { k: "volumeUp",      a: function() { Playback.stepVolume(Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
+            { k: "volumeDown",    a: function() { Playback.stepVolume(-Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
             { k: "seekBack",      a: function() { Playback.seekBack() } },
             { k: "seekForward",   a: function() { Playback.seekForward() } },
             { k: "mute",          a: function() { Playback.toggleMute(); mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0) } },
@@ -262,7 +250,7 @@ Window {
             readonly property string flag: "globalShortcut" + modelData.k.charAt(0).toUpperCase() + modelData.k.slice(1)
             sequence: Options.shortCuts[modelData.k]
             context: Qt.ApplicationShortcut
-            enabled: Options.settings.openShortCut && Options.settings[flag]
+            enabled: Options.settings.openShortCut && Options.shortCuts[flag]
             onActivated: modelData.a()
         }
     }
@@ -452,13 +440,13 @@ Window {
             id: maxedAnimation
             NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: mainLayout.height; to: 0; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 30; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.blurOverlayColor; duration: 320 }
+            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.blurOverlayColor; duration: Style.animeDuration }
         }
         ParallelAnimation {
             id: minedAnimation
             NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: 320 }
+            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: Style.animeDuration }
             onFinished: {
                 controlMaxLoader.visible = false;
                 controlMaxLoader.active = false;
@@ -696,7 +684,7 @@ Window {
             }
             width: mainLayout.width
             height: mainLayout.height
-            source: "qrc:/QueMusic/layout/PlayerMaxCenter.qml"
+            sourceComponent: PlayerMaxCenter {}//"qrc:/QueMusic/layout/PlayerMaxCenter.qml"
         }
         //提取颜色部分
         Item {
@@ -745,18 +733,19 @@ Window {
 
     Loader {
         active: Options.settings.displayFps
+        visible: active
+        anchors.top: mainLayout.top
+        anchors.right: mainLayout.right
+        anchors.topMargin: 68
+        anchors.rightMargin: 16
+        width: 78
+        height: 24
         sourceComponent: Item {
             id: fpsCounter
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.topMargin: 68
-            anchors.rightMargin: 16
-            visible: Options.settings.displayFps
             z: 99
+            visible: true
             property int frames: 0
             property real fps: 0
-            width: 78
-            height: 24
             Rectangle {
                 anchors.fill: parent
                 radius: 12
@@ -781,8 +770,52 @@ Window {
             }
             Connections {
                 // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
+                enabled: Options.settings.displayFps
                 target: window
                 function onAfterRendering() { fpsCounter.frames++ }
+            }
+        }
+    }
+
+    // 调试模式：运行时状态面板
+    Loader {
+        active: Options.settings.debug
+        visible: active
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.topMargin: 68
+        anchors.leftMargin: 220
+        width: 260
+        height: 92
+        sourceComponent: Item {
+            id: debugHud
+            z: 99
+            property string info: ""
+            Rectangle {
+                anchors.fill: parent
+                radius: 12
+                color: Style.themes.shadowColor
+                opacity: 0.75
+            }
+            Text {
+                anchors.fill: parent
+                anchors.margins: 10
+                text: debugHud.info
+                color: Style.themes.fontColor
+                font.pixelSize: 11
+                font.family: textFont.name
+            }
+            Timer {
+                interval: 500
+                repeat: true
+                running: debugHud.visible
+                onTriggered: {
+                    debugHud.info = "调试模式"
+                            + "\n媒体状态: " + mainMedia.mediaStatus
+                            + "\n进度: " + Math.floor(mainMedia.position / 1000) + "s / " + Math.floor(mainMedia.duration / 1000) + "s"
+                            + "\n队列: " + playListModel.count + " 首"
+                            + "\n音量: " + Math.round(Options.settings.musicVolume * 100) + "%"
+                }
             }
         }
     }
@@ -819,6 +852,14 @@ Window {
 
     CoverHelper {
         id: coverHelper
+        onLocalCoverReady: (path, coverUrl) => {
+            if (path !== window.localLyricsRequestPath)
+                return;
+            var localCover = coverUrl || coverHelper.findLocalCover(path);
+            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
+            if (localCover)
+                colorExtractor.extractColorsFromUrl(localCover);
+        }
     }
 
     Connections {
@@ -848,6 +889,40 @@ Window {
         function onWarned(text,type) {
             mainWarn.tiped(text,type);
         }
+        function onLocalLyricsReady(filePath, lyrics, translate) {
+            if (filePath !== window.localLyricsRequestPath)
+                return;
+            MusicApi.lyricsData = lyrics;
+            MusicApi.lyricsTranslate = translate || [];
+        }
+        function onLocalLyricsFailed(filePath) {
+            if (filePath !== window.localLyricsRequestPath)
+                return;
+            MusicApi.setLocalLyrics();
+        }
+        function onLocalMetadataReady(filePath, meta) {
+            if (filePath !== window.localLyricsRequestPath)
+                return;
+            if (meta.title)
+                window.musicTitle = meta.title;
+            if (meta.artist)
+                window.musicArtist = meta.artist;
+            if (meta.album)
+                mainMedia.album = meta.album;
+            var hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
+            MusicApi.lyricsData = meta.lyrics || [];
+            MusicApi.lyricsTranslate = meta.translate || [];
+            if (!hasMetaLyrics)
+                MusicApi.setLocalLyrics();
+            MusicApi.readLocalLyricsAsync(filePath, meta.title || mainMedia.noTitle,
+                                          meta.artist || "", meta.duration || 0, !hasMetaLyrics);
+            if (meta.cover) {
+                mainMedia.urlStr = meta.cover;
+                colorExtractor.extractColorsFromUrl(meta.cover);
+            } else {
+                coverHelper.findEmbeddedCoverAsync(filePath);
+            }
+        }
     }
 
 
@@ -859,7 +934,7 @@ Window {
         id: getWave
         mediaPlayer: mainMedia
         renderWindow: window
-        enabled: Style.settings.waveDisplay && mainMedia.playing
+        enabled: Style.settings.waveDisplay && controlMaxLoader.visible//mainMedia.playing
         bands: 128
         //audioBufferOutput: mainMedia.audioBufferOutput
     }
@@ -1144,14 +1219,6 @@ Window {
         id: desktopPlayer
     }
 
-    // 桌面灵动岛（弃用？）
-    Loader {
-        id: desktopSpot
-        active: false
-        asynchronous: true
-        visible: status == Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopSpot.qml"
-    }
     // 沉浸模式
     Loader {
         id: musicCenter
@@ -1180,7 +1247,7 @@ Window {
     QAlertDialog {
         id: globalDialog
         title: "Dialog"
-        message: "呃呃呃呃呃呃呃？(>-<)"
+        message: "呃呃呃呃呃呃喵？(>-<)"
         isInput: false
         blurSource: mainLayout.visible ? mainLayout : settingsView
 
@@ -1224,7 +1291,6 @@ Window {
         property string source: "qrc:/QueMusic/resources/app/musicpic.png"
         property string fileName: "Picture.png"
         title: "查看图片"
-        dialogContentHeight: 320
         cancelText: "保存"
         cancelIcon: "\uf00f"
         onCancel: {

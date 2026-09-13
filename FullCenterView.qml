@@ -206,8 +206,8 @@ Window {
             case Qt.Key_Space: Playback.togglePlay(); break
             case Qt.Key_Left: Playback.previous(); break
             case Qt.Key_Right: Playback.next(false); break
-            case Qt.Key_Up: Playback.stepVolume(0.05); break
-            case Qt.Key_Down: Playback.stepVolume(-0.05); break
+            case Qt.Key_Up: Playback.stepVolume(Playback.volumeStep); break
+            case Qt.Key_Down: Playback.stepVolume(-Playback.volumeStep); break
             case Qt.Key_Escape: center.exit(); break
             case Qt.Key_F: center.toggleFull(); break
             case Qt.Key_M: Playback.toggleMute(); break

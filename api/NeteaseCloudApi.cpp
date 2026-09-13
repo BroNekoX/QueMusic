@@ -5,6 +5,7 @@
 #include "apihelper.h"   // QCloudMusicApi::ApiHelper
 #include "ApiCommon.h"
 
+#include <QDebug>
 #include <QRegularExpression>
 #include <QThread>
 #include <QVariantList>
@@ -128,7 +129,30 @@ public slots:
         const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
         const QVariantMap raw = m_api->invoke(member, arg);
 
-        QVariant data = mapResult(action, raw, call);
+        // 播放信息：song_detail 之后追加 song_url_v1 拿真实播放链接，
+        // 免登录可得 128k，带登录态 Cookie 可得 exhigh(320k) 及以上
+        QVariantMap effective = raw;
+        if (action == QLatin1String("getMusicInfo")) {
+            QVariantMap urlArg;
+            urlArg.insert(QStringLiteral("id"), arg.value(QStringLiteral("id")));
+            urlArg.insert(QStringLiteral("level"), QStringLiteral("exhigh"));
+            const QVariantMap urlRaw = m_api->invoke(QStringLiteral("song_url_v1"), urlArg);
+            const QVariantList urlData = urlRaw.value(QStringLiteral("body")).toMap()
+                                              .value(QStringLiteral("data")).toList();
+            if (urlData.isEmpty()) {
+                // 请求失败：留给外层回退公开外链
+            } else {
+                const QString url = urlData.first().toMap()
+                                        .value(QStringLiteral("url")).toString();
+                effective.insert(QStringLiteral("play_url"), url);
+                if (url.isEmpty()) // 服务端明确不给地址：版权/VIP 限制
+                    effective.insert(QStringLiteral("url_unavailable"), true);
+            }
+            qDebug() << "[netease] getMusicInfo id:" << arg.value(QStringLiteral("id"))
+                     << "play_url:" << effective.value(QStringLiteral("play_url")).toString();
+        }
+
+        QVariant data = mapResult(action, effective, call);
         emit result(action, data, kSource);
     }
 
@@ -156,7 +180,7 @@ private:
         if (action == QLatin1String("searchSongs")) {
             const QVariantMap result = data.value(QStringLiteral("result")).toMap();
             const int ntype = call.value(QStringLiteral("ntype")).toInt();
-            if (ntype == 1) {
+            if (ntype == 1 || ntype == 1006) {
                 info = parseSongList(result.value(QStringLiteral("songs")).toList());
             } else if (ntype == 1000) {
                 info = parsePlaylists(result.value(QStringLiteral("playlists")).toList());
@@ -197,6 +221,14 @@ private:
             if (songs.isEmpty())
                 songs = data.value(QStringLiteral("playlist")).toMap()
                             .value(QStringLiteral("tracks")).toList();
+            // top_list(playlist/v4/detail) 不支持服务端分页，一次返回全部曲目，客户端切片
+            if (action == QLatin1String("getMusicToplist")) {
+                const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
+                const int offset = arg.value(QStringLiteral("offset")).toInt();
+                const int limit = arg.value(QStringLiteral("limit")).toInt();
+                if (limit > 0)
+                    songs = offset < songs.size() ? songs.mid(offset, limit) : QVariantList();
+            }
             info = parseSongList(songs);
         }
         else if (action == QLatin1String("getPersonalFm")) {
@@ -300,9 +332,13 @@ private:
         else if (action == QLatin1String("getMusicInfo")) {
             const QString hash = call.value(QStringLiteral("hash")).toString();
             const int type = call.value(QStringLiteral("type")).toInt();
-            // 播放地址沿用 163 公开外链（稳定、免加密），元数据来自 QCloudMusicApi
-            const QString playUrl = QStringLiteral("http://music.163.com/song/media/outer/url?id=")
-                                    + hash + QStringLiteral(".mp3");
+            // 优先 song_url_v1 真实链接（登录后可拿更高音质）；
+            // 服务端明确不给地址（版权/VIP）时保持为空由上层提示；
+            // 仅在请求本身失败时回退公开外链
+            QString playUrl = data.value(QStringLiteral("play_url")).toString();
+            if (playUrl.isEmpty() && !data.value(QStringLiteral("url_unavailable")).toBool())
+                playUrl = QStringLiteral("http://music.163.com/song/media/outer/url?id=")
+                          + hash + QStringLiteral(".mp3");
 
             const QVariantList songs = data.value(QStringLiteral("songs")).toList();
             const QVariantMap s = songs.isEmpty() ? QVariantMap() : songs.first().toMap();
@@ -418,12 +454,11 @@ void NeteaseCloudApi::setCookie(const QString &cookie)
 
 void NeteaseCloudApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
 {
-    if (type == 3) { // 网易云无歌词搜索接口
-        emit resultReady(QStringLiteral("searchSongs"),
-                         ApiCommon::listResult(QVariantList()), kSource);
-        return;
-    }
-    const int ntype = type == 1 ? 1000 : type == 2 ? 10 : 1; // 1 单曲 / 1000 歌单 / 10 专辑
+    // 1 单曲 / 1000 歌单 / 10 专辑 / 1006 歌词
+    int ntype = 1;
+    if (type == 1) ntype = 1000;
+    else if (type == 2) ntype = 10;
+    else if (type == 3) ntype = 1006;
     QVariantMap arg;
     arg.insert(QStringLiteral("keywords"), keyword);
     arg.insert(QStringLiteral("type"), ntype);

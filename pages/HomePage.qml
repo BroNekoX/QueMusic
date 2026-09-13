@@ -141,14 +141,16 @@ Item {
                 }
                 // 首页头部部分
                 Item {
-                    height: 256
+                    id: headerRow
+                    readonly property int layout: Style.settings.homeLayout
+                    height: layout === 0 ? 256 : layout === 1 ? 528 : 408
                     width: homeView.standWidth
                     readonly property int leftWidth: homeView.standWidth * 0.6
                     readonly property int rightWidth: homeView.standWidth * 0.4
 
                     // 每日推荐大卡片
                     QFloatCard {
-                        width: parent.leftWidth - 8
+                        width: headerRow.layout === 0 ? headerRow.leftWidth - 8 : headerRow.width
                         height: 256
 
                         // 大标题
@@ -238,8 +240,11 @@ Item {
                     }
 
                     QFloatCard {
-                        x: parent.leftWidth + 8
-                        width: parent.rightWidth - 8
+                        x: headerRow.layout === 0 ? headerRow.leftWidth + 8 : 0
+                        y: headerRow.layout === 0 ? 0 : 272
+                        width: headerRow.layout === 0 ? headerRow.rightWidth - 8
+                              : headerRow.layout === 1 ? headerRow.width
+                              : headerRow.width * 0.5 - 8
                         height: 120
 
                         Text {
@@ -347,9 +352,12 @@ Item {
 
                     // 我的收藏歌单
                     QFloatCard {
-                        x: parent.leftWidth + 8
-                        y: 136
-                        width: parent.rightWidth - 8
+                        x: headerRow.layout === 0 ? headerRow.leftWidth + 8
+                              : headerRow.layout === 2 ? headerRow.width * 0.5 + 8 : 0
+                        y: headerRow.layout === 0 ? 136 : headerRow.layout === 1 ? 408 : 272
+                        width: headerRow.layout === 0 ? headerRow.rightWidth - 8
+                              : headerRow.layout === 1 ? headerRow.width
+                              : headerRow.width * 0.5 - 8
                         height: 120
                         color: Style.themes.containColor
 
@@ -388,14 +396,16 @@ Item {
                 QHead { text: "私人专属" }
 
                 Item {
-                    height: 180
+                    id: privateRow
+                    readonly property int layout: Style.settings.homeLayout
+                    height: layout === 0 ? 180 : layout === 1 ? 376 : 294
                     width: homeView.standWidth
                     readonly property int leftWidth: homeView.standWidth * 0.5 - 8
                     readonly property int rightWidth: homeView.standWidth * 0.5 - 8
                     Rectangle {
                         x: 0
                         y: 0
-                        width: parent.leftWidth
+                        width: privateRow.layout === 0 ? privateRow.leftWidth : privateRow.width
                         height: 180
                         color: Style.themes.primaryColor
                         radius: Style.settings.cubeRadius
@@ -512,9 +522,11 @@ Item {
                         }
                     }
                     QFloatCard {
-                        x: parent.leftWidth + 16
-                        y: 0
-                        width: parent.rightWidth
+                        x: privateRow.layout === 0 ? privateRow.leftWidth + 16 : 0
+                        y: privateRow.layout === 0 ? 0 : 196
+                        width: privateRow.layout === 0 ? privateRow.rightWidth
+                              : privateRow.layout === 1 ? privateRow.width
+                              : privateRow.width * 0.5 - 8
                         height: 82
                         Text {
                             x: 20
@@ -568,9 +580,12 @@ Item {
                         }
                     }
                     QFloatCard {
-                        x: parent.leftWidth + 16
-                        y: 98
-                        width: parent.rightWidth
+                        x: privateRow.layout === 0 ? privateRow.leftWidth + 16
+                              : privateRow.layout === 2 ? privateRow.width * 0.5 + 8 : 0
+                        y: privateRow.layout === 0 ? 98 : privateRow.layout === 2 ? 196 : 294
+                        width: privateRow.layout === 0 ? privateRow.rightWidth
+                              : privateRow.layout === 1 ? privateRow.width
+                              : privateRow.width * 0.5 - 8
                         height: 82
                         Text {
                             x: 20

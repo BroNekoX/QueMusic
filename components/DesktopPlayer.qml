@@ -70,7 +70,6 @@ Popup {
                     anchors.right: parent.right
                     switchTrue: desktopPlayer.openTool
                     onToggled: {
-                        desktopSpot.active = false;
                         desktopPlayerLoader.active = false;
                         desktopLyricsLoader.active = false;
                         desktopPlayer.openTool = !desktopPlayer.openTool;
@@ -90,38 +89,42 @@ Popup {
                     anchors.right: parent.right
                     enabled: desktopPlayer.openTool
                     choice: desktopPlayer.desktopPlayerMode
-                    model: ["无","灵动岛(废弃)","小窗播放器","桌面歌词"]
+                    model: ["无","小窗播放器","桌面歌词"]
                     onTransformed: (choiced) => {
                         desktopPlayer.desktopPlayerMode = choiced;
                         switch(choiced) {
                             case 0:
                                 // 无：全部关闭
-                                desktopSpot.active = false;
                                 desktopPlayerLoader.active = false;
                                 desktopLyricsLoader.active = false;
                                 break;
                             case 1:
-                                // 灵动岛：开启灵动岛，关闭小窗
-                                desktopLyricsLoader.active = false;
-                                desktopPlayerLoader.active = false;
-                                desktopSpot.active = true;
-                                break;
-                            case 2:
                                 // 小窗播放器：开启小窗，关闭灵动岛
-                                desktopSpot.active = false;
                                 desktopLyricsLoader.active = false;
                                 desktopPlayerLoader.active = true;
                                 if (desktopPlayerLoader.status === Loader.Ready) {
                                     desktopPlayerLoader.item.show();
                                 }
                                 break;
-                            case 3:
+                            case 2:
                                 // 歌词栏：暂未实现
-                                desktopSpot.active = false;
                                 desktopPlayerLoader.active = false;
                                 desktopLyricsLoader.active = true;
                                 break;
                         }
+                    }
+                }
+            }
+
+            SettingItem {
+                label: "Windows SMTC 播放控制器"
+                controlWidth: 120
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: windowsSmtc.available
+                    onToggled: {
                     }
                 }
             }

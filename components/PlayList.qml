@@ -148,9 +148,9 @@ Popup {
                 onPressedChanged: playListView.scrollToY = playListView.contentY
             }
             WheelHandler {
-                property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines
+                property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines / 4
                 onWheel: (event) => {
-                    playListView.scrollToY = Math.max(-10, Math.min(playListView.scrollToY - (event.angleDelta.y / 4 * scrollMultiplier), playListView.contentHeight - playListView.height + 10))
+                    playListView.scrollToY = Math.max(-10, Math.min(playListView.scrollToY - (event.angleDelta.y * scrollMultiplier), playListView.contentHeight - playListView.height + 10))
                     listViewAnime.running = false
                     listViewAnime.running = true
                     event.accepted = true

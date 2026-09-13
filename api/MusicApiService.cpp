@@ -95,8 +95,10 @@ void MusicApiService::syncCookie(int source)
         return;
     if (source == kSourceNetease)
         m_netease.setCookie(m_account->neteaseCookie());
-    else if (source == kSourceKugou)
+    else if (source == kSourceKugou) {
         m_kugou.setCookie(m_account->kugouCookie());
+        m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
+    }
 }
 
 #define DISPATCH(source, expr)                       \
@@ -639,7 +641,6 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         m_newSongs.append(normalizeList(info));
     } else if (action == QLatin1String("getMusicToplist")) {
         // 榜单歌曲 → 填 playlistSong（供 playListSongsWindow 展示）
-        m_playlistSong.clear();
         m_playlistSong.append(normalizeList(info));
     } else if (action == QLatin1String("getAllToplist")) {
         // 单平台榜单列表：保留旧模型 + 累积到双平台模型（注入 source 供点击强制指定平台）
@@ -658,17 +659,31 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getSingerCategory")) {
         m_singerList.append(normalizeList(info));
     } else if (action == QLatin1String("getSingerSongs")) {
-        m_playlistSong.clear();
         m_playlistSong.append(normalizeList(info));
     } else if (action == QLatin1String("getPersonalFm")) {
         // 分页累积：第一页由 UI 侧 clear，后续页直接 append
-        m_personalFm.append(normalizeList(info));
+        const QVariantList items = info.toList();
+        if (items.isEmpty()) // 网易云 personal_fm 未登录返回空
+            emit warned(QStringLiteral("私人漫游需要先在设置中登录账号"), 2);
+        else
+            m_personalFm.append(normalizeList(items));
     } else if (action == QLatin1String("getPersonalRadar")) {
-        m_personalRadar.append(normalizeList(info));
+        const QVariantList items = info.toList();
+        if (items.isEmpty()) // 网易云 recommend_songs 未登录返回空
+            emit warned(QStringLiteral("私人雷达需要先在设置中登录账号"), 2);
+        else
+            m_personalRadar.append(normalizeList(items));
     } else if (action == QLatin1String("getMusicInfo")) {
         handleMusicInfo(d, source);
     } else if (action == QLatin1String("getLyricInfo")) {
-        setLyricsData(d.value(QStringLiteral("info")));
+        QVariantList onlineLyrics = d.value(QStringLiteral("info")).toList();
+        if (onlineLyrics.isEmpty()) { // 纯音乐/无歌词占位
+            QVariantMap line;
+            line.insert(QStringLiteral("time"), 0);
+            line.insert(QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏"));
+            onlineLyrics << line;
+        }
+        setLyricsData(onlineLyrics);
         setLyricsTranslate(d.value(QStringLiteral("translate")));
 
         const QString lyricHash = d.value(QStringLiteral("hash")).toString();
@@ -703,6 +718,11 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
 void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
 {
     const int type = d.value(QStringLiteral("type")).toInt();
+    const QString playUrl = firstNonEmpty(d, {"url", "backup_url"});
+    if (playUrl.isEmpty()) { // 酷狗 VIP/无版权歌曲 url 为空
+        emit warned(QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址"), 2);
+        return;
+    }
     if (type == 0) { // 播放
         QString cover = d.value(QStringLiteral("album_img")).toString();
         if (cover.contains(QLatin1String("{size}")))
@@ -713,7 +733,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
         // 秒 → 毫秒
         const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
         const int time = int(timeLength * (timeLength < 1000 ? 1000 : 1));
-        emit urlplay(d.value(QStringLiteral("backup_url")).toString(),
+        emit urlplay(playUrl,
                      d.value(QStringLiteral("songName")).toString(),
                      d.value(QStringLiteral("author_name")).toString(),
                      cover, solve,
@@ -738,7 +758,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
         meta.insert(QStringLiteral("cover"), cover);
         meta.insert(QStringLiteral("duration"), int(timeLength)); // 秒
         meta.insert(QStringLiteral("hash"), hash);
-        meta.insert(QStringLiteral("url"), d.value(QStringLiteral("url")).toString());
+        meta.insert(QStringLiteral("url"), playUrl);
         meta.insert(QStringLiteral("fileName"), d.value(QStringLiteral("fileName")).toString());
 
         // 先取歌词再下载

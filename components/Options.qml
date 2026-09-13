@@ -21,23 +21,14 @@ QtObject {
         //全局
         property real musicVolume: 0.6
         property bool closeToManage: false //关闭则最小化托盘
+        property bool rememberWindow: false //记住窗口位置和大小
+        property int winX: 0
+        property int winY: 0
+        property int winW: 0
+        property int winH: 0
         property bool autoUpdate: false //自动检查更新
         property list<string> searchList: [] //搜索记录
         property bool openShortCut: true
-        // 每个功能单独控制是否为全局快捷键（#44：不要用总开关控制所有功能）
-        property bool globalShortcutPlay: true
-        property bool globalShortcutBack: true
-        property bool globalShortcutForward: true
-        property bool globalShortcutPlayList: true
-        property bool globalShortcutMusicControl: true
-        property bool globalShortcutVolumeUp: true
-        property bool globalShortcutVolumeDown: true
-        property bool globalShortcutSeekBack: true
-        property bool globalShortcutSeekForward: true
-        property bool globalShortcutMute: true
-        property bool globalShortcutAbLoop: true
-        property bool globalShortcutFavorite: true
-        property bool globalShortcutPlayerOptions: true
         property int cycleIndex: 0
         
         //播放器
@@ -51,6 +42,7 @@ QtObject {
         property int bufferSize: 2 //缓冲大小
         property bool autoPlay: true
         property int playerRateIndex: 2 //倍速预设
+        property int volumeStep: 5 //音量步长(%)
 
         //播放增强
         property int seekStep: 5 //精确跳转步长（秒）
@@ -117,6 +109,21 @@ QtObject {
         property string abLoop: "Ctrl+B"
         property string favorite: "Ctrl+D"
         property string playerOptions: "Ctrl+T"
+
+        // 每个功能单独控制是否为全局快捷键（#44：不要用总开关控制所有功能）
+        property bool globalShortcutPlay: true
+        property bool globalShortcutBack: true
+        property bool globalShortcutForward: true
+        property bool globalShortcutPlayList: true
+        property bool globalShortcutMusicControl: true
+        property bool globalShortcutVolumeUp: true
+        property bool globalShortcutVolumeDown: true
+        property bool globalShortcutSeekBack: true
+        property bool globalShortcutSeekForward: true
+        property bool globalShortcutMute: true
+        property bool globalShortcutAbLoop: true
+        property bool globalShortcutFavorite: true
+        property bool globalShortcutPlayerOptions: true
     }
     signal changeOptions()
 }

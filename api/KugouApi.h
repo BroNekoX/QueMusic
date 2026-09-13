@@ -24,6 +24,14 @@ public:
     explicit KugouApi(QObject *parent = nullptr);
 
     void setCookie(const QString &cookie) { m_cookie = cookie; }
+    // 设备标识（AccountManager 登录时生成/持久化，播放签名请求需要）
+    void setDeviceInfo(const QString &mid, const QString &dfid)
+    {
+        if (!mid.isEmpty())
+            m_mid = mid;
+        if (!dfid.isEmpty())
+            m_dfid = dfid;
+    }
 
     // 酷狗扫码登录鉴权辅助（原 WeCrypto；QCloudMusicApi 仅含网易云，不含酷狗签名）
     static QByteArray kugouWebSignature(const QJsonObject &params);
@@ -57,6 +65,8 @@ signals:
 private:
     using Callback = std::function<void(const QJsonObject &)>;
     void get(const QString &url, const Callback &cb); // GET 请求 + JSON 回调
+    QString cookieValue(const QString &key) const;
+    void requestSignedPlayInfo(const QString &hash, int type); // 登录态取 VIP 播放地址
 
     // KRC 歌词解码（替代 pako.mjs inflateRaw）
     static QString decodeKrc(const QByteArray &base64);
@@ -65,6 +75,8 @@ private:
 
     QNetworkAccessManager *m_nam = nullptr;
     QString m_cookie;
+    QString m_mid;
+    QString m_dfid;
 };
 
 #endif // KUGOUAPI_H

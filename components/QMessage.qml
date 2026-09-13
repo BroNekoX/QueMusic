@@ -118,7 +118,7 @@ ListView {
             }
         }
 
-        Label {
+        Text {
             x: 80
             y: 20
             width: 230
@@ -131,7 +131,7 @@ ListView {
             verticalAlignment: Text.AlignVCenter
         }
 
-        Label {
+        Text {
             x: 80
             y: 40
             width: 230

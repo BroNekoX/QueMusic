@@ -49,8 +49,8 @@ Item {
     // 圆形黑色矩形（用于遮罩）
     Rectangle {
         id: mask
-        width: sourceItem.width
-        height: sourceItem.height
+        width: root.width
+        height: root.height
         radius: root.radius
         color: "#000000"
         layer.enabled: true

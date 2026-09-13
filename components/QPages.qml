@@ -3,7 +3,6 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
 
 Item {
     id: root

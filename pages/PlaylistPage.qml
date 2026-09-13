@@ -661,36 +661,34 @@ Item {
                         break;
                     }
                 }
-                footer: Item {
-                    height: 60
-                    width: playListsView.width
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
-                            if(MusicApi.loadState) return;
-                            var id = MusicApi.globalid;
-                            var page = MusicApi.playlistSong.count / 20 + 1;
-                            if(playListSongsWindow.listType === "singer") {
-                                if(MusicApi.playlistSong.count % 20 === 0)
-                                    MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);
-                                else
-                                    mainWarn.tiped("没有更多了",0);
-                            } else if(playListSongsWindow.listType === "toplist") {
-                                if(MusicApi.playlistSong.count % 20 === 0)
-                                    MusicApi.getMusicToplist(page, 20, id, MusicApi.songSource);
-                                else
-                                    mainWarn.tiped("没有更多了",0);
-                            } else {
-                                if(MusicApi.playlistSong.count % 20 === 0)
-                                    MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
-                                else
-                                    mainWarn.tiped("没有更多了",0);
-                            }
+                onEnded: {
+                    if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
+                        var tagid = hotlistsWindow.id;
+                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
+                        isEnd = false;
+                    } else {
+                        if(MusicApi.playlistSong.count !== 0) {
+                            isEnd = true;
                         }
+                    }
+                    if(MusicApi.loadState) return;
+                    var id = MusicApi.globalid;
+                    var page = MusicApi.playlistSong.count / 20 + 1;
+                    if(playListSongsWindow.listType === "singer") {
+                        if(MusicApi.playlistSong.count % 20 === 0)
+                            MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);
+                        else
+                            mainWarn.tiped("没有更多了",0);
+                    } else if(playListSongsWindow.listType === "toplist") {
+                        if(MusicApi.playlistSong.count % 20 === 0)
+                            MusicApi.getMusicToplist(page, 20, id, MusicApi.songSource);
+                        else
+                            mainWarn.tiped("没有更多了",0);
+                    } else {
+                        if(MusicApi.playlistSong.count % 20 === 0)
+                            MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
+                        else
+                            mainWarn.tiped("没有更多了",0);
                     }
                 }
             }

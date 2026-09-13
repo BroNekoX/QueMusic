@@ -7,7 +7,6 @@ import QtQuick
 QOptionDialog {
     id: options
     title: "播放器选项"
-    dialogContentHeight: 750
     cancelText: "重置"
     cancelIcon: "\uf0c7"
 

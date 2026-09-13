@@ -10,7 +10,6 @@ Item {
     id: root
     clip: false
 
-    // --- 公共属性 ---
     property Item blurSource
     property real blurAmount: 1.0
     property real cardOpacity: 1.0
@@ -23,12 +22,12 @@ Item {
     property real borderWidth: 1
     property bool shadowEffect: false
 
-    default property alias content: contentItem.data
+    default property alias content: topCard.data
 
     implicitWidth: 300
     implicitHeight: 200
 
-    // --- 捕获背景内容 ---
+    // 捕获背景内容
     ShaderEffectSource {
         id: effectSource
         anchors.fill: parent
@@ -37,7 +36,7 @@ Item {
         visible: false
     }
 
-    // === 创建遮罩 ===
+    // 创建遮罩
     Rectangle {
         id: maskItem
         z: 1
@@ -61,7 +60,7 @@ Item {
         color: Style.themes.shadowColor
     }
 
-    // === 启用遮罩 ===
+    // 启用遮罩
     MultiEffect {
         z: 2
         anchors.fill: effectSource
@@ -70,7 +69,7 @@ Item {
         blurEnabled: true
         blurMax: root.blurMax
         blur: root.blurAmount
-        blurMultiplier: 0.5
+        blurMultiplier: Style.settings.highQualityBlur ? 0.0 : 0.5
         saturation: 0.7
         maskEnabled: true
         maskSource: maskItem
@@ -85,16 +84,8 @@ Item {
         radius: root.borderRadius
         color: root.cardColor
         z: 3
-        opacity: root.cardOpacity
+        //opacity: root.cardOpacity
         border.color: root.borderColor
         border.width: root.borderWidth
-    }
-
-    // 内容容器
-    Item {
-        id: contentItem
-        clip: false
-        anchors.fill: parent
-        z: 4
     }
 }

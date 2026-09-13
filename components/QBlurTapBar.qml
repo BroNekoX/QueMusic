@@ -69,7 +69,7 @@ Item {
         blurEnabled: true
         blurMax: root.blurMax
         blur: root.blurAmount
-        blurMultiplier: 0.5
+        blurMultiplier: Style.settings.highQualityBlur ? 0.0 : 0.5
         saturation: 0.7
         maskEnabled: root.blurMask
         maskSource: maskItem
@@ -87,7 +87,6 @@ Item {
         border.width: root.borderWidth
     }
 
-    // 内容容器
     Rectangle {
         id: topAnine
         y: 3
