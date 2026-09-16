@@ -135,7 +135,7 @@ Item {
     SButton {
         id: playerminedButton
         x: 20
-        y: 10 - controlMaxLoader.hideHeight
+        y: window.isMacOS ? 40 - controlMaxLoader.hideHeight * 2 : 10 - controlMaxLoader.hideHeight
         iconCharacter: "\uf096" // playermin icon
         width: 40
         height: 40
@@ -154,7 +154,7 @@ Item {
     SButton {
         id: centerStyleButton
         x: 70
-        y: 10 - controlMaxLoader.hideHeight
+        y: window.isMacOS ? 40 - controlMaxLoader.hideHeight * 2 : 10 - controlMaxLoader.hideHeight
         iconCharacter: "\uf116" // playermin icon
         width: 40
         height: 40

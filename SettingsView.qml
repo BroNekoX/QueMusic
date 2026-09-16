@@ -338,20 +338,36 @@ Item {
             easing.type: Easing.OutExpo
         }
 
-        signal index1ed(int choice)
+        function index1ed(choice) {
+            if(window.isMacOS) {
+                choicebar1.willBarY = 44 * choice + 100
+            } else {
+                choicebar1.willBarY = 44 * choice + 80
+            }
+            if(choice > choicebar1.indexOld) {
+                downBarS.stop()
+                upBarS.stop()
+                downBarS.running = true
+            } else if(choice < choicebar1.indexOld) {
+                upBarS.stop()
+                downBarS.stop()
+                upBarS.running = true
+            }
+            choicebar1.indexOld = choice
+        }
 
         Rectangle {
             id: choicebar1
             x: 18
             width: 4
             height: barBottom - y
-            y: 80
+            y: window.isMacOS ? 100 : 80
             topRightRadius: 2
             bottomRightRadius: 2
             radius: 2
             color: Style.themes.themeColor
             opacity: 1
-            property int barBottom: 102
+            property int barBottom: window.isMacOS ? 122 : 102
             property int willBarY: 80
             property int indexOld: 0
             ParallelAnimation {
@@ -392,26 +408,10 @@ Item {
                     duration: 280
                 }
             }
-            Connections {
-                target: leftSidebarSettings
-                function onIndex1ed(choice) {
-                    choicebar1.willBarY = 44 * choice + 80
-                    if(choice > choicebar1.indexOld) {
-                        downBarS.stop()
-                        upBarS.stop()
-                        downBarS.running = true
-                    } else if(choice < choicebar1.indexOld) {
-                        upBarS.stop()
-                        downBarS.stop()
-                        upBarS.running = true
-                    }
-                    choicebar1.indexOld = choice
-                }
-            }
         }
 
         Item {
-            x: 16;y: 12
+            x: 16;y: window.isMacOS ? 42 : 12
             height: 36
             width: 180
             QWKButton {
@@ -457,7 +457,7 @@ Item {
         Column {
             id: navListViewSettings
             x: 15
-            y: 70
+            y: window.isMacOS ? 90 : 70
             width: 180
             height: settingsView.height - 80
             property int setChoiceIndex: 0
