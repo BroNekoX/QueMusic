@@ -107,7 +107,6 @@ QtObject {
     property NumberAnimation fadeAnime: NumberAnimation {
         target: root
         property: "factor"
-        //easing.type: Easing.InOutQuad
         onFinished: {
             var f = root.afterFade
             root.afterFade = null

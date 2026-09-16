@@ -15,13 +15,9 @@ Menu {
     property int current: -1
     title: "Menu"
     parent: Overlay.overlay
-    //parent: Overlay.overlay
-    //closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
     property list<string> model: []
     signal clicked(int index)
 
-    //height: 40
-    //onClosed: { input.text = ""; input.focus = false }
 
     background: QBlurCard {
         implicitWidth: 150

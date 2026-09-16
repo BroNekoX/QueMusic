@@ -34,10 +34,13 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libfuse2 ninja-build wget file \
             libpulse-dev libpulse0 \
-            qt6-wayland
-          # 尝试安装 fcitx5-qt6（可能不包含插件，但先装）
-          sudo apt-get install -y fcitx5-qt6 || echo "⚠️ fcitx5-qt6 not available, will try to locate plugin elsewhere"
-          ls -la /usr/lib/x86_64-linux-gnu/libpulse*
+            extra-cmake-modules libx11-dev
+          # 说明：
+          #   - 不再安装 qt6-wayland：那是「系统 Qt」的插件，与本项目 aqt 安装的
+          #     Qt 6.10.3 ABI 不匹配；Wayland 插件必须取自 aqt 的 Qt 目录
+          #   - 不再使用系统包 fcitx5-frontend-qt6 里的插件：它针对 Ubuntu 自带 Qt 编译，
+          #     塞进 Qt 6.10.3 运行时存在 ABI 风险，改为用同一份 Qt 从源码编译（见下一步）
+          #   - extra-cmake-modules(ECM) / libx11-dev 是编译 fcitx5-qt 插件所需
 
       - name: Install Qt 6.10.3 (aqtinstall)
         run: |
@@ -57,6 +60,25 @@ jobs:
         run: |
           cmake --build build -j"$(nproc)"
 
+      # 用与 aqt 完全相同的一份 Qt 6.10.3 从源码编译 fcitx5 的 Qt6 输入法插件。
+      # Qt 的平台输入法插件只对 major 版本硬校验，用系统包（针对 Ubuntu 自带 Qt 编译）
+      # 装进 6.10.3 运行时存在 ABI 风险 → 自己编一份，版本严格匹配。
+      # BUILD_ONLY_PLUGIN=ON：只编输入法插件，并把 fcitx5-qt 的公共代码（含 DBusAddons）
+      # 静态链接进插件，产物自包含 —— 不需要额外打包 libFcitx5Qt6DBusAddons，
+      # 也不会把 fcitx5 核心库带进 AppImage（避免与用户机器上的 fcitx5 守护进程版本冲突）。
+      - name: Build fcitx5 Qt6 input method plugin
+        run: |
+          git clone --depth 1 https://github.com/fcitx/fcitx5-qt.git fcitx5-qt
+          cmake -S fcitx5-qt -B fcitx5-qt/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.10.3/gcc_64" \
+            -DENABLE_QT4=OFF \
+            -DENABLE_QT5=OFF \
+            -DENABLE_QT6=ON \
+            -DBUILD_ONLY_PLUGIN=ON
+          cmake --build fcitx5-qt/build -j"$(nproc)"
+          find fcitx5-qt/build -name "libfcitx5platforminputcontextplugin*.so"
+
       - name: Download linuxdeploy tools
         run: |
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -75,37 +97,39 @@ jobs:
           cp packaging/QueMusic.desktop AppDir/usr/share/applications/
           cp resources/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
 
-          # 1. 从我们自己的 Qt 安装复制 Wayland 平台插件
           QT_PLUGIN_DIR="$HOME/Qt/6.10.3/gcc_64/plugins"
-          if [ -f "$QT_PLUGIN_DIR/platforms/libqwayland-generic.so" ]; then
-            cp "$QT_PLUGIN_DIR/platforms/libqwayland-generic.so" \
-               AppDir/usr/plugins/platforms/
-            echo "✅ Wayland plugin copied from Qt installation."
-          else
-            echo "⚠️ Wayland plugin not found in Qt installation, skipping."
-          fi
 
-          # 2. 从系统路径复制 fcitx5 输入法插件（如果存在）
-          FOUND_FCITX=""
-          for path in \
-            /usr/lib/x86_64-linux-gnu/qt6/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin-qt6.so \
-            /usr/lib/*/qt6/plugins/platforminputcontexts/*fcitx5*.so; do
-            if [ -f "$path" ]; then
-              FOUND_FCITX="$path"
-              break
+          # 1. Wayland 平台插件
+          # linuxdeploy-plugin-qt 默认只部署 libqxcb.so（X11），不会带 Wayland 平台插件。
+          # 缺了它，Qt 在 Wayland 会话里只能退回 XWayland → 分数缩放失效、窗口/字体忽大忽小。
+          # 用官方支持的 EXTRA_PLATFORM_PLUGINS 交给 linuxdeploy 连依赖一起部署。
+          WAYLAND_PLUGINS=""
+          for p in "$QT_PLUGIN_DIR"/platforms/libqwayland*.so; do
+            if [ -f "$p" ]; then
+              WAYLAND_PLUGINS="${WAYLAND_PLUGINS:+$WAYLAND_PLUGINS;}$(basename "$p")"
             fi
           done
-          if [ -n "$FOUND_FCITX" ]; then
-            cp "$FOUND_FCITX" AppDir/usr/plugins/platforminputcontexts/
-            echo "✅ fcitx5 plugin copied from $FOUND_FCITX."
-          else
-            echo "⚠️ fcitx5 input context plugin not found, skipping."
+          if [ -z "$WAYLAND_PLUGINS" ]; then
+            echo "!! 在 $QT_PLUGIN_DIR/platforms 下找不到 Wayland 平台插件"
+            echo "   aqt 的 linux desktop 基础包应含 qtwayland，请检查 Qt 安装是否完整"
+            exit 1
           fi
+          echo "EXTRA_PLATFORM_PLUGINS=$WAYLAND_PLUGINS" >> "$GITHUB_ENV"
+          echo "✅ 将部署 Wayland 平台插件: $WAYLAND_PLUGINS"
 
-          # 复制一些非 Qt 的基础系统库（xcb, wayland-client 等）
-          cp -n /usr/lib/x86_64-linux-gnu/libxcb*.so*    AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libxkbcommon*.so* AppDir/usr/lib/ 2>/dev/null || true
-          cp -n /usr/lib/x86_64-linux-gnu/libwayland*.so* AppDir/usr/lib/ 2>/dev/null || true
+          # 2. fcitx5 输入法插件（上一步用同一份 Qt 源码编译，Qt 版本严格匹配）
+          FOUND_FCITX="$(find fcitx5-qt/build -name 'libfcitx5platforminputcontextplugin*.so' -type f | head -n1)"
+          if [ -z "$FOUND_FCITX" ]; then
+            echo "!! 没找到源码编译的 fcitx5 输入法插件（缺它用户无法输入中文）"
+            echo "   请检查上一步 'Build fcitx5 Qt6 input method plugin' 的日志"
+            exit 1
+          fi
+          cp "$FOUND_FCITX" AppDir/usr/plugins/platforminputcontexts/
+          echo "✅ fcitx5 输入法插件（源码编译）: $FOUND_FCITX"
+
+          # 注意：不要手动把宿主系统的 libxcb*/libwayland*/libxkbcommon* 拷进 AppDir。
+          # 这些库必须与用户机器上的 X 服务/compositor 协议版本一致，打进 AppImage 反而会让
+          # Wayland/X11 在新系统上直接不可用（linuxdeploy 自身有排除表与依赖解析）。
 
           echo "✅ AppDir preparation completed."
 
@@ -118,8 +142,13 @@ jobs:
           export PATH="${HERE}/usr/bin/:${HERE}/bin/:${PATH:+:$PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
-          # 不强制指定平台，让 Qt 自动选择（优先 Wayland）
-          export QT_IM_MODULE=fcitx
+          # 平台插件交给 Qt 自动判断：有 Wayland 就用 Wayland，否则回退 X11
+          # （如需强制 X11：QT_QPA_PLATFORM=xcb ./QueMusic-x86_64.AppImage）
+          # 输入法：尊重用户已有设置，缺省 fcitx5（包内已带对应 Qt6 插件）
+          export QT_IM_MODULE="${QT_IM_MODULE:-fcitx}"
+          export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
+          # 分数缩放（125%/150%）：Qt6 默认把缩放系数取整，会导致窗口忽大忽小
+          export QT_SCALE_FACTOR_ROUNDING_POLICY="${QT_SCALE_FACTOR_ROUNDING_POLICY:-PassThrough}"
           exec "${HERE}/usr/bin/QueMusic" "$@"
           EOF
           chmod +x AppRun.sh
@@ -162,6 +191,31 @@ jobs:
 
           mv QueMusic-*.AppImage QueMusic-x86_64.AppImage 2>/dev/null || true
           ls -la QueMusic-*.AppImage
+
+      # 校验门禁：关键插件必须真的在包里，缺任何一个用户侧就是
+      # 「Wayland 缩放异常」或「无法输入中文」，所以这里直接让 CI 失败
+      - name: Verify AppImage contents
+        run: |
+          ./QueMusic-x86_64.AppImage --appimage-extract > /dev/null
+          MISSING=0
+          check() {
+            if ls $2 > /dev/null 2>&1; then
+              echo "✅ $1"
+            else
+              echo "❌ 缺少 $1（无匹配: $2）"
+              MISSING=1
+            fi
+          }
+          check "X11 平台插件 (libqxcb)"      "squashfs-root/usr/plugins/platforms/libqxcb.so"
+          check "Wayland 平台插件"            "squashfs-root/usr/plugins/platforms/libqwayland*.so"
+          check "fcitx5 输入法插件"           "squashfs-root/usr/plugins/platforminputcontexts/*fcitx5*.so"
+          check "SQLite 驱动"                 "squashfs-root/usr/plugins/sqldrivers/libqsqlite.so"
+          if ls squashfs-root/usr/lib/libQt6WaylandClient.so* > /dev/null 2>&1; then
+            echo "✅ Wayland 客户端库"
+          else
+            echo "⚠️  缺少 libQt6WaylandClient（Wayland 插件可能加载失败）"
+          fi
+          exit $MISSING
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4

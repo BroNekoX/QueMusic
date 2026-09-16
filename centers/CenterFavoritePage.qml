@@ -44,31 +44,31 @@ Item {
             QListView {
                 anchors.fill: parent
                 visible: page.favTab === 0
-                model: favoritesSong
+                model: FavoriteSongs
                 isList: false
                 onClicked: i => {
-                    var d = favoritesSong.get(i)
+                    var d = FavoriteSongs.get(i)
                     if (d.source === -1) center.playLocal(d.favId, d.title)
                     else MusicApi.getMusicInfo(d.favId, 0, d.source)
                 }
-                onToolClicked: (i, tool) => center.toolAction(tool, favoritesSong.get(i))
-                onMenuClicked: (i, choice) => center.menuAction(choice, favoritesSong.get(i))
+                onToolClicked: (i, tool) => center.toolAction(tool, FavoriteSongs.get(i))
+                onMenuClicked: (i, choice) => center.menuAction(choice, FavoriteSongs.get(i))
             }
             QListView {
                 anchors.fill: parent
                 visible: page.favTab === 1
-                model: favoritesList
+                model: FavoritePlaylists
                 isList: true
                 headerModel: ["标题", "创建者", "曲目", "操作"]
-                onClicked: i => page.openList(favoritesList.get(i))
+                onClicked: i => page.openList(FavoritePlaylists.get(i))
             }
             QListView {
                 anchors.fill: parent
                 visible: page.favTab === 2
-                model: favoritesArtist
+                model: FavoriteArtists
                 isList: true
                 headerModel: ["歌手", "流派", "曲目", "操作"]
-                onClicked: i => page.openSinger(favoritesArtist.get(i))
+                onClicked: i => page.openSinger(FavoriteArtists.get(i))
             }
         }
     }

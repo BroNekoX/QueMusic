@@ -21,7 +21,6 @@ Popup {
         blurSource: mainLayout
         shadowEffect: true
         rectXy: Qt.rect(root.x, root.y, 360, root.height)
-        //color: Style.themes.primaryBlurColor
     }
     contentItem: Item {
         anchors.fill: parent
@@ -57,7 +56,6 @@ Popup {
             height: root.height - 60
             contentChildren: Column {
                 id: desktopSet
-                //z: 2
                 width: root.width - 32
                 spacing: 16
                 Item {
@@ -150,6 +148,22 @@ Popup {
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
                         text: mainMedia.album
+                        color: Style.themes.textColor
+                        readOnly: true
+                        selectByMouse: true
+                        selectionColor: Style.themes.themeColor
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                SettingItem {
+                    label: "实际音质："
+                    controlWidth: 120
+                    width: parent.width
+                    TextInput {
+                        height: 36
+                        anchors.right: parent.right
+                        font.pixelSize: Style.settings.textmain
+                        text: mainMedia.audioBit + " k"
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true

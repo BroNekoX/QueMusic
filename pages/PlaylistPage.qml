@@ -9,9 +9,7 @@ import 'qrc:/QueMusic/components'
 
 Item {
     id: playlistPage
-    //property alias animatedWindow: animationWrapper
     property real toolsWindow: 0
-    //property bool displaytop: flickable.contentY > 60 ? true : false
     Component.onCompleted: {
         if(!window.completedStart.playlistLoaded) {
             MusicApi.getPlaylistMenu(3);
@@ -50,7 +48,6 @@ Item {
                 x: parent.width - 120
                 y: 0
                 height: 36; width: 120
-                //radius: 18
                 anchors.right: parent.right
                 choice: MusicApi.songSource
                 textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#16750F" : "#756F0F"
@@ -65,6 +62,7 @@ Item {
                     MusicApi.getPlaylistMenu(3);
                     MusicApi.getNewSongs(1, 1, 20);
                     MusicApi.getAllToplist();
+                    toplistFlick.scrollTop();
                 }
             }
         }
@@ -215,7 +213,6 @@ Item {
                 height: parent.height - 104
                 model: MusicApi.newSongs
                 clip: true
-                //topMargin: 72
 
                 onEnded: {
                     if(MusicApi.newSongs.count % 20 === 0 && MusicApi.newSongs.count !== 0) {
@@ -323,7 +320,6 @@ Item {
                 width: parent.width + 16
                 model: MusicApi.musicPlaylists
                 property int artistX: width / 2 - 50
-                //topMargin: 72
                 bottomMargin: 24
 
                 onEnded: {
@@ -349,11 +345,11 @@ Item {
                 onToolClicked: (index,tool) => {
                     switch(tool) {
                     case 1:
-                        if (favoritesList.isFavorite(model.get(index).hash, "playlist")) {
-                            favoritesList.removeFavorite(model.get(index).hash, "playlist");
+                        if (FavoritePlaylists.isFavorite(model.get(index).hash, "playlist")) {
+                            FavoritePlaylists.removeFavorite(model.get(index).hash, "playlist");
                             mainWarn.tiped("取消收藏",0);
                         } else {
-                            favoritesList.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
+                            FavoritePlaylists.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
                             mainWarn.tiped("成功收藏",1);
                         }
                         break;
@@ -371,99 +367,94 @@ Item {
                     MusicApi.getAllToplist();
             }
 
-            QScrollView {
+            QGridView {
                 id: toplistFlick
-                width: parent.width + 24
+                width: parent.width + 16
                 height: parent.height
-                contentChildren: Flow {
-                    id: toplistFlow
-                    width: parent.width
-                    padding: 12
-                    topPadding: 68
-                    bottomPadding: 24
-                    //height: implicitHeight + 640
-                    spacing: 20
-                    Repeater {
-                        model: MusicApi.toplistList
-                        delegate: Rectangle {
-                            width: 156
-                            height: 216
-                            radius: Style.settings.labelRadius
-                            color: Style.themes.primaryColor
-                            scale: toplistCardArea.containsMouse ? 1.04 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
-                            RectangularShadow {
-                                anchors.fill: parent
-                                z: -1
-                                offset.x: 2
-                                offset.y: 2
-                                radius: Style.settings.labelRadius
-                                blur: toplistCardArea.containsMouse ? 24 : 8
-                                spread: 0
-                                color: Style.themes.shadowColor
-                                Behavior on blur { NumberAnimation { duration: 200 } }
-                            }
-                            QPicture {
-                                width: 156
-                                height: 156
-                                source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
-                                radius: Style.settings.labelRadius
-                                radius3: 0
-                                radius4: 0
-                                sourceSize: Qt.size(128,128)
-                            }
-                            // 平台徽标
-                            Rectangle {
-                                x: 8
-                                y: 8
-                                width: 50
-                                height: 20
-                                radius: 10
-                                color: model.source === 0 ? "#CDE8FF" : "#FFCDCD"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: model.source === 0 ? "酷狗" : "网易云"
-                                    font.pixelSize: 11
-                                    font.weight: Font.DemiBold
-                                    color: model.source === 0 ? "#0F3975" : "#750F0F"
-                                }
-                            }
-                            Text {
-                                x: 12
-                                y: 166
-                                width: 132
-                                text: model.title
-                                font.bold: true
-                                color: Style.themes.fontColor
-                                font.pixelSize: Style.settings.textmain
-                                elide: Text.ElideRight
-                            }
-                            Text {
-                                x: 12
-                                y: 190
-                                width: 132
-                                text: model.artist || ""
-                                color: Style.themes.textColor
-                                font.pixelSize: Style.settings.text
-                                elide: Text.ElideRight
-                            }
-                            MouseArea {
-                                id: toplistCardArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    MusicApi.playlistSong.clear();
-                                    MusicApi.globalid = model.hash;
-                                    playListSongsWindow.listType = "toplist";
-                                    MusicApi.getMusicToplist(1, 20, Number(model.hash), model.source);
-                                    playListSongsWindow.opened(model);
-                                    window.exitIndex = 2;
-                                }
-                            }
+                model: MusicApi.toplistList
+                cellWidth: 180
+                cellHeight: 240
+                rightMargin: -8
+                topMargin: 72
+                delegate: Rectangle {
+                    width: 156
+                    height: 216
+                    radius: Style.settings.labelRadius
+                    color: Style.themes.primaryColor
+                    scale: toplistCardArea.containsMouse ? 1.04 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
+                    RectangularShadow {
+                        anchors.fill: parent
+                        z: -1
+                        offset.x: 2
+                        offset.y: 2
+                        radius: Style.settings.labelRadius
+                        blur: toplistCardArea.containsMouse ? 24 : 8
+                        spread: 0
+                        color: Style.themes.shadowColor
+                        Behavior on blur { NumberAnimation { duration: 200 } }
+                    }
+                    QPicture {
+                        width: 156
+                        height: 156
+                        source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        radius: Style.settings.labelRadius
+                        radius3: 0
+                        radius4: 0
+                        sourceSize: Qt.size(128,128)
+                    }
+                    // 平台徽标
+                    Rectangle {
+                        x: 8
+                        y: 8
+                        width: 50
+                        height: 20
+                        radius: 10
+                        color: model.source === 0 ? "#CDE8FF" : "#FFCDCD"
+                        Text {
+                            anchors.centerIn: parent
+                            text: model.source === 0 ? "酷狗" : "网易云"
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                            color: model.source === 0 ? "#0F3975" : "#750F0F"
+                        }
+                    }
+                    Text {
+                        x: 12
+                        y: 166
+                        width: 132
+                        text: model.title
+                        font.bold: true
+                        color: Style.themes.fontColor
+                        font.pixelSize: Style.settings.textmain
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        x: 12
+                        y: 190
+                        width: 132
+                        text: model.artist || ""
+                        color: Style.themes.textColor
+                        font.pixelSize: Style.settings.text
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        id: toplistCardArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            MusicApi.playlistSong.clear();
+                            MusicApi.globalid = model.hash;
+                            playListSongsWindow.listType = "toplist";
+                            MusicApi.getMusicToplist(1, 20, Number(model.hash), model.source);
+                            playListSongsWindow.opened(model);
+                            window.exitIndex = 2;
                         }
                     }
                 }
             }
+
+
         }
         Item {
             id: album
@@ -662,15 +653,6 @@ Item {
                     }
                 }
                 onEnded: {
-                    if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
-                        var tagid = hotlistsWindow.id;
-                        MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
-                        isEnd = false;
-                    } else {
-                        if(MusicApi.playlistSong.count !== 0) {
-                            isEnd = true;
-                        }
-                    }
                     if(MusicApi.loadState) return;
                     var id = MusicApi.globalid;
                     var page = MusicApi.playlistSong.count / 20 + 1;

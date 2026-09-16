@@ -26,6 +26,5 @@ Item {
         text: root.text
         color: Style.themes.fontColor
         verticalAlignment: Text.AlignVCenter
-        //horizontalAlignment: Text.AlignHCenter
     }
 }

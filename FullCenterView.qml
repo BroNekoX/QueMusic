@@ -4,7 +4,7 @@
 // QueMusic Center —— 沉浸式主界面（独立窗口）
 // 顶部：品牌 / 页面 Tab 栏 / 音源 / 窗口控制；内容区最大宽 1400 居中
 // 数据来自全局单例 Playback / MusicApi / Style / Options 与根上下文模型
-// （songModel / myFolderModel / localFolderModel / favoritesSong / favoritesList / favoritesArtist）
+// （Songs / MyFolders / LocalFolders / FavoriteSongs / FavoritePlaylists / FavoriteArtists）
 // 窗口 id 为 center：centers/ 内组件用 root 指自己、center 指本窗口
 //
 import QtQuick
@@ -150,11 +150,11 @@ Window {
         var id = d.hash || d.favId || d.path
         if (!id)
             return
-        if (favoritesSong.isFavorite(id, "song")) {
-            favoritesSong.removeFavorite(id, "song")
+        if (FavoriteSongs.isFavorite(id, "song")) {
+            FavoriteSongs.removeFavorite(id, "song")
             mainWarn.tiped("取消收藏", 0)
         } else {
-            favoritesSong.addFavorite(id, d.title || d.name, d.artist || d.singer, coverOf(d.cover),
+            FavoriteSongs.addFavorite(id, d.title || d.name, d.artist || d.singer, coverOf(d.cover),
                                       validSource(d.source), d.duration || 0, "song")
             mainWarn.tiped("成功收藏", 1)
         }

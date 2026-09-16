@@ -22,7 +22,6 @@ Popup {
     anchors.centerIn: parent
     modal: true
     focus: true
-    //visible: card.opacity !== 0
     width: 420
     height: contentCol.implicitHeight + 40
     onClosed: { input.text = ""; input.focus = false }
@@ -31,7 +30,6 @@ Popup {
         anchors.fill: parent
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
-        //cardColor: Style.themes.primaryBlurColor
         borderRadius: Style.settings.cubeRadius
     }
 

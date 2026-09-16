@@ -183,7 +183,6 @@ Rectangle {
             Text {
                 width: 44
                 text: Playback.fmt(root.player ? root.player.position : 0)
-                //font.family: root.uiFont
                 font.pixelSize: 12
                 color: "#b9333333"
                 horizontalAlignment: Text.AlignRight
@@ -197,7 +196,6 @@ Rectangle {
             Text {
                 width: 44
                 text: Playback.fmt(root.player ? root.player.duration : 0)
-                //font.family: root.uiFont
                 font.pixelSize: 12
                 color: "#b9333333"
             }

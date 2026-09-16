@@ -46,7 +46,6 @@ Item {
                 x: parent.width - 96
                 y: 0
                 height: 36; width: 120
-                //radius: 18
                 anchors.right: parent.right
                 choice: MusicApi.songSource
                 textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#16750F" : "#756F0F"
@@ -118,11 +117,11 @@ Item {
                     }
                     break;
                 case 1:
-                    if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                        favoritesSong.removeFavorite(model.get(index).hash, "song");
+                    if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                        FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                         mainWarn.tiped("取消收藏",0);
                     } else {
-                        favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                        FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                         mainWarn.tiped("成功收藏",1);
                     }
                     break;
@@ -176,11 +175,11 @@ Item {
             onToolClicked: (index,tool) => {
                 switch(tool) {
                 case 1:
-                    if (favoritesList.isFavorite(model.get(index).hash, "playlist")) {
-                        favoritesList.removeFavorite(model.get(index).hash, "playlist");
+                    if (FavoritePlaylists.isFavorite(model.get(index).hash, "playlist")) {
+                        FavoritePlaylists.removeFavorite(model.get(index).hash, "playlist");
                         mainWarn.tiped("取消收藏",0);
                     } else {
-                        favoritesList.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
+                        FavoritePlaylists.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
                         mainWarn.tiped("成功收藏",1);
                     }
                     break;
@@ -260,11 +259,11 @@ Item {
                     }
                     break;
                 case 1:
-                    if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                        favoritesSong.removeFavorite(model.get(index).hash, "song");
+                    if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                        FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                         mainWarn.tiped("取消收藏",0);
                     } else {
-                        favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                        FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                         mainWarn.tiped("成功收藏",1);
                     }
                     break;
@@ -300,7 +299,6 @@ Item {
                 height: playListSongsWindow.height - 184
                 model: MusicApi.playlistSong
                 clip: true
-                //reuseItems: true
                 topMargin: 8
                 bottomMargin: 24
 
@@ -320,11 +318,11 @@ Item {
                         mainWarn.tiped("成功加入播放列表",1);
                         break;
                     case 1:
-                        if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                            favoritesSong.removeFavorite(model.get(index).hash, "song");
+                        if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                            FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                             mainWarn.tiped("取消收藏",0);
                         } else {
-                            favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                            FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                             mainWarn.tiped("成功收藏",1);
                         }
                         break;

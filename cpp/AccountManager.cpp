@@ -32,7 +32,8 @@ AccountManager::AccountManager(QObject *parent)
     m_jar = m_nam->cookieJar(); // QNetworkAccessManager 自带 jar
 
     m_neteasePollTimer = new QTimer(this);
-    m_neteasePollTimer->setInterval(2000);
+    // 4 秒一次：原 2 秒过于频繁，轮询过密会累积风控评分
+    m_neteasePollTimer->setInterval(4000);
     connect(m_neteasePollTimer, &QTimer::timeout, this, &AccountManager::pollNetease);
 
     // 网易云登录统一走 QCloudMusicApi（login_qr_* 接口），由其内部维护 cookie
@@ -45,6 +46,11 @@ AccountManager::AccountManager(QObject *parent)
     m_configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/Account.ini");
 
     loadPersisted();
+
+    // 把「客户端身份 + 已登录 cookie」注入 SDK 的全局 cookie：
+    // 之后所有网易云请求（扫码/轮询/其它接口）都会带上稳定 deviceId 与 os=pc。
+    // 未登录时也要带身份（mergeNeteaseIdentity 对空 cookie 同样会补上这两个字段）
+    m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
 }
 
 AccountManager::~AccountManager()
@@ -60,20 +66,185 @@ AccountManager::~AccountManager()
 // 通用：把 cookie 字符串写回 QNAM 的 jar，供后续搜索/播放等请求带上登录态
 void AccountManager::storeNeteaseCookieString(const QString &cookieStr)
 {
-    const QList<QNetworkCookie> cookies =
-        QNetworkCookie::parseCookies(cookieStr.toUtf8());
-    QUrl url(QStringLiteral("https://music.163.com"));
-    for (const QNetworkCookie &c : cookies) {
-        if (c.name().isEmpty())
+    m_neteaseCookie = mergeNeteaseIdentity(cookieStr);
+    writeNeteaseCookiesToJar(m_neteaseCookie);
+    m_api->set_cookie(m_neteaseCookie);
+}
+
+// "a=1; b=2" 形式的 Cookie 写进 QNAM 的 jar，供后续请求自动携带
+void AccountManager::writeNeteaseCookiesToJar(const QString &cookie)
+{
+    if (cookie.isEmpty())
+        return;
+    QList<QNetworkCookie> cookies;
+    const QStringList parts = cookie.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    for (const QString &p : parts) {
+        const QString t = p.trimmed();
+        const int eq = t.indexOf(QLatin1Char('='));
+        if (eq <= 0)
             continue;
-        QNetworkCookie cc = c;
-        if (cc.domain().isEmpty()) {
-            cc.setDomain(QStringLiteral(".music.163.com"));
-            cc.setPath(QStringLiteral("/"));
-        }
-        m_jar->setCookiesFromUrl(QList<QNetworkCookie>() << cc, url);
+        QNetworkCookie c(t.left(eq).trimmed().toUtf8(), t.mid(eq + 1).trimmed().toUtf8());
+        c.setDomain(QStringLiteral(".music.163.com"));
+        c.setPath(QStringLiteral("/"));
+        cookies << c;
     }
-    m_neteaseCookie = cookieStr;
+    m_jar->setCookiesFromUrl(cookies, QUrl(QStringLiteral("https://music.163.com")));
+}
+
+// 稳定的设备号：网易云按 deviceId 识别"同一台设备"。
+// QCloudMusicApi 默认每次启动随机生成 deviceId（request.cpp 的 kStaticDeviceId），
+// 同一台机器在服务端看来反复换设备，是扫码被判"环境异常"的主要嫌疑之一 ➜ 这里持久化。
+QString AccountManager::ensureNeteaseDeviceId()
+{
+    if (!m_neteaseDeviceId.isEmpty())
+        return m_neteaseDeviceId;
+
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup(QStringLiteral("Netease"));
+    m_neteaseDeviceId = s.value(QStringLiteral("deviceId")).toString().trimmed();
+    s.endGroup();
+
+    if (m_neteaseDeviceId.isEmpty()) {
+        static const QString hex = QStringLiteral("0123456789ABCDEF");
+        for (int i = 0; i < 52; ++i) // 与 SDK 生成格式一致（52 位大写 hex）
+            m_neteaseDeviceId.append(hex.at(QRandomGenerator::global()->bounded(hex.size())));
+        QSettings w(m_configPath, QSettings::IniFormat);
+        w.beginGroup(QStringLiteral("Netease"));
+        w.setValue(QStringLiteral("deviceId"), m_neteaseDeviceId);
+        w.endGroup();
+        w.sync();
+    }
+    return m_neteaseDeviceId;
+}
+
+// 给 cookie 补上客户端身份：os=pc（与 weapi 的 PC Chrome UA、网页扫码 type=1 自洽）
+// + 持久 deviceId（替换掉 SDK 的每进程随机值，也替换外部导入的其它 os）
+QString AccountManager::mergeNeteaseIdentity(const QString &cookie) const
+{
+    QStringList out;
+    const QStringList parts = cookie.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    for (const QString &raw : parts) {
+        const QString p = raw.trimmed();
+        if (p.isEmpty())
+            continue;
+        const int eq = p.indexOf(QLatin1Char('='));
+        const QString key = eq > 0 ? p.left(eq).trimmed() : p;
+        if (key.compare(QStringLiteral("deviceId"), Qt::CaseInsensitive) == 0
+            || key.compare(QStringLiteral("os"), Qt::CaseInsensitive) == 0) {
+            continue; // 丢弃旧值，统一由下面两个字段决定
+        }
+        out << p;
+    }
+    out << QStringLiteral("deviceId=") + m_neteaseDeviceId;
+    out << QStringLiteral("os=pc");
+    return out.join(QStringLiteral("; "));
+}
+
+// 账号信息接口：既用于扫码登录成功后刷新昵称/头像，也用于校验手工填入的 Cookie
+void AccountManager::verifyNeteaseLogin()
+{
+    QNetworkRequest req(QUrl(QStringLiteral("https://music.163.com/api/nuser/account/get")));
+    req.setRawHeader("User-Agent", kUa);
+    req.setRawHeader("Referer", "https://music.163.com/");
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply] { onNeteaseProfile(reply); });
+}
+
+// 备用登录①：粘贴含 MUSIC_U 的 Cookie（扫码被风控拦截时的兜底，登录态交由账号信息接口校验）
+void AccountManager::loginNeteaseWithCookie(const QString &cookie)
+{
+    const QString c = cookie.trimmed();
+    if (c.isEmpty()) {
+        setNeteaseQr(QrError, QStringLiteral("请先粘贴 Cookie"));
+        return;
+    }
+    if (!c.contains(QStringLiteral("MUSIC_U"))) {
+        setNeteaseQr(QrError, QStringLiteral("Cookie 里没有 MUSIC_U，请复制完整 Cookie"));
+        return;
+    }
+    m_neteasePollTimer->stop();
+    storeNeteaseCookieString(c);
+    m_neteaseLoggedIn = true;
+    m_neteaseNickname = QStringLiteral("网易云音乐用户");
+    m_neteaseCookieVerifying = true; // 校验失败会自动撤销登录态
+    persistNetease();
+    setNeteaseQr(QrWaiting, QStringLiteral("正在校验 Cookie…"));
+    emit neteaseLoginChanged();
+    verifyNeteaseLogin();
+}
+
+// 备用登录②：发送短信验证码
+void AccountManager::sendNeteaseCaptcha(const QString &phone)
+{
+    const QString p = phone.trimmed();
+    if (p.isEmpty()) {
+        setNeteaseQr(QrError, QStringLiteral("请先填写手机号"));
+        return;
+    }
+    m_neteasePollTimer->stop();
+    setNeteaseQr(QrWaiting, QStringLiteral("正在发送验证码…"));
+    (void)QtConcurrent::run([this, p]() {
+        const QVariantMap res = m_api->invoke(
+            QStringLiteral("captcha_sent"),
+            QVariantMap{{QStringLiteral("cellphone"), p}, {QStringLiteral("ctcode"), QStringLiteral("86")}});
+        const QVariantMap body = res.value(QStringLiteral("body")).toMap();
+        const bool ok = res.value(QStringLiteral("status")).toInt() == 200
+                        && (body.value(QStringLiteral("code")).toInt() == 200
+                            || body.value(QStringLiteral("data")).toBool());
+        const QString msg = body.value(QStringLiteral("message")).toString();
+        QMetaObject::invokeMethod(
+            this,
+            [this, ok, msg] {
+                setNeteaseQr(ok ? QrWaiting : QrError,
+                             ok ? QStringLiteral("验证码已发送，请查看短信")
+                                : QStringLiteral("验证码发送失败：%1")
+                                      .arg(msg.isEmpty() ? QStringLiteral("请稍后重试") : msg));
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+// 备用登录③：手机号 + 验证码登录
+void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QString &captcha)
+{
+    const QString p = phone.trimmed();
+    const QString code = captcha.trimmed();
+    if (p.isEmpty() || code.isEmpty()) {
+        setNeteaseQr(QrError, QStringLiteral("请填写手机号与验证码"));
+        return;
+    }
+    m_neteasePollTimer->stop();
+    setNeteaseQr(QrWaiting, QStringLiteral("正在登录…"));
+    (void)QtConcurrent::run([this, p, code]() {
+        const QVariantMap res = m_api->invoke(
+            QStringLiteral("login_cellphone"),
+            QVariantMap{{QStringLiteral("phone"), p},
+                        {QStringLiteral("countrycode"), QStringLiteral("86")},
+                        {QStringLiteral("captcha"), code}});
+        const QVariantMap body = res.value(QStringLiteral("body")).toMap();
+        const int bcode = body.value(QStringLiteral("code")).toInt();
+        const QString cookie = res.value(QStringLiteral("cookie")).toString();
+        const QString msg = body.value(QStringLiteral("message")).toString();
+        QMetaObject::invokeMethod(
+            this,
+            [this, bcode, cookie, msg] {
+                if (bcode != 200 || cookie.isEmpty()) {
+                    setNeteaseQr(QrError,
+                                 QStringLiteral("登录失败：%1")
+                                     .arg(msg.isEmpty() ? QStringLiteral("验证码错误或已过期") : msg));
+                    return;
+                }
+                storeNeteaseCookieString(cookie);
+                m_neteaseLoggedIn = true;
+                m_neteaseNickname = QStringLiteral("网易云音乐用户");
+                persistNetease();
+                setNeteaseQr(QrSuccess, QStringLiteral("登录成功"));
+                emit neteaseLoginChanged();
+                emit message(QStringLiteral("网易云账号登录成功"), 1);
+                verifyNeteaseLogin();
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 // 通用：酷狗 web 签名 GET
@@ -158,7 +329,8 @@ void AccountManager::neteaseFetchQrWorker()
     if (unikey.isEmpty()) {
         m_neteaseBusy.storeRelease(0);
         QMetaObject::invokeMethod(this, "onNeteaseFetchError", Qt::QueuedConnection,
-                                  Q_ARG(QString, QStringLiteral("获取二维码失败，请重试")));
+                                  Q_ARG(QString, QStringLiteral("获取二维码失败（可能被网易云风控拦截），"
+                                                                "可改用手机号或 Cookie 登录")));
         return;
     }
 
@@ -206,13 +378,7 @@ void AccountManager::logoutNetease()
     m_jar->deleteCookie(QNetworkCookie(QStringLiteral("MUSIC_U").toUtf8(), QByteArray()));
     m_jar->setCookiesFromUrl({}, QUrl(QStringLiteral("https://music.163.com")));
 
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Netease"));
-    s.remove(QStringLiteral("cookie"));
-    s.remove(QStringLiteral("nickname"));
-    s.remove(QStringLiteral("avatar"));
-    s.endGroup();
-    s.sync();
+    clearLoginSettings(QStringLiteral("Netease"));
 
     setNeteaseQr(QrWaiting, QStringLiteral("已退出登录"));
     emit neteaseLoginChanged();
@@ -225,6 +391,11 @@ void AccountManager::pollNetease()
         m_neteasePollTimer->stop();
         return;
     }
+    if (m_neteaseQrDeadlineMs > 0 && QDateTime::currentMSecsSinceEpoch() > m_neteaseQrDeadlineMs) {
+        m_neteasePollTimer->stop();
+        setNeteaseQr(QrExpired, QStringLiteral("二维码已过期，请点击重新获取"));
+        return;
+    }
     // 登录走 QCloudMusicApi，invoke 为阻塞调用，放到线程池执行避免卡 UI
     const QString key = m_neteaseUnikey;
     (void)QtConcurrent::run([this, key]() { neteasePollWorker(key); });
@@ -235,6 +406,8 @@ void AccountManager::onNeteaseQrFetched(const QString &unikey, const QString &qr
     if (m_neteaseCancelled.loadAcquire())
         return;
     m_neteaseUnikey = unikey;
+    m_neteasePollFails = 0;
+    m_neteaseQrDeadlineMs = QDateTime::currentMSecsSinceEpoch() + 3 * 60 * 1000; // 3 分钟有效
     setNeteaseQr(QrWaiting, QStringLiteral("请使用网易云音乐App扫码登录"), qrurl);
     m_neteasePollTimer->start();
 }
@@ -257,35 +430,34 @@ void AccountManager::onNeteasePollResult(int code, const QString &cookie,
         setNeteaseQr(QrExpired, QStringLiteral("二维码已过期，请点击重新获取"));
         break;
     case 801: // 等待
+        m_neteasePollFails = 0;
         setNeteaseQr(QrWaiting, QStringLiteral("请使用网易云音乐App扫码登录"));
         break;
     case 802: // 已扫码
+        m_neteasePollFails = 0;
         setNeteaseQr(QrScanned, nickname.isEmpty() ? QStringLiteral("已扫码，请在手机上确认")
                                                     : QStringLiteral("%1 正在确认登录").arg(nickname));
         break;
     case 803: { // 成功
         m_neteasePollTimer->stop();
-        QString cookieStr = cookie;
-        if (!cookieStr.contains(QStringLiteral("os=pc")))
-            cookieStr += QStringLiteral("; os=pc");
-        storeNeteaseCookieString(cookieStr);
+        storeNeteaseCookieString(cookie); // 内部已统一身份（os=pc + 稳定 deviceId）
         m_neteaseLoggedIn = true;
         persistNetease();
         setNeteaseQr(QrSuccess, QStringLiteral("登录成功"));
         emit neteaseLoginChanged();
         emit message(QStringLiteral("网易云账号登录成功"), 1);
-
-        // 获取用户信息（m_jar 已写入 MUSIC_U，QNAM 会自动附带）
-        QNetworkRequest req(QUrl(QStringLiteral("https://music.163.com/api/nuser/account/get")));
-        req.setRawHeader("User-Agent", kUa);
-        req.setRawHeader("Referer", "https://music.163.com/");
-        QNetworkReply *profileReply = m_nam->get(req);
-        connect(profileReply, &QNetworkReply::finished, this,
-                [this, profileReply] { onNeteaseProfile(profileReply); });
+        verifyNeteaseLogin(); // 异步刷新昵称/头像
         break;
     }
     default:
-        setNeteaseQr(QrError, msg.isEmpty() ? QStringLiteral("未知状态") : msg);
+        // 801/802 之外的未知状态多是风控拦截：连续几次就停手，避免继续刷分
+        if (++m_neteasePollFails >= 3) {
+            m_neteasePollTimer->stop();
+            setNeteaseQr(QrError, QStringLiteral("网易云拒绝了本次登录（扫码环境被风控拦截），"
+                                                 "可改用手机号或 Cookie 登录"));
+        } else {
+            setNeteaseQr(QrWaiting, msg.isEmpty() ? QStringLiteral("登录状态异常，正在重试…") : msg);
+        }
         break;
     }
 }
@@ -316,14 +488,29 @@ void AccountManager::neteasePollWorker(const QString &key)
 void AccountManager::onNeteaseProfile(QNetworkReply *reply)
 {
     reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError)
+    const QJsonObject obj = reply->error() == QNetworkReply::NoError
+                                ? QJsonDocument::fromJson(reply->readAll()).object()
+                                : QJsonObject();
+    const QJsonObject profile = obj.value(QStringLiteral("profile")).toObject();
+    const bool ok = obj.value(QStringLiteral("code")).toInt() == 200 && !profile.isEmpty();
+    if (!ok) {
+        // 手工粘贴 Cookie 的校验失败：撤销登录态并明确提示；
+        // 扫码成功后的刷新失败则静默忽略（不影响已建立的登录态）
+        if (!m_neteaseCookieVerifying)
+            return;
+        m_neteaseCookieVerifying = false;
+        m_neteaseLoggedIn = false;
+        m_neteaseCookie.clear();
+        m_neteaseNickname.clear();
+        m_neteaseAvatar.clear();
+        m_jar->setCookiesFromUrl({}, QUrl(QStringLiteral("https://music.163.com")));
+        persistNetease();
+        setNeteaseQr(QrError, QStringLiteral("Cookie 无效或已过期，请重新获取"));
+        emit message(QStringLiteral("网易云 Cookie 校验失败"), 3);
+        emit neteaseLoginChanged();
         return;
-    QJsonObject obj = QJsonDocument::fromJson(reply->readAll()).object();
-    if (obj.value(QStringLiteral("code")).toInt() != 200)
-        return;
-    QJsonObject profile = obj.value(QStringLiteral("profile")).toObject();
-    if (profile.isEmpty())
-        return;
+    }
+    m_neteaseCookieVerifying = false;
     m_neteaseNickname = profile.value(QStringLiteral("nickname")).toString();
     m_neteaseAvatar = profile.value(QStringLiteral("avatarUrl")).toString();
     if (m_neteaseNickname.isEmpty())
@@ -394,13 +581,7 @@ void AccountManager::logoutKugou()
     m_kugouAvatar.clear();
     m_kugouCookie.clear();
 
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Kugou"));
-    s.remove(QStringLiteral("cookie"));
-    s.remove(QStringLiteral("nickname"));
-    s.remove(QStringLiteral("avatar"));
-    s.endGroup();
-    s.sync();
+    clearLoginSettings(QStringLiteral("Kugou"));
 
     setKugouQr(QrWaiting, QStringLiteral("已退出登录"));
     emit kugouLoginChanged();
@@ -507,17 +688,16 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
 
 // 持久化 / 工具
 
-QString AccountManager::buildNeteaseCookieString() const
+// 退出登录时清掉该平台的持久化登录态（设备标识等保留）
+void AccountManager::clearLoginSettings(const QString &group)
 {
-    QStringList parts;
-    const QList<QNetworkCookie> cookies =
-        m_jar->cookiesForUrl(QUrl(QStringLiteral("https://music.163.com")));
-    for (const QNetworkCookie &c : cookies) {
-        if (c.name().isEmpty() || c.value().isEmpty())
-            continue;
-        parts << QString::fromLatin1(c.name() + "=" + c.value());
-    }
-    return parts.join(QStringLiteral("; "));
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup(group);
+    s.remove(QStringLiteral("cookie"));
+    s.remove(QStringLiteral("nickname"));
+    s.remove(QStringLiteral("avatar"));
+    s.endGroup();
+    s.sync();
 }
 
 void AccountManager::persistNetease()
@@ -546,6 +726,8 @@ void AccountManager::persistKugou()
 
 void AccountManager::loadNetease()
 {
+    ensureNeteaseDeviceId(); // 身份先就绪，下面给 cookie 补 deviceId/os=pc
+
     QSettings s(m_configPath, QSettings::IniFormat);
     s.beginGroup(QStringLiteral("Netease"));
     m_neteaseCookie = s.value(QStringLiteral("cookie")).toString();
@@ -556,28 +738,15 @@ void AccountManager::loadNetease()
     if (m_neteaseCookie.isEmpty())
         return;
 
-    // 恢复 cookie 到 jar
-    QList<QNetworkCookie> cookies;
-    const QStringList parts = m_neteaseCookie.split(QLatin1Char(';'), Qt::SkipEmptyParts);
-    for (const QString &p : parts) {
-        QString t = p.trimmed();
-        int eq = t.indexOf(QLatin1Char('='));
-        if (eq <= 0)
-            continue;
-        QNetworkCookie c(t.left(eq).trimmed().toUtf8(), t.mid(eq + 1).trimmed().toUtf8());
-        c.setDomain(QStringLiteral(".music.163.com"));
-        c.setPath(QStringLiteral("/"));
-        cookies << c;
+    const QString merged = mergeNeteaseIdentity(m_neteaseCookie);
+    if (merged != m_neteaseCookie) {
+        m_neteaseCookie = merged;
+        persistNetease();
     }
-    m_jar->setCookiesFromUrl(cookies, QUrl(QStringLiteral("https://music.163.com")));
-    m_neteaseLoggedIn = true;
 
-    // 异步刷新昵称
-    QNetworkRequest req(QUrl(QStringLiteral("https://music.163.com/api/nuser/account/get")));
-    req.setRawHeader("User-Agent", kUa);
-    req.setRawHeader("Referer", "https://music.163.com/");
-    QNetworkReply *r = m_nam->get(req);
-    connect(r, &QNetworkReply::finished, this, [this, r] { onNeteaseProfile(r); });
+    writeNeteaseCookiesToJar(m_neteaseCookie);
+    m_neteaseLoggedIn = true;
+    verifyNeteaseLogin();
 }
 
 void AccountManager::loadKugou()
@@ -613,27 +782,14 @@ void AccountManager::setNeteaseBrowserCookie(const QString &cookie, const QStrin
 {
     if (cookie.trimmed().isEmpty())
         return;
-    m_neteaseCookie = cookie.trimmed();
+    m_neteaseCookie = mergeNeteaseIdentity(cookie.trimmed());
+    m_api->set_cookie(m_neteaseCookie);
     m_neteaseNickname = nickname.trimmed().isEmpty() ? QStringLiteral("网易云音乐用户")
                                                      : nickname.trimmed();
     m_neteaseAvatar = avatar.trimmed();
     m_neteaseLoggedIn = true;
 
-    // 把 Cookie 同步进 jar，供后续 QNetworkAccessManager 请求自动携带
-    QList<QNetworkCookie> cookies;
-    const QStringList parts = m_neteaseCookie.split(QLatin1Char(';'), Qt::SkipEmptyParts);
-    for (const QString &p : parts) {
-        QString t = p.trimmed();
-        int eq = t.indexOf(QLatin1Char('='));
-        if (eq <= 0)
-            continue;
-        QNetworkCookie c(t.left(eq).trimmed().toUtf8(), t.mid(eq + 1).trimmed().toUtf8());
-        c.setDomain(QStringLiteral(".music.163.com"));
-        c.setPath(QStringLiteral("/"));
-        cookies << c;
-    }
-    m_jar->setCookiesFromUrl(cookies, QUrl(QStringLiteral("https://music.163.com")));
-
+    writeNeteaseCookiesToJar(m_neteaseCookie);
     persistNetease();
     emit neteaseLoginChanged();
     emit message(QStringLiteral("网易云账号登录成功"), 1);

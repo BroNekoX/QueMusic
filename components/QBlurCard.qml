@@ -84,7 +84,6 @@ Item {
         radius: root.borderRadius
         color: root.cardColor
         z: 3
-        //opacity: root.cardOpacity
         border.color: root.borderColor
         border.width: root.borderWidth
     }

@@ -11,24 +11,25 @@ import QueMusic 1.0
 Item {
     id: settingsView
 
-
     // 账号登录面板展开状态
     property bool neteaseShowLogin: false
     property bool kugouShowLogin: false
+    // 扫码被风控时展开的备用登录方式（手机号 / 粘贴 Cookie）
+    property bool neteaseAltVisible: false
     property string neteaseLoginStatus: "等待登录…"
     property string kugouLoginStatus: "等待登录…"
 
     // 登录成功自动收起面板
     Connections {
-        target: accountManager
+        target: AccountManager
         function onNeteaseLoginChanged() {
-            if (accountManager.neteaseLoggedIn) {
+            if (AccountManager.neteaseLoggedIn) {
                 settingsView.neteaseShowLogin = false;
                 neteaseQrDialog.close();
             }
         }
         function onKugouLoginChanged() {
-            if (accountManager.kugouLoggedIn) {
+            if (AccountManager.kugouLoggedIn) {
                 settingsView.kugouShowLogin = false;
                 kugouQrDialog.close();
             }
@@ -42,9 +43,9 @@ Item {
         cancelText: "取消"
         confirmText: "关闭"
         blurSource: settingsView
-        onCancel: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
-        onConfirm: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
-        onClosed: { accountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onCancel: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onConfirm: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onClosed: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
 
         options: Column {
             width: parent.width
@@ -62,12 +63,12 @@ Item {
                     width: 212
                     height: 212
                     anchors.centerIn: parent
-                    qrText: accountManager.neteaseQrText
+                    qrText: AccountManager.neteaseQrText
                 }
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: accountManager.neteaseQrMessage
+                text: AccountManager.neteaseQrMessage
                 color: Style.themes.fontColor
                 font.pixelSize: Style.settings.textmain
                 elide: Text.ElideRight
@@ -75,7 +76,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
             QButton {
-                visible: accountManager.neteaseQrState === 3 || accountManager.neteaseQrState === 4
+                visible: AccountManager.neteaseQrState === 3 || AccountManager.neteaseQrState === 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "重新获取二维码"
                 width: 150
@@ -84,7 +85,134 @@ Item {
                 shadowEnabled: false
                 buttonColor: Style.themes.themeColor
                 textColor: Style.themes.primaryColor
-                onClicked: accountManager.startNeteaseQrLogin()
+                onClicked: AccountManager.startNeteaseQrLogin()
+            }
+
+            // ---- 备用登录方式（扫码提示"环境异常"时用）----
+            Text {
+                width: parent.width
+                text: "手机扫码提示「环境异常」是被网易云风控拦截，可改用下面的登录方式"
+                color: Style.themes.fontColor
+                opacity: 0.7
+                font.pixelSize: Style.settings.textmain - 3
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            QButton {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: settingsView.neteaseAltVisible ? "收起其他登录方式" : "其他登录方式"
+                width: 170
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                buttonColor: Style.themes.secondaryColor
+                textColor: Style.themes.fontColor
+                onClicked: settingsView.neteaseAltVisible = !settingsView.neteaseAltVisible
+            }
+
+            // 手机号 + 验证码登录
+            Column {
+                width: parent.width
+                spacing: 10
+                visible: settingsView.neteaseAltVisible
+
+                TextField {
+                    id: neteasePhoneInput
+                    width: parent.width
+                    height: 36
+                    leftPadding: 12
+                    placeholderText: "手机号"
+                    color: Style.themes.textColor
+                    font.pixelSize: Style.settings.textmain
+                    verticalAlignment: Text.AlignVCenter
+                    background: Rectangle {
+                        radius: 8
+                        color: Style.themes.primaryColor
+                        border.color: Style.themes.secondaryColor
+                        border.width: 1
+                    }
+                }
+
+                Row {
+                    width: parent.width
+                    spacing: 10
+
+                    TextField {
+                        id: neteaseCaptchaInput
+                        width: parent.width - 130
+                        height: 36
+                        leftPadding: 12
+                        placeholderText: "短信验证码"
+                        color: Style.themes.textColor
+                        font.pixelSize: Style.settings.textmain
+                        verticalAlignment: Text.AlignVCenter
+                        background: Rectangle {
+                            radius: 8
+                            color: Style.themes.primaryColor
+                            border.color: Style.themes.secondaryColor
+                            border.width: 1
+                        }
+                    }
+
+                    QButton {
+                        width: 120
+                        height: 36
+                        radius: Style.settings.labelRadius
+                        shadowEnabled: false
+                        text: "发送验证码"
+                        buttonColor: Style.themes.secondaryColor
+                        textColor: Style.themes.fontColor
+                        onClicked: AccountManager.sendNeteaseCaptcha(neteasePhoneInput.text)
+                    }
+                }
+
+                QButton {
+                    width: 150
+                    height: 36
+                    radius: Style.settings.labelRadius
+                    shadowEnabled: false
+                    text: "手机号登录"
+                    buttonColor: Style.themes.themeColor
+                    textColor: Style.themes.primaryColor
+                    onClicked: AccountManager.loginNeteaseWithCellphone(neteasePhoneInput.text,
+                                                                      neteaseCaptchaInput.text)
+                }
+            }
+
+            // 粘贴 Cookie 登录
+            Column {
+                width: parent.width
+                spacing: 10
+                visible: settingsView.neteaseAltVisible
+
+                TextField {
+                    id: neteaseCookieInput
+                    width: parent.width
+                    height: 36
+                    leftPadding: 12
+                    placeholderText: "粘贴含 MUSIC_U 的 Cookie"
+                    color: Style.themes.textColor
+                    font.pixelSize: Style.settings.textmain
+                    verticalAlignment: Text.AlignVCenter
+                    background: Rectangle {
+                        radius: 8
+                        color: Style.themes.primaryColor
+                        border.color: Style.themes.secondaryColor
+                        border.width: 1
+                    }
+                }
+
+                QButton {
+                    width: 150
+                    height: 36
+                    radius: Style.settings.labelRadius
+                    shadowEnabled: false
+                    text: "用 Cookie 登录"
+                    buttonColor: Style.themes.themeColor
+                    textColor: Style.themes.primaryColor
+                    onClicked: AccountManager.loginNeteaseWithCookie(neteaseCookieInput.text)
+                }
             }
         }
     }
@@ -96,9 +224,9 @@ Item {
         cancelText: "取消"
         confirmText: "关闭"
         blurSource: settingsView
-        onCancel: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
-        onConfirm: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
-        onClosed: { accountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+        onCancel: { AccountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+        onConfirm: { AccountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
+        onClosed: { AccountManager.cancelKugouQrLogin(); settingsView.kugouShowLogin = false; }
 
         options: Column {
             width: parent.width
@@ -116,12 +244,12 @@ Item {
                     width: 212
                     height: 212
                     anchors.centerIn: parent
-                    qrText: accountManager.kugouQrText
+                    qrText: AccountManager.kugouQrText
                 }
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: accountManager.kugouQrMessage
+                text: AccountManager.kugouQrMessage
                 color: Style.themes.fontColor
                 font.pixelSize: Style.settings.textmain
                 elide: Text.ElideRight
@@ -129,7 +257,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
             QButton {
-                visible: accountManager.kugouQrState === 3 || accountManager.kugouQrState === 4
+                visible: AccountManager.kugouQrState === 3 || AccountManager.kugouQrState === 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "重新获取二维码"
                 width: 150
@@ -138,7 +266,7 @@ Item {
                 shadowEnabled: false
                 buttonColor: Style.themes.themeColor
                 textColor: Style.themes.primaryColor
-                onClicked: accountManager.startKugouQrLogin()
+                onClicked: AccountManager.startKugouQrLogin()
             }
         }
     }
@@ -283,7 +411,7 @@ Item {
         }
 
         Item {
-            x: 15;y: 12
+            x: 16;y: 12
             height: 36
             width: 180
             QWKButton {
@@ -301,12 +429,12 @@ Item {
             }
 
             Label {
-                x: 56
+                x: 50
                 y: 0
                 width: 120
                 height: 36
                 text: "应用设置"
-                font.pixelSize: 13
+                font.pixelSize: 14
                 font.bold: false
                 verticalAlignment: Text.AlignVCenter
                 color: Style.themes.fontColor
@@ -412,8 +540,6 @@ Item {
     Rectangle {
         id: settingStack
         x: 210
-        //x: parent.width > 1410 ? parent.width / 2 - 495 : 210; y: 0
-        //width: parent.width > 1410 ? 1200 : parent.width - 210
         width: parent.width - 210
         height: parent.height
         color: Style.themes.secondaryColor
@@ -507,7 +633,6 @@ Item {
                         id: globalThemeCard
                         width: parent.width
                         padding: 0
-                        //Component.onCompleted: parent.height = height
 
                         SettingItemCard {
                             label: "设置全局主题"
@@ -687,21 +812,21 @@ Item {
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 0
-                                isLogin: accountManager.kugouLoggedIn
-                                header: accountManager.kugouAvatar
-                                name: accountManager.kugouNickname
+                                isLogin: AccountManager.kugouLoggedIn
+                                header: AccountManager.kugouAvatar
+                                name: AccountManager.kugouNickname
                                 onClicked: MusicApi.songSource = 0;
                                 onLogined: {
-                                    if (accountManager.kugouLoggedIn) {
+                                    if (AccountManager.kugouLoggedIn) {
                                         globalDialog.openSimpleDialog("警告", "是否退出账号？",
                                             function() {
-                                                accountManager.logoutKugou();
+                                                AccountManager.logoutKugou();
                                             }
                                         )
                                     } else {
                                         settingsView.kugouShowLogin = true;
                                         kugouQrDialog.open();
-                                        accountManager.startKugouQrLogin();
+                                        AccountManager.startKugouQrLogin();
                                     }
                                 }
                             }
@@ -712,21 +837,21 @@ Item {
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 1
-                                isLogin: accountManager.neteaseLoggedIn
-                                header: accountManager.neteaseAvatar
-                                name: accountManager.neteaseNickname
+                                isLogin: AccountManager.neteaseLoggedIn
+                                header: AccountManager.neteaseAvatar
+                                name: AccountManager.neteaseNickname
                                 onClicked: MusicApi.songSource = 1;
                                 onLogined: {
-                                    if (accountManager.neteaseLoggedIn) {
+                                    if (AccountManager.neteaseLoggedIn) {
                                         globalDialog.openSimpleDialog("警告", "是否退出账号？",
                                             function() {
-                                                accountManager.logoutNetease();
+                                                AccountManager.logoutNetease();
                                             }
                                         )
                                     } else {
                                         settingsView.neteaseShowLogin = true;
                                         neteaseQrDialog.open();
-                                        accountManager.startNeteaseQrLogin();
+                                        AccountManager.startNeteaseQrLogin();
                                     }
                                 }
                             }
@@ -1267,7 +1392,7 @@ Item {
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Options.settings.soundQuality
-                                model: ["标准-144k","高清-320k","无损-500+k"]
+                                model: ["标准-128k","高清-320k","无损-500+k"]
                                 onTransformed: (choiced) => {
                                     Options.settings.soundQuality = choiced
                                 }
@@ -1644,12 +1769,12 @@ Item {
             property bool oldShortCutState: false
 
             // 根据 action 名拼出 Options.settings 里的"该功能是否全局生效"属性名
-            function globalPropertyName(actionName) {
+            function globalPropertyName(actionName: string): string {
                 return "globalShortcut" + actionName.charAt(0).toUpperCase() + actionName.slice(1)
             }
 
             // 按键转字符串（辅助函数）
-            function keyToString(key) {
+            function keyToString(key: int): string {
                 if (key >= Qt.Key_F1 && key <= Qt.Key_F35)
                     return "F" + (key - Qt.Key_F1 + 1)
                 switch (key) {
@@ -1696,7 +1821,7 @@ Item {
             }
 
             // 开始录制
-            function startRecording(action) {
+            function startRecording(action: string): void {
                 if (isRecording) return
                 recordingAction = action
                 isRecording = true
@@ -1709,7 +1834,7 @@ Item {
             }
 
             // 停止录制（完成或取消）
-            function stopRecording(success, sequence) {
+            function stopRecording(success: bool, sequence: string): void {
                 isRecording = false
                 Options.settings.openShortCut = oldShortCutState
                 Options.recordingShortCut = false
@@ -1787,7 +1912,6 @@ Item {
                 // 按键捕获器（隐藏）
                 Rectangle {
                     id: keyCapture
-                    //y: parent.height - 56
                     height: shortcutset.isRecording ? 60 : 0
                     width: settingStack.standWidth
                     color: Style.themes.fontColor
@@ -1897,7 +2021,6 @@ Item {
                                     y: 10
                                     width: 96
                                     height: 36
-                                    //letRight: true
                                     switchTrue: Options.shortCuts[shortcutset.globalPropertyName(model.name)]
                                     onToggled: {
                                         var prop = shortcutset.globalPropertyName(model.name);
@@ -2190,7 +2313,6 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "一款基于 C++/Qt Quick 框架开发的高性能音乐播放器"
-                        //height: implicitHeight + 64
                         wrapMode: Text.Wrap
                         color: Style.themes.textColor
                         font.bold: false
@@ -2747,8 +2869,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: logManager.enabled
-                                onToggled: logManager.enabled = !logManager.enabled
+                                switchTrue: LogManager.enabled
+                                onToggled: LogManager.enabled = !LogManager.enabled
                             }
                         }
 
@@ -2756,9 +2878,9 @@ Item {
                             label: "记录等级"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: logManager.minimumLevel
+                                choice: LogManager.minimumLevel
                                 model: ["调试","信息","警告","错误","致命"]
-                                onTransformed: (choiced) => { logManager.minimumLevel = choiced }
+                                onTransformed: (choiced) => { LogManager.minimumLevel = choiced }
                             }
                         }
 
@@ -2771,7 +2893,7 @@ Item {
                                 buttonColor: "transparent"
                                 radius: Style.settings.labelRadius
                                 borderWidth: 2
-                                onClicked: logManager.openLogFolder()
+                                onClicked: LogManager.openLogFolder()
                             }
                             bottomLine: false
                         }
@@ -2804,7 +2926,7 @@ Item {
                             Text {
                                 id: logPreviewText
                                 width: parent.width
-                                text: logManager.logPreview
+                                text: LogManager.logPreview
                                 color: Style.themes.textColor
                                 font.pixelSize: Style.settings.text
                                 wrapMode: Text.Wrap
@@ -2825,6 +2947,7 @@ Item {
         // 远程 version.txt 的 URL
         property string remoteVersionUrl: "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt"
         property int newVersion: Options.versionCode
+        property string versionDescription: ""
 
         function checkForUpdate() {
             console.log("正在检查更新...");
@@ -2835,12 +2958,13 @@ Item {
                 if (xhr.readyState === XMLHttpRequest.DONE) {
                     if (xhr.status === 200) {
                         var text = xhr.responseText.trim();
-                        var remoteVersion = parseInt(text.substring(3));
+                        var remoteVersion = parseInt(text.substring(0,3));
                         console.log("远程版本号:", remoteVersion);
 
                         if (remoteVersion > localVersion) {
                             console.log("发现新版本!");
                             newVersion = remoteVersion;
+                            updater.versionDescription = text.substring(4);
                             // 显示更新提示对话框
                             updateDialog.open();
                         } else {
@@ -2862,10 +2986,9 @@ Item {
         QAlertDialog {
             id: updateDialog
             title: "有新版本！"
-            message: "有新版本：(v" + updater.newVersion + ")可供下载，是否前往下载？"
+            message: "发现QueMusic的新版本：(v" + updater.newVersion + ")，是否前往更新？/n 版本更新日志：" + updater.versionDescription
             isInput: false
             blurSource: settingsView
-            //standardButtons: Dialog.Ok | Dialog.Cancel
 
             onConfirm: {
                 Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/releases");

@@ -24,7 +24,6 @@ Popup {
         blurSource: mainLayout
         shadowEffect: true
         rectXy: Qt.rect(desktopPlayer.x, desktopPlayer.y, 360, desktopPlayer.height)
-        //color: Style.themes.primaryBlurColor
     }
     contentItem: Item {
         anchors.fill: parent

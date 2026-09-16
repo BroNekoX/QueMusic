@@ -13,13 +13,10 @@ Popup {
     parent: Overlay.overlay
     x: 226
     y: 64
-    //horizontalPadding: 12
-    //verticalPadding: 10
     z: 3
     height: cardFlow.height + 42 > 200 ? 200 : cardFlow.height + 42
     width: 320
     signal searchIndex(int index)
-    //onClosed: { input.text = ""; input.focus = false }
     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
 
     background: QBlurCard {

@@ -10,8 +10,8 @@ Item {
     anchors.fill: parent
 
     Component.onCompleted: {
-        myFolderModel.loadFromDatabase()
-        localFolderModel.loadFromDatabase()
+        MyFolders.loadFromDatabase()
+        LocalFolders.loadFromDatabase()
     }
 
     Row {
@@ -33,7 +33,7 @@ Item {
             CenterList {
                 width: parent.width
                 height: 190
-                model: myFolderModel
+                model: MyFolders
                 onPicked: (i, d) => page.loadFolder(d.folderId)
             }
             Text {
@@ -48,7 +48,7 @@ Item {
             CenterList {
                 width: parent.width
                 height: parent.height - 276
-                model: localFolderModel
+                model: LocalFolders
                 onPicked: (i, d) => page.loadFolder(d.folderId)
             }
         }
@@ -59,7 +59,7 @@ Item {
             Text {
                 width: parent.width
                 height: 26
-                text: "歌曲 " + songModel.rowCount()
+                text: "歌曲 " + Songs.rowCount()
                 font.pixelSize: 15
                 font.weight: Font.DemiBold
                 color: "#f5f7fb"
@@ -68,14 +68,14 @@ Item {
             CenterList {
                 width: parent.width
                 height: parent.height - 34
-                model: songModel
+                model: Songs
                 onPicked: (i, d) => center.playLocal(d.path, d.name)
             }
         }
     }
 
     function loadFolder(id) {
-        songModel.folderId = id
-        songModel.loadByFolder(id)
+        Songs.folderId = id
+        Songs.loadByFolder(id)
     }
 }

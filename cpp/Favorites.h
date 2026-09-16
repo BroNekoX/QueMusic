@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QDateTime>
 #include <QFutureWatcher>
+#include <QtQml/qqmlregistration.h>
 
 // 收藏项结构体
 struct FavoriteItem {
@@ -27,6 +28,8 @@ struct FavoriteItem {
 class FavoritesModel : public QAbstractListModel
 {
 	Q_OBJECT
+	// 供 QML 单例 AppEnv 作为属性类型使用
+	QML_ANONYMOUS
 	Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged)
 	Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 	Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)

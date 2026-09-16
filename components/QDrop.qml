@@ -16,7 +16,10 @@ Rectangle {
     color: Style.themes.primaryColor
     border.width: 2
     border.color: Style.themes.borderColor
-    property string text: model[choice]
+    // useId 模式下文本取自 model[choice].description，这里不做多余转换：
+    // 直接把 QAudioDevice 之类的对象赋给 string 会产生 "Unable to assign ... to QString" 警告，
+    // 越界时也不再得到字符串 "undefined"
+    property string text: (!useId && model && model[choice] !== undefined) ? String(model[choice]) : ""
     property bool useId: false
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
@@ -52,7 +55,13 @@ Rectangle {
         width: root.width - root.height
         height: root.height
         clip: true
-        text: root.useId ? root.model[choice].description : root.text
+        text: {
+            if (!root.useId)
+                return root.text
+            // 设备列表可能为空，直接取 .description 会抛 TypeError
+            const item = root.model ? root.model[choice] : null
+            return (item && item.description !== undefined) ? String(item.description) : ""
+        }
         color: root.textColor
         font.pixelSize: Style.settings.textmain
         font.bold: true
@@ -86,7 +95,6 @@ Rectangle {
         height: root.model.length * 36 + 4
         padding: 0
         margins: 0
-        //radius: 12
         enter: Transition {
             NumberAnimation { property: "opacity"; duration: 240; from: 0.0; to: 1.0; easing.type: Easing.OutExpo }
             NumberAnimation { property: "scale"; duration: 240; from: 0.5; to: 1.0; easing.type: Easing.OutExpo }
@@ -96,7 +104,6 @@ Rectangle {
             NumberAnimation { property: "scale"; duration: 120; to: 0.7 }
         }
         transformOrigin: Popup.Top
-        //color: Style.themes.primaryColor
 
         background: Rectangle {
             id: menuCard
@@ -129,7 +136,12 @@ Rectangle {
                     radius: root.cardRadius
                     Text {
                         anchors.fill: parent
-                        text: root.useId ? root.model[index].description : modelData
+                        text: {
+                            if (!root.useId)
+                                return modelData
+                            const item = root.model ? root.model[index] : null
+                            return (item && item.description !== undefined) ? String(item.description) : ""
+                        }
                         color: root.choice == index ? Style.themes.primaryColor : Style.themes.textColor
                         font.pixelSize: Style.settings.textmain
                         verticalAlignment: Text.AlignVCenter
@@ -152,7 +164,6 @@ Rectangle {
                         onEntered: hover.opacity = 1
                         onExited: hover.opacity = 0
                         onClicked: {
-                            //root.choice = index
                             root.transformed(index);
                             popmenu.close();
                         }

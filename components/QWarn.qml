@@ -8,8 +8,6 @@ import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
-    //property Item blurSource: mainLayout // 使用父内容作为模糊源
-    //property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: title.text
     property int type: 0  // 0.warn 1.success 2.error
     parent: Overlay.overlay
@@ -19,7 +17,6 @@ Popup {
     z: 3
     height: 36
     width: contentRow.width + 24
-    //onClosed: { input.text = ""; input.focus = false }
     Behavior on width { enabled: dialog.visible; NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
     function tiped(title,type) {
         delay.running = false;
@@ -31,7 +28,9 @@ Popup {
 
     Timer {
         id: delay
-        interval: 1500; running: false; repeat: false
+        // 错误提示（如"需要 VIP 会员"）内容更长，多停留一会儿方便看清
+        interval: dialog.type === 2 ? 3500 : 1500
+        running: false; repeat: false
         onTriggered: dialog.close()
     }
 
@@ -81,7 +80,6 @@ Popup {
             Text {
                 id: title
                 height: 20
-                //text: dialog.text
                 color: Style.themes.textColor
                 font.pixelSize: 13
                 font.bold: false

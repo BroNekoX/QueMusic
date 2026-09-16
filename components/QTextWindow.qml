@@ -19,7 +19,6 @@ Window {
     contentChildren: TextEdit {
         id: markdownViewer
         width: root.width - 24
-        //textFormat: TextEdit.MarkdownText
 
         // 从资源文件中读取 Markdown 内容
         /*Component.onCompleted: {

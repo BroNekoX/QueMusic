@@ -72,6 +72,13 @@ QString propertyFirst(const TagLib::PropertyMap &properties, std::initializer_li
     return QString();
 }
 
+// file:/// 形式的 URL 还原成本地路径；本身已是路径时原样返回
+QString localPathFromSource(const QString &sourcePath)
+{
+    const QUrl url(sourcePath);
+    return url.isLocalFile() ? url.toLocalFile() : sourcePath;
+}
+
 } // namespace
 
 CoverHelper::CoverHelper(QObject *parent)
@@ -121,10 +128,7 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
     if (sourcePath.isEmpty())
         return QString();
 
-    QString localPath = sourcePath;
-    const QUrl asUrl(sourcePath);
-    if (asUrl.isLocalFile())
-        localPath = asUrl.toLocalFile();
+    const QString localPath = localPathFromSource(sourcePath);
 
     const QFileInfo fi(localPath);
     if (!fi.isFile())
@@ -163,10 +167,7 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
 QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
                                       Metadata *metaOut)
 {
-    QString localPath = sourcePath;
-    const QUrl asUrl(sourcePath);
-    if (asUrl.isLocalFile())
-        localPath = asUrl.toLocalFile();
+    const QString localPath = localPathFromSource(sourcePath);
     const QFileInfo fi(localPath);
     if (metaOut)
         *metaOut = Metadata();
@@ -249,10 +250,7 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
 
 QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
 {
-    QString localPath = sourcePath;
-    const QUrl asUrl(sourcePath);
-    if (asUrl.isLocalFile())
-        localPath = asUrl.toLocalFile();
+    const QString localPath = localPathFromSource(sourcePath);
     const QFileInfo fi(localPath);
     if (!fi.isFile())
         return QString();
@@ -267,10 +265,7 @@ QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
 
 void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
 {
-    QString localPath = sourcePath;
-    const QUrl asUrl(sourcePath);
-    if (asUrl.isLocalFile())
-        localPath = asUrl.toLocalFile();
+    const QString localPath = localPathFromSource(sourcePath);
     const QString cacheDir = m_cacheDir;
 
     auto *watcher = new QFutureWatcher<QVariantList>(this);
@@ -281,10 +276,7 @@ void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
         const QString title = result.value(1).toString();
         const QString artist = result.value(2).toString();
 
-        QString localPath = sourcePath;
-        const QUrl asUrl(sourcePath);
-        if (asUrl.isLocalFile())
-            localPath = asUrl.toLocalFile();
+        const QString localPath = localPathFromSource(sourcePath);
         const QString key = metadataCacheKey(QFileInfo(localPath));
         if (!m_metadataCache.contains(key) && (!title.isEmpty() || !artist.isEmpty()))
             m_metadataCache.insert(key, { title, artist });
@@ -333,10 +325,7 @@ CoverHelper::Metadata CoverHelper::metadataOf(const QString &sourcePath)
     if (sourcePath.isEmpty())
         return {};
 
-    QString localPath = sourcePath;
-    const QUrl asUrl(sourcePath);
-    if (asUrl.isLocalFile())
-        localPath = asUrl.toLocalFile();
+    const QString localPath = localPathFromSource(sourcePath);
 
     const QFileInfo fi(localPath);
     if (!fi.isFile())

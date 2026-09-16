@@ -22,9 +22,6 @@ Rectangle {
         font.pixelSize: Style.settings.textmain
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
-        //focus: true
-        //onTextEdited: parent.border.color = Style.themes.themeColor
-        //onEditingFinished: parent.border.color = "transparent"
         onAccepted: {
             root.entered()
             input.focus = false

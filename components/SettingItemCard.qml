@@ -20,7 +20,6 @@ Item {
         x: 20; y: 10
         width: 100; height: 36
         text: settingItem.label
-        //font.family: textFont.name
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.settings.textmain
         color: Style.themes.fontColor

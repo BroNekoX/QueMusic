@@ -12,11 +12,9 @@
 #include <QSettings>
 #include <QLibraryInfo>
 #include <QFileInfo>
-#include "cpp/FolderModel.h"
-#include "cpp/Favorites.h"
 #include "cpp/AccountManager.h"
-#include "api/MusicApiService.h"
 #include "cpp/LogManager.h"
+#include "api/MusicApiService.h"
 #include <QWKQuick/qwkquickglobal.h>
 
 #include <QtQml/QQmlExtensionPlugin>
@@ -156,39 +154,21 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
-    // 日志系统：接管 Qt 消息并写入“安装目录/logs”，中文、可分级筛选（默认记录错误及以上）
-    LogManager *logManager = new LogManager(&engine);
-    engine.rootContext()->setContextProperty("logManager", logManager);
+    // 日志系统：接管 Qt 消息并写入“安装目录/logs”。提前创建，保证从启动早期就记录；
+    // QML 侧通过同名单例类型 LogManager 访问。
+    LogManager::create(&engine, &engine);
 
-    // 创建模型实例
-    FolderModel *myFolderModel = new FolderModel(&engine);
-    myFolderModel->setFilterType("my");
-    FolderModel *localFolderModel = new FolderModel(&engine);
-    localFolderModel->setFilterType("local");
-    SongModel *songModel = new SongModel(&engine);
-    FavoritesModel *favSongModel = new FavoritesModel(&engine);
-    favSongModel->setFilterType("song");
-    FavoritesModel *favPlaylistModel = new FavoritesModel(&engine);
-    favPlaylistModel->setFilterType("playlist");
-    FavoritesModel *favArtistModel = new FavoritesModel(&engine);
-    favArtistModel->setFilterType("artist");
-
-    // 暴露给 QML
-    engine.rootContext()->setContextProperty("myFolderModel", myFolderModel);
-    engine.rootContext()->setContextProperty("localFolderModel", localFolderModel);
-    engine.rootContext()->setContextProperty("songModel", songModel);
-    engine.rootContext()->setContextProperty("favoritesSong", favSongModel);
-    engine.rootContext()->setContextProperty("favoritesList", favPlaylistModel);
-    engine.rootContext()->setContextProperty("favoritesArtist", favArtistModel);
-    AccountManager *accountManager = new AccountManager(&engine);
-    engine.rootContext()->setContextProperty("accountManager", accountManager);
+    // 账号管理器：QML 侧通过同名单例类型 AccountManager 访问
+    AccountManager *accountManager = AccountManager::create(&engine, &engine);
     // 在线音乐 API 单例
     MusicApiService::setSharedAccountManager(accountManager);
 
+    // 说明：各数据模型（MyFolders / LocalFolders / Songs / FavoriteSongs /
+    // FavoritePlaylists / FavoriteArtists）同样是 QML 单例，由引擎在首次访问时创建并加载，
+    // 详见 cpp/AppModels.h。它们不再通过上下文属性暴露。
     engine.rootContext()->setContextProperty("configDir", configPath);
     // 运行时 Qt 版本，供“设置-关于”显示
     engine.rootContext()->setContextProperty("qtRuntimeVersion", QLibraryInfo::version().toString());
-    engine.rootContext()->setContextProperty("$curveRenderingAvailable", true);
 
     QWK::registerTypes(&engine);
     engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));

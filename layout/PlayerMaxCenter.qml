@@ -11,8 +11,6 @@ import 'qrc:/QueMusic/components'
 
 Item {
     id: musicControlMax
-    //color: "black"
-    //layer.enabled: true
     readonly property int standHeight: Style.settings.lyricSize + mainLayout.height / 32 + mainLayout.width / 56
     readonly property int infoWidth: lyricModeText.width / 2
     property bool basicCd: false
@@ -142,7 +140,6 @@ Item {
         width: 40
         height: 40
         radius: 10
-        //visible: false
         buttonColor: "transparent"
         hoverColor: Qt.rgba(0,0,0,0.2)
         iconColor: "#eeeeee"
@@ -162,7 +159,6 @@ Item {
         width: 40
         height: 40
         radius: 10
-        //visible: false
         buttonColor: "transparent"
         iconColor: "#eeeeee"
         hoverColor: Qt.rgba(0,0,0,0.2)
@@ -181,7 +177,6 @@ Item {
         width: 36
         height: 36
         radius: 18
-        //visible: false
         buttonColor: lyricContent.openTranslate ? "#88ffffff" : "#55e1e1e1"
         hoverColor: "#42000000"
         iconColor: lyricContent.openTranslate ? "#555555" : "#fbfbfb"
@@ -288,16 +283,7 @@ Item {
             fragmentShader: "qrc:/shaders/shaders/lyricfade.frag.qsb"
         }
 
-        property int currentPlayTime: 0
-
-        Timer {
-            interval: 60
-            running: mainMedia.onMedia
-            repeat: true
-            onTriggered: {
-                lyricContent.currentPlayTime = mainMedia.position + 30;
-            }
-        }
+        property int currentPlayTime: mainMedia.position
         readonly property int lyricHeight: musicControlMax.standHeight / 2
         property real alignPos: 0.32        // 当前行停在视口高度比例
         property real lineSpacing: musicControlMax.standHeight / 1.6

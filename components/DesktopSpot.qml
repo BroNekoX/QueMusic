@@ -18,10 +18,7 @@ Window {
     readonly property int animeDuration: Style.settings.spotSpeed === 0 ? 160 : Style.settings.spotSpeed === 2 ? 480 : 320
     Rectangle {
         id: spotCard
-        //x: 30
         y: 0
-        //width: 180
-        //height: 48
         radius: 24
         color: Style.themes.fontColor
         opacity: 0.8
@@ -91,7 +88,6 @@ Window {
         // 主控制按钮，常驻
         SButton {
             id: spotPlayButton
-            //x: 104
             y: spotCard.height - 40
             z: 3
             iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"

@@ -7,7 +7,6 @@ import QtQuick
 QOptionDialog {
     id: options
     title: "播放器选项"
-    cancelText: "重置"
     cancelIcon: "\uf0c7"
 
     readonly property var rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
@@ -21,7 +20,7 @@ QOptionDialog {
         Playback.muted = false
     }
 
-    Column {
+    options: Column {
         width: parent.width
         spacing: 16
 
@@ -87,7 +86,7 @@ QOptionDialog {
                 width: 160
                 anchors.right: parent.right
                 choice: Options.settings.soundQuality
-                model: ["标准-144k","高清-320k","无损-500+k"]
+                model: ["标准-128k","高清-320k","无损-500+k"]
                 onTransformed: (choiced) => Options.settings.soundQuality = choiced
             }
         }

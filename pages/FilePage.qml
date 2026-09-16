@@ -42,7 +42,7 @@ Item {
     }
 
     /*Connections {
-        target: songModel
+        target: Songs
         function onMetadataReady(count) {
             if (count > 0)
                 mainWarn.tiped("歌曲信息已就绪（" + count + " 首）", 1);
@@ -65,7 +65,7 @@ Item {
     }*/
 
     function chooseTotal() {
-        if (filePage.setMode === 3) return folderMusic.searching ? songModel.searchResults.count : songModel.rowCount();
+        if (filePage.setMode === 3) return folderMusic.searching ? Songs.searchResults.count : Songs.rowCount();
         if (filePage.setMode === 4) return localFolderMusic.searching ? localFileModel.searchResults.count : localFileModel.count;
         return 0;
     }
@@ -84,9 +84,9 @@ Item {
         var i = 0;
         if (filePage.setMode === 3) {
             if (folderMusic.searching) {
-                for (i = 0; i < songModel.searchResults.count; i++) all.push(songModel.searchResults.getRow(i).songId);
+                for (i = 0; i < Songs.searchResults.count; i++) all.push(Songs.searchResults.getRow(i).songId);
             } else {
-                for (i = 0; i < songModel.rowCount(); i++) all.push(songModel.get(i).songId);
+                for (i = 0; i < Songs.rowCount(); i++) all.push(Songs.get(i).songId);
             }
         } else if (filePage.setMode === 4) {
             if (localFolderMusic.searching) {
@@ -106,8 +106,8 @@ Item {
         }
         var added = 0;
         if (filePage.setMode === 3) {
-            for (var i = 0; i < songModel.rowCount(); i++) {
-                var song = songModel.get(i);
+            for (var i = 0; i < Songs.rowCount(); i++) {
+                var song = Songs.get(i);
                 if (!song || !song.path || filePage.chooseIndex.indexOf(song.songId) === -1) continue;
                 if (playListModel.indexOfPath(song.path) !== -1) continue;
                 playListModel.append({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
@@ -142,9 +142,9 @@ Item {
         for (var i = 0; i < count; i++) {
             var key = filePage.chooseIndex[i];
             switch (filePage.setMode) {
-            case 1: myFolderModel.deleteFolder(key); break;
-            case 2: localFolderModel.deleteFolder(key); break;
-            case 3: songModel.deleteSong(key); break;
+            case 1: MyFolders.deleteFolder(key); break;
+            case 2: LocalFolders.deleteFolder(key); break;
+            case 3: Songs.deleteSong(key); break;
             case 4: moved = MusicApi.moveLocalFileToTrash(key) || moved; break;
             }
         }
@@ -160,7 +160,7 @@ Item {
     // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
     function addAllSongModelToList(play) {
         var searching = folderMusic.searching;
-        var total = searching ? songModel.searchResults.count : songModel.rowCount();
+        var total = searching ? Songs.searchResults.count : Songs.rowCount();
         if (total === 0) {
             Style.warned("当前文件夹没有歌曲", 0);
             return;
@@ -168,7 +168,7 @@ Item {
         var playFirst = -1;
         var added = 0;
         for (var i = 0; i < total; i++) {
-            var item = searching ? songModel.searchResults.getRow(i) : songModel.get(i);
+            var item = searching ? Songs.searchResults.getRow(i) : Songs.get(i);
             if (!item || !item.name || !item.path) continue;
             if (playListModel.indexOfPath(item.path) !== -1) continue;
             playListModel.append({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
@@ -317,7 +317,7 @@ Item {
                             isInput: true
                             onConfirm: {
                                 if(input!=="") {
-                                    myFolderModel.addFolder(input, "my", "");
+                                    MyFolders.addFolder(input, "my", "");
                                     Style.warned("成功添加一个文件夹",1);
                                 } else {
                                     Style.warned("请输入文件名",0);
@@ -331,7 +331,7 @@ Item {
                 QListView {
                     id: folderView
                     anchors.fill: parent
-                    model: myFolderModel
+                    model: MyFolders
                     clip: true
                     topMargin: 60
                     headerModel: ["标题","","","菜单"]
@@ -354,7 +354,7 @@ Item {
                         property int folderId
                         onConfirm: {
                             if(input!=="") {
-                                myFolderModel.renameFolder(editDialog.folderId, input);
+                                MyFolders.renameFolder(editDialog.folderId, input);
                                 mainWarn.tiped("成功修改文件夹名称",1);
                             } else {
                                 mainWarn.tiped("请输入文件名",0);
@@ -423,8 +423,8 @@ Item {
                                 } else {
                                     filePage.folderNumber = index;
                                     window.exitIndex = 1;
-                                    songModel.folderId = model.folderId;
-                                    songModel.clearSearch();
+                                    Songs.folderId = model.folderId;
+                                    Songs.clearSearch();
                                     folderMusic.searching = false;
                                     folderView.openFilePage(model.name,"");
                                 }
@@ -486,7 +486,7 @@ Item {
                                         if(model.folderId !== 1) {
                                             globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                                 function() {
-                                                    myFolderModel.deleteFolder(model.folderId);
+                                                    MyFolders.deleteFolder(model.folderId);
                                                     Style.warned("成功删除一个我的文件夹",1);
                                                 }
                                             );
@@ -529,7 +529,7 @@ Item {
                         var folderUrl = folderDialog.selectedFolder;
                         var folderPath = folderUrl.toString();
                         var folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
-                        localFolderModel.addFolder(folderName, "local", folderPath);
+                        LocalFolders.addFolder(folderName, "local", folderPath);
                         mainWarn.tiped("成功定位一个本地文件夹",1);
 
                     }
@@ -568,7 +568,7 @@ Item {
                 QListView {
                     id: localFolderView
                     anchors.fill: parent
-                    model: localFolderModel
+                    model: LocalFolders
                     clip: true
                     topMargin: 60
                     headerModel: ["标题","目录","","菜单"]
@@ -589,7 +589,7 @@ Item {
                         property int index
                         onConfirm: {
                             if(input!=="") {
-                                localFolderModel.renameFolder(editLocalDialog.index, input);
+                                LocalFolders.renameFolder(editLocalDialog.index, input);
                             } else {
                                 mainWarn.opened("请输入文件名",0);
                             }
@@ -724,7 +724,7 @@ Item {
                                     onClicked: {
                                         globalDialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
                                             function() {
-                                                localFolderModel.deleteFolder(model.folderId);
+                                                LocalFolders.deleteFolder(model.folderId);
                                                 Style.warned("成功移除一个本地文件夹",1);
                                             }
                                         );
@@ -771,7 +771,7 @@ Item {
                     }
 
                     if (importList.length > 0) {
-                        var added = songModel.addSongs(songModel.folderId, importList);
+                        var added = Songs.addSongs(Songs.folderId, importList);
                         Style.warned("成功导入 " + added + " 首音乐", 1);
                     }
                 }
@@ -782,7 +782,7 @@ Item {
 
             QSortModel {
                 id: songSort
-                model: songModel
+                model: Songs
                 options: [
                     { label: "默认顺序", mode: 0, desc: false },
                     { label: "文件名 A→Z", mode: 1, desc: false },
@@ -793,7 +793,7 @@ Item {
 
             QSortModel {
                 id: songSearchSort
-                model: songModel.searchResults
+                model: Songs.searchResults
                 options: songSort.options
                 nameRole: "name"
             }
@@ -850,11 +850,11 @@ Item {
                     buttonColor: Style.themes.sideColor
                     tipText: "刷新当前文件夹"
                     onClicked: {
-                        songModel.clearSearch();
+                        Songs.clearSearch();
                         folderMusic.searching = false;
                         filterInput1.text = "";
-                        if (songModel.folderId >= 0) {
-                            songModel.loadByFolder(songModel.folderId);
+                        if (Songs.folderId >= 0) {
+                            Songs.loadByFolder(Songs.folderId);
                         }
                         fileView.scrollTop();
                         Style.warned("已刷新当前列表", 1);
@@ -939,7 +939,7 @@ Item {
                     shadowEnabled: false
                     onClicked: {
                         filterInput1.text = "";
-                        songModel.clearSearch();
+                        Songs.clearSearch();
                         folderMusic.searching = false;
                     }
                 }
@@ -949,11 +949,11 @@ Item {
                     onTriggered: {
                         var t = filterInput1.text.trim();
                         if (t === "") {
-                            songModel.clearSearch();
+                            Songs.clearSearch();
                             folderMusic.searching = false;
                         } else {
                             folderMusic.searching = true;
-                            songModel.startSearch(t);
+                            Songs.startSearch(t);
                         }
                     }
                 }
@@ -1136,7 +1136,7 @@ Item {
                                 shadowEnabled: false
                                 tipText: "从当前文件夹移除"
                                 onClicked: {
-                                    songModel.deleteSong(model.songId);
+                                    Songs.deleteSong(model.songId);
                                     Style.warned("成功移除一个音乐",1);
                                 }
                             }

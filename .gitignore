@@ -60,6 +60,11 @@ logs/
 # --- Third-party build dirs ---
 ThirdParty/*/build/
 
+# --- Linux 打包中间产物 ---
+AppDir/
+squashfs-root/
+fcitx5-qt/
+
 # --- Python / Node ---
 node_modules/
 __pycache__/

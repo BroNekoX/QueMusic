@@ -24,17 +24,14 @@ Popup {
     anchors.centerIn: parent
     modal: true
     focus: true
-    //visible: card.opacity !== 0
     width: 480
     height: contentCol.implicitHeight + 40
-    //onClosed: { input.text = ""; input.focus = false }
 
     background: QBlurCard {
         anchors.fill: parent
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
         shadowEffect: true
-        //cardColor: Style.themes.blurSecondaryColor
         borderRadius: Style.settings.cubeRadius
     }
 

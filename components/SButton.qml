@@ -43,7 +43,6 @@ Button {
         radius: root.radius
         border.width: root.borderWidth
         border.color: root.borderColor
-        //anchors.fill: parent
         RectangularShadow {
             anchors.fill: parent
             z: -1

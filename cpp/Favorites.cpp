@@ -2,26 +2,12 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "Favorites.h"
+#include "PlayerDatabase.h"
 #include <QtConcurrent/QtConcurrentRun>
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
 #include <QMutexLocker>
-
-// 使用共享数据库连接
-static QSqlDatabase& sharedDatabase()
-{
-	static QSqlDatabase db = []() -> QSqlDatabase {
-		// 此处复用原有数据库路径和连接名，无需重复创建
-		QSqlDatabase db = QSqlDatabase::database("shared_player_db");
-		if (!db.isValid()) {
-			qWarning() << "Shared database not available!";
-			return db;
-		}
-		return db;
-	}();
-	return db;
-}
 
 // 工作线程查询：每线程独享连接，读结果仅构建内存快照
 static QVector<FavoriteItem> queryFavorites(const QString &dbPath, const QString &filterType)
@@ -68,7 +54,7 @@ static QVector<FavoriteItem> queryFavorites(const QString &dbPath, const QString
 FavoritesModel::FavoritesModel(QObject *parent)
 : QAbstractListModel(parent)
 {
-	m_db = sharedDatabase();
+	m_db = playerDatabase();
 	if (!m_db.isOpen()) {
 		qWarning() << "Database not open!";
 	}

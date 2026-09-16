@@ -3,6 +3,7 @@
 //
 #include "FolderModel.h"
 
+#include "PlayerDatabase.h"
 #include "SearchResultModel.h"
 #include <QSqlQuery>
 #include <QSqlError>
@@ -13,59 +14,10 @@
 #include <QMetaObject>
 #include <QTimer>
 
-static QSqlDatabase& sharedDatabase()
-{
-    static QSqlDatabase db = []() {
-        QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QDir().mkpath(appDataDir);
-        QString dbPath = appDataDir + "/player_data.db";
-
-        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "shared_player_db");
-        db.setDatabaseName(dbPath);
-        if (!db.open()) {
-            qWarning() << "Failed to open database:" << db.lastError().text();
-            return db;
-        }
-
-        QSqlQuery query(db);
-        query.exec("PRAGMA foreign_keys = ON");
-        query.exec(
-            "CREATE TABLE IF NOT EXISTS folders ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "name TEXT NOT NULL, "
-            "type TEXT NOT NULL DEFAULT 'my', "
-            "path TEXT DEFAULT '', "
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
-            );
-        query.exec(
-            "CREATE TABLE IF NOT EXISTS songs ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "folder_id INTEGER NOT NULL, "
-            "name TEXT NOT NULL, "
-            "path TEXT NOT NULL, "
-            "singer TEXT DEFAULT '', "
-            "duration INTEGER DEFAULT 0, "
-            "FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE)"
-            );
-
-        query.prepare("SELECT COUNT(*) FROM folders WHERE type='my' AND name='默认文件夹'");
-        query.exec();
-        if (query.next() && query.value(0).toInt() == 0) {
-            query.prepare("INSERT INTO folders (name, type) VALUES (:name, :type)");
-            query.bindValue(":name", "默认文件夹");
-            query.bindValue(":type", "my");
-            query.exec();
-        }
-
-        return db;
-    }();
-    return db;
-}
-
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = sharedDatabase();
+    m_db = playerDatabase();
     loadFromDatabase();
 }
 
@@ -210,7 +162,7 @@ void SongEnrichWorker::run()
 SongModel::SongModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = sharedDatabase();
+    m_db = playerDatabase();
     qRegisterMetaType<QList<SongEnrichResult>>("QList<SongEnrichResult>");
 
     m_searchResults = new SearchResultModel({SearchResultModel::SongIdRole,

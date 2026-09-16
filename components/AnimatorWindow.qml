@@ -139,7 +139,6 @@ Item {
     Loader {
         id: loadWidget
         active: false
-        //asynchronous: true
         onLoaded: {
             root.visible = true;
             windowOpenAnime.start();

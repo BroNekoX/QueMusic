@@ -9,6 +9,7 @@ ScrollView {
     contentWidth: availableWidth
     wheelEnabled: false
     property real scrollToPosition: 0
+    property alias barSize: viewBar.size
     property int barMargin: 18
     onContentHeightChanged: {
         scrollToPosition = viewBar.position;

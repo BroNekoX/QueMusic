@@ -44,6 +44,11 @@ LogManager::LogManager(QObject *parent)
     // 5) 接管 Qt 全局消息（qDebug/qInfo/qWarning/qCritical/qFatal 都汇聚到这里）
     qInstallMessageHandler(&LogManager::messageHandler);
 
+    // 预览刷新合并器：单次触发，日志密集时只在静默 300ms 后重建一次预览
+    m_previewTimer.setSingleShot(true);
+    m_previewTimer.setInterval(300);
+    connect(&m_previewTimer, &QTimer::timeout, this, &LogManager::refreshPreview);
+
     info(QStringLiteral("日志系统已启动"), QStringLiteral("系统"));
 }
 
@@ -133,6 +138,13 @@ void LogManager::openLogFolder()
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_logDir));
 }
 
+void LogManager::refreshPreview()
+{
+    m_previewTimer.stop();
+    m_preview = m_recentLines.join(QLatin1Char('\n'));
+    emit logPreviewChanged();
+}
+
 void LogManager::writeLine(int level, const QString &category, const QString &message)
 {
     // 致命错误始终记录；其余级别遵从“启用开关 + 最低等级”筛选
@@ -155,14 +167,21 @@ void LogManager::writeLine(int level, const QString &category, const QString &me
 
     m_file.write(line.toUtf8());
     m_file.write("\n");
-    m_file.flush();
+    // 只有警告及以上立即刷盘：其余交给 QFile 缓冲，避免每条日志一次 I/O
+    if (level >= Level::Warning)
+        m_file.flush();
 
     m_recentLines.append(line);
     constexpr int kMaxPreviewLines = 500;
     while (m_recentLines.size() > kMaxPreviewLines)
         m_recentLines.removeFirst();
-    m_preview = m_recentLines.join(QLatin1Char('\n'));
-    emit logPreviewChanged();
+
+    // 预览串重建 + 通知 QML 的开销与条数成正比：警告及以上立即刷新，
+    // 其余交给合并器，避免高频日志时每条都做一次数百行拼接并触发 QML 重算
+    if (level >= Level::Warning)
+        refreshPreview();
+    else
+        m_previewTimer.start();
 }
 
 void LogManager::ensureLogFile()

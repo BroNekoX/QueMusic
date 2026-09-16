@@ -8,9 +8,7 @@ import 'qrc:/QueMusic/components'
 
 Item {
     id: homePage
-    //property alias animatedWindow: animationWrapper
     property real toolsWindow: 0
-    //property bool displaytop: flickable.contentY > 60 ? true : false
 
 
     Component.onCompleted: {
@@ -29,7 +27,6 @@ Item {
             } else if(timeHour > 18 && timeHour < 23) {
                 homeText.text = "晚上好"
             } else {
-                //homeText.text = "晚安"
             }
             window.completedStart.homeLoaded = true;
         }
@@ -56,12 +53,10 @@ Item {
                 font.weight: Font.DemiBold
                 color: Style.themes.fontColor
             }
-            //QButton { x: parent.width - 120; y: 0; height: 40; width: 120; iconCharacter: "\uf10c"; text: "刷新" }
             QDrop {
                 x: parent.width - 96
                 y: 0
                 height: 36; width: 120
-                //radius: 18
                 anchors.right: parent.right
                 choice: MusicApi.songSource
                 textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#16750F" : "#756F0F"
@@ -72,15 +67,9 @@ Item {
                 model: ["酷狗音乐","网易云音乐","QQ音乐(x)","自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
-                    if(MusicApi.songSource === 0) {
-                        MusicApi.hotPlayLists.clear();
-                    }
-                    if(MusicApi.hotPlayLists.count % 20 === 0) {
-                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
-                    } else {
-                        MusicApi.hotPlayLists.clear();
-                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
-                    }
+                    recommendView.scrollTop();
+                    MusicApi.hotPlayLists.clear();
+                    //MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                 }
             }
         }
@@ -380,7 +369,7 @@ Item {
                                     color: Style.themes.fontColor
                                 }
                                 Text {
-                                    text: favoritesList.count + " 个歌单"
+                                    text: FavoritePlaylists.count + " 个歌单"
                                     font.pixelSize: Style.settings.textmain
                                     color: Style.themes.textColor
                                 }
@@ -451,7 +440,6 @@ Item {
                                 width: 96
                                 height: 96
                                 property int radius: Style.settings.cubeRadius
-                                //scale: catMouse.containsMouse ? 1.06 : 1.0
                                 //Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
                                 QPicture {
@@ -643,135 +631,132 @@ Item {
 
                 QHead { text: "热门歌单" }
 
-                Flow {
-                    spacing: 24
+                QGridView {
+                    id: recommendView
                     width: homeView.standWidth
-
-                    Repeater {
-                        model: MusicApi.hotPlayLists
-                        delegate: Rectangle {
-                            width: 148
-                            height: 256
-                            radius: Style.settings.labelRadius
-                            color: Style.themes.primaryColor
-                            scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                            RectangularShadow {
-                                anchors.fill: parent
-                                z: -1
-                                offset.x: 2
-                                offset.y: 2
-                                radius: Style.settings.labelRadius
-                                blur: hotPlayListsArea.containsMouse ? 24 : 8
-                                spread: 0
-                                visible: true
-                                color: Style.themes.shadowColor
-                                Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                            }
-                            MouseArea {
-                                id: hotPlayListsArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    hotlistsWindow.mainTarget = homeMain;
-                                    MusicApi.playlistSong.clear();
-                                    MusicApi.globalid = model.hash;
-                                    MusicApi.getPlaylistSongs(model.hash,1,20);
-                                    hotlistsWindow.opened(model);
-                                    window.exitIndex = 1;
-                                }
-                            }
-                            QPicture {
-                                width: 148
-                                height: 148
-                                source: model.cover.replace("{size}", "128")
-                                radius: Style.settings.labelRadius
-                                //cache: true
-                                sourceSize: Qt.size(128,128)
-                                radius3: 0
-                                radius4: 0
-                            }
-                            Text {
-                                x: 16
-                                y: 160
-                                width: 116
-                                text: model.title
-                                font.bold: true
-                                color: Style.themes.fontColor
-                                font.pixelSize: Style.settings.textmain
-                                wrapMode: Text.Wrap
-                                maximumLineCount: 2
-                                elide: Text.ElideRight
-                            }
-                            Text {
-                                x: 16
-                                y: 200
-                                width: 116
-                                height: 18
-                                text: model.album
-                                color: Style.themes.textColor
-                                font.pixelSize: Style.settings.text
-                                //wrapMode: Text.Wrap
-                                //maximumLineCount: 2
-                                elide: Text.ElideRight
-                            }
-                            Rectangle {
-                                x: 0
-                                y: 224
-                                height: 32
-                                width: 148
-                                color: Style.themes.sideColor
-                                bottomLeftRadius: Style.settings.labelRadius
-                                bottomRightRadius: Style.settings.labelRadius
-                                Text {
-                                    id: playIcon
-                                    x: 16
-                                    height: 32
-                                    text: "\uf00e"
-                                    font.pixelSize: Style.settings.text
-                                    font.family: iconFont.name
-                                    color: Style.themes.textColor
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                Text {
-                                    x: 20 + playIcon.width
-                                    height: 32
-                                    text: Math.floor(model.playcount / 10000) + "万"
-                                    font.pixelSize: Style.settings.textTip
-                                    color: Style.themes.textColor
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                                Text {
-                                    x: parent.width - width - 16
-                                    height: 32
-                                    text: model.duration + "首"
-                                    font.pixelSize: Style.settings.textTip
-                                    color: Style.themes.textColor
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-                        }
+                    height: homeView.height - 64
+                    model: MusicApi.hotPlayLists
+                    cellWidth: 172
+                    cellHeight: 280
+                    rightMargin: -8
+                    topMargin: 8
+                    enabled: homeView.scrollToPosition === 1.0 - homeView.barSize
+                    interactive: enabled
+                    onTopScroll: {
+                        homeView.scrollToPosition = 1.0 - homeView.barSize - 5.0 / homeView.contentHeight
                     }
-                }
 
-                Item {
-                    height: 60
-                    width: homeView.standWidth
-                    QButton {
-                        anchors.centerIn: parent
-                        height: 40; width: 120
-                        radius: 20
-                        iconCharacter: "\uf0f8"
-                        text: "更多"
-                        onClicked: {
+                    onAtYEndChanged: {
+                        if (atYEnd && !MusicApi.loadState) {
                             if(MusicApi.songSource === 0) {
+                                scrollTop();
                                 MusicApi.hotPlayLists.clear();
                             }
                             if(MusicApi.hotPlayLists.count % 20 === 0) {
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                             } else {
+                                scrollTop();
                                 MusicApi.hotPlayLists.clear();
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                            }
+                        }
+                    }
+                    delegate: Rectangle {
+                        width: 148
+                        height: 256
+                        radius: Style.settings.labelRadius
+                        color: Style.themes.primaryColor
+                        scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                        RectangularShadow {
+                            anchors.fill: parent
+                            z: -1
+                            offset.x: 2
+                            offset.y: 2
+                            radius: Style.settings.labelRadius
+                            blur: hotPlayListsArea.containsMouse ? 24 : 8
+                            spread: 0
+                            visible: true
+                            color: Style.themes.shadowColor
+                            Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                        }
+                        MouseArea {
+                            id: hotPlayListsArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                hotlistsWindow.mainTarget = homeMain;
+                                MusicApi.playlistSong.clear();
+                                MusicApi.globalid = model.hash;
+                                MusicApi.getPlaylistSongs(model.hash,1,20);
+                                hotlistsWindow.opened(model);
+                                window.exitIndex = 1;
+                            }
+                        }
+                        QPicture {
+                            width: 148
+                            height: 148
+                            source: model.cover.replace("{size}", "128")
+                            radius: Style.settings.labelRadius
+                            sourceSize: Qt.size(128,128)
+                            radius3: 0
+                            radius4: 0
+                        }
+                        Text {
+                            x: 16
+                            y: 160
+                            width: 116
+                            text: model.title
+                            font.bold: true
+                            color: Style.themes.fontColor
+                            font.pixelSize: Style.settings.textmain
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            x: 16
+                            y: 200
+                            width: 116
+                            height: 18
+                            text: model.album
+                            color: Style.themes.textColor
+                            font.pixelSize: Style.settings.text
+                            elide: Text.ElideRight
+                        }
+                        Rectangle {
+                            x: 0
+                            y: 224
+                            height: 32
+                            width: 148
+                            color: Style.themes.sideColor
+                            bottomLeftRadius: Style.settings.labelRadius
+                            bottomRightRadius: Style.settings.labelRadius
+                            Text {
+                                id: playIcon
+                                x: 16
+                                height: 32
+                                text: "\uf00e"
+                                font.pixelSize: Style.settings.text
+                                font.family: iconFont.name
+                                color: Style.themes.textColor
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            Text {
+                                x: 20 + playIcon.width
+                                height: 32
+                                text: Math.floor(model.playcount / 10000) + "万"
+                                font.pixelSize: Style.settings.textTip
+                                color: Style.themes.textColor
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            Text {
+                                x: parent.width - width - 16
+                                height: 32
+                                text: model.duration + "首"
+                                font.pixelSize: Style.settings.textTip
+                                color: Style.themes.textColor
+                                verticalAlignment: Text.AlignVCenter
                             }
                         }
                     }
@@ -793,7 +778,6 @@ Item {
                 height: hotlistsWindow.height - 128
                 model: MusicApi.recommendSongs
                 clip: true
-                //reuseItems: true
                 topMargin: 8
                 bottomMargin: 24
 
@@ -816,11 +800,11 @@ Item {
                                        }
                                        break;
                                    case 1:
-                                       if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                                           favoritesSong.removeFavorite(model.get(index).hash, "song");
+                                       if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                                           FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                                            mainWarn.tiped("取消收藏",0);
                                        } else {
-                                           favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                                           FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                                            mainWarn.tiped("成功收藏",1);
                                        }
                                        break;
@@ -881,11 +865,11 @@ Item {
                         }
                         break;
                     case 1:
-                        if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                            favoritesSong.removeFavorite(model.get(index).hash, "song");
+                        if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                            FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                             mainWarn.tiped("取消收藏",0);
                         } else {
-                            favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                            FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                             mainWarn.tiped("成功收藏",1);
                         }
                         break;
@@ -923,7 +907,6 @@ Item {
             height: recommendWindow.height - 128
             model: MusicApi.musicPlaylists
             clip: true
-            //reuseItems: true
             topMargin: 8
             bottomMargin: 24
             isList: true
@@ -967,7 +950,6 @@ Item {
                 height: hotlistsWindow.height - 184
                 model: MusicApi.playlistSong
                 clip: true
-                //reuseItems: true
                 topMargin: 8
                 bottomMargin: 24
 
@@ -990,11 +972,11 @@ Item {
                                        }
                                        break;
                                    case 1:
-                                       if (favoritesSong.isFavorite(model.get(index).hash, "song")) {
-                                           favoritesSong.removeFavorite(model.get(index).hash, "song");
+                                       if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
+                                           FavoriteSongs.removeFavorite(model.get(index).hash, "song");
                                            mainWarn.tiped("取消收藏",0);
                                        } else {
-                                           favoritesSong.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
+                                           FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
                                            mainWarn.tiped("成功收藏",1);
                                        }
                                        break;

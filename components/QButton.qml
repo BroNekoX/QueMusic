@@ -31,7 +31,6 @@ Button {
     property int fontSize: Style.settings.text
 
     // ==== 尺寸控制 ====
-    //horizontalPadding: 16
     height: 36
     width: rowItem.width + 32//layout.width + horizontalPadding * 2
     Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
@@ -49,7 +48,6 @@ Button {
         radius: root.radius
         border.width: root.borderWidth
         border.color: root.borderColor
-        //anchors.fill: parent
         RectangularShadow {
             anchors.fill: parent
             z: -1

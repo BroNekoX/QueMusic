@@ -78,6 +78,8 @@ echo "==> [4/5] 准备 AppDir 目录..."
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/usr/share/applications"
 mkdir -p "${APP_DIR}/usr/share/icons/hicolor/256x256/apps"
+# 输入法插件目录（缺 fcitx5 的 Qt6 插件则无法输入中文）
+mkdir -p "${APP_DIR}/usr/plugins/platforminputcontexts"
 # 应用图标 (Linux 需要 png, 这里用 resources/icon.png，由 icon.ico 转换，与 Windows 图标一致)
 cp resources/icon.png \
     "${APP_DIR}/usr/share/icons/hicolor/256x256/apps/quemusic.png"
@@ -85,6 +87,50 @@ cp packaging/QueMusic.desktop "${APP_DIR}/usr/share/applications/"
 
 # ---------- 5. linuxdeploy 打包 ----------
 echo "==> [5/5] 打包 AppImage..."
+# 关键插件：Wayland 平台插件 + fcitx5 输入法插件
+# linuxdeploy-plugin-qt 默认只带 libqxcb.so（X11），不会带 Wayland 平台插件：
+# 缺了它 Qt 在 Wayland 会话下只能退回 XWayland，分数缩放失效、窗口/字体大小异常。
+WAYLAND_PLUGINS=""
+for p in "${QT_DIR}/${QT_VERSION}/gcc_64/plugins/platforms/"libqwayland*.so; do
+    [ -f "$p" ] || continue
+    WAYLAND_PLUGINS="${WAYLAND_PLUGINS:+$WAYLAND_PLUGINS;}$(basename "$p")"
+done
+if [ -n "${WAYLAND_PLUGINS}" ]; then
+    export EXTRA_PLATFORM_PLUGINS="${WAYLAND_PLUGINS}"
+    echo "    附带 Wayland 平台插件: ${WAYLAND_PLUGINS}"
+else
+    echo "!! 未找到 Wayland 平台插件，产物将只支持 X11"
+fi
+
+# fcitx5 的 Qt6 输入法插件
+# 系统包里的插件（Ubuntu: fcitx5-frontend-qt6 / Arch: fcitx5-qt6）是针对「系统 Qt」编译的，
+# 与本项目 aqt 的 Qt 6.10.3 存在 ABI 风险。想严格匹配就先自行编译（与 CI 做法一致）：
+#   git clone --depth 1 https://github.com/fcitx/fcitx5-qt.git
+#   cmake -S fcitx5-qt -B fcitx5-qt/build -DCMAKE_BUILD_TYPE=Release \
+#         -DCMAKE_PREFIX_PATH="${QT_DIR}/${QT_VERSION}/gcc_64" \
+#         -DENABLE_QT5=OFF -DBUILD_ONLY_PLUGIN=ON
+#   cmake --build fcitx5-qt/build -j"$(nproc)"
+FOUND_FCITX="$(find fcitx5-qt/build -name 'libfcitx5platforminputcontextplugin*.so' \
+                -type f 2>/dev/null | head -n1 || true)"
+if [ -z "${FOUND_FCITX}" ]; then
+    for dir in /usr/lib/qt6/plugins/platforminputcontexts \
+               /usr/lib/*/qt6/plugins/platforminputcontexts; do
+        for f in "${dir}"/*fcitx5*.so; do
+            if [ -f "$f" ]; then
+                FOUND_FCITX="$f"
+                break 2
+            fi
+        done
+    done
+fi
+if [ -n "${FOUND_FCITX}" ]; then
+    cp "${FOUND_FCITX}" "${APP_DIR}/usr/plugins/platforminputcontexts/"
+    echo "    附带输入法插件: ${FOUND_FCITX}"
+else
+    echo "!! 未找到 fcitx5 的 Qt6 输入法插件，产物将无法输入中文"
+    echo "   Ubuntu: sudo apt install fcitx5-frontend-qt6 / Arch: sudo pacman -S fcitx5-qt"
+fi
+
 # QML 模块: 扫描源码 + 附带 Multimedia/Sql/ShaderTools 插件
 export QML_SOURCES_PATHS="$(pwd)"
 export EXTRA_QT_MODULES="multimedia;sql;shadertools"

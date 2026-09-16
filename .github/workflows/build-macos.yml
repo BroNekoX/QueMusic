@@ -15,6 +15,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write   # <--- 新增：赋予写入 Release 的权限
+    env:
+      # 配了 Developer ID 证书就走正式签名 + 公证；没配则退回 ad-hoc（用户首次打开需手动放行）
+      APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -79,17 +82,75 @@ jobs:
           APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
           "$QT_PREFIX/bin/macdeployqt" "$APP_PATH"
-          codesign --force --deep --sign - "$APP_PATH"
+
+      # 代码签名：由内向外逐层签，不用已废弃的 --deep。
+      # Qt 应用有大量嵌套 framework/plugin，--deep 常留下无法验证的签名，
+      # 而"签名验证不通过"正是 macOS 报"已损坏，无法打开"（而不是提示未受信任）的原因。
+      - name: Code sign app
+        run: |
+          IDENTITY="${APPLE_SIGN_IDENTITY:--}"
+          if [ "$IDENTITY" = "-" ]; then
+            TS="--timestamp=none"
+            OPTIONS=""
+          else
+            TS="--timestamp"
+            # 公证要求 hardened runtime；Qt QML 需要 JIT 相关 entitlement
+            OPTIONS="--options runtime --entitlements packaging/entitlements-macos.plist"
+          fi
+          echo "签名身份: $IDENTITY"
+
+          sign_item() {
+            codesign --force $TS $OPTIONS --sign "$IDENTITY" "$1" \
+              || { echo "!! 签名失败: $1"; exit 1; }
+          }
+
+          # find -depth：先签最深层的 dylib，再签其所在的 framework，最后签 .app 本体
+          for dir in "$APP_PATH/Contents/Frameworks" "$APP_PATH/Contents/PlugIns"; do
+            [ -d "$dir" ] || continue
+            find "$dir" -depth ! -type l \
+              \( -name "*.framework" -o -name "*.dylib" -o -name "*.so" \) -print0 |
+              while IFS= read -r -d '' item; do sign_item "$item"; done
+          done
+          sign_item "$APP_PATH"
+
+      # 校验门禁：签名必须能验证通过，否则用户会看到"已损坏"，这里直接让 CI 失败
+      - name: Verify app signature
+        run: |
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          echo "--- 签名信息 ---"
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | head -20 || true
+          echo "--- Gatekeeper 评估（ad-hoc/未公证时被拒属预期）---"
+          spctl -a -vvv -t exec "$APP_PATH" || true
 
       - name: Create DMG
         run: |
           APP_NAME="QueMusic"
-          ARCH_NAME="${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}"
+          # 按构建机实际架构命名（arm64 / x86_64），避免文件名与实际不符导致用户下错包
+          ARCH_NAME="$(uname -m)"
           DMG_NAME="${APP_NAME}-$(git describe --tags --always)-macOS-${ARCH_NAME}.dmg"
           echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
           hdiutil create -volname "${APP_NAME}" \
             -srcfolder "${APP_PATH}" \
             -ov -format UDZO "${DMG_NAME}"
+
+      # 有 Developer ID 证书时：签 DMG + 提交公证 + 装订票据，用户打开不再有任何提示。
+      # 需要仓库 Secrets：APPLE_SIGN_IDENTITY / APPLE_ID / APPLE_APP_PASSWORD / APPLE_TEAM_ID
+      - name: Sign & notarize DMG
+        if: env.APPLE_SIGN_IDENTITY != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --force --timestamp --sign "$APPLE_SIGN_IDENTITY" "$DMG_NAME"
+          xcrun notarytool submit "$DMG_NAME" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG_NAME"
+          xcrun stapler validate "$DMG_NAME"
+          spctl -a -t open --context context:primary-signature -v "$DMG_NAME"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

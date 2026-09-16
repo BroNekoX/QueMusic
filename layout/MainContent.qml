@@ -27,7 +27,6 @@ Rectangle {
     function contentIndexed(choice) {
         if(choice !== mainContent.pageIndex) {
             //pageAnineOn.stop();
-            //pageAnineOn.target = mainContent.pages[mainContent.pageIndex];
             //pageAnineOn.start();
             mainContent.pages[mainContent.pageIndex].visible = false;
             mainContent.pages[mainContent.pageIndex].active = false;
@@ -68,7 +67,6 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: true
@@ -83,7 +81,6 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -98,7 +95,6 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -114,7 +110,6 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
@@ -129,7 +124,6 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
-        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false

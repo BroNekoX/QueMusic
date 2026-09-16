@@ -11,8 +11,6 @@ Window {
     height: 148
     minimumWidth: 240
     minimumHeight: 128
-    //x: Screen.width - width - 60
-    //y: 90
     visible: true
     color: "transparent"
     title: "QueMusic桌面播放器"

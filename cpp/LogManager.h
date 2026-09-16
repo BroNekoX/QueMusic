@@ -9,7 +9,12 @@
 #include <QStringList>
 #include <QFile>
 #include <QDebug>
+#include <QQmlEngine>
+#include <QTimer>
+#include <QtQml/qqmlregistration.h>
 #include <atomic>
+
+class QJSEngine;
 
 // 应用级日志管理器。
 // - 接管 Qt 全局消息（qDebug/qInfo/qWarning/qCritical/qFatal），同时保留控制台输出。
@@ -19,6 +24,10 @@
 class LogManager : public QObject
 {
     Q_OBJECT
+    // QML 单例：QML 侧按类型名访问（如 LogManager.logPreview），
+    // 这样相关绑定才能被 qmlcachegen 编译成 C++
+    QML_ELEMENT
+    QML_SINGLETON
 
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(int minimumLevel READ minimumLevel WRITE setMinimumLevel NOTIFY minimumLevelChanged)
@@ -27,6 +36,17 @@ class LogManager : public QObject
     Q_PROPERTY(QString logPreview READ logPreview NOTIFY logPreviewChanged)
 
 public:
+    // QML 单例工厂。main.cpp 会提前调用一次，保证日志从启动早期就接管 Qt 消息；
+    // 之后 QML 首次访问 LogManager 时复用同一实例。
+    static LogManager *create(QQmlEngine *qmlEngine, QJSEngine *scriptEngine)
+    {
+        Q_UNUSED(scriptEngine)
+        static LogManager *instance = nullptr;
+        if (!instance)
+            instance = new LogManager(qmlEngine);
+        return instance;
+    }
+
     // 与 Qt QtMsgType 严重程度一一对应，供 QML 直接使用
     enum Level {
         Debug = 0,
@@ -37,7 +57,9 @@ public:
     };
     Q_ENUM(Level)
 
-    explicit LogManager(QObject *parent = nullptr);
+    // 不能给 parent 默认值：否则引擎不会调用下面的 create()，会导致出现两个实例
+    // （详见 cpp/AppModels.h 说明）
+    explicit LogManager(QObject *parent);
     ~LogManager() override;
 
     bool enabled() const;
@@ -67,6 +89,8 @@ private:
     static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
     void writeLine(int level, const QString &category, const QString &message);
     void ensureLogFile();
+    // 重建日志预览串并通知 QML。多条日志到达时会被 QTimer 合并，避免每条日志都拼接数百行。
+    void refreshPreview();
     void persistSettings() const;
 
     static QString levelLabel(int level);
@@ -82,6 +106,7 @@ private:
     QFile m_file;
     QStringList m_recentLines;
     QString m_preview;
+    QTimer m_previewTimer;
 };
 
 #endif // LOGMANAGER_H

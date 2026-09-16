@@ -8,12 +8,26 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ------------------------- 优化开关 -------------------------
+# LTO：跨翻译单元内联 + 死代码消除（Release / RelWithDebInfo 生效）
+option(QUEMUSIC_ENABLE_LTO "Release 构建启用 LTO/IPO" ON)
+# QML 静态检查：只影响构建耗时，不影响运行性能
+option(QUEMUSIC_QML_LINT "构建时对 QML 执行 qmllint" ON)
+# qmltc：把可编译的 QML 提前编译成 C++ 类型（默认关闭，原因见 cmake/qmltc.cmake）
+option(QUEMUSIC_ENABLE_QMLTC "启用 qmltc 类型编译（实验性）" OFF)
+
 # 统一输出目录：可执行文件与动态库放 bin/，静态库放 lib/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
+
+# QML 中大量使用 qrc:/QueMusic/... 形式的绝对 URL：显式固定资源前缀策略，
+# 避免 Qt 后续版本把默认前缀改成 :/qt/qml/ 之后这些 URL 全部失效（QTP0001）
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 OLD)
+endif()
 
 # 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
 add_subdirectory(cmake)
@@ -43,6 +57,26 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
     <QtNetwork/QtNetwork>
     <QtMultimedia/QtMultimedia>
 )
+
+# ------------------------- 构建优化 -------------------------
+# 函数/数据分节 + 链接期垃圾回收：剥离未引用代码，减小体积、改善加载与指令缓存
+if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
+    target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+endif()
+
+# LTO：把 cpp/ 与 api/ 各翻译单元合并优化（Qt 自身动态库无法参与，收益集中在本工程代码）
+if(QUEMUSIC_ENABLE_LTO AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT QUEMUSIC_IPO_SUPPORTED OUTPUT QUEMUSIC_IPO_ERROR LANGUAGES CXX)
+    if(QUEMUSIC_IPO_SUPPORTED)
+        set_property(TARGET ${PROJECT_NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+        set_property(TARGET ${PROJECT_NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
+        message(STATUS "QueMusic: LTO 已启用")
+    else()
+        message(WARNING "QueMusic: 当前工具链不支持 LTO，已跳过（${QUEMUSIC_IPO_ERROR}）")
+    endif()
+endif()
 
 # 按平台设置应用类型：Windows 用 GUI 子系统，macOS 生成 .app bundle
 if(WIN32)
@@ -75,26 +109,45 @@ set_source_files_properties(
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
 file(GLOB_RECURSE CENTER_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "centers/*.qml")
 
+# 本模块包含的全部 QML/JS 文件。qmltc 的跳过清单必须在 qt6_add_qml_module()
+# 解析参数之前设置好，所以这里先统一为变量
+set(QUE_MUSIC_QML_FILES
+    main.qml
+    SettingsView.qml
+    FullCenterView.qml
+    layout/MainContent.qml
+    layout/PlayerControl.qml
+    layout/PlayerMaxCenter.qml
+    layout/LeftSideBar.qml
+    pages/HomePage.qml
+    pages/PlaylistPage.qml
+    pages/FavouritePage.qml
+    pages/FilePage.qml
+    pages/DownloadPage.qml
+    pages/SearchPage.qml
+    api/qrcode.js
+    ${QML_COMPONENTS}
+    ${CENTER_COMPONENTS}
+)
+
+# qmltc 白名单 / 跳过清单（QUEMUSIC_ENABLE_QMLTC=ON 且布局满足条件时才真正启用）
+set(QUE_MUSIC_QMLTC_ACTIVE FALSE)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/qmltc.cmake)
+
+set(QUE_MUSIC_QML_MODULE_OPTIONS)
+if(NOT QUEMUSIC_QML_LINT)
+    list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS NO_LINT)
+endif()
+if(QUE_MUSIC_QMLTC_ACTIVE)
+    list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS ENABLE_TYPE_COMPILER)
+endif()
+
 qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     URI QueMusic
     VERSION 1.0
+    ${QUE_MUSIC_QML_MODULE_OPTIONS}
     QML_FILES
-        main.qml
-        SettingsView.qml
-        FullCenterView.qml
-        layout/MainContent.qml
-        layout/PlayerControl.qml
-        layout/PlayerMaxCenter.qml
-        layout/LeftSideBar.qml
-        pages/HomePage.qml
-        pages/PlaylistPage.qml
-        pages/FavouritePage.qml
-        pages/FilePage.qml
-        pages/DownloadPage.qml
-        pages/SearchPage.qml
-        api/qrcode.js
-        ${QML_COMPONENTS}
-        ${CENTER_COMPONENTS}
+        ${QUE_MUSIC_QML_FILES}
 
     RESOURCES
         resources/window-bar/close.svg resources/window-bar/closed.svg
@@ -123,6 +176,9 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     SOURCES
         shaders/MeshGradientItem.cpp
         shaders/MeshGradientItem.h
+        cpp/AppModels.h
+        cpp/PlayerDatabase.cpp
+        cpp/PlayerDatabase.h
         cpp/CoverHelper.cpp
         cpp/CoverHelper.h
         cpp/ColorExtractor.cpp

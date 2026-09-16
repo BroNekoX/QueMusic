@@ -11,6 +11,7 @@
 #include <QVariant>
 #include <QVariantMap>
 #include <QMap>
+#include <QTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include "KugouApi.h"
@@ -30,6 +31,9 @@ class MusicApiService : public QObject
 
     // 默认歌曲源（0 酷狗 / 1 网易云），source<0 时使用
     Q_PROPERTY(int songSource READ songSource WRITE setSongSource NOTIFY songSourceChanged)
+
+    // 音质设置（0 标准 128k / 1 高清 320k / 2+ 无损 flac），由 QML 的 Options.settings.soundQuality 同步
+    Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged)
 
     // 在线数据列表模型（QML 侧 .count/.get()/.clear() 与旧 ListModel 一致）
     Q_PROPERTY(OnlineListModel* searchSongsResults READ searchSongsResults CONSTANT)
@@ -63,7 +67,10 @@ class MusicApiService : public QObject
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
 
 public:
-    explicit MusicApiService(QObject *parent = nullptr);
+    // 不能给 parent 默认值：否则引擎走"默认构造"分支、create() 被跳过，
+    // setAccountManager() 里的登录态注入就永远不会执行（详见 cpp/AppModels.h 说明）
+    explicit MusicApiService(QObject *parent);
+    ~MusicApiService() override;
 
     // QML_SINGLETON 工厂：首次访问 MusicApi 时由 QML 引擎调用
     static MusicApiService *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
@@ -74,6 +81,9 @@ public:
 
     int songSource() const;
     void setSongSource(int source);
+
+    int soundQuality() const;
+    void setSoundQuality(int q);
 
     OnlineListModel *searchSongsResults() { return &m_searchSongsResults; }
     OnlineListModel *newSongs() { return &m_newSongs; }
@@ -168,6 +178,7 @@ signals:
                  const QString &cover, const QString &solve, const QString &hash, int source);
     void warned(const QString &text, int type); // 下载等提示
     void songSourceChanged();
+    void soundQualityChanged();
     void allPlaylistMenuChanged();
     void playlistmenuInfoChanged();
     void lyricsDataChanged();
@@ -189,6 +200,13 @@ private slots:
 private:
     int resolve(int source) const; // source<0 → 默认源
     static QVariantMap readLocalMetadataBlocking(const QString &filePath);
+    // 音质：记录 hash ↔ hashhq/hashsq，按设置把 hash 升级成高清；映射落盘以便重启后仍可用
+    void rememberHashes(const QVariantList &items);
+    QString resolveQualityHash(const QString &hash) const;
+    QString qualityCachePath() const;
+    void loadQualityCache();
+    void scheduleSaveQualityCache();
+    void saveQualityCache();
     void syncCookie(int source);   // 同步 AccountManager 登录态 Cookie
     QVariantMap normalizeItem(const QVariantMap &raw); // 字段归一化 + 旧字段别名
     QVariantList normalizeList(const QVariant &v);
@@ -202,8 +220,18 @@ private:
     };
 
     int m_source = 0;
+    int m_soundQuality = 1; // 与 Options/soundQuality 同步（0 128k / 1 320k / 2+ flac）
     int m_localLyricsGeneration = 0; // 连续切歌时丢弃过期的歌词解析结果
     QHash<QString, QString> m_coverHintCache;
+    // 同首歌的不同音质 hash（酷狗：普通 128k / 高清 320k / 无损 flac 是三个不同 hash）
+    struct QualityAlts {
+        QString hq;
+        QString sq;
+    };
+    QHash<QString, QualityAlts> m_alts; // 普通 hash → 高清/无损 hash
+    QHash<QString, QString> m_baseOf;   // 任意 hash → 普通 hash（一首歌的身份）
+    bool m_altsDirty = false;
+    QTimer m_altsSaveTimer;
     NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
     KugouApi m_kugou;
     AccountManager *m_account = nullptr;

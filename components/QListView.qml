@@ -56,10 +56,8 @@ ListView {
     Menu {
         id: menu
         title: "Menu"
-        //parent: Overlay.overlay
         parent: Overlay.overlay
         property int index
-        //closePolicy: Popup.CloseOnEscape
 
         background: QBlurCard {
             implicitWidth: 150
@@ -114,7 +112,6 @@ ListView {
         parent: view
         anchors.top: view.top
         anchors.right: view.right
-        //anchors.leftMargin: 8
         anchors.bottom: view.bottom
         onPressedChanged: {
             view.scrollToY = view.contentY

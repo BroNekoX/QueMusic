@@ -12,8 +12,6 @@ Window {
     height: 160
     minimumWidth: 480
     minimumHeight: 120
-    //x: Screen.width / 2 - width / 2
-    //y: Screen.height - height - 100
     visible: true
     color: "transparent"
     title: "QueMusic 桌面歌词"
@@ -76,8 +74,6 @@ Window {
         height: parent.height - 60
         spacing: 8
         z: 5
-        //visible: false
-        //layer.enabled: true
 
         Text {
             id: currentLineText
@@ -91,15 +87,12 @@ Window {
             color: Style.themes.themeColor
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
-            //opacity: 0.95
             layer.enabled: true
             layer.effect: DropShadow {
                 radius: 12.0
                 samples: 16
-                //z: -1
                 fast: true
                 color: "#41000000"
-                //source: currentLineText // 阴影绑定到主内容区域
             }
         }
 
@@ -114,7 +107,6 @@ Window {
             color: "#fcfcfc"
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
-            //opacity: 0.8
             visible: text !== ""
             layer.enabled: true
             layer.effect: DropShadow {
@@ -122,7 +114,6 @@ Window {
                 samples: 16
                 fast: true
                 color: "#56000000"
-                //source: nextLineText // 阴影绑定到主内容区域
             }
         }
     }

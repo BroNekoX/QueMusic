@@ -26,7 +26,6 @@ Popup {
         blurSource: mainLayout
         shadowEffect: true
         rectXy: Qt.rect(playList.x, playList.y, 360, playList.height)
-        //color: Style.themes.primaryBlurColor
     }
 
     function locateCurrent() {
@@ -72,7 +71,6 @@ Popup {
             width: 36
             height: 36
             radius: 18
-            //iconSize: Style.settings.texticon + 2
             buttonColor: "transparent"
             tipText: "定位当前"
             shadowEnabled: false
@@ -168,7 +166,6 @@ Popup {
             delegate: Rectangle {
                 id: listfile
                 // 复用时清掉上一行残留的悬停态
-                //onPooled: listHover.opacity = 0
                 readonly property string songName: model.name || ""
                 readonly property string songArtist: model.songer || ""
                 readonly property bool isCurrent: playListModel.playListIndex === index
@@ -296,11 +293,11 @@ Popup {
                             tipText: "收藏"
                             onClicked: {
                                 if (model.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
-                                if (favoritesSong.isFavorite(model.path, "song")) {
-                                    favoritesSong.removeFavorite(model.path, "song")
+                                if (FavoriteSongs.isFavorite(model.path, "song")) {
+                                    FavoriteSongs.removeFavorite(model.path, "song")
                                     mainWarn.tiped("取消收藏", 0)
                                 } else {
-                                    favoritesSong.addFavorite(model.path, model.name, model.songer, "", model.source, 0, "song")
+                                    FavoriteSongs.addFavorite(model.path, model.name, model.songer, "", model.source, 0, "song")
                                     mainWarn.tiped("成功收藏", 1)
                                 }
                             }

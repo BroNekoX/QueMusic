@@ -38,7 +38,7 @@ Item {
         root.duration = info.duration || 0;
         root.playcount = info.playcount || 0;
         loadWidget.active = true;
-        if (favoritesList.isFavorite(root.id, "playlist")) {
+        if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
             favoriteButton.iconColor = Style.themes.themeColor
         } else {
             favoriteButton.iconColor = Style.themes.textColor
@@ -282,12 +282,12 @@ Item {
                 shadowEnabled: false
                 buttonColor: Style.themes.sideColor
                 onClicked: {
-                    if (favoritesList.isFavorite(root.id, "playlist")) {
-                        favoritesList.removeFavorite(root.id, "playlist");
+                    if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
+                        FavoritePlaylists.removeFavorite(root.id, "playlist");
                         mainWarn.tiped("取消收藏",0);
                         iconColor = Style.themes.textColor
                     } else {
-                        favoritesList.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
+                        FavoritePlaylists.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
                         mainWarn.tiped("成功收藏",1);
                         iconColor = Style.themes.themeColor
                     }

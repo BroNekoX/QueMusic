@@ -9,8 +9,6 @@ Item {
     id: root
     width: 360
     height: 40
-    //color: "transparent"
-    //radius: Style.settings.labelRadius
     property list<string> model: ["Click1","Click2","Click3"]
     property int singleWidth: width / model.length - 16
     property int choice: 0
@@ -57,7 +55,6 @@ Item {
                     onEntered: hover.opacity = 1
                     onExited: hover.opacity = 0
                     onClicked: {
-                        //root.choice = index
                         root.transformed(index)
                     }
                 }

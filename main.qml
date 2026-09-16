@@ -19,15 +19,19 @@ Window {
     title: "QueMusic"
     Component.onCompleted: {
         windowAgent.setup(window);
-        windowAgent.setWindowAttribute("dark-mode", false);
-        if(!Options.settings.noWindowKit) {
-            //dwm-blur acrylic-material mica mica-alt extra-margins
-        } else {
-            windowAgent.setWindowAttribute("extra-margins", 3);
-            windowAgent.setWindowAttribute("title-bar-height", 40);
+        // dark-mode / extra-margins / title-bar-height 都是 Windows 专有属性，
+        // macOS 上设置了不会生效（QWindowKit 会丢弃并告警），这里按平台跳过
+        if(!window.isMacOS) {
+            // 其余可选属性：dwm-blur acrylic-material mica mica-alt
+            windowAgent.setWindowAttribute("dark-mode", false);
+            if(Options.settings.noWindowKit) {
+                windowAgent.setWindowAttribute("extra-margins", 3);
+                windowAgent.setWindowAttribute("title-bar-height", 40);
+            }
         }
         MusicApi.songSource = Options.settings.mainMusicSource;
         MusicApi.downloadPath = Options.settings.downloadFolder;
+        MusicApi.soundQuality = Options.settings.soundQuality;
 
         if(Options.settings.rememberWindow && Options.settings.winW > 0) {
             window.x = Options.settings.winX;
@@ -58,11 +62,19 @@ Window {
             autoUpdateTimer.start();
     }
 
-    function silentUpdateCheck() {
+    // 音质设置同步给 C++
+    Binding {
+        target: MusicApi
+        property: "soundQuality"
+        value: Options.settings.soundQuality
+    }
+
+
+    function silentUpdateCheck(): void {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                var remote = parseInt(xhr.responseText.trim().substring(3));
+                var remote = parseInt(xhr.responseText.trim().substring(0,3));
                 if (remote > Options.versionCode)
                     mainWarn.tiped("发现新版本 v" + remote + "，请在设置-关于中查看", 1);
             }
@@ -92,9 +104,10 @@ Window {
     property string pendingSeekPath: ""
     property int smtcLastTimeline: 0
     property int smtcLastPosition: 0
+    readonly property bool isMacOS: Qt.platform.os === "osx"
 
     // 统一搜索入口：清空结果、写入搜索历史并触发搜索
-    function doSearch(text) {
+    function doSearch(text: string): void {
         MusicApi.searchSongsResults.clear();
         mainContent.contentIndexed(6);
         Options.settings.searchList = Options.settings.searchList.filter(value => value !== text);
@@ -104,7 +117,7 @@ Window {
     }
 
     // 播放本地歌曲：立即起播不阻塞，元数据/封面/歌词在工作线程就绪后回填
-    function playLocalSong(path, name) {
+    function playLocalSong(path: string, name: string): void {
         window.localLyricsRequestPath = path;
         mainMedia.urlLocal = true;
         mainMedia.noTitle = name;
@@ -127,7 +140,7 @@ Window {
     }
 
     // 关闭前保存最后播放的歌曲
-    function toClosing() {
+    function toClosing(): void {
         if(Options.settings.closeToManage) {
             window.showMinimized();
             return;
@@ -159,7 +172,6 @@ Window {
     signal getKeys(var keys)
     signal exit() // 返回
 
-    //type: 0.提示 1.警告 2.错误 3.正确
     signal message(string title,string text,int type)
 
     Shortcut {
@@ -276,15 +288,25 @@ Window {
     // 顶部栏 - 与qwindowkit和window耦合，难抽为组件
     Rectangle {
         id: titleBar
-        x: sidebar.width
+        x: 0
         y: 0
         z: 10
-        width: window.width - x
+        width: window.width
         height: 60
         color: "transparent"
 
         // 此组件创建时，将此组件与 qwindowkit 绑定，标题栏事件由此传入
         Component.onCompleted: windowAgent.setTitleBar(titleBar);
+
+        Item {
+            id: appTitleBlock
+            x: 10
+            y: 10
+            width: 180
+            height: 40
+            //visible: !window.isMacOS
+            Component.onCompleted: windowAgent.setHitTestVisible(appTitleBlock, true)
+        }
 
         Row {
             id: barLeftWidgets
@@ -292,7 +314,7 @@ Window {
             Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             anchors {
                 left: parent.left
-                leftMargin: 16
+                leftMargin: sidebar.width + 16
             }
             spacing: 5
 
@@ -398,7 +420,13 @@ Window {
                 id: minButton
                 source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
                 onClicked: window.showMinimized();
-                Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Minimize, minButton);
+                Component.onCompleted: {
+                    if(window.isMacOS) {
+                        visible = false;
+                    } else {
+                        windowAgent.setSystemButton(WindowAgent.Minimize, minButton);
+                    }
+                }
             }
 
             QWKButton {
@@ -413,7 +441,13 @@ Window {
                         window.showMaximized();
                     }
                 }
-                Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Maximize, maxButton);
+                Component.onCompleted: {
+                    if(window.isMacOS) {
+                        visible = false;
+                    } else {
+                        windowAgent.setSystemButton(WindowAgent.Maximize, maxButton);
+                    }
+                }
             }
 
             QWKButton {
@@ -423,7 +457,13 @@ Window {
                 source: closeButton.hovered ? hover : unhover
                 hoverColor: "#ee4848"
                 onClicked: window.toClosing();
-                Component.onCompleted: windowAgent.setSystemButton(WindowAgent.Close, closeButton);
+                Component.onCompleted: {
+                    if(window.isMacOS) {
+                        visible = false;
+                    } else {
+                        windowAgent.setSystemButton(WindowAgent.Close, closeButton);
+                    }
+                }
             }
         }
     }
@@ -589,7 +629,6 @@ Window {
         PlayerControl {
             id: musicControlMin
             x: 0
-            //y: parent.height - 78
             width: parent.width
             height: 78
             z: 4
@@ -607,7 +646,6 @@ Window {
             y: mainLayout.height - 64
             property int radius: 12
             scale: mainMedia.playing ? 1.0 : 0.84
-            //layer.enabled: true
             Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.20, 0.04, 0.00, 1.64, 1, 1 ] } }
             Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             RectangularShadow {
@@ -864,7 +902,8 @@ Window {
 
     Connections {
         target: MusicApi
-        function onUrlplay(playurl,title,artist,cover,solve,hash,source) {
+        function onUrlplay(playurl: string, title: string, artist: string, cover: string,
+                           solve: string, hash: string, source: int): void {
             mainMedia.urlLocal = false;
             mainMedia.noTitle = title;
             window.musicTitle = title;
@@ -886,21 +925,21 @@ Window {
             }
         }
         // C++ 下载/提示信号
-        function onWarned(text,type) {
+        function onWarned(text: string, type: int): void {
             mainWarn.tiped(text,type);
         }
-        function onLocalLyricsReady(filePath, lyrics, translate) {
+        function onLocalLyricsReady(filePath: string, lyrics: var, translate: var): void {
             if (filePath !== window.localLyricsRequestPath)
                 return;
             MusicApi.lyricsData = lyrics;
             MusicApi.lyricsTranslate = translate || [];
         }
-        function onLocalLyricsFailed(filePath) {
+        function onLocalLyricsFailed(filePath: string): void {
             if (filePath !== window.localLyricsRequestPath)
                 return;
             MusicApi.setLocalLyrics();
         }
-        function onLocalMetadataReady(filePath, meta) {
+        function onLocalMetadataReady(filePath: string, meta: var): void {
             if (filePath !== window.localLyricsRequestPath)
                 return;
             if (meta.title)
@@ -936,7 +975,6 @@ Window {
         renderWindow: window
         enabled: Style.settings.waveDisplay && controlMaxLoader.visible//mainMedia.playing
         bands: 128
-        //audioBufferOutput: mainMedia.audioBufferOutput
     }
 
     MediaPlayer {
@@ -948,8 +986,8 @@ Window {
         property string type
         property bool urlLocal
         property bool onMedia: mediaStatus !== MediaPlayer.NoMedia
+        property int audioBit: Math.floor(mainMedia.metaData.stringValue(MediaMetaData.AudioBitRate) / 1000)
         audioOutput: volumeValue
-        //audioBufferOutput: getWave.audioBufferOutput
 
         source: ""
         autoPlay: Options.settings.autoPlay
@@ -980,7 +1018,6 @@ Window {
                 urlStr = coverHelper.convertVariantToUrl(cover)
             } else {
                 //var localCover = coverHelper.findLocalCover(mainMedia.source)
-                //urlStr = localCover || null
                 //if (localCover)
                 //    colorExtractor.extractColorsFromUrl(localCover)
             }
@@ -1037,7 +1074,7 @@ Window {
     }
     // 依据播放列表上下文动态启用/禁用 SMTC 的上一首/下一首按钮
     // （无上一首/下一首时禁用对应按钮，避免一律恒启用）
-    function updateSmtcControls() {
+    function updateSmtcControls(): void {
         if (!windowsSmtc.available)
             return;
         var count = playListModel.count;
@@ -1046,7 +1083,7 @@ Window {
     }
 
     // 统一将当前曲目信息推给 SMTC。
-    function smtcUpdateMediaInfo() {
+    function smtcUpdateMediaInfo(): void {
         if (!windowsSmtc.available)
             return
         var mediaId = ""
@@ -1154,7 +1191,7 @@ Window {
     }
 
     // 播放列表持久化
-    function saveQueue() {
+    function saveQueue(): void {
         var out = []
         for (var i = 0; i < playListModel.count; i++) {
             var e = playListModel.get(i)
@@ -1165,7 +1202,7 @@ Window {
     }
 
     // 启动恢复上次列表，并记住断点位置（首次播放时跳转）
-    function restoreSession() {
+    function restoreSession(): void {
         if (!Options.settings.autoRestoreQueue) return
         try {
             var arr = JSON.parse(Options.settings.lastQueue || "[]")
@@ -1180,14 +1217,14 @@ Window {
         } catch (err) {}
     }
 
-    function startTrack(index) {
+    function startTrack(index: int): void {
         var e = playListModel.get(index)
         if (!e) return
         if (e.source === -1) window.playLocalSong(e.path, e.name)
         else { mainMedia.urlLocal = false; MusicApi.getMusicInfo(e.path, 0, e.source) }
     }
 
-    function noteNowPlaying() {
+    function noteNowPlaying(): void {
         if (playListModel.playListIndex < 0 || playListModel.count === 0 || !window.musicTitle) return
         var e = playListModel.get(playListModel.playListIndex)
         Playback.pushHistory({
@@ -1203,7 +1240,7 @@ Window {
 
     Connections {
         target: Playback
-        function onPlayIndex(index) { window.startTrack(index) }
+        function onPlayIndex(index: int): void { window.startTrack(index) }
     }
     SearchCard {
         id: searchCard
@@ -1242,7 +1279,6 @@ Window {
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/DesktopLyrics.qml"
-        //property int lyricSize: 20
     }
     QAlertDialog {
         id: globalDialog
@@ -1254,7 +1290,7 @@ Window {
         property var dialogCallback: null
 
         // 通用简单确认对话框：点击"确定"后执行 callBack 回调
-        function openSimpleDialog(title, text, callBack) {
+        function openSimpleDialog(title: string, text: string, callBack: var): void {
             globalDialog.title = title;
             globalDialog.message = text;
             globalDialog.isInput = false;
@@ -1275,14 +1311,14 @@ Window {
         id: mainWarn
         Connections {
             target: Style
-            function onWarned(text,type) {
+            function onWarned(text: string, type: int): void {
                 mainWarn.tiped(text,type);
             }
         }
     }
     QMessage {
         id: mainMessage
-        function openSimpleDialog(title, text, callBack) {
+        function openSimpleDialog(title: string, text: string, callBack: var): void {
             mainMessage.dialog(title,text,"\uf11a");
         }
     }
@@ -1305,52 +1341,50 @@ Window {
                 mainWarn.tiped("图片正在快速加载",0);
             }
         }
-        function dialog(_source,_title) {
+        function dialog(_source: string, _title: string): void {
             source = _source;
             fileName = _title + ".png";
             picWatch.open();
         }
 
-        options: Item {
-            anchors.fill: parent
-            Image {
-                id: imageWatch
-                source: picWatch.source
-                x: parent.width / 2 - 128
-                width: 256
-                height: 256
-                cache: false
-                sourceSize.width: 512
-                sourceSize.height: 512
-                fillMode: Image.PreserveAspectCrop
-            }
-            Item {
-                id: dragImage
-                Drag.active: dragImageArea.drag.active
-                Drag.dragType: Drag.Automatic
-                Drag.supportedActions: Qt.CopyAction
-                Drag.imageSource: imageWatch.source
-                Drag.imageSourceSize: Qt.size(64, 64)
-                Drag.mimeData: { "text/uri-list": imageWatch.source }
-            }
-
-            MouseArea {
-                id: dragImageArea
-                anchors.fill: imageWatch
-                drag.target: dragImage
-            }
-
-            Text {
-                width: parent.width
-                height: 40
-                y: 260
-                text: picWatch.fileName
-                font.pixelSize: Style.settings.textH2
-                color: Style.themes.textColor
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
+        options: Column {
+                    width: parent.width
+                    Image {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        id: imageWatch
+                        source: picWatch.source
+                        width: 256
+                        height: 256
+                        cache: false
+                        sourceSize.width: 512
+                        sourceSize.height: 512
+                        fillMode: Image.PreserveAspectCrop
+                        MouseArea {
+                            id: dragImageArea
+                            anchors.fill: imageWatch
+                            drag.target: dragImage
+                        }
+                    }
+                    Item {
+                        id: dragImage
+                        Drag.active: dragImageArea.drag.active
+                        Drag.dragType: Drag.Automatic
+                        Drag.supportedActions: Qt.CopyAction
+                        Drag.imageSource: imageWatch.source
+                        Drag.imageSourceSize: Qt.size(64, 64)
+                        Drag.mimeData: { "text/uri-list": imageWatch.source }
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width
+                        height: 40
+                        text: picWatch.fileName
+                        font.pixelSize: Style.settings.textH2
+                        color: Style.themes.textColor
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                }
     }
     Loader {
         id: textWatch

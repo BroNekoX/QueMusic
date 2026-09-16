@@ -59,6 +59,31 @@ QString titleFromFilename(const QString &filename, const QString &fallback = QSt
     return i > 0 ? filename.mid(i + 1).trimmed() : fallback;
 }
 
+// 高清(320k) hash：pay_type_320 == 3 表示需付费，回退普通 hash；
+// 没有 320hash 时用 trans_param.ogg_320_hash（部分曲目只提供 ogg）。
+QString hqHashFrom(const QJsonObject &song, const QString &base)
+{
+    if (song.value(QStringLiteral("pay_type_320")).toInt() == 3)
+        return base;
+    const QString hq = song.value(QStringLiteral("320hash")).toString();
+    if (!hq.isEmpty())
+        return hq;
+    const QString ogg = song.value(QStringLiteral("trans_param"))
+                            .toObject()
+                            .value(QStringLiteral("ogg_320_hash"))
+                            .toString();
+    return ogg.isEmpty() ? base : ogg;
+}
+
+// 无损(SQ) hash：pay_type_sq != 0 表示需付费，回退普通 hash
+QString sqHashFrom(const QJsonObject &song, const QString &base)
+{
+    if (song.value(QStringLiteral("pay_type_sq")).toInt() != 0)
+        return base;
+    const QString sq = song.value(QStringLiteral("sqhash")).toString();
+    return sq.isEmpty() ? base : sq;
+}
+
 // 裸 zlib 流解压（等价 Python 的 zlib.decompress）
 QByteArray zlibInflate(const QByteArray &data)
 {
@@ -442,17 +467,9 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-                const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
                 const QString hash = s.value(QStringLiteral("hash")).toString();
-                const QString hq = pay320 != 3
-                                       ? s.value(QStringLiteral("320hash")).toString()
-                                             .isEmpty()
-                                             ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                             : s.value(QStringLiteral("320hash")).toString()
-                                       : hash;
-                const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                       ? s.value(QStringLiteral("sqhash")).toString()
-                                       : hash;
+                const QString hq = hqHashFrom(s, hash);
+                const QString sq = sqHashFrom(s, hash);
                 info << ApiCommon::song(
                     s.value(QStringLiteral("songname")).toString(),
                     s.value(QStringLiteral("singername")).toString(),
@@ -494,17 +511,9 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                 const QString title = titleFromFilename(filename, s.value(QStringLiteral("songname")).toString());
                 const QString artist = artistFromFilename(filename);
                 const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-                const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
                 const QString hash = s.value(QStringLiteral("hash")).toString();
-                const QString hq = pay320 != 3
-                                       ? s.value(QStringLiteral("320hash")).toString()
-                                                 .isEmpty()
-                                             ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                             : s.value(QStringLiteral("320hash")).toString()
-                                       : hash;
-                const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                       ? s.value(QStringLiteral("sqhash")).toString()
-                                       : hash;
+                const QString hq = hqHashFrom(s, hash);
+                const QString sq = sqHashFrom(s, hash);
                 info << ApiCommon::song(
                     title.isEmpty() ? s.value(QStringLiteral("songname")).toString() : title,
                     artist.isEmpty() ? s.value(QStringLiteral("singername")).toString() : artist,
@@ -626,13 +635,8 @@ void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
             const QString title = titleFromFilename(filename, filename);
             const QString artist = artistFromFilename(filename);
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 == 0 && !s.value(QStringLiteral("320hash")).toString().isEmpty()
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title, artist,
                 tp.value(QStringLiteral("union_cover")).toString(),
@@ -670,16 +674,8 @@ void KugouApi::getRecommendSongs(int page, int pageSize)
             const QJsonObject s = v.toObject();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 != 3
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                         .isEmpty()
-                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                         : s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 s.value(QStringLiteral("songname")).toString(),
                 s.value(QStringLiteral("singername")).toString(),
@@ -784,16 +780,8 @@ void KugouApi::getNewSongs(int type, int page, int pageSize)
             const QJsonArray authors = s.value(QStringLiteral("authors")).toArray();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 != 3
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                         .isEmpty()
-                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                         : s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             QString artist;
             if (authors.size() > 1)
                 artist = authors.at(0).toObject().value(QStringLiteral("author_name")).toString()
@@ -878,13 +866,8 @@ void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
             const QString title = s.value(QStringLiteral("songname")).toString();
             const QJsonObject author = s.value(QStringLiteral("authors")).toArray().at(0).toObject();
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 == 0 && !s.value(QStringLiteral("320hash")).toString().isEmpty()
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title,
                 author.value(QStringLiteral("author_name")).toString(),
@@ -994,13 +977,8 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
             const QString title = titleFromFilename(filename, filename);
             const QString artist = artistFromFilename(filename);
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 == 0 && !s.value(QStringLiteral("320hash")).toString().isEmpty()
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title, artist,
                 tp.value(QStringLiteral("union_cover")).toString(),
@@ -1016,11 +994,30 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
 }
 
 // 歌曲播放信息（type: 0 播放 / 1 下载）
+// 酷狗音质由 hash 决定（普通/高清/无损是三个不同 hash），而免费接口 getSongInfo.php
+// 只返回 128k 文件，所以地址用 trackercdn 按传入 hash 取，元信息仍取 getSongInfo.php，两者并行。
 void KugouApi::getMusicInfo(const QString &hash, int type)
+{
+    if (hash.isEmpty()) {
+        qWarning() << "[kugou] getMusicInfo: hash 为空";
+        QVariantMap data;
+        data.insert(QStringLiteral("hash"), hash);
+        data.insert(QStringLiteral("type"), type);
+        data.insert(QStringLiteral("errReason"), QStringLiteral("unavailable"));
+        emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+        return;
+    }
+    auto st = QSharedPointer<PlayRequest>::create();
+    requestPlayMeta(hash, type, st);
+    requestTrackerUrl(hash, type, st);
+}
+
+// 元信息（歌名/歌手/封面/时长）+ 128k 地址兜底
+void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
 {
     QUrl url(QStringLiteral("https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=")
              + hash);
-    get(url.toString(), [this, hash, type](const QJsonObject &json) {
+    get(url.toString(), [this, hash, type, st](const QJsonObject &json) {
         // 与 JS 版一致：兼容 {data:{...}} 和直接 {...} 两种返回结构
         QJsonObject d = json.value(QStringLiteral("data")).toObject();
         if (d.isEmpty())
@@ -1053,8 +1050,6 @@ void KugouApi::getMusicInfo(const QString &hash, int type)
             fileName = songName + QStringLiteral(".mp3");
 
         QVariantMap data;
-        data.insert(QStringLiteral("backup_url"), backupUrl.isEmpty() ? playUrl : backupUrl);
-        data.insert(QStringLiteral("url"), playUrl.isEmpty() ? backupUrl : playUrl);
         data.insert(QStringLiteral("songName"), songName.isEmpty() ? fileNameRaw : songName);
         data.insert(QStringLiteral("author_name"), d.value(QStringLiteral("author_name")).toString());
         data.insert(QStringLiteral("singer_img"), d.value(QStringLiteral("imgUrl")).toString());
@@ -1064,16 +1059,93 @@ void KugouApi::getMusicInfo(const QString &hash, int type)
                         ? d.value(QStringLiteral("timeLength")).toDouble()
                         : d.value(QStringLiteral("duration")).toDouble());
         data.insert(QStringLiteral("fileName"), fileName);
-        data.insert(QStringLiteral("hash"), hash);
-        data.insert(QStringLiteral("type"), type);
 
-        // 免费接口不认登录态，VIP 歌曲返回空地址：带 token 走签名接口二次尝试
-        if (playUrl.isEmpty() && backupUrl.isEmpty() && !cookieValue(QStringLiteral("token")).isEmpty()) {
-            requestSignedPlayInfo(hash, type);
+        st->meta = data;
+        st->metaUrl = playUrl;
+        st->metaBackupUrl = backupUrl;
+        st->metaDone = true;
+        finishPlayInfo(hash, type, st);
+    });
+}
+
+// 按 hash 精确取址（trackercdn v2）：status=1 有权，status=2 表示该音质需会员/无版权
+void KugouApi::requestTrackerUrl(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
+{
+    const QString key = QString::fromLatin1(
+        QCryptographicHash::hash((hash + QStringLiteral("kgcloudv2")).toUtf8(),
+                                 QCryptographicHash::Md5).toHex());
+    QUrl url(QStringLiteral("https://trackercdn.kugou.com/i/v2/"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("key"), key);
+    q.addQueryItem(QStringLiteral("hash"), hash);
+    q.addQueryItem(QStringLiteral("br"), QStringLiteral("hq")); // 音质由 hash 决定，br 无实际作用
+    q.addQueryItem(QStringLiteral("appid"), QStringLiteral("1005"));
+    q.addQueryItem(QStringLiteral("pid"), QStringLiteral("2"));
+    q.addQueryItem(QStringLiteral("cmd"), QStringLiteral("25"));
+    q.addQueryItem(QStringLiteral("behavior"), QStringLiteral("play"));
+    url.setQuery(q);
+
+    get(url.toString(), [this, hash, type, st](const QJsonObject &json) {
+        const int status = json.value(QStringLiteral("status")).toInt();
+        const QJsonValue uv = json.value(QStringLiteral("url"));
+        QString u;
+        if (uv.isArray()) {
+            const QJsonArray arr = uv.toArray();
+            if (!arr.isEmpty())
+                u = arr.first().toString();
+        } else {
+            u = uv.toString();
+        }
+        st->trackerStatus = status;
+        if (status == 1 && !u.isEmpty()) {
+            st->trackerUrl = u;
+            st->trackerExt = json.value(QStringLiteral("extName")).toString();
+            st->trackerRate = json.value(QStringLiteral("bitRate")).toInt();
+        }
+        qDebug() << "[kugou] trackercdn 取址 hash:" << hash.left(8)
+                 << "status:" << status << "bitRate:" << st->trackerRate
+                 << "ext:" << st->trackerExt;
+        st->trackerDone = true;
+        finishPlayInfo(hash, type, st);
+    });
+}
+
+// 两路返回后合并：优先 trackercdn（精确音质）→ 回退 128k → 再回退登录签名接口
+void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
+{
+    if (!st->metaDone || !st->trackerDone)
+        return;
+
+    QVariantMap data = st->meta;
+    const QString fallbackUrl = st->metaUrl.isEmpty() ? st->metaBackupUrl : st->metaUrl;
+    QString playUrl = st->trackerUrl.isEmpty() ? fallbackUrl : st->trackerUrl;
+
+    // 文件名后缀跟随实际音质（无损存 .flac，而不是 .mp3）
+    if (!st->trackerUrl.isEmpty() && !st->trackerExt.isEmpty()) {
+        QString fileName = data.value(QStringLiteral("fileName")).toString();
+        const int dot = fileName.lastIndexOf(QLatin1Char('.'));
+        if (dot > 0)
+            fileName = fileName.left(dot) + QLatin1Char('.') + st->trackerExt;
+        data.insert(QStringLiteral("fileName"), fileName);
+    }
+    data.insert(QStringLiteral("url"), playUrl);
+    data.insert(QStringLiteral("backup_url"), fallbackUrl);
+    data.insert(QStringLiteral("hash"), hash);
+    data.insert(QStringLiteral("type"), type);
+
+    if (playUrl.isEmpty()) {
+        // trackercdn status=2 说明该曲对该账号无权限（会员/购买），用于给出准确提示
+        const QString reason = st->trackerStatus == 2 ? QStringLiteral("vip")
+                                                     : QStringLiteral("unavailable");
+        if (!cookieValue(QStringLiteral("token")).isEmpty()) {
+            qDebug() << "[kugou] 免费通道无地址，转登录签名接口重试 hash:" << hash.left(8);
+            requestSignedPlayInfo(hash, type, reason);
             return;
         }
-        emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
-    });
+        data.insert(QStringLiteral("errReason"), reason);
+        qWarning() << "[kugou] 未登录且无可用地址（VIP/付费曲目需要会员或已购买）";
+    }
+    emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
 }
 
 QString KugouApi::cookieValue(const QString &key) const
@@ -1087,8 +1159,8 @@ QString KugouApi::cookieValue(const QString &key) const
     return QString();
 }
 
-// wwwapi 播放接口（web 签名 + 登录 token），VIP 账号可取到完整播放地址
-void KugouApi::requestSignedPlayInfo(const QString &hash, int type)
+// wwwapi 播放接口（web 签名 + 登录 token），有会员/已购买的账号可取到完整播放地址
+void KugouApi::requestSignedPlayInfo(const QString &hash, int type, const QString &reason)
 {
     const QString mid = m_mid.isEmpty() ? kugouMidFromGuid(randomGuid()) : m_mid;
     QJsonObject params;
@@ -1120,15 +1192,30 @@ void KugouApi::requestSignedPlayInfo(const QString &hash, int type)
     QUrl url(QStringLiteral("https://wwwapi.kugou.com/play/songinfo"));
     url.setQuery(q);
 
-    get(url.toString(), [this, hash, type](const QJsonObject &json) {
+    get(url.toString(), [this, hash, type, reason](const QJsonObject &json) {
         const QJsonObject d = json.value(QStringLiteral("data")).toObject();
         const QString playUrl = d.value(QStringLiteral("play_url")).toString();
         const QJsonArray backupArr = d.value(QStringLiteral("backup_url")).toArray();
         const QString backup = backupArr.isEmpty() ? QString() : backupArr.first().toString();
         qDebug() << "[kugou] 签名播放接口 url:" << (playUrl.isEmpty() ? backup : playUrl)
                  << "err:" << json.value(QStringLiteral("err_code"));
-        if (playUrl.isEmpty() && backup.isEmpty()) // 风控/无权限，交由上层提示
+        if (playUrl.isEmpty() && backup.isEmpty()) {
+            // 无权限/风控：必须回传结果，否则上层 loadState 一直为 true（界面卡在加载中）
+            QVariantMap fail;
+            fail.insert(QStringLiteral("url"), QString());
+            fail.insert(QStringLiteral("songName"), d.value(QStringLiteral("song_name")).toString());
+            fail.insert(QStringLiteral("author_name"),
+                        d.value(QStringLiteral("author_name")).toString());
+            fail.insert(QStringLiteral("album_img"), d.value(QStringLiteral("img")).toString());
+            fail.insert(QStringLiteral("timeLength"),
+                        int(d.value(QStringLiteral("timelength")).toDouble() / 1000));
+            fail.insert(QStringLiteral("hash"), hash);
+            fail.insert(QStringLiteral("type"), type);
+            fail.insert(QStringLiteral("errReason"),
+                        reason.isEmpty() ? QStringLiteral("unavailable") : reason);
+            emit resultReady(QStringLiteral("getMusicInfo"), fail, Source);
             return;
+        }
 
         const QString songName = d.value(QStringLiteral("song_name")).toString();
         QString fileName = d.value(QStringLiteral("audio_name")).toString();
@@ -1241,16 +1328,8 @@ void KugouApi::getPersonalFm(int page, int pageSize)
             const QJsonArray artistList = s.value("authors").toArray();
             const QJsonObject artistValue = artistList.at(0).toObject();
             const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 != 3
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                             .isEmpty()
-                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                         : s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title,
                 artist,
@@ -1293,16 +1372,8 @@ void KugouApi::getPersonalRadar(int page, int pageSize)
             const QJsonArray artistList = s.value("authors").toArray();
             const QJsonObject artistValue = artistList.at(0).toObject();
             const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
-            const int pay320 = s.value(QStringLiteral("pay_type_320")).toInt();
-            const QString hq = pay320 != 3
-                                   ? s.value(QStringLiteral("320hash")).toString()
-                                             .isEmpty()
-                                         ? tp.value(QStringLiteral("ogg_320_hash")).toString()
-                                         : s.value(QStringLiteral("320hash")).toString()
-                                   : hash;
-            const QString sq = s.value(QStringLiteral("pay_type_sq")).toInt() == 0
-                                   ? s.value(QStringLiteral("sqhash")).toString()
-                                   : hash;
+            const QString hq = hqHashFrom(s, hash);
+            const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title,
                 artist,

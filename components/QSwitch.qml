@@ -54,7 +54,6 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         onClicked: {
-            //root.switchTrue = !root.switchTrue
             root.toggled(root.switchTrue)
         }
     }

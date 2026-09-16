@@ -14,8 +14,6 @@ Rectangle {
     property color choiceColor: Style.themes.hoverColor
     property color choiceTextColor: Style.themes.fontColor
     color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor) : baseColor
-    //layer.enabled: true
-    //layer.smooth: true
     Connections {
         target: Style
         function onChangeTheme() {
@@ -87,7 +85,6 @@ Rectangle {
             NumberAnimation {
                 property: "barBottom"
                 target: choicebar
-                //from: choicebar.barBottom
                 to: choicebar.willBarY + 22
                 easing.type: Easing.Bezier
                 easing.bezierCurve: [ 0.50, 0.00, 0.00, 1.00, 1, 1 ]
@@ -96,7 +93,6 @@ Rectangle {
             NumberAnimation {
                 property: "y"
                 target: choicebar
-                //from: choicebar.y
                 to: choicebar.willBarY
                 easing.type: Easing.Bezier
                 easing.bezierCurve: [ 1.00, 0.00, 0.50, 1.00, 1, 1 ]
@@ -108,7 +104,6 @@ Rectangle {
             NumberAnimation {
                 property: "barBottom"
                 target: choicebar
-                //from: choicebar.barBottom
                 to: choicebar.willBarY + 22
                 easing.type: Easing.Bezier
                 easing.bezierCurve: [ 1.00, 0.00, 0.50, 1.00, 1, 1 ]
@@ -117,11 +112,52 @@ Rectangle {
             NumberAnimation {
                 property: "y"
                 target: choicebar
-                //from: choicebar.y
                 to: choicebar.willBarY
                 easing.type: Easing.Bezier
                 easing.bezierCurve: [ 0.50, 0.00, 0.00, 1.00, 1, 1 ]
                 duration: 280
+            }
+        }
+    }
+
+    //标题
+    Item {
+        x: 10
+        y: 10
+        width: 180
+        height: 40
+        visible: !window.isMacOS
+        Image {
+            y: 8
+            x: 15
+            width: 24
+            height: 24
+            source: "qrc:/QueMusic/resources/icon.ico"
+            sourceSize: Qt.size(24, 24)
+        }
+        Text {
+            y: 11
+            x: 51
+            height: 18
+            text: "QueMusic"
+            font.family: textFont.name
+            font.pixelSize: 16
+            font.bold: true
+            verticalAlignment: Text.AlignVCenter
+            color: Style.themes.fontColor
+        }
+        Rectangle {
+            x: 140
+            y: 10
+            width: 40
+            height: 20
+            color: Style.themes.themeColor
+            radius: 6
+            Text {
+                anchors.centerIn: parent
+                text: "Beta"
+                font.pixelSize: 12
+                color:  Style.themes.primaryColor
             }
         }
     }
@@ -136,53 +172,8 @@ Rectangle {
     }
 
 
-    // Sidebar Header/Section Title
-    Item {
-        x: 0
-        y: 0
-        width: 200
-        height: 60
-
-        //icon
-        Image {
-            y: 18
-            x: 25
-            width: 24
-            height: 24
-            source: "qrc:/QueMusic/resources/icon.ico"
-            sourceSize: Qt.size(24, 24)
-        }
-
-        // App Title
-        Text {
-            y: 21
-            x: 61
-            height: 18
-            text: "QueMusic"
-            font.family: textFont.name
-            font.pixelSize: 16
-            font.bold: true
-            verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
-
-        }
-
-        Rectangle {
-            x: 150
-            y: 20
-            width: 40
-            height: 20
-            color: Style.themes.themeColor
-            radius: 6
-            Text {
-                anchors.centerIn: parent
-                text: "Beta"
-                font.pixelSize: 12
-                color:  Style.themes.primaryColor
-
-            }
-        }
-    }
+    // 应用标题（图标 + QueMusic + Beta 徽标）已移到 main.qml 的 titleBar 上，
+    // 这样标题栏能拉成全宽（整条顶部均可拖动），macOS 上也能整块让位给系统红绿灯。
 
     // Navigation List
     ListModel {

@@ -22,7 +22,7 @@ Rectangle {
             // 空队列时 playListIndex 为 -1，get 会返回 undefined
             if(playListModel.playListIndex < 0)
                 return;
-            likeButton.iconColor = favoritesSong.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
+            likeButton.iconColor = FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
                                    ? Style.themes.themeColor : Style.themes.textColor;
         }
     }
@@ -280,12 +280,12 @@ Rectangle {
             onClicked: {
                 if(playListModel.get(playListModel.playListIndex).source !== -1) {
                     console.log("收藏的hash/id:",playListModel.get(playListModel.playListIndex).path);
-                    if (favoritesSong.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
-                        favoritesSong.removeFavorite(playListModel.get(playListModel.playListIndex).path, "song");
+                    if (FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
+                        FavoriteSongs.removeFavorite(playListModel.get(playListModel.playListIndex).path, "song");
                         mainWarn.tiped("取消收藏",0);
                         iconColor = Style.themes.textColor;
                     } else {
-                        favoritesSong.addFavorite(playListModel.get(playListModel.playListIndex).path, window.musicTitle, window.musicArtist, mainMedia.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(mainMedia.duration / 1000), "song");
+                        FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, window.musicTitle, window.musicArtist, mainMedia.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(mainMedia.duration / 1000), "song");
                         mainWarn.tiped("成功收藏",1);
                         iconColor = Style.themes.themeColor;
                     }
@@ -296,7 +296,6 @@ Rectangle {
         SButton {
             x: 174
             y: 5
-            //iconSize:
             iconCharacter: "\uf011"
             width: 40
             height: 40
@@ -310,13 +309,8 @@ Rectangle {
                      && playListModel.get(playListModel.playListIndex).source !== -1
             onClicked: {
                 if(playListModel.get(playListModel.playListIndex).path) {
-                    if(Options.settings.soundQuality === 0) {
-                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
-                    } else if(Options.settings.soundQuality === 1) {
-                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
-                    } else {
-                        MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
-                    }
+                    // 音质交给 MusicApi 按设置选 hash，这里无需再分支
+                    MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
                 }
             }
             tipText: "下载"
@@ -544,12 +538,12 @@ Rectangle {
             mainWarn.tiped("本地歌曲请使用本地收藏", 0);
             return;
         }
-        if(favoritesSong.isFavorite(e.path, "song")) {
-            favoritesSong.removeFavorite(e.path, "song");
+        if(FavoriteSongs.isFavorite(e.path, "song")) {
+            FavoriteSongs.removeFavorite(e.path, "song");
             likeButton.iconColor = Style.themes.textColor;
             mainWarn.tiped("取消收藏", 0);
         } else {
-            favoritesSong.addFavorite(e.path, window.musicTitle, window.musicArtist, mainMedia.urlStr,
+            FavoriteSongs.addFavorite(e.path, window.musicTitle, window.musicArtist, mainMedia.urlStr,
                                       e.source, Math.floor(mainMedia.duration / 1000), "song");
             likeButton.iconColor = Style.themes.themeColor;
             mainWarn.tiped("成功收藏", 1);
@@ -594,7 +588,6 @@ Rectangle {
             blurSource: mainLayout
             shadowEffect: true
             rectXy: Qt.rect(volumeControl.x, volumeControl.y, 180, 40)
-            //color: Style.themes.primaryBlurColor
         }
         contentItem: QSlider {
             z: 1

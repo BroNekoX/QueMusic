@@ -12,6 +12,7 @@
 #include <QThread>
 #include <QVector>
 #include <QDateTime>
+#include <QtQml/qqmlregistration.h>
 #include <atomic>
 
 class QTimer;
@@ -70,6 +71,8 @@ signals:
 class FolderModel : public QAbstractListModel
 {
     Q_OBJECT
+    // 供 QML 单例 AppEnv 作为属性类型使用；不让 QML 直接按名字实例化
+    QML_ANONYMOUS
     Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged)
 
 public:
@@ -109,6 +112,7 @@ private:
 class SongModel : public QAbstractListModel
 {
     Q_OBJECT
+    QML_ANONYMOUS
     Q_PROPERTY(int folderId READ folderId WRITE setFolderId NOTIFY folderIdChanged)
     Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged)
     Q_PROPERTY(QAbstractListModel *searchResults READ searchResults CONSTANT)

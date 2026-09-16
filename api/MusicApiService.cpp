@@ -6,10 +6,14 @@
 #include <QDebug>
 #include <QQmlEngine>
 #include <QJSEngine>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QtConcurrent>
 
@@ -64,6 +68,22 @@ MusicApiService::MusicApiService(QObject *parent)
     // 平台结果直接在本类处理（填模型 / 属性 / 发信号）
     connect(&m_netease, &NeteaseCloudApi::resultReady, this, &MusicApiService::handleResult);
     connect(&m_kugou, &KugouApi::resultReady, this, &MusicApiService::handleResult);
+
+    // 音质初值：QML 侧还有 Binding 同步，这里读 ini 只为保证 Binding 生效前也正确
+    QSettings opt(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                      + QStringLiteral("/BroNekoX/QueMusic.ini"),
+                  QSettings::IniFormat);
+    m_soundQuality = opt.value(QStringLiteral("Options/soundQuality"), 1).toInt();
+
+    m_altsSaveTimer.setSingleShot(true);
+    connect(&m_altsSaveTimer, &QTimer::timeout, this, &MusicApiService::saveQualityCache);
+    loadQualityCache();
+}
+
+MusicApiService::~MusicApiService()
+{
+    if (m_altsDirty)
+        saveQualityCache();
 }
 
 void MusicApiService::setAccountManager(AccountManager *am)
@@ -89,28 +109,145 @@ int MusicApiService::resolve(int source) const
     return source < 0 ? m_source : source;
 }
 
+int MusicApiService::soundQuality() const
+{
+    return m_soundQuality;
+}
+
+void MusicApiService::setSoundQuality(int q)
+{
+    if (m_soundQuality == q)
+        return;
+    m_soundQuality = q;
+    emit soundQualityChanged();
+}
+
+// 记录「同一首歌的不同音质 hash」（酷狗把普通/高清/无损做成三个不同 hash，
+// 搜索、歌单、榜单结果里都带：hash / hashhq / hashsq）
+void MusicApiService::rememberHashes(const QVariantList &items)
+{
+    if (m_alts.size() > 5000) // 只做加速用，不做无界增长
+        return;
+    bool changed = false;
+    for (const QVariant &v : items) {
+        const QVariantMap it = v.toMap();
+        const QString base = it.value(QStringLiteral("hash")).toString();
+        if (base.isEmpty())
+            continue;
+        const QString hq = it.value(QStringLiteral("hashhq")).toString();
+        const QString sq = it.value(QStringLiteral("hashsq")).toString();
+        QualityAlts alts = m_alts.value(base);
+        if (!hq.isEmpty() && hq != base && alts.hq != hq) {
+            alts.hq = hq;
+            m_baseOf.insert(hq, base);
+            changed = true;
+        }
+        if (!sq.isEmpty() && sq != base && alts.sq != sq) {
+            alts.sq = sq;
+            m_baseOf.insert(sq, base);
+            changed = true;
+        }
+        if (!alts.hq.isEmpty() || !alts.sq.isEmpty())
+            m_alts.insert(base, alts);
+    }
+    if (changed)
+        scheduleSaveQualityCache();
+}
+
+QString MusicApiService::qualityCachePath() const
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                        + QStringLiteral("/BroNekoX");
+    QDir().mkpath(dir);
+    return dir + QStringLiteral("/QueMusicQuality.json");
+}
+
+void MusicApiService::loadQualityCache()
+{
+    QFile f(qualityCachePath());
+    if (!f.open(QIODevice::ReadOnly))
+        return;
+    const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
+    const auto load = [this](const QJsonObject &obj, bool hq) {
+        for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+            const QString base = it.key();
+            const QString alt = it.value().toString();
+            if (base.isEmpty() || alt.isEmpty() || alt == base)
+                continue;
+            QualityAlts alts = m_alts.value(base);
+            (hq ? alts.hq : alts.sq) = alt;
+            m_alts.insert(base, alts);
+            m_baseOf.insert(alt, base);
+        }
+    };
+    load(root.value(QStringLiteral("hq")).toObject(), true);
+    load(root.value(QStringLiteral("sq")).toObject(), false);
+}
+
+void MusicApiService::scheduleSaveQualityCache()
+{
+    m_altsDirty = true;
+    m_altsSaveTimer.start(1500); // 合并连续列表解析，避免频繁写盘
+}
+
+void MusicApiService::saveQualityCache()
+{
+    QJsonObject hq;
+    QJsonObject sq;
+    for (auto it = m_alts.constBegin(); it != m_alts.constEnd(); ++it) {
+        if (!it.value().hq.isEmpty())
+            hq.insert(it.key(), it.value().hq);
+        if (!it.value().sq.isEmpty())
+            sq.insert(it.key(), it.value().sq);
+    }
+    QJsonObject root;
+    root.insert(QStringLiteral("hq"), hq);
+    root.insert(QStringLiteral("sq"), sq);
+
+    QSaveFile f(qualityCachePath());
+    if (!f.open(QIODevice::WriteOnly))
+        return;
+    f.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    if (f.commit())
+        m_altsDirty = false;
+}
+
+// 音质设置 → 实际请求的 hash（0 标准 128k / 1 高清 320k / 2+ 无损 flac）
+QString MusicApiService::resolveQualityHash(const QString &hash) const
+{
+    const QString base = m_baseOf.value(hash, hash);
+    const QualityAlts alts = m_alts.value(base);
+    if (m_soundQuality >= 2 && !alts.sq.isEmpty())
+        return alts.sq;
+    if (m_soundQuality == 1 && !alts.hq.isEmpty())
+        return alts.hq;
+    return base;
+}
+
 void MusicApiService::syncCookie(int source)
 {
     if (!m_account)
         return;
     if (source == kSourceNetease)
-        m_netease.setCookie(m_account->neteaseCookie());
+        // 带客户端身份（稳定 deviceId + os=pc）：未登录也要带，避免被网易云判为异常环境
+        m_netease.setCookie(m_account->neteaseApiCookie());
     else if (source == kSourceKugou) {
         m_kugou.setCookie(m_account->kugouCookie());
         m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
     }
 }
 
-#define DISPATCH(source, expr)                       \
-    do {                                              \
-        const int s = resolve(source);                \
-        syncCookie(s);                                \
-        switch (s) {                                  \
-        case kSourceNetease: m_netease.expr; break;   \
-        case kSourceKugou:   m_kugou.expr; break;     \
-        default:                                      \
-            qWarning() << "[api] 未实现的平台:" << s;   \
-        }                                             \
+// 内部变量名加前缀：避免调用点传入与外层同名变量时被自身初始化式遮蔽（曾误传 s 导致读到未初始化值）
+#define DISPATCH(source, expr)                                              \
+    do {                                                                    \
+        const int quemusicSource = resolve(source);                         \
+        syncCookie(quemusicSource);                                         \
+        switch (quemusicSource) {                                           \
+        case kSourceNetease: m_netease.expr; break;                         \
+        case kSourceKugou:   m_kugou.expr; break;                           \
+        default:                                                            \
+            qWarning() << "[api] 未实现的平台:" << quemusicSource;            \
+        }                                                                   \
     } while (0)
 
 // 统一请求入口（请求开始置 loadState=true）
@@ -217,7 +354,9 @@ void MusicApiService::getSingerSongs(const QString &singerid, int page, int page
 void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
 {
     setLoadState(true);
-    DISPATCH(source, getMusicInfo(hash, type));
+    // 酷狗同一首歌按音质是不同 hash：按设置换成高清/无损 hash，没有就回退原 hash
+    const QString playHash = (resolve(source) == kSourceKugou) ? resolveQualityHash(hash) : hash;
+    DISPATCH(source, getMusicInfo(playHash, type));
 }
 
 void MusicApiService::getPersonalFm(int page, int pageSize, int source)
@@ -550,6 +689,10 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
                               ? d.value(QStringLiteral("info"))
                               : data;
 
+    // 列表结果里带 hashhq/hashsq：记下来，播放时才能按音质设置升级 hash
+    if (info.typeId() == QMetaType::QVariantList)
+        rememberHashes(info.toList());
+
     if (action == QLatin1String("searchSongs")) {
         if (m_localLyricsSearches.contains(source)) {
             const LocalLyricsRequest request = m_localLyricsSearches.take(source);
@@ -719,8 +862,22 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
 {
     const int type = d.value(QStringLiteral("type")).toInt();
     const QString playUrl = firstNonEmpty(d, {"url", "backup_url"});
-    if (playUrl.isEmpty()) { // 酷狗 VIP/无版权歌曲 url 为空
-        emit warned(QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址"), 2);
+    // 接口回传的是实际请求的（可能是高清）hash；队列/收藏统一用普通 hash 当身份，
+    // 否则同一首歌会因音质不同在队列里出现多条。
+    const QString playHash = d.value(QStringLiteral("hash")).toString();
+    const QString identityHash = m_baseOf.value(playHash, playHash);
+    if (playUrl.isEmpty()) { // 无可用地址：按原因提示（接口层已保证一定会回结果，这里必须给出提示）
+        const QString reason = d.value(QStringLiteral("errReason")).toString();
+        const bool kugouNotLoggedIn = source == kSourceKugou && m_account
+                                      && !m_account->isKugouLoggedIn();
+        QString msg = QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
+        if (reason == QLatin1String("vip"))
+            msg = kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
+                                   : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放");
+        else if (kugouNotLoggedIn)
+            msg = QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试");
+        qDebug() << "[api] 无法播放:" << msg << "hash:" << playHash.left(8);
+        emit warned(msg, 2);
         return;
     }
     if (type == 0) { // 播放
@@ -737,10 +894,10 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
                      d.value(QStringLiteral("songName")).toString(),
                      d.value(QStringLiteral("author_name")).toString(),
                      cover, solve,
-                     d.value(QStringLiteral("hash")).toString(),
+                     identityHash,
                      source);
-        // 直接请求歌词
-        getLyricInfo(d.value(QStringLiteral("hash")).toString(), time, source);
+        // 直接请求歌词（用实际请求的 hash，高清 hash 同样能取到歌词）
+        getLyricInfo(playHash, time, source);
     } else if (type == 1) { // 下载
         // 秒 → 毫秒
         const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();

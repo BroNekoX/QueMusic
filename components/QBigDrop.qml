@@ -69,7 +69,6 @@ Rectangle {
                     onEntered: hover.opacity = 1
                     onExited: hover.opacity = 0
                     onClicked: {
-                        //root.choice = index
                         root.transformed(index)
                     }
                 }

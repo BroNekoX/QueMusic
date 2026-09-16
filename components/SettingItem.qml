@@ -8,7 +8,6 @@ Item {
     id: settingItem
     property string label: ""
     property int controlWidth: 160
-    //property alias controlItem: controlLoader.item
     property bool isBigItem: false
 
     width: settingStack.standWidth
