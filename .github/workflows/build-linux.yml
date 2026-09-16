@@ -34,13 +34,19 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libfuse2 ninja-build wget file \
             libpulse-dev libpulse0 \
-            extra-cmake-modules libx11-dev
+            extra-cmake-modules libx11-dev \
+            libwayland-dev libwayland-bin wayland-protocols
           # 说明：
           #   - 不再安装 qt6-wayland：那是「系统 Qt」的插件，与本项目 aqt 安装的
           #     Qt 6.10.3 ABI 不匹配；Wayland 插件必须取自 aqt 的 Qt 目录
           #   - 不再使用系统包 fcitx5-frontend-qt6 里的插件：它针对 Ubuntu 自带 Qt 编译，
           #     塞进 Qt 6.10.3 运行时存在 ABI 风险，改为用同一份 Qt 从源码编译（见下一步）
-          #   - extra-cmake-modules(ECM) / libx11-dev 是编译 fcitx5-qt 插件所需
+          #   - extra-cmake-modules(ECM) / libx11-dev / libwayland-* 是编译 fcitx5-qt 插件所需：
+          #     fcitx5-qt 默认开启 ENABLE_QT6_WAYLAND_WORKAROUND，会 find_package(Qt6 ... WaylandClient)，
+          #     而 Qt6WaylandClient 在配置期又要 find_package(Wayland)（由 ECM 提供，比 Qt 自带的更严格）：
+          #       libwayland-dev 提供 /usr/share/wayland/wayland.xml 与 client/server/cursor/egl 开发文件
+          #       libwayland-bin 提供 wayland-scanner
+          #     缺了它们，fcitx5-qt 配置阶段会以 "Failed to find required Qt component WaylandClient" 失败
 
       - name: Install Qt 6.10.3 (aqtinstall)
         run: |
