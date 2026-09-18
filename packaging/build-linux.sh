@@ -87,19 +87,42 @@ cp packaging/QueMusic.desktop "${APP_DIR}/usr/share/applications/"
 
 # ---------- 5. linuxdeploy 打包 ----------
 echo "==> [5/5] 打包 AppImage..."
-# 关键插件：Wayland 平台插件 + fcitx5 输入法插件
-# linuxdeploy-plugin-qt 默认只带 libqxcb.so（X11），不会带 Wayland 平台插件：
-# 缺了它 Qt 在 Wayland 会话下只能退回 XWayland，分数缩放失效、窗口/字体大小异常。
-WAYLAND_PLUGINS=""
-for p in "${QT_DIR}/${QT_VERSION}/gcc_64/plugins/platforms/"libqwayland*.so; do
-    [ -f "$p" ] || continue
-    WAYLAND_PLUGINS="${WAYLAND_PLUGINS:+$WAYLAND_PLUGINS;}$(basename "$p")"
-done
-if [ -n "${WAYLAND_PLUGINS}" ]; then
-    export EXTRA_PLATFORM_PLUGINS="${WAYLAND_PLUGINS}"
-    echo "    附带 Wayland 平台插件: ${WAYLAND_PLUGINS}"
+# 关键插件：platforms(xcb+Wayland) / xcbglintegrations(OpenGL) / egldeviceintegrations
+# linuxdeploy-plugin-qt 按「依赖命中的模块」部署，平台类插件不保证被带上，这里显式拷贝。
+QT_PLUGIN_SRC="${QT_DIR}/${QT_VERSION}/gcc_64/plugins"
+
+mkdir -p "${APP_DIR}/usr/plugins/platforms"
+if [ -f "${QT_PLUGIN_SRC}/platforms/libqxcb.so" ]; then
+    cp -a "${QT_PLUGIN_SRC}/platforms/libqxcb.so" "${APP_DIR}/usr/plugins/platforms/"
 else
-    echo "!! 未找到 Wayland 平台插件，产物将只支持 X11"
+    echo "!! 缺少 X11 平台插件 libqxcb.so"
+fi
+WAYLAND_COUNT=0
+for p in "${QT_PLUGIN_SRC}/platforms/"libqwayland*.so; do
+    [ -f "$p" ] || continue
+    cp -a "$p" "${APP_DIR}/usr/plugins/platforms/"
+    WAYLAND_COUNT=$((WAYLAND_COUNT + 1))
+done
+if [ "${WAYLAND_COUNT}" -gt 0 ]; then
+    echo "    附带 Wayland 平台插件: ${WAYLAND_COUNT} 个"
+else
+    echo "!! 未找到 Wayland 平台插件，产物将只支持 X11（Qt 安装缺少 qtwayland？）"
+fi
+
+# X11/XWayland 下创建 OpenGL 上下文的关键：缺了它会出现
+# 「QRhi 无法加载 OpenGL / 无法创建 OpenGL 上下文」并闪退（Vulkan 后端不受影响）
+if [ -d "${QT_PLUGIN_SRC}/xcbglintegrations" ]; then
+    mkdir -p "${APP_DIR}/usr/plugins/xcbglintegrations"
+    cp -a "${QT_PLUGIN_SRC}/xcbglintegrations"/. "${APP_DIR}/usr/plugins/xcbglintegrations/"
+    echo "    附带 xcbglintegrations（OpenGL 集成）"
+else
+    echo "!! 未找到 xcbglintegrations，X11 下 OpenGL 可能无法使用"
+fi
+
+# EGL 设备/GBM 集成（部分驱动组合需要）
+if [ -d "${QT_PLUGIN_SRC}/egldeviceintegrations" ]; then
+    mkdir -p "${APP_DIR}/usr/plugins/egldeviceintegrations"
+    cp -a "${QT_PLUGIN_SRC}/egldeviceintegrations"/. "${APP_DIR}/usr/plugins/egldeviceintegrations/"
 fi
 
 # fcitx5 的 Qt6 输入法插件

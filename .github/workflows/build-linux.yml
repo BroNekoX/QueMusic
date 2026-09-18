@@ -96,8 +96,7 @@ jobs:
         run: |
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/plugins/platforms
-          mkdir -p AppDir/usr/plugins/platforminputcontexts
+          mkdir -p AppDir/usr/plugins
           mkdir -p AppDir/usr/lib
 
           cp packaging/QueMusic.desktop AppDir/usr/share/applications/
@@ -105,37 +104,62 @@ jobs:
 
           QT_PLUGIN_DIR="$HOME/Qt/6.10.3/gcc_64/plugins"
 
-          # 1. Wayland 平台插件
-          # linuxdeploy-plugin-qt 默认只部署 libqxcb.so（X11），不会带 Wayland 平台插件。
-          # 缺了它，Qt 在 Wayland 会话里只能退回 XWayland → 分数缩放失效、窗口/字体忽大忽小。
-          # 用官方支持的 EXTRA_PLATFORM_PLUGINS 交给 linuxdeploy 连依赖一起部署。
-          WAYLAND_PLUGINS=""
-          for p in "$QT_PLUGIN_DIR"/platforms/libqwayland*.so; do
-            if [ -f "$p" ]; then
-              WAYLAND_PLUGINS="${WAYLAND_PLUGINS:+$WAYLAND_PLUGINS;}$(basename "$p")"
-            fi
-          done
-          if [ -z "$WAYLAND_PLUGINS" ]; then
-            echo "!! 在 $QT_PLUGIN_DIR/platforms 下找不到 Wayland 平台插件"
-            echo "   aqt 的 linux desktop 基础包应含 qtwayland，请检查 Qt 安装是否完整"
-            exit 1
-          fi
-          echo "EXTRA_PLATFORM_PLUGINS=$WAYLAND_PLUGINS" >> "$GITHUB_ENV"
-          echo "✅ 将部署 Wayland 平台插件: $WAYLAND_PLUGINS"
+          # linuxdeploy-plugin-qt 是按「AppDir 内已有库 + 其依赖命中的 Qt 模块」来决定部署内容的，
+          # 平台类插件（platforms / xcbglintegrations / egldeviceintegrations）不保证会被带上，
+          # 所以这里按类别显式拷贝；各插件自身的 .so 依赖仍由 linuxdeploy 解析并补齐。
 
-          # 2. fcitx5 输入法插件（上一步用同一份 Qt 源码编译，Qt 版本严格匹配）
+          # ---- 1) platforms：X11(xcb) + Wayland ----
+          # 只挑 xcb 与 wayland，不整目录拷（避免把 eglfs/linuxfb 依赖的 libgbm/libdrm 拖进包）。
+          # 缺 Wayland 平台插件时 Qt 会退回 XWayland → 分数缩放失效、窗口/字体忽大忽小。
+          mkdir -p AppDir/usr/plugins/platforms
+          QXCB="$QT_PLUGIN_DIR/platforms/libqxcb.so"
+          [ -f "$QXCB" ] || { echo "!! 缺少 X11 平台插件: $QXCB"; exit 1; }
+          cp -a "$QXCB" AppDir/usr/plugins/platforms/
+          WAYLAND_COUNT=0
+          for p in "$QT_PLUGIN_DIR"/platforms/libqwayland*.so; do
+            [ -f "$p" ] || continue
+            cp -a "$p" AppDir/usr/plugins/platforms/
+            WAYLAND_COUNT=$((WAYLAND_COUNT + 1))
+          done
+          [ "$WAYLAND_COUNT" -gt 0 ] || {
+            echo "!! 找不到 Wayland 平台插件（aqt 的 linux desktop 基础包应含 qtwayland）"; exit 1; }
+          echo "✅ 平台插件: xcb + ${WAYLAND_COUNT} 个 Wayland 插件"
+
+          # ---- 2) xcbglintegrations：X11/XWayland 下创建 OpenGL 上下文的关键 ----
+          # 缺了它 → 「QRhi 无法加载 OpenGL / 无法创建 OpenGL 上下文」直接闪退。
+          # 而 Vulkan 后端完全不经过这条路径，所以现象是「Vulkan 正常、OpenGL 崩」。
+          XCBGL="$QT_PLUGIN_DIR/xcbglintegrations"
+          [ -d "$XCBGL" ] || { echo "!! 缺少插件目录: $XCBGL"; exit 1; }
+          mkdir -p AppDir/usr/plugins/xcbglintegrations
+          cp -a "$XCBGL"/. AppDir/usr/plugins/xcbglintegrations/
+          echo "✅ xcbglintegrations: $(ls AppDir/usr/plugins/xcbglintegrations | tr '\n' ' ')"
+          [ -f AppDir/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so ] || \
+            echo "⚠️  缺少 libqxcb-glx-integration.so，仅剩 EGL 集成（部分机器 X11 下 OpenGL 仍可能不可用）"
+
+          # ---- 3) egldeviceintegrations：EGL 设备/GBM 集成，部分驱动组合需要（缺失只告警）----
+          if [ -d "$QT_PLUGIN_DIR/egldeviceintegrations" ]; then
+            mkdir -p AppDir/usr/plugins/egldeviceintegrations
+            cp -a "$QT_PLUGIN_DIR/egldeviceintegrations"/. AppDir/usr/plugins/egldeviceintegrations/
+            echo "✅ egldeviceintegrations 已拷贝"
+          fi
+
+          # ---- 4) fcitx5 输入法插件（上一步用同一份 Qt 源码编译，Qt 版本严格匹配）----
           FOUND_FCITX="$(find fcitx5-qt/build -name 'libfcitx5platforminputcontextplugin*.so' -type f | head -n1)"
           if [ -z "$FOUND_FCITX" ]; then
             echo "!! 没找到源码编译的 fcitx5 输入法插件（缺它用户无法输入中文）"
             echo "   请检查上一步 'Build fcitx5 Qt6 input method plugin' 的日志"
             exit 1
           fi
+          mkdir -p AppDir/usr/plugins/platforminputcontexts
           cp "$FOUND_FCITX" AppDir/usr/plugins/platforminputcontexts/
           echo "✅ fcitx5 输入法插件（源码编译）: $FOUND_FCITX"
 
-          # 注意：不要手动把宿主系统的 libxcb*/libwayland*/libxkbcommon* 拷进 AppDir。
-          # 这些库必须与用户机器上的 X 服务/compositor 协议版本一致，打进 AppImage 反而会让
-          # Wayland/X11 在新系统上直接不可用（linuxdeploy 自身有排除表与依赖解析）。
+          # 注意 1：不要手动把宿主系统的 libxcb*/libwayland*/libxkbcommon* 拷进 AppDir。
+          #   这些库必须与用户机器上的 X 服务/compositor 协议版本一致，打进 AppImage 反而会让
+          #   Wayland/X11 在新系统上直接不可用（linuxdeploy 有内置排除表，会自动跳过这类库）。
+          # 注意 2：libGL/libEGL/libGLX/libOpenGL 等图形驱动库同理，必须由用户机器提供。
+          #   打进包里等于把 GL 实现锁死成构建机的 Mesa，在 NVIDIA 或驱动版本不同的机器上
+          #   必然「创建 OpenGL 上下文失败」。
 
           echo "✅ AppDir preparation completed."
 
@@ -150,6 +174,9 @@ jobs:
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
           # 平台插件交给 Qt 自动判断：有 Wayland 就用 Wayland，否则回退 X11
           # （如需强制 X11：QT_QPA_PLATFORM=xcb ./QueMusic-x86_64.AppImage）
+          # 图形后端：Linux 上 Qt 默认走 OpenGL；包内已带 xcbglintegrations，正常情况下可直接用。
+          # 若你的显卡/驱动不支持 OpenGL，可改用 Vulkan：
+          #   QSG_RHI_BACKEND=vulkan ./QueMusic-x86_64.AppImage
           # 输入法：尊重用户已有设置，缺省 fcitx5（包内已带对应 Qt6 插件）
           export QT_IM_MODULE="${QT_IM_MODULE:-fcitx}"
           export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
@@ -199,7 +226,7 @@ jobs:
           ls -la QueMusic-*.AppImage
 
       # 校验门禁：关键插件必须真的在包里，缺任何一个用户侧就是
-      # 「Wayland 缩放异常」或「无法输入中文」，所以这里直接让 CI 失败
+      # 「OpenGL 闪退」「Wayland 缩放异常」或「无法输入中文」，所以这里直接让 CI 失败
       - name: Verify AppImage contents
         run: |
           ./QueMusic-x86_64.AppImage --appimage-extract > /dev/null
@@ -212,15 +239,28 @@ jobs:
               MISSING=1
             fi
           }
-          check "X11 平台插件 (libqxcb)"      "squashfs-root/usr/plugins/platforms/libqxcb.so"
-          check "Wayland 平台插件"            "squashfs-root/usr/plugins/platforms/libqwayland*.so"
-          check "fcitx5 输入法插件"           "squashfs-root/usr/plugins/platforminputcontexts/*fcitx5*.so"
-          check "SQLite 驱动"                 "squashfs-root/usr/plugins/sqldrivers/libqsqlite.so"
-          if ls squashfs-root/usr/lib/libQt6WaylandClient.so* > /dev/null 2>&1; then
-            echo "✅ Wayland 客户端库"
-          else
-            echo "⚠️  缺少 libQt6WaylandClient（Wayland 插件可能加载失败）"
-          fi
+          warn() {
+            if ls $2 > /dev/null 2>&1; then
+              echo "✅ $1"
+            else
+              echo "⚠️  缺少 $1（无匹配: $2）"
+            fi
+          }
+          check "X11 平台插件 (libqxcb)"   "squashfs-root/usr/plugins/platforms/libqxcb.so"
+          check "Wayland 平台插件"         "squashfs-root/usr/plugins/platforms/libqwayland*.so"
+          check "X11 OpenGL 集成 (GLX)"    "squashfs-root/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so"
+          check "fcitx5 输入法插件"        "squashfs-root/usr/plugins/platforminputcontexts/*fcitx5*.so"
+          check "SQLite 驱动"              "squashfs-root/usr/plugins/sqldrivers/libqsqlite.so"
+          warn  "X11 EGL 集成"             "squashfs-root/usr/plugins/xcbglintegrations/libqxcb-egl-integration.so"
+          warn  "Wayland 客户端库"         "squashfs-root/usr/lib/libQt6WaylandClient.so*"
+          warn  "Wayland EGL 客户端集成"   "squashfs-root/usr/lib/libQt6WaylandEglClientHwIntegration.so*"
+
+          # 宿主提供的图形/compositor 库不该出现在包里（出现会把 GL 锁死到构建机的 Mesa）
+          for bad in libGL.so* libEGL.so* libGLX.so* libOpenGL.so* libwayland-client.so* libwayland-egl.so*; do
+            if ls squashfs-root/usr/lib/$bad > /dev/null 2>&1; then
+              echo "⚠️  包内含宿主驱动库 $bad（可能导致部分发行版上 OpenGL/Wayland 失效）"
+            fi
+          done
           exit $MISSING
 
       - name: Upload AppImage artifact
