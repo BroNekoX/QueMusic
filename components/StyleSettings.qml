@@ -21,7 +21,6 @@ Settings {
     property int shadowYOffset: 5
     property int shadowSize: 16
     property int blurSize: 48
-    property int lightEffect: 16 //光渲染大小
     property bool highQualityBlur: false //高质量模糊
 
     // 文字统一

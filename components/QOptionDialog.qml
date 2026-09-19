@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Effects
@@ -10,7 +11,7 @@ import 'qrc:/QueMusic/components'
 Popup {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
-    property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     default property alias options: dialogContent.contentChildren
     property string cancelText: ""
@@ -26,6 +27,13 @@ Popup {
     focus: true
     width: 480
     height: contentCol.implicitHeight + 40
+    Connections {
+        target: window
+        enabled: dialog.visible
+        function onExit(): void {
+            dialog.close();
+        }
+    }
 
     background: QBlurCard {
         anchors.fill: parent

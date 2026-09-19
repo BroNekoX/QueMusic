@@ -3,6 +3,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 
@@ -13,7 +14,7 @@ Item {
 
     property url source//: "qrc:/QueMusic/resources/app/musicpic.png"
     property int radius: width / 2
-    property bool cache: false
+    property bool cache: Options.settings.picCache ? true : false
     property alias radius1: mask.topLeftRadius
     property alias radius2: mask.topRightRadius
     property alias radius3: mask.bottomLeftRadius

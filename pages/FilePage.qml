@@ -25,18 +25,18 @@ Item {
         { label: "大小 大→小", field: FolderListModel.Size, desc: true }
     ]
     readonly property int localSortMenuIndex: {
-        for (var i = 0; i < localSortOptions.length; i++)
+        for (let i = 0; i < localSortOptions.length; i++)
             if (localSortOptions[i].field === localSortField && localSortOptions[i].desc === localSortReversed) return i
         return 0
     }
 
-    function toggleChoose(key) {
+    function toggleChoose(key: var): void {
         filePage.chooseIndex = filePage.chooseIndex.indexOf(key) === -1
             ? filePage.chooseIndex.concat([key])
             : filePage.chooseIndex.filter(value => value !== key);
     }
 
-    function clearChoose() {
+    function clearChoose(): void {
         filePage.chooseIndex = [];
         filePage.setMode = 0;
     }
@@ -64,24 +64,24 @@ Item {
         }
     }*/
 
-    function chooseTotal() {
+    function chooseTotal(): int {
         if (filePage.setMode === 3) return folderMusic.searching ? Songs.searchResults.count : Songs.rowCount();
         if (filePage.setMode === 4) return localFolderMusic.searching ? localFileModel.searchResults.count : localFileModel.count;
         return 0;
     }
 
-    function isAllChosen() {
-        var total = filePage.chooseTotal();
+    function isAllChosen(): bool {
+        const total = filePage.chooseTotal();
         return total > 0 && filePage.chooseIndex.length >= total;
     }
 
-    function toggleAllChoose() {
+    function toggleAllChoose(): void {
         if (filePage.isAllChosen()) {
             filePage.chooseIndex = [];
             return;
         }
-        var all = [];
-        var i = 0;
+        const all = [];
+        let i = 0;
         if (filePage.setMode === 3) {
             if (folderMusic.searching) {
                 for (i = 0; i < Songs.searchResults.count; i++) all.push(Songs.searchResults.getRow(i).songId);
@@ -98,30 +98,30 @@ Item {
         filePage.chooseIndex = all;
     }
 
-    function addChosenToList() {
-        var count = filePage.chooseIndex.length;
+    function addChosenToList(): void {
+        const count = filePage.chooseIndex.length;
         if (count === 0) {
             Style.warned("请先选择歌曲", 0);
             return;
         }
-        var added = 0;
+        let added = 0;
         if (filePage.setMode === 3) {
-            for (var i = 0; i < Songs.rowCount(); i++) {
-                var song = Songs.get(i);
+            for (let i = 0; i < Songs.rowCount(); i++) {
+                const song = Songs.get(i);
                 if (!song || !song.path || filePage.chooseIndex.indexOf(song.songId) === -1) continue;
                 if (playListModel.indexOfPath(song.path) !== -1) continue;
                 playListModel.append({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
                 added++;
             }
         } else if (filePage.setMode === 4) {
-            for (var j = 0; j < localFileModel.count; j++) {
-                var path = localFileModel.get(j, "fileUrl").toString();
+            for (let j = 0; j < localFileModel.count; j++) {
+                const path = localFileModel.get(j, "fileUrl").toString();
                 if (filePage.chooseIndex.indexOf(path) === -1) continue;
                 if (playListModel.indexOfPath(path) !== -1) continue;
-                var title = localFileModel.get(j, "title") || "";
-                var artist = localFileModel.get(j, "artist") || "";
+                let title = localFileModel.get(j, "title") || "";
+                let artist = localFileModel.get(j, "artist") || "";
                 if (title === "") {
-                    var meta = coverHelper.loadFullMetadata(path);
+                    const meta = coverHelper.loadFullMetadata(path);
                     title = meta.title;
                     artist = artist || meta.artist;
                 }
@@ -132,43 +132,56 @@ Item {
         Style.warned(added === 0 ? "所选歌曲都已在播放列表中" : "成功加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
     }
 
-    function deleteChosen() {
-        var count = filePage.chooseIndex.length;
+    function deleteChosen(): void {
+        const count = filePage.chooseIndex.length;
         if (count === 0) {
             Style.warned(filePage.setMode < 3 ? "请先选择文件夹" : "请先选择歌曲", 0);
             return;
         }
-        var moved = false;
-        for (var i = 0; i < count; i++) {
-            var key = filePage.chooseIndex[i];
-            switch (filePage.setMode) {
-            case 1: MyFolders.deleteFolder(key); break;
-            case 2: LocalFolders.deleteFolder(key); break;
-            case 3: Songs.deleteSong(key); break;
-            case 4: moved = MusicApi.moveLocalFileToTrash(key) || moved; break;
-            }
+
+        // 一次性批量处理：逐个调用会每删一条整表 reset + 全量重跑 TAG
+        const keys = [];
+        for (let i = 0; i < count; i++)
+            keys.push(filePage.chooseIndex[i]);
+
+        switch (filePage.setMode) {
+        case 1:
+            MyFolders.deleteFolders(keys);
+            break;
+        case 2:
+            LocalFolders.deleteFolders(keys);
+            break;
+        case 3:
+            Songs.deleteSongs(keys);
+            break;
+        case 4:
+            // 移入回收站较慢，交给工作线程执行并显示进度，结果由 onDeleteFinished 提示
+            deleteProgressDialog.processed = 0;
+            deleteProgressDialog.total = keys.length;
+            deleteProgressDialog.open();
+            localFileModel.deleteFiles(keys);
+            filePage.chooseIndex = [];
+            return;
+        default:
+            return;
         }
-        if (moved) {
-            var folder = localFileModel.folder;
-            localFileModel.folder = "";
-            localFileModel.folder = folder;
-        }
+
         filePage.chooseIndex = [];
         Style.warned("成功删除" + count + (filePage.setMode < 3 ? "个文件夹" : "首音乐"), 1);
     }
 
     // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
-    function addAllSongModelToList(play) {
-        var searching = folderMusic.searching;
-        var total = searching ? Songs.searchResults.count : Songs.rowCount();
+    function addAllSongModelToList(play: bool): void {
+        const searching = folderMusic.searching;
+        const total = searching ? Songs.searchResults.count : Songs.rowCount();
         if (total === 0) {
             Style.warned("当前文件夹没有歌曲", 0);
             return;
         }
-        var playFirst = -1;
-        var added = 0;
-        for (var i = 0; i < total; i++) {
-            var item = searching ? Songs.searchResults.getRow(i) : Songs.get(i);
+        let playFirst = -1;
+        let added = 0;
+        for (let i = 0; i < total; i++) {
+            const item = searching ? Songs.searchResults.getRow(i) : Songs.get(i);
             if (!item || !item.name || !item.path) continue;
             if (playListModel.indexOfPath(item.path) !== -1) continue;
             playListModel.append({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
@@ -186,19 +199,19 @@ Item {
     }
 
     // 把「本地文件夹」里扫描到的音频文件全部加入播放列表，play=true 时立即播放
-    function addAllLocalFilesToList(play) {
-        var searching = localFolderMusic.searching;
-        var total = searching ? localFileModel.searchResults.count : localFileModel.count;
+    function addAllLocalFilesToList(play: bool): void {
+        const searching = localFolderMusic.searching;
+        const total = searching ? localFileModel.searchResults.count : localFileModel.count;
         if (total === 0) {
             Style.warned("当前文件夹没有音频文件", 0);
             return;
         }
-        var playFirst = -1;
-        var added = 0;
-        for (var i = 0; i < total; i++) {
-            var row = searching ? localFileModel.searchResults.getRow(i) : null;
-            var name = row ? (row.title || row.name) : localFileModel.get(i, "fileName");
-            var path = row ? row.fileUrl.toString() : localFileModel.get(i, "fileUrl").toString();
+        let playFirst = -1;
+        let added = 0;
+        for (let i = 0; i < total; i++) {
+            const row = searching ? localFileModel.searchResults.getRow(i) : null;
+            const name = row ? (row.title || row.name) : localFileModel.get(i, "fileName");
+            const path = row ? row.fileUrl.toString() : localFileModel.get(i, "fileUrl").toString();
             if (!name || !path) continue;
             if (playListModel.indexOfPath(path) !== -1) continue;
             playListModel.append({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
@@ -216,12 +229,12 @@ Item {
     }
 
     // 打开某个歌曲文件的所在文件夹（本地浏览器）
-    function openSongFolder(songPath) {
-        var p = songPath || "";
+    function openSongFolder(songPath: string): void {
+        let p = songPath || "";
         if (p.startsWith("file:///"))
             p = p.substring(8);
-        var idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
-        var dir = idx > 0 ? p.substring(0, idx) : p;
+        const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+        const dir = idx > 0 ? p.substring(0, idx) : p;
         if (dir) {
             Qt.openUrlExternally(dir);
         } else {
@@ -335,7 +348,7 @@ Item {
                     clip: true
                     topMargin: 60
                     headerModel: ["标题","","","菜单"]
-                    function openFilePage(title,image) {
+                    function openFilePage(title: string, image: string): void {
                         folderMusic.opened(title,image)
                     }
                     rebound: Transition {
@@ -511,7 +524,7 @@ Item {
                 //用于存放文件夹内显示音频文件
                 LocalMusicScanner {
                     id: localFileModel
-                    nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4"]
+                    nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4","*.m4a"]
                     showDirs: false
                     sortField: filePage.localSortField
                     sortReversed: filePage.localSortReversed
@@ -526,9 +539,9 @@ Item {
                     title: "选择音乐的文件夹"
                     onAccepted: {
                         // 获取选中的文件夹URL（file:// 格式）
-                        var folderUrl = folderDialog.selectedFolder;
-                        var folderPath = folderUrl.toString();
-                        var folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
+                        const folderUrl = folderDialog.selectedFolder;
+                        const folderPath = folderUrl.toString();
+                        const folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
                         LocalFolders.addFolder(folderName, "local", folderPath);
                         mainWarn.tiped("成功定位一个本地文件夹",1);
 
@@ -751,27 +764,27 @@ Item {
                 id: musicfileDialog
                 title: "选择音乐文件"
                 fileMode: FileDialog.OpenFiles
-                nameFilters: ["音频文件 (*.mp3 *.wav *.aac *.flac *.ogg *.eac3 *.wma *.ac3 *.alac *.mkv *.wmv *.avi *.mpeg4)"]
+                nameFilters: ["音频文件 (*.mp3 *.wav *.aac *.flac *.ogg *.eac3 *.wma *.ac3 *.alac *.mkv *.wmv *.avi *.mpeg4 *.m4a)"]
                 onAccepted: {
                     // 获取选中的文件URL（file:// 格式）
-                    var fileUrls = musicfileDialog.selectedFiles;
+                    const fileUrls = musicfileDialog.selectedFiles;
 
                     // 先批量转换为本地路径，再一次交给 C++ 侧事务写入，
                     // 避免上千首歌曲重复打开DB/刷新列表导致界面假死。
-                    var importList = [];
-                    for (var i = 0; i < fileUrls.length; i++) {
-                        var filePath = fileUrls[i].toString();
+                    const importList = [];
+                    for (let i = 0; i < fileUrls.length; i++) {
+                        let filePath = fileUrls[i].toString();
                         if (filePath.startsWith("file:///")) {
                             filePath = filePath.substring(8);// 去前8字符：file:///
                         }
-                        var fileName = filePath.split('/').pop(); // 使用 '/' 分割，取最后一部分
+                        const fileName = filePath.split('/').pop(); // 使用 '/' 分割，取最后一部分
                         if (fileName && filePath) {
                             importList.push({ name: fileName, path: filePath, singer: "" });
                         }
                     }
 
                     if (importList.length > 0) {
-                        var added = Songs.addSongs(Songs.folderId, importList);
+                        const added = Songs.addSongs(Songs.folderId, importList);
                         Style.warned("成功导入 " + added + " 首音乐", 1);
                     }
                 }
@@ -947,7 +960,7 @@ Item {
                     id: filterDebounce1
                     interval: 250
                     onTriggered: {
-                        var t = filterInput1.text.trim();
+                        const t = filterInput1.text.trim();
                         if (t === "") {
                             Songs.clearSearch();
                             folderMusic.searching = false;
@@ -1077,9 +1090,9 @@ Item {
                                 return;
                             }
                             window.playLocalSong(model.path, listfile.songTitle);
-                            var musicName = listfile.songTitle;
-                            var musicPath = model.path;
-                            var listIndex = playListModel.indexOfName(musicName);
+                            const musicName = listfile.songTitle;
+                            const musicPath = model.path;
+                            const listIndex = playListModel.indexOfName(musicName);
                             if (listIndex == -1) {
                                 playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
                                 playListModel.playListIndex = playListModel.count - 1;
@@ -1102,9 +1115,9 @@ Item {
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
                                 onClicked: {
-                                    var musicName = listfile.songTitle;
-                                    var musicPath = model.path;
-                                    var listIndex = playListModel.indexOfName(musicName);
+                                    const musicName = listfile.songTitle;
+                                    const musicPath = model.path;
+                                    const listIndex = playListModel.indexOfName(musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
                                         Style.warned("成功加入播放列表",1);
@@ -1212,7 +1225,7 @@ Item {
                         localFileModel.clearSearch();
                         localFolderMusic.searching = false;
                         filterInput2.text = "";
-                        var folder = localFileModel.folder;
+                        const folder = localFileModel.folder;
                         localFileModel.folder = "";
                         localFileModel.folder = folder;
                         localFileView.scrollTop();
@@ -1306,7 +1319,7 @@ Item {
                     id: filterDebounce2
                     interval: 250
                     onTriggered: {
-                        var t = filterInput2.text.trim();
+                        const t = filterInput2.text.trim();
                         if (t === "") {
                             localFileModel.clearSearch();
                             localFolderMusic.searching = false;
@@ -1436,9 +1449,9 @@ Item {
                                 return;
                             }
                             window.playLocalSong(model.fileUrl.toString(), listLocalFile.songTitle);
-                            var musicName = listLocalFile.songTitle;
-                            var musicPath = model.fileUrl.toString();
-                            var listIndex = playListModel.indexOfName(musicName);
+                            const musicName = listLocalFile.songTitle;
+                            const musicPath = model.fileUrl.toString();
+                            const listIndex = playListModel.indexOfName(musicName);
                             if (listIndex == -1) {
                                 playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
                                 playListModel.playListIndex = playListModel.count - 1;
@@ -1460,9 +1473,9 @@ Item {
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
                                 onClicked: {
-                                    var musicName = listLocalFile.songTitle;
-                                    var musicPath = model.fileUrl.toString();
-                                    var listIndex = playListModel.indexOfName(musicName);
+                                    const musicName = listLocalFile.songTitle;
+                                    const musicPath = model.fileUrl.toString();
+                                    const listIndex = playListModel.indexOfName(musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
                                     }
@@ -1491,16 +1504,12 @@ Item {
                                 shadowEnabled: false
                                 tipText: "从本地文件夹移除（移入回收站）"
                                 onClicked: {
-                                    var targetName = model.fileName;
-                                    var targetPath = model.fileUrl.toString();
+                                    const targetName = model.fileName;
+                                    const targetPath = model.fileUrl.toString();
                                     globalDialog.openSimpleDialog("删除本地文件", "这将把「" + targetName + "」从当前文件夹移入回收站，是否继续？",
                                         function() {
-                                            if (MusicApi.moveLocalFileToTrash(targetPath)) {
-                                                filePage.refreshSongList();
-                                                Style.warned("已将文件移入回收站", 1);
-                                            } else {
-                                                Style.warned("移动文件失败", 0);
-                                            }
+                                            // 单文件不弹进度框，结果由 onDeleteFinished 提示
+                                            localFileModel.deleteFiles([targetPath]);
                                         }
                                     );
                                 }
@@ -1513,15 +1522,98 @@ Item {
         }
     }
 
+    // 批量删除进度提示（删除在 LocalMusicScanner 的工作线程执行）
+    Popup {
+        id: deleteProgressDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+        width: 380
+        height: deleteContentCol.implicitHeight + 40
+        property int processed: 0
+        property int total: 0
+
+        background: Rectangle {
+            color: Style.themes.primaryColor
+            radius: Style.settings.cubeRadius
+            border.width: 1
+            border.color: Style.themes.sideColor
+        }
+
+        contentItem: Column {
+            id: deleteContentCol
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 12
+
+            Text {
+                text: "正在移入回收站"
+                font.pixelSize: 18
+                font.bold: true
+                color: Style.themes.fontColor
+            }
+
+            Text {
+                text: deleteProgressDialog.total > 0
+                      ? "已处理 " + deleteProgressDialog.processed + " / " + deleteProgressDialog.total
+                      : "正在准备…"
+                font.pixelSize: 13
+                color: Style.themes.fontColor
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 8
+                radius: 4
+                color: Style.themes.sideColor
+
+                Rectangle {
+                    width: parent.width * (deleteProgressDialog.total > 0
+                                           ? Math.min(1, deleteProgressDialog.processed / deleteProgressDialog.total)
+                                           : 0)
+                    height: parent.height
+                    radius: 4
+                    color: Style.themes.themeColor
+                    Behavior on width { NumberAnimation { duration: 120 } }
+                }
+            }
+
+            Text {
+                width: parent.width
+                text: "删除过程中请勿关闭程序"
+                font.pixelSize: 12
+                color: Style.themes.fontColor
+                opacity: 0.7
+            }
+        }
+    }
+
+    Connections {
+        target: localFileModel
+        function onDeleteProgress(processed, total): void {
+            deleteProgressDialog.processed = processed;
+            deleteProgressDialog.total = total;
+        }
+        function onDeleteFinished(removed, failedCount): void {
+            deleteProgressDialog.close();
+            if (failedCount > 0)
+                Style.warned("已移入回收站 " + removed + " 个，失败 " + failedCount + " 个", 0);
+            else
+                Style.warned("已将 " + removed + " 个文件移入回收站", 1);
+        }
+    }
+
     Connections {
         target: folderMusic
-        function onVisibleChanged() {
+        function onVisibleChanged(): void {
             if (!folderMusic.visible) filePage.clearChoose();
         }
     }
     Connections {
         target: localFolderMusic
-        function onVisibleChanged() {
+        function onVisibleChanged(): void {
             if (!localFolderMusic.visible) filePage.clearChoose();
         }
     }
@@ -1595,7 +1687,7 @@ Item {
             text: "删除"
             borderWidth: 1
             onClicked: {
-                var tip = filePage.setMode === 4 ? "这将把这些文件移入回收站，是否删除？"
+                const tip = filePage.setMode === 4 ? "这将把这些文件移入回收站，是否删除？"
                         : filePage.setMode === 3 ? "这将从文件夹移除这些歌曲，无法恢复，是否删除？"
                         : "这将删除这些文件夹，无法恢复，是否删除？";
                 globalDialog.openSimpleDialog("删除", tip,

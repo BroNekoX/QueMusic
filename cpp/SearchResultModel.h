@@ -10,11 +10,13 @@
 #include <QList>
 #include <QUrl>
 #include <QVariant>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 // 搜索结果模型
 class SearchResultModel : public QAbstractListModel
 {
     Q_OBJECT
+    QML_ANONYMOUS
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 public:
     enum Role {

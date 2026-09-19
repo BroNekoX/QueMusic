@@ -4,6 +4,7 @@
 pragma Singleton
 import QtQuick
 import QtCore
+import QueMusic 1.0
 
 QtObject {
     // Style.settings.name
@@ -25,27 +26,27 @@ QtObject {
     signal changeTheme()
     signal warned(string text,int type)
     onChangeTheme: {
-        var baseColor = settings.colorList[settings.color];
-        themes.fontColor = darkis ? "#f6f6f8" : "#1d1d1f";
-        themes.textColor = darkis ? "#cfd0d4" : "#4d4f56";
-        themes.fullColor = darkis ? "#0c0d10" : "#ffffff";
-        themes.hoverColor = darkis ? "#14ffffff" : "#0c000000";
-        themes.sideColor = darkis ?  "#484848" : "#eaeaea";
-        themes.sideBlurColor = darkis ? "#88484848" : "#88eaeaea";
+        const hue = settings.colorList[settings.color].hsvHue;
+        themes.fontColor = darkis ? "#f5f5f7" : "#1d1d1f";
+        themes.textColor = darkis ? "#bebec2" : "#5e5e61";
+        themes.fullColor = darkis ? "#1c1c1e" : "#ffffff";
+        themes.hoverColor = darkis ? "#10ffffff" : "#0a000000";
+        themes.sideColor = darkis ?  "#3a3a3e" : "#e9e9ee";
+        themes.sideBlurColor = darkis ? "#953a3a3e" : "#95e9e9ee";
 
-        themes.containColor = darkis ? Qt.hsva(baseColor.hsvHue,0.9,0.4,1.0) : Qt.hsva(baseColor.hsvHue,0.2,1.0,1.0);
-        themes.containOutColor = darkis ? Qt.hsva(baseColor.hsvHue,0.2,1.0,1.0) : Qt.hsva(baseColor.hsvHue,0.9,0.4,1.0);
-        themes.themeColor = baseColor;
+        themes.containColor = darkis ? Qt.hsva(hue,0.55,0.38,1.0) : Qt.hsva(hue,0.14,1.0,1.0);
+        themes.containOutColor = darkis ? Qt.hsva(hue,0.2,1.0,1.0) : Qt.hsva(hue,0.9,0.4,1.0);
+        themes.themeColor = settings.colorList[settings.color];
 
-        themes.primaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.16,1.0) : Qt.hsva(baseColor.hsvHue,0.01,1.0,1.0);
-        themes.primaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.16,0.8) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.7);
-        themes.secondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
-        themes.secondaryBlurColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,0.8) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.7);
-        themes.borderColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.2,1.0) : Qt.hsva(baseColor.hsvHue,0.02,0.97,1.0);
-        themes.blurOverlayColor = darkis ? Qt.hsva(baseColor.hsvHue,0.1,0.12,0.6) : Qt.hsva(baseColor.hsvHue,0.01,1.0,0.5);
-        themes.blurSecondaryColor = darkis ? Qt.hsva(baseColor.hsvHue,0.12,0.18,0.6) : Qt.hsva(baseColor.hsvHue,0.02,0.97,0.5);
-        themes.shadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.05,0.2) : Qt.hsva(baseColor.hsvHue,1.0,0.12,0.1);
-        themes.themeShadowColor = darkis ? Qt.hsva(baseColor.hsvHue,1.0,0.5,0.3) : Qt.hsva(baseColor.hsvHue,1.0,0.6,0.3);
+        themes.primaryColor = darkis ? Qt.hsva(hue,0.10,0.17,1.0) : Qt.hsva(hue,0.01,1.0,1.0);
+        themes.primaryBlurColor = darkis ? Qt.hsva(hue,0.10,0.17,0.82) : Qt.hsva(hue,0.01,1.0,0.72);
+        themes.secondaryColor = darkis ? Qt.hsva(hue,0.10,0.12,1.0) : Qt.hsva(hue,0.015,0.973,1.0);
+        themes.secondaryBlurColor = darkis ? Qt.hsva(hue,0.10,0.12,0.82) : Qt.hsva(hue,0.015,0.973,0.72);
+        themes.borderColor = darkis ? Qt.hsva(hue,0.08,0.24,1.0) : Qt.hsva(hue,0.02,0.97,1.0);
+        themes.blurOverlayColor = darkis ? Qt.hsva(hue,0.08,0.14,0.62) : Qt.hsva(hue,0.01,1.0,0.55);
+        themes.blurSecondaryColor = darkis ? Qt.hsva(hue,0.10,0.16,0.62) : Qt.hsva(hue,0.02,0.97,0.55);
+        themes.shadowColor = darkis ? Qt.hsva(hue,0.9,0.03,0.3) : Qt.hsva(hue,0.9,0.2,0.1);
+        themes.themeShadowColor = darkis ? Qt.hsva(hue,1.0,0.5,0.3) : Qt.hsva(hue,1.0,0.6,0.3);
     }
 
     // 主题色板同样抽成独立的 StyleThemes 类型（详见 StyleThemes.qml 说明）

@@ -28,7 +28,7 @@ ListView {
     onDraggingChanged: view.scrollToY = view.contentY
 
     // 回到顶部并同步 scrollToY，防止滚轮动画把 contentY 拉回过期位置
-    function scrollTop() {
+    function scrollTop(): void {
         listViewAnime.stop();
         scrollToY = view.originY - view.topMargin;
         contentY = view.originY - view.topMargin;

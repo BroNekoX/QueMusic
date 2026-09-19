@@ -7,11 +7,27 @@
 #include "SearchResultModel.h"
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QMetaObject>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUrl>
 #include <algorithm>
+
+namespace {
+// QML 可能传本地路径或 file:// URL，统一成绝对路径再与模型比较
+QString toLocalPath(const QString &raw)
+{
+    if (raw.isEmpty())
+        return {};
+    const QUrl url(raw);
+    if (url.isLocalFile())
+        return QDir::cleanPath(url.toLocalFile());
+    return QDir::cleanPath(QFileInfo(raw).absoluteFilePath());
+}
+} // namespace
 
 void LocalScanWorker::run()
 {
@@ -88,6 +104,32 @@ void LocalScanWorker::run()
     emit enrichDone(gen, total);
 }
 
+// 不检查 cancel：删除是用户确认过的操作，中途被取消会出现「删一半」
+void LocalScanWorker::deleteFiles(const QStringList &paths)
+{
+    const int total = paths.size();
+    int processed = 0;
+    QStringList removed;
+    QStringList failed;
+    removed.reserve(total);
+    for (const QString &raw : paths) {
+        const QString local = toLocalPath(raw);
+        // 文件已不在磁盘上也算处理完成
+        bool ok = false;
+        if (!local.isEmpty()) {
+            QFile file(local);
+            ok = !file.exists() || file.moveToTrash();
+        }
+        if (ok)
+            removed.append(local);
+        else
+            failed.append(raw);
+        ++processed;
+        emit deleteProgress(generation.load(), processed, total);
+    }
+    emit deleteFinished(generation.load(), removed, failed);
+}
+
 LocalMusicScanner::LocalMusicScanner(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -112,6 +154,8 @@ LocalMusicScanner::LocalMusicScanner(QObject *parent)
     connect(m_worker, &LocalScanWorker::enriched, this, &LocalMusicScanner::onWorkerEnriched);
     connect(m_worker, &LocalScanWorker::enrichDone, this, &LocalMusicScanner::onWorkerEnrichDone);
     connect(m_worker, &LocalScanWorker::failed, this, &LocalMusicScanner::onWorkerFailed);
+    connect(m_worker, &LocalScanWorker::deleteProgress, this, &LocalMusicScanner::onWorkerDeleteProgress);
+    connect(m_worker, &LocalScanWorker::deleteFinished, this, &LocalMusicScanner::onWorkerDeleteFinished);
 
     m_thread.start();
 }
@@ -276,6 +320,27 @@ void LocalMusicScanner::startScan()
     QMetaObject::invokeMethod(m_worker, "run", Qt::QueuedConnection);
 }
 
+void LocalMusicScanner::deleteFiles(const QVariantList &paths)
+{
+    QStringList list;
+    list.reserve(paths.size());
+    for (const QVariant &value : paths) {
+        const QString path = value.toString();
+        if (!path.isEmpty())
+            list.append(path);
+    }
+    if (list.isEmpty())
+        return;
+
+    if (!m_deleting) {
+        m_deleting = true;
+        emit deletingChanged();
+    }
+    emit deleteProgress(0, list.size()); // 立刻让进度条显示 0 / N
+    QMetaObject::invokeMethod(m_worker, "deleteFiles", Qt::QueuedConnection,
+                              Q_ARG(QStringList, list));
+}
+
 void LocalMusicScanner::startSearch(const QString &text)
 {
     m_searchText = text.trimmed();
@@ -396,4 +461,48 @@ void LocalMusicScanner::onWorkerFailed(quint64 gen, const QString &message)
     }
     clearEntries();
     qWarning() << "LocalMusicScanner: scan failed:" << message;
+}
+
+// 不参与 generation 过期判断：用户主动发起的删除，结果必须处理
+void LocalMusicScanner::onWorkerDeleteProgress(quint64 gen, int processed, int total)
+{
+    Q_UNUSED(gen);
+    emit deleteProgress(processed, total);
+}
+
+void LocalMusicScanner::onWorkerDeleteFinished(quint64 gen, const QStringList &removed,
+                                               const QStringList &failed)
+{
+    Q_UNUSED(gen);
+    if (m_deleting) {
+        m_deleting = false;
+        emit deletingChanged();
+    }
+    removeEntriesByPath(removed);
+    emit deleteFinished(removed.size(), failed.size());
+}
+
+// 只摘掉被删行，不重扫目录、不重跑 TAG
+void LocalMusicScanner::removeEntriesByPath(const QStringList &paths)
+{
+    if (paths.isEmpty() || m_entries.isEmpty())
+        return;
+
+    QSet<QString> targets;
+    for (const QString &path : paths)
+        targets.insert(toLocalPath(path));
+
+    QList<LocalFileEntry> kept;
+    kept.reserve(m_entries.size());
+    for (const LocalFileEntry &entry : m_entries) {
+        if (!targets.contains(entry.path))
+            kept.append(entry);
+    }
+    if (kept.size() == m_entries.size())
+        return; // 未命中（列表已刷新），跳过重绘
+
+    beginResetModel();
+    m_entries = std::move(kept);
+    endResetModel();
+    emit countChanged();
 }

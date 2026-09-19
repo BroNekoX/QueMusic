@@ -16,7 +16,7 @@ Rectangle {
     color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor) : baseColor
     Connections {
         target: Style
-        function onChangeTheme() {
+        function onChangeTheme(): void {
             if(Style.settings.sidebarStyle === 0) {
                 sidebar.choiceColor = Style.themes.hoverColor;
                 sidebar.choiceTextColor = Style.themes.fontColor;
@@ -31,7 +31,7 @@ Rectangle {
         }
     }
 
-    function indexed(choice) {
+    function indexed(choice: int): void {
         choicebar.willBarY = choice > 2 ? 44 * choice + 68 : 44 * choice + 80;
         navlistview.choiceIndex = choice;
         if(choice > choicebar.indexOld) {
@@ -57,7 +57,7 @@ Rectangle {
 
     Connections {
         target: window
-        function onExit() {
+        function onExit(): void {
             if(mainContent.pageIndex === 6 && window.exitIndex <= 1 ) {
                 mainContent.contentIndexed(navlistview.choiceIndex)
                 MusicApi.searchSongsResults.clear()
@@ -157,7 +157,8 @@ Rectangle {
                 anchors.centerIn: parent
                 text: "Beta"
                 font.pixelSize: 12
-                color:  Style.themes.primaryColor
+                font.weight: Font.DemiBold
+                color:  Style.themes.fullColor
             }
         }
     }
@@ -166,8 +167,8 @@ Rectangle {
     Rectangle {
         x: 20
         width: 170
-        height: 2
-        color: Qt.rgba(0.6,0.6,0.6,0.3)
+        height: 1
+        color: Style.themes.sideColor
         y: 173
     }
 

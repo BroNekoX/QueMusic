@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Effects
 
 Rectangle {
@@ -24,10 +25,10 @@ Rectangle {
         id: cardShadow
         anchors.fill: parent
         z: -1
-        offset.x: 3
-        offset.y: -translateTransform.y
+        offset.x: 0
+        offset.y: 4 - translateTransform.y
         radius: Style.settings.cubeRadius
-        blur: 10
+        blur: 14
         spread: 0
         color: Style.themes.shadowColor
         Behavior on blur { NumberAnimation { duration: 240 } }
@@ -37,11 +38,11 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         onEntered: {
-            cardShadow.blur = 24;
-            translateTransform.y = -5;
+            cardShadow.blur = 28;
+            translateTransform.y = -4;
         }
         onExited: {
-            cardShadow.blur = 10;
+            cardShadow.blur = 14;
             translateTransform.y = 0;
         }
         onClicked: root.clicked();

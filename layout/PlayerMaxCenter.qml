@@ -19,7 +19,7 @@ Item {
     property color thirdColor: "#9d4edd"
     Connections {
         target: colorExtractor
-        function onColorExtractFinished() {
+        function onColorExtractFinished(): void {
             rectcolorAnime.running = false;
             rectcolorAnime.running = true;
         }
@@ -146,7 +146,7 @@ Item {
         iconSize: Style.settings.texticonH
         shadowEnabled: false
         onClicked: {
-            window.playermined();
+            barLeftWidgets.y = 12;
             minedAnimation.start();
             mainLayout.state = "";
         }
@@ -328,10 +328,10 @@ Item {
             running: mainMedia.onMedia
             repeat: true
             onTriggered: {
-                var data = MusicApi.lyricsData;
+                const data = MusicApi.lyricsData;
                 if (!data || data.length === 0) return;
-                var pos = mainMedia.position + 320;
-                var idx = lyricContent.currentLine;
+                const pos = mainMedia.position + 320;
+                let idx = lyricContent.currentLine;
                 while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
                 while (idx > 0 && pos < data[idx].time) idx--;
                 if (lyricContent.isUserScrolling) {
@@ -348,8 +348,8 @@ Item {
                         waitOpenAnime.running = false;
                         waitOutAnime.running = true;
                     }
-                    var animeHeight = lyricContent.prefixSum[idx] - lyricContent.prefixSum[lyricContent.currentLine];
-                    var springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
+                    const animeHeight = lyricContent.prefixSum[idx] - lyricContent.prefixSum[lyricContent.currentLine];
+                    const springValue = animeHeight - 400 > 0 ? Math.floor((animeHeight - 400) / 20) / -200 : 0.00;
                         if(springValue < -0.50) {
                         lyricContent.springValue = -0.50;
                     } else {
@@ -358,19 +358,19 @@ Item {
                     lyricContent.currentLine = idx;
                     fixedAnime.running = false;
                     fixedAnime.to = -animeHeight;
-                    for (var i = 0; i < lyricRep.count; i++) {
-                        var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine];
+                    for (let i = 0; i < lyricRep.count; i++) {
+                        const basicIndexY = lyricContent.prefixSum[lyricContent.currentLine];
                         if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
                     }
                     lyricContent.fixedH = 0;
                     lyricContent.finalH = 0;
                     fixedAnime.running = true;
                 }
-                var currentLineData = MusicApi.lyricsData[idx];
-                var currentInfo = currentLineData ? currentLineData.info : undefined;
+                const currentLineData = MusicApi.lyricsData[idx];
+                const currentInfo = currentLineData ? currentLineData.info : undefined;
                 if (currentInfo && currentInfo.length > 0 && idx + 1 < MusicApi.lyricsData.length) {
-                    var lyricLastLineData = currentInfo[currentInfo.length - 1];
-                    var nextLineData = MusicApi.lyricsData[idx + 1];
+                    const lyricLastLineData = currentInfo[currentInfo.length - 1];
+                    const nextLineData = MusicApi.lyricsData[idx + 1];
                     if (lyricLastLineData && nextLineData
                         && (lyricLastLineData.offset !== undefined)
                         && (lyricLastLineData.duration !== undefined)
@@ -382,12 +382,12 @@ Item {
                                 waitOpenAnime.running = false;
                                 waitOutAnime.running = false;
                                 waitOpenAnime.running = true;
-                                for (var i = 0; i <= idx; i++) {
-                                    var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                for (let i = 0; i <= idx; i++) {
+                                    const basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
                                     if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos), false);
                                 }
-                                for (var i = idx + 1; i < lyricRep.count; i++) {
-                                    var basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
+                                for (let i = idx + 1; i < lyricRep.count; i++) {
+                                    const basicIndexY = lyricContent.prefixSum[lyricContent.currentLine + 1];
                                     if (lyricRep.itemAt(i)) lyricRep.itemAt(i).animeTo(Math.floor(lyricContent.prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos + musicControlMax.standHeight), false);
                                 }
                             }
@@ -399,7 +399,7 @@ Item {
 
         Connections {
             target: MusicApi
-            function onLyricsDataChanged() {
+            function onLyricsDataChanged(): void {
                 console.log("更换源，重排新歌词");
                 lyricContent.heights = [];
                 lyricContent.prefixSum = [];
@@ -410,18 +410,19 @@ Item {
         }
 
 
-        function rebuild() {
-            var sum = 0, arr = [];
-            for (var i = 0; i < lyricRep.count; i++) {
+        function rebuild(): void {
+            let sum = 0
+            const arr = [];
+            for (let i = 0; i < lyricRep.count; i++) {
                 arr.push(sum);
-                var it = lyricRep.itemAt(i);
-                var h = it ? it.height : 0;
+                const it = lyricRep.itemAt(i);
+                const h = it ? it.height : 0;
                 heights[i] = h;
                 sum += h; // 累加下一行起点
             }
             prefixSum = arr;
-            for (var i = 0; i < lyricRep.count; i++) {
-                var basicIndexY = prefixSum[currentLine];
+            for (let i = 0; i < lyricRep.count; i++) {
+                const basicIndexY = prefixSum[currentLine];
                 if (lyricRep.itemAt(i)) lyricRep.itemAt(i).standY = Math.floor(prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos);
             }
         }
@@ -462,25 +463,25 @@ Item {
                     }
                 }
 
-                function animeTo(ty, instant) {
+                function animeTo(ty: real, instant: bool): void {
                     lyricAnime.running = false;
-                    var d = index - lyricContent.currentLine;
-                    var durationMs;
+                    const d = index - lyricContent.currentLine;
+                    let durationMs;
                     lyricItem.standY = lyricItem.standY;
                     // 不使用弹簧动画的外部区域（非index>-3至7)，使用融合动画：绑定至统一的动画值，提升性能喵~
                     if(d < -3) {
                         // 检测防止动画乱跑，检测稳定即融合
                         if(ty - lyricItem.standY - fixedAnime.to == 0) {
-                            var nowY = lyricItem.standY;
-                            lyricItem.standY = Qt.binding(function() { return (lyricContent.fixedH + nowY) });
+                            const nowY = lyricItem.standY;
+                            lyricItem.standY = Qt.binding(function(): real { return (lyricContent.fixedH + nowY) });
                             return;
                         } else {
                             durationMs = 0;
                         }
                     } else if(d > 7) {
                         if(ty - lyricItem.standY - fixedAnime.to == 0) {
-                            var nowY = lyricItem.standY;
-                            lyricItem.standY = Qt.binding(function() { return (lyricContent.finalH + nowY) });
+                            const nowY = lyricItem.standY;
+                            lyricItem.standY = Qt.binding(function(): real { return (lyricContent.finalH + nowY) });
                             return;
                         } else {
                             //预计算： 12 ** 1.2 * 24
@@ -654,11 +655,11 @@ Item {
             onStarted: {
                 waitAnimeSection.visible = true;
                 waitAnimeSection.lightState = 0;
-                var line = MusicApi.lyricsData[lyricContent.currentLine];
-                var next = MusicApi.lyricsData[lyricContent.currentLine + 1];
+                const line = MusicApi.lyricsData[lyricContent.currentLine];
+                const next = MusicApi.lyricsData[lyricContent.currentLine + 1];
                 if (line && next && line.info && line.info.length > 0
                     && (next.time !== undefined) && (line.time !== undefined)) {
-                    var last = line.info[line.info.length - 1];
+                    const last = line.info[line.info.length - 1];
                     if (last && (last.offset !== undefined) && (last.duration !== undefined))
                         waitOpenAnime.lightDuration = next.time - line.time - last.offset - last.duration - 420;
                     else
@@ -686,7 +687,7 @@ Item {
             onWheel: (event) => {
                 lyricContent.isUserScrolling = true;
                 scrollAnime.running = false;
-                var to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
+                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
                 scrollAnime.to = to;
                 scrollAnime.running = true;
                 event.accepted = true;

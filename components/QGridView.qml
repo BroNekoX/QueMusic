@@ -3,6 +3,7 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
+import QueMusic 1.0
 
 GridView {
     id: view
@@ -17,7 +18,7 @@ GridView {
     property bool enabled: true
     clip: true
     signal topScroll()
-    function scrollTop() {
+    function scrollTop(): void {
         listViewAnime.stop();
         scrollToY = - view.topMargin;
         contentY = - view.topMargin;

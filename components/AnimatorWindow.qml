@@ -13,17 +13,17 @@ Item {
     anchors.fill: parent
     property int winIndex: 1
     property string title: "MusicFolder"
-    property var mainTarget
+    property Item mainTarget
     property bool haveControl: true
 
     property int songSource: MusicApi.songSource
     default property alias content: loadWidget.sourceComponent
-    function opened(title,image) {
+    function opened(title: string, image: string): void {
         root.title = title;
         root.image = image;
         loadWidget.active = true;
     }
-    function closed(title,image) {
+    function closed(title: string, image: string): void {
         windowOpenAnime.running = false;
         mainTarget.visible = true;
         windowCloseAnime.running = true;
@@ -32,7 +32,7 @@ Item {
     Connections {
         target: window
         enabled: root.visible
-        function onExit() {
+        function onExit(): void {
             if(window.exitIndex <= root.winIndex) {
                 windowOpenAnime.running = false;
                 root.mainTarget.visible = true;

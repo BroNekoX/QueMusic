@@ -89,6 +89,42 @@ bool FolderModel::deleteFolder(int folderId)
     return true;
 }
 
+int FolderModel::deleteFolders(const QVariantList &folderIds)
+{
+    if (folderIds.isEmpty())
+        return 0;
+
+    // 单事务 + 只刷新一次；逐个 deleteFolder 会每删一个就整表 reset
+    bool ownTransaction = false;
+    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions))
+        ownTransaction = m_db.transaction();
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id"));
+    int removed = 0;
+    for (const QVariant &value : folderIds) {
+        bool ok = false;
+        const int id = value.toInt(&ok);
+        if (!ok)
+            continue;
+        query.bindValue(QStringLiteral(":id"), id);
+        if (query.exec())
+            ++removed;
+        else
+            emit errorOccurred(QStringLiteral("删除文件夹失败: ") + query.lastError().text());
+    }
+
+    if (ownTransaction && !m_db.commit()) {
+        m_db.rollback();
+        emit errorOccurred(QStringLiteral("提交批量删除失败: ") + m_db.lastError().text());
+        return 0;
+    }
+
+    if (removed > 0)
+        refreshModel();
+    return removed;
+}
+
 bool FolderModel::renameFolder(int folderId, const QString &newName)
 {
     QSqlQuery query(m_db);
@@ -330,6 +366,42 @@ bool SongModel::deleteSong(int songId)
     }
     refreshModel();
     return true;
+}
+
+int SongModel::deleteSongs(const QVariantList &songIds)
+{
+    if (songIds.isEmpty())
+        return 0;
+
+    // 单事务 + 只刷新一次；旧写法逐个 deleteSong 会整表 reset + 重建全量 TAG 富集
+    bool ownTransaction = false;
+    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions))
+        ownTransaction = m_db.transaction();
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("DELETE FROM songs WHERE id = :id"));
+    int removed = 0;
+    for (const QVariant &value : songIds) {
+        bool ok = false;
+        const int id = value.toInt(&ok);
+        if (!ok)
+            continue;
+        query.bindValue(QStringLiteral(":id"), id);
+        if (query.exec())
+            ++removed;
+        else
+            emit errorOccurred(QStringLiteral("删除歌曲失败: ") + query.lastError().text());
+    }
+
+    if (ownTransaction && !m_db.commit()) {
+        m_db.rollback();
+        emit errorOccurred(QStringLiteral("提交批量删除失败: ") + m_db.lastError().text());
+        return 0;
+    }
+
+    if (removed > 0)
+        refreshModel();
+    return removed;
 }
 
 void SongModel::setFolderId(int folderId)

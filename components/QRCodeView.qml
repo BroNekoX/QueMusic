@@ -19,14 +19,14 @@ Canvas {
     Component.onCompleted: requestPaint();
 
     onPaint: {
-        var ctx = getContext("2d");
+        const ctx = getContext("2d");
         ctx.clearRect(0, 0, width, height);
         if (!root.qrText) {
             ctx.fillStyle = root.lightColor;
             ctx.fillRect(0, 0, width, height);
             return;
         }
-        var modules = null;
+        let modules = null;
         try {
             modules = QRCode.qrcode(root.qrText, "M");
         } catch (e) {
@@ -35,17 +35,17 @@ Canvas {
             ctx.fillRect(0, 0, width, height);
             return;
         }
-        var n = modules.length;
-        var cell = Math.max(1, Math.floor(Math.min(width, height) / n));
-        var size = cell * n;
-        var ox = Math.floor((width - size) / 2);
-        var oy = Math.floor((height - size) / 2);
+        const n = modules.length;
+        const cell = Math.max(1, Math.floor(Math.min(width, height) / n));
+        const size = cell * n;
+        const ox = Math.floor((width - size) / 2);
+        const oy = Math.floor((height - size) / 2);
 
         ctx.fillStyle = root.lightColor;
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = root.darkColor;
-        for (var r = 0; r < n; r++) {
-            for (var c = 0; c < n; c++) {
+        for (let r = 0; r < n; r++) {
+            for (let c = 0; c < n; c++) {
                 if (modules[r][c]) {
                     ctx.fillRect(ox + c * cell, oy + r * cell, cell, cell);
                 }

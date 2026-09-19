@@ -331,7 +331,7 @@ Item {
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
-                        var tagid = playListSongsWindow.id;
+                        const tagid = playListSongsWindow.id;
                         MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
                         isEnd = false;
                     } else {

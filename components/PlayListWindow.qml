@@ -22,14 +22,14 @@ Item {
     property int standTopMargin: 184
 
     property int winIndex: 1
-    property var mainTarget
+    property Item mainTarget
 
     property int songSource: MusicApi.songSource
     default property alias content: loadWidget.sourceComponent
 
 
 
-    function opened(info) {
+    function opened(info: var): void {
         root.id = info.hash || info.id;
         root.title = info.title || "";
         root.artist = info.artist || "";
@@ -44,7 +44,7 @@ Item {
             favoriteButton.iconColor = Style.themes.textColor
         }
     }
-    function closed() {
+    function closed(): void {
         windowOpenAnime.running = false;
         mainTarget.visible = true;
         windowCloseAnime.running = true;
@@ -53,7 +53,7 @@ Item {
     Connections {
         target: window
         enabled: root.visible
-        function onExit() {
+        function onExit(): void {
             if(window.exitIndex <= root.winIndex) {
                 windowOpenAnime.running = false;
                 root.mainTarget.visible = true;

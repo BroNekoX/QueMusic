@@ -93,6 +93,8 @@ public:
     Q_INVOKABLE void loadFromDatabase();
     Q_INVOKABLE int addFolder(const QString &name, const QString &type, const QString &path = "");
     Q_INVOKABLE bool deleteFolder(int folderId);
+    // 单事务批量删除（逐个调用会 N 次整表 reset）
+    Q_INVOKABLE int deleteFolders(const QVariantList &folderIds);
     Q_INVOKABLE bool renameFolder(int folderId, const QString &newName);
 
     QString filterType() const { return m_filterType; }
@@ -142,6 +144,8 @@ public:
     Q_INVOKABLE int addSong(int folderId, const QString &name, const QString &path, const QString &singer = "");
     Q_INVOKABLE int addSongs(int folderId, const QVariantList &songs);
     Q_INVOKABLE bool deleteSong(int songId);
+    // 单事务批量删除；逐个 deleteSong 会每次整表 reset + 全量重跑 TAG（O(N×M)）
+    Q_INVOKABLE int deleteSongs(const QVariantList &songIds);
 
     // 分块遍历内存行，命中行流式追加进 searchResults
     Q_INVOKABLE void startSearch(const QString &text);

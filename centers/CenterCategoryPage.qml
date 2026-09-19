@@ -24,7 +24,7 @@ Item {
     QScrollView {
         id: scroll
         anchors.fill: parent
-        contentChildren: Column {
+        Column {
             width: scroll.availableWidth
             height: implicitHeight
             spacing: 14
@@ -88,7 +88,7 @@ Item {
                 cardWidth: 148
                 badgeOf: m => m.source === 1 ? "网易云" : "酷狗"
                 onPicked: i => {
-                    var d = MusicApi.toplistList.get(i)
+                    const d = MusicApi.toplistList.get(i)
                     page.showDetail(d.title || "榜单", d.cover)
                     MusicApi.getMusicToplist(1, 30, Number(d.hash || d.rankid), d.source)
                 }
@@ -102,7 +102,7 @@ Item {
                 cardHeight: 168
                 round: true
                 onPicked: i => {
-                    var d = MusicApi.singerList.get(i)
+                    const d = MusicApi.singerList.get(i)
                     page.showDetail(d.title || "歌手", d.cover)
                     MusicApi.getSingerSongs(d.hash, 1, 50, MusicApi.songSource)
                 }
@@ -123,13 +123,13 @@ Item {
         onDownloaded: (i, d) => center.download(d)
     }
 
-    function showDetail(t, c) {
+    function showDetail(t: var, c: var): void {
         page.detailTitle = t
         page.detailCover = center.coverOf(c)
         MusicApi.playlistSong.clear()
         page.detailOpen = true
     }
-    function openList(d) {
+    function openList(d: var): void {
         page.showDetail(d.title || "歌单", d.cover)
         MusicApi.getPlaylistSongs(d.hash, 1, 50)
     }

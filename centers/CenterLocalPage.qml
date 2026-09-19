@@ -74,7 +74,7 @@ Item {
         }
     }
 
-    function loadFolder(id) {
+    function loadFolder(id: int): void {
         Songs.folderId = id
         Songs.loadByFolder(id)
     }

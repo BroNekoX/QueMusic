@@ -2,13 +2,14 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
-    property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     property alias message: messageText.text
     property alias input: input.text
@@ -25,6 +26,13 @@ Popup {
     width: 420
     height: contentCol.implicitHeight + 40
     onClosed: { input.text = ""; input.focus = false }
+    Connections {
+        target: window
+        enabled: dialog.visible
+        function onExit(): void {
+            dialog.close();
+        }
+    }
 
     background: QBlurCard {
         anchors.fill: parent

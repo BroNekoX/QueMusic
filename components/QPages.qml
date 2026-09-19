@@ -6,9 +6,9 @@ import QtQuick
 
 Item {
     id: root
-    property var pageList: []
+    property list<Item> pageList: []
     property int lastIndex: 0
-    function stack(index) {
+    function stack(index: int): void {
         pageInAnime.stop()
         opacityAnime.target = root.pageList[index]
         yAnime.target = root.pageList[index]

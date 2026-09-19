@@ -8,12 +8,12 @@ QtObject {
     //主色
     property color themeColor: "#3481fa"
     // 不随颜色改变属性
-    property color fontColor: "#000000"
-    property color textColor: "#333333"
+    property color fontColor: "#1d1d1f"
+    property color textColor: "#6e6e73"
     property color fullColor: "#ffffff"
-    property color hoverColor: "#1a000000"
-    property color sideColor: "#eaeaea"
-    property color sideBlurColor: "#88eaeaea"
+    property color hoverColor: "#0a000000"
+    property color sideColor: "#e9e9ee"
+    property color sideBlurColor: "#88e9e9ee"
     // 随颜色改变
     property color containColor: "#cde0fe"
     property color containOutColor: "#022760"

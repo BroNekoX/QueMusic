@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 import 'qrc:/QueMusic/components'
@@ -9,7 +10,7 @@ import 'qrc:/QueMusic/components'
 Popup {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
-    property var rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
+    property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     parent: Overlay.overlay
     x: 226
     y: 64

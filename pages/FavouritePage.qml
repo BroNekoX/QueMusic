@@ -39,7 +39,7 @@ Item {
         masked: true
         current: favouriteChildPage.lastIndex === 0 ? songSort.menuIndex : listSort.menuIndex
         onClicked: (i) => {
-            var target = favouriteChildPage.lastIndex === 0 ? songSort : listSort;
+            const target = favouriteChildPage.lastIndex === 0 ? songSort : listSort;
             target.selectMenu(i);
             favouritePage.setMode = 0;
             favouritePage.chooseIndex = [];
@@ -48,24 +48,24 @@ Item {
         }
     }
 
-    function chooseTotal() {
+    function chooseTotal(): int {
         return favouriteChildPage.lastIndex === 0 ? FavoriteSongs.count : FavoritePlaylists.count;
     }
 
-    function isAllChosen() {
-        var total = favouritePage.chooseTotal();
+    function isAllChosen(): bool {
+        const total = favouritePage.chooseTotal();
         return total > 0 && favouritePage.chooseIndex.length >= total;
     }
 
-    function toggleAllChoose() {
-        var total = favouritePage.chooseTotal();
+    function toggleAllChoose(): void {
+        const total = favouritePage.chooseTotal();
         if (total === 0) return;
         if (favouritePage.isAllChosen()) {
             favouritePage.chooseIndex = [];
             return;
         }
-        var all = [];
-        for (var i = 0; i < total; i++) all.push(i);
+        const all = [];
+        for (let i = 0; i < total; i++) all.push(i);
         favouritePage.chooseIndex = all;
     }
 
@@ -164,19 +164,19 @@ Item {
 
             onClicked: (index) => {
                 if (favouritePage.setMode === 1) {
-                    var idx = favouritePage.chooseIndex.indexOf(index);
+                    const idx = favouritePage.chooseIndex.indexOf(index);
                     if (idx === -1) {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
                     } else {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
                     }
                 } else {
-                    var r = songSort.at(index);
+                    const r = songSort.at(index);
                     MusicApi.getMusicInfo(r.id, 0, r.source);
                 }
             }
             onToolClicked: (index,tool) => {
-                var r = songSort.at(index);
+                const r = songSort.at(index);
                 switch(tool) {
                 case 0:
                     if (playListModel.indexOfPath(r.id) === -1) {
@@ -190,7 +190,7 @@ Item {
                 }
             }
             onMenuClicked: (index,choice) => {
-                var r = songSort.at(index);
+                const r = songSort.at(index);
                 switch(choice) {
                 case 0:
                     MusicApi.getMusicInfo(r.id,1,r.source);
@@ -218,14 +218,14 @@ Item {
 
             onClicked: (index) => {
                 if (favouritePage.setMode === 1) {
-                    var idx = favouritePage.chooseIndex.indexOf(index);
+                    const idx = favouritePage.chooseIndex.indexOf(index);
                     if (idx === -1) {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
                     } else {
                         favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
                     }
                 } else {
-                    var r = listSort.at(index);
+                    const r = listSort.at(index);
                     MusicApi.playlistSong.clear();
                     MusicApi.globalid = r.id;
                     MusicApi.getPlaylistSongs(r.id,1,20,r.source);
@@ -291,12 +291,12 @@ Item {
             toolText0: "\uf095"
             toolText1: "\uf0c8"
 
-            function addToQueue(e) {
+            function addToQueue(e: var): void {
                 if (playListModel.indexOfPath(e.path) !== -1) return
                 playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
                 mainWarn.tiped("成功加入播放列表", 1)
             }
-            function toggleFav(e) {
+            function toggleFav(e: var): void {
                 if (e.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
                 if (FavoriteSongs.isFavorite(e.path, "song")) {
                     FavoriteSongs.removeFavorite(e.path, "song")
@@ -308,16 +308,16 @@ Item {
             }
 
             onClicked: (index) => {
-                var e = Playback.history.get(index)
+                const e = Playback.history.get(index)
                 Playback.playItem({ name: e.title, path: e.path, songer: e.artist, source: e.source })
             }
             onToolClicked: (index, tool) => {
-                var e = Playback.history.get(index)
+                const e = Playback.history.get(index)
                 if (tool === 0) history.addToQueue(e)
                 else history.toggleFav(e)
             }
             onMenuClicked: (index, choice) => {
-                var e = Playback.history.get(index)
+                const e = Playback.history.get(index)
                 if (choice === 0) history.addToQueue(e)
                 else if (choice === 1) history.toggleFav(e)
                 else Playback.history.remove(index, 1)
@@ -421,8 +421,8 @@ Item {
                     onClicked: {
                         switch(favouritePage.setMode) {
                         case 1:
-                            for(var a = 0;a < favouritePage.chooseIndex.length;a++) {
-                                var fav = songSort.at(favouritePage.chooseIndex[a]);
+                            for(let a = 0;a < favouritePage.chooseIndex.length;a++) {
+                                const fav = songSort.at(favouritePage.chooseIndex[a]);
                                 if (playListModel.indexOfPath(fav.id) === -1) {
                                     playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
                                     mainWarn.tiped("成功加入播放列表",1);
@@ -500,7 +500,7 @@ Item {
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
-                        var tagid = playListSongsWindow.id;
+                        const tagid = playListSongsWindow.id;
                         MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20,playListSongsWindow.songSource);
                         isEnd = false;
                     } else {

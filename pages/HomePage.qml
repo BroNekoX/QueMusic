@@ -16,8 +16,8 @@ Item {
             MusicApi.getHotlistMenu.clear();
             MusicApi.getHotPlaylistMenu(3);
             MusicApi.getHotPlaylists(1);
-            var date = new Date();
-            var timeHour = date.getHours();
+            const date = new Date();
+            const timeHour = date.getHours();
             if(timeHour > 3 && timeHour < 9) {
                 homeText.text = "早上好"
             } else if(timeHour > 8 && timeHour < 13) {
@@ -82,7 +82,7 @@ Item {
             height: homePage.height - 68
             property int standWidth: homePage.width - 52
 
-            contentChildren: Column {
+            Column {
                 id: homeContent
                 spacing: 16
                 padding: 24
@@ -190,10 +190,10 @@ Item {
                             RectangularShadow {
                                 anchors.fill: parent
                                 z: -1
-                                offset.x: 5
-                                offset.y: 5
+                                offset.x: 0
+                                offset.y: 8
                                 radius: Style.settings.cubeRadius
-                                blur: 24
+                                blur: 28
                                 color: Style.themes.shadowColor
                             }
                         }
@@ -201,8 +201,8 @@ Item {
                         onClicked: {
                             MusicApi.recommendSongs.clear();
                             MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
-                            var image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
-                            var title = "每日推荐";
+                            const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
+                            const title = "每日推荐";
                             dailyRecomWindow.opened(title,image);
                             window.exitIndex = 1;
                         }
@@ -220,8 +220,8 @@ Item {
                             onClicked: {
                                 MusicApi.recommendSongs.clear();
                                 MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
-                                var image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
-                                var title = "每日推荐";
+                                const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
+                                const title = "每日推荐";
                                 dailyRecomWindow.opened(title,image);
                                 window.exitIndex = 1;
                             }
@@ -329,7 +329,7 @@ Item {
                                 hoverColor: Style.themes.hoverColor
                                 shadowEnabled: false
                                 onClicked: {
-                                    var indexHash = Options.lastSongs.hash;
+                                    const indexHash = Options.lastSongs.hash;
                                     if (playListModel.indexOfPath(indexHash) === -1) {
                                         playListModel.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
                                         mainWarn.tiped("成功加入播放列表",1);
@@ -411,10 +411,10 @@ Item {
                         RectangularShadow {
                             anchors.fill: parent
                             z: -1
-                            offset.x: 3
-                            offset.y: 5
+                            offset.x: 0
+                            offset.y: 6
                             radius: Style.settings.cubeRadius
-                            blur: 10
+                            blur: 18
                             spread: 0
                             color: Style.themes.shadowColor
                         }
@@ -501,7 +501,7 @@ Item {
                                         MusicApi.musicPlaylists.clear();
                                         MusicApi.globaltagid = model.tagid;
                                         MusicApi.getMusicPlaylists(model.tagid, 1, 20);
-                                        var image = (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
+                                        const image = (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
                                         recommendWindow.opened(model.title, image);
                                         window.exitIndex = 1;
                                     }
@@ -640,10 +640,11 @@ Item {
                     cellHeight: 280
                     rightMargin: -8
                     topMargin: 8
-                    enabled: homeView.scrollToPosition === 1.0 - homeView.barSize
+                    enabled: homeView.scrollToY === homeView.contentHeight - homeView.height
                     interactive: enabled
                     onTopScroll: {
-                        homeView.scrollToPosition = 1.0 - homeView.barSize - 5.0 / homeView.contentHeight
+                        homeView.contentY -= 2
+                        homeView.scrollToY -= 2
                     }
 
                     onAtYEndChanged: {
@@ -671,14 +672,15 @@ Item {
                         RectangularShadow {
                             anchors.fill: parent
                             z: -1
-                            offset.x: 2
-                            offset.y: 2
+                            offset.x: 0
+                            offset.y: hotPlayListsArea.containsMouse ? 10 : 4
                             radius: Style.settings.labelRadius
-                            blur: hotPlayListsArea.containsMouse ? 24 : 8
+                            blur: hotPlayListsArea.containsMouse ? 32 : 14
                             spread: 0
                             visible: true
                             color: Style.themes.shadowColor
                             Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                            Behavior on offset.y { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
                         }
                         MouseArea {
                             id: hotPlayListsArea
@@ -985,7 +987,7 @@ Item {
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {
-                        var tagid = hotlistsWindow.id;
+                        const tagid = hotlistsWindow.id;
                         MusicApi.getPlaylistSongs(tagid,MusicApi.playlistSong.count / 20 + 1,20);
                         isEnd = false;
                     } else {

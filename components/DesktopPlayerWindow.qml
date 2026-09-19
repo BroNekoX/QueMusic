@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 
@@ -71,11 +72,11 @@ Window {
     }
 
     // 时间格式化
-    function formatTime(ms) {
+    function formatTime(ms: real): string {
         if (isNaN(ms) || ms < 0) return "00:00";
-        var totalSeconds = Math.floor(ms / 1000);
-        var minutes = Math.floor(totalSeconds / 60);
-        var seconds = totalSeconds % 60;
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
         return (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 

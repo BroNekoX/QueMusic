@@ -3,6 +3,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 
@@ -21,7 +22,7 @@ Button {
     property int borderWidth: 0   // 边框大小，0即无
     property color borderColor: Style.themes.sideColor   // 边框颜色
     property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
-    property real pressedScale: 0.92                 // 按下缩放比例
+    property real pressedScale: 0.94                 // 按下缩放比例
     property color shadowColor: Style.themes.shadowColor    // 阴影颜色
     property color hoverColor: Style.themes.hoverColor
     property color buttonColor: Style.themes.secondaryColor
@@ -46,10 +47,10 @@ Button {
         RectangularShadow {
             anchors.fill: parent
             z: -1
-            offset.x: 3
-            offset.y: 5
+            offset.x: 0
+            offset.y: 4
             radius: root.radius
-            blur: 24
+            blur: 16
             spread: 0
             color: root.shadowColor
             visible: root.shadowEnabled

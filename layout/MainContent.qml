@@ -12,7 +12,7 @@ Rectangle {
     readonly property int pageHeight: height - 60
 
     // 页面数组，便于管理
-    property var pages: [
+    property list<Item> pages: [
         homePage,   // 0: 首页
         playlistPage,  // 1: 歌单页
         null,     // 2: 空页面
@@ -24,7 +24,7 @@ Rectangle {
 
     property int pageIndex: 0
     //signal stackChange(int index)
-    function contentIndexed(choice) {
+    function contentIndexed(choice: int): void {
         if(choice !== mainContent.pageIndex) {
             //pageAnineOn.stop();
             //pageAnineOn.start();
@@ -34,7 +34,7 @@ Rectangle {
             mainContent.pageIndex = choice;
         }
     }
-    function finishedLoaderPage(choice) {
+    function finishedLoaderPage(choice: int): void {
         pageAnine.stop();
         pageAnine.target = mainContent.pages[choice];
         pageAnine.start();

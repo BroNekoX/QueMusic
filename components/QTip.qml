@@ -1,30 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
-//
+
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 
 ToolTip {
     id: root
-    property int radius: height / 2
-    horizontalPadding: 12
-    verticalPadding: 8
+    property int radius: 8
+    horizontalPadding: 10
+    verticalPadding: 6
     delay: 480
     opacity: visible ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-    //属性: parent visible text
+    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     contentItem: Text {
         text: root.text
         font.pixelSize: Style.settings.text
         wrapMode: Text.Wrap
-        color: Style.themes.textColor
+        color: "#f5f5f7"
     }
     background: Rectangle {
         anchors.fill: parent
-        color: Style.themes.fullColor//"#fffafbfd"
-        border.width: 2
-        radius: height
-        border.color: Style.themes.sideColor//"#ffeaebed"
-
+        radius: root.radius
+        color: "#e61d1d20"
+        border.color: "#ff333437"
+        border.width: 1
     }
 }

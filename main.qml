@@ -19,10 +19,9 @@ Window {
     title: "QueMusic"
     Component.onCompleted: {
         windowAgent.setup(window);
-        // dark-mode / extra-margins / title-bar-height 都是 Windows 专有属性，
-        // macOS 上设置了不会生效（QWindowKit 会丢弃并告警），这里按平台跳过
+        // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
         if(!window.isMacOS) {
-            // 其余可选属性：dwm-blur acrylic-material mica mica-alt
+            // dwm-blur acrylic-material mica mica-alt
             windowAgent.setWindowAttribute("dark-mode", false);
             if(Options.settings.noWindowKit) {
                 windowAgent.setWindowAttribute("extra-margins", 3);
@@ -71,10 +70,10 @@ Window {
 
 
     function silentUpdateCheck(): void {
-        var xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                var remote = parseInt(xhr.responseText.trim().substring(0,3));
+                const remote = parseInt(xhr.responseText.trim().substring(0, 3));
                 if (remote > Options.versionCode)
                     mainWarn.tiped("发现新版本 v" + remote + "，请在设置-关于中查看", 1);
             }
@@ -91,13 +90,20 @@ Window {
 
     Connections {
         target: Options.settings
-        function onDownloadFolderChanged() {
+        function onDownloadFolderChanged(): void {
             MusicApi.downloadPath = Options.settings.downloadFolder;
         }
     }
     property string musicTitle: "QueMusic"
     property string musicArtist: "Artist"
     property int exitIndex: 0
+
+    // 托盘"退出"时置位：跳过"关闭到托盘"直接退出
+    property bool forceQuit: false
+    // 隐藏到托盘前的窗口状态，恢复时还原最大化/全屏
+    property int trayRestoreVisibility: Window.Windowed
+    // 本次运行是否已提示过"已最小化到系统托盘"
+    property bool trayTipShown: false
 
     property string localLyricsRequestPath: ""
     property int pendingSeek: 0
@@ -139,23 +145,30 @@ Window {
         property bool playlistLoaded: false
     }
 
+    // 判断是否到托盘设置函数
+    function closeToTray(): bool {
+        return Options.settings.closeToManage && !window.forceQuit && systemTray.available;
+    }
+
     // 关闭前保存最后播放的歌曲
     function toClosing(): void {
-        if(Options.settings.closeToManage) {
-            window.showMinimized();
+        if(window.closeToTray()) {
+            window.hideToTray();
             return;
         }
         if(playListModel.count > 0 && playListModel.playListIndex >= 0) {
-            var e = playListModel.get(playListModel.playListIndex);
             Options.lastSongs.name = window.musicTitle;
             Options.lastSongs.artist = window.musicArtist;
             Options.lastSongs.cover = mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png";
-            Options.lastSongs.hash = e.path;
-            Options.lastSongs.source = e.source;
+            Options.lastSongs.hash = playListModel.get(playListModel.playListIndex).path;
+            Options.lastSongs.source = playListModel.get(playListModel.playListIndex).source;
             Options.lastSongs.position = mainMedia.position;
             console.log("保存当前音乐记录。");
         }
-        if(Options.settings.rememberWindow && window.visibility === Window.Windowed) {
+        // 隐藏在托盘中的窗口（Hidden）几何信息依然有效，同样保存
+        if(Options.settings.rememberWindow
+                && window.visibility !== Window.Maximized
+                && window.visibility !== Window.FullScreen) {
             Options.settings.winX = window.x;
             Options.settings.winY = window.y;
             Options.settings.winW = window.width;
@@ -166,7 +179,57 @@ Window {
         // 清理桌面悬浮窗
         desktopLyricsLoader.active = false;
         desktopPlayerLoader.active = false;
-        window.close();
+        // 必须显式退出：窗口可能正隐藏在托盘里（close() 对不可见窗口不生效），
+        // 且已关闭 quitOnLastWindowClosed，进程不会因窗口关闭而自动结束
+        systemTray.quitApplication();
+    }
+
+    // 隐藏到系统托盘：任务栏图标随窗口一起消失，只剩托盘图标
+    function hideToTray(): void {
+        if(!window.visible)
+            return;
+        window.trayRestoreVisibility = window.visibility;
+        window.hide();
+        console.log("[托盘] 已隐藏到托盘，原窗口状态=" + window.trayRestoreVisibility);
+        if(!window.trayTipShown) {
+            window.trayTipShown = true;
+            systemTray.showMessage("QueMusic", "已最小化到系统托盘，点击托盘图标可恢复",
+                                   SystemTrayManager.Information);
+        }
+    }
+
+    // 从托盘恢复窗口：还原隐藏前的最大化/全屏状态
+    function restoreWindow(): void {
+        if(!window.visible) {
+            if(window.trayRestoreVisibility === Window.Maximized)
+                window.showMaximized();
+            else if(window.trayRestoreVisibility === Window.FullScreen)
+                window.showFullScreen();
+            else
+                window.showNormal();
+        } else if(window.visibility === Window.Minimized) {
+            window.showNormal();
+        }
+        window.raise();
+        window.requestActivate();
+    }
+
+    // 托盘菜单"退出"：走正常保存/关闭流程，但不再隐藏到托盘
+    function quitApp(): void {
+        window.forceQuit = true;
+        window.toClosing();
+    }
+
+    // 系统级关闭（Alt+F4、任务栏右键"关闭窗口"）与关闭按钮行为保持一致
+    onClosing: function(close) {
+        if(window.closeToTray()) {
+            close.accepted = false;
+            window.hideToTray();
+            return;
+        }
+        // 未开启托盘时也要走保存与会话收尾，不能直接放行
+        close.accepted = false;
+        window.toClosing();
     }
 
     signal getKeys(var keys)
@@ -281,9 +344,6 @@ Window {
     WindowAgent {
         id: windowAgent
     }
-
-    function playermined() { barLeftWidgets.y = 12 }//{ barLeftWidgets.visible = true }
-    function playermaxed() { barLeftWidgets.y = -48 }//{ barLeftWidgets.visible = false }
 
     // 顶部栏 - 与qwindowkit和window耦合，难抽为组件
     Rectangle {
@@ -474,19 +534,18 @@ Window {
         anchors.fill: parent
         z: 5
         property int maxLyricType: 0
+
         readonly property int piclong: mainLayout.width < 1280 ? mainLayout.height / 3 + mainLayout.width / 8 - 100 : mainLayout.height / 3 + 60
 
         ParallelAnimation {
             id: maxedAnimation
             NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: mainLayout.height; to: 0; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 30; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.blurOverlayColor; duration: Style.animeDuration }
         }
         ParallelAnimation {
             id: minedAnimation
             NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
             NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            ColorAnimation { target: musicControlMin; property:"color"; to: Style.themes.primaryBlurColor; duration: Style.animeDuration }
             onFinished: {
                 controlMaxLoader.visible = false;
                 controlMaxLoader.active = false;
@@ -550,7 +609,7 @@ Window {
         // Style变化信号统一
         Connections {
             target: Style
-            function onChangeTheme() {
+            function onChangeTheme(): void {
                 windowAgent.setWindowAttribute("dwm-blur", false);
                 if(Style.settings.backmode === 0) {
                     backGround.visible = false;
@@ -704,19 +763,19 @@ Window {
             property bool basicCd: false
             Behavior on hideHeight { enabled: controlMaxLoader.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
             onLoaded: {
-                window.playermaxed()
-                minedAnimation.stop()
-                visible = true
-                maxedAnimation.start()
+                barLeftWidgets.y = -48;
+                minedAnimation.stop();
+                visible = true;
+                maxedAnimation.start();
                 switch(mainLayout.maxLyricType) {
                 case 0:
-                    mainLayout.state = "MaxedNormal"
+                    mainLayout.state = "MaxedNormal";
                     break;
                 case 1:
-                    mainLayout.state = "MaxedCover"
+                    mainLayout.state = "MaxedCover";
                     break;
                 case 2:
-                    mainLayout.state = "MaxedLyric"
+                    mainLayout.state = "MaxedLyric";
                     break;
                 }
             }
@@ -810,7 +869,7 @@ Window {
                 // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
                 enabled: Options.settings.displayFps
                 target: window
-                function onAfterRendering() { fpsCounter.frames++ }
+                function onAfterRendering(): void { fpsCounter.frames++ }
             }
         }
     }
@@ -869,7 +928,7 @@ Window {
         onFinished: {
             mainLayout.state = "";
             mainLayout.visible = false;
-            window.playermined();
+            barLeftWidgets.y = 12;
             minedAnimation.start();
         }
     }
@@ -893,7 +952,7 @@ Window {
         onLocalCoverReady: (path, coverUrl) => {
             if (path !== window.localLyricsRequestPath)
                 return;
-            var localCover = coverUrl || coverHelper.findLocalCover(path);
+            const localCover = coverUrl || coverHelper.findLocalCover(path);
             mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
             if (localCover)
                 colorExtractor.extractColorsFromUrl(localCover);
@@ -916,7 +975,7 @@ Window {
                 mainMedia.play();
             });
 
-            var listIndex = Playback.indexOfPath(hash);
+            const listIndex = Playback.indexOfPath(hash);
             if (listIndex < 0) {
                 playListModel.append({ name: title, path: hash, songer: artist, source: source });
                 playListModel.playListIndex = playListModel.count - 1;
@@ -948,7 +1007,7 @@ Window {
                 window.musicArtist = meta.artist;
             if (meta.album)
                 mainMedia.album = meta.album;
-            var hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
+            const hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
             MusicApi.lyricsData = meta.lyrics || [];
             MusicApi.lyricsTranslate = meta.translate || [];
             if (!hasMetaLyrics)
@@ -995,13 +1054,13 @@ Window {
             if(!urlLocal)
                 return;
 
-            var title = mainMedia.metaData.stringValue(MediaMetaData.Title);
-            var artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author);
-            var album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle);
-            var date = mainMedia.metaData.value(MediaMetaData.Date);
-            var type = mainMedia.metaData.value(MediaMetaData.MediaType);
+            const title = mainMedia.metaData.stringValue(MediaMetaData.Title);
+            const artist = mainMedia.metaData.stringValue(MediaMetaData.AlbumArtist) || mainMedia.metaData.value(MediaMetaData.Author);
+            const album = mainMedia.metaData.stringValue(MediaMetaData.AlbumTitle);
+            const date = mainMedia.metaData.value(MediaMetaData.Date);
+            const type = mainMedia.metaData.value(MediaMetaData.MediaType);
             // 内嵌封面：优先大图，退化到缩略图
-            var cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage);
+            const cover = mainMedia.metaData.value(MediaMetaData.CoverArtImage) || mainMedia.metaData.value(MediaMetaData.ThumbnailImage);
 
             window.musicTitle = title || noTitle
             if (artist)
@@ -1077,8 +1136,8 @@ Window {
     function updateSmtcControls(): void {
         if (!windowsSmtc.available)
             return;
-        var count = playListModel.count;
-        var idx = playListModel.playListIndex;
+        const count = playListModel.count;
+        const idx = playListModel.playListIndex;
         windowsSmtc.setControlsEnabled(true, true, idx < count - 1, idx > 0);
     }
 
@@ -1086,9 +1145,9 @@ Window {
     function smtcUpdateMediaInfo(): void {
         if (!windowsSmtc.available)
             return
-        var mediaId = ""
+        let mediaId = ""
         if (playListModel.count > 0 && playListModel.playListIndex >= 0) {
-            var item = playListModel.get(playListModel.playListIndex)
+            const item = playListModel.get(playListModel.playListIndex)
             if (item)
                 mediaId = item.path
         }
@@ -1110,10 +1169,33 @@ Window {
         onSeekRequested: (pos) => { mainMedia.position = pos }
     }
 
+    // 系统托盘：常驻托盘图标 + 原生菜单，窗口关闭时隐藏到这里
+    SystemTrayManager {
+        id: systemTray
+        iconSource: "qrc:/QueMusic/resources/icon.ico"
+        title: "QueMusic"
+        playing: mainMedia.playbackState === MediaPlayer.PlayingState
+        nowPlaying: window.musicTitle !== "QueMusic"
+                    ? window.musicTitle + (window.musicArtist && window.musicArtist !== "Artist"
+                                           ? " - " + window.musicArtist : "")
+                    : ""
+
+        onShowWindowRequested: window.restoreWindow()
+        onPlayPauseRequested: Playback.togglePlay()
+        onPreviousRequested: musicControlMin.lastMedia()
+        onNextRequested: musicControlMin.enterMedia()
+        onQuitRequested: window.quitApp()
+        onActivated: (reason) => {
+            // 左键单击 / 双击托盘图标：恢复主界面
+            if(reason === SystemTrayManager.Trigger || reason === SystemTrayManager.DoubleClick)
+                window.restoreWindow();
+        }
+    }
+
     Connections {
         target: mainMedia
 
-        function onSourceChanged() {
+        function onSourceChanged(): void {
             Playback.clearAb() // A-B 片段按曲目绑定，切歌即失效
             // 切歌/新曲目开始播放的瞬间：主动推送 position=0 并刷新时间线；
             // duration 尚未就绪（<=0）时由 C++ 侧走全零重置分支清空上一首的残留进度。
@@ -1121,7 +1203,7 @@ Window {
                 windowsSmtc.updateTimeline(0, mainMedia.duration)
             updateSmtcControls()
         }
-        function onDurationChanged() {
+        function onDurationChanged(): void {
             // 断点续播：恢复的曲目首次拿到时长时跳转到上次位置
             if (mainMedia.duration > 0 && window.pendingSeek > 0
                 && playListModel.playListIndex >= 0
@@ -1135,7 +1217,7 @@ Window {
             if (windowsSmtc.available && mainMedia.duration > 0)
                 windowsSmtc.updateTimeline(0, mainMedia.duration)
         }
-        function onPlaybackStateChanged() {
+        function onPlaybackStateChanged(): void {
             updateSmtcControls()
             if (mainMedia.playbackState === MediaPlayer.PlayingState)
                 window.noteNowPlaying()
@@ -1159,11 +1241,11 @@ Window {
                 break
             }
         }
-        function onPositionChanged() {
+        function onPositionChanged(): void {
             if (!windowsSmtc.available)
                 return
-            var now = Date.now()
-            var jump = Math.abs(mainMedia.position - window.smtcLastPosition)
+            const now = Date.now()
+            const jump = Math.abs(mainMedia.position - window.smtcLastPosition)
             if (now - window.smtcLastTimeline < 5000 && jump < 3000
                 && mainMedia.duration - mainMedia.position > 5000)
                 return
@@ -1192,9 +1274,9 @@ Window {
 
     // 播放列表持久化
     function saveQueue(): void {
-        var out = []
-        for (var i = 0; i < playListModel.count; i++) {
-            var e = playListModel.get(i)
+        const out = []
+        for (let i = 0; i < playListModel.count; i++) {
+            const e = playListModel.get(i)
             out.push({ name: e.name, path: e.path, songer: e.songer, source: e.source })
         }
         Options.settings.lastQueue = JSON.stringify(out)
@@ -1205,9 +1287,9 @@ Window {
     function restoreSession(): void {
         if (!Options.settings.autoRestoreQueue) return
         try {
-            var arr = JSON.parse(Options.settings.lastQueue || "[]")
-            for (var i = 0; i < arr.length; i++) playListModel.append(arr[i])
-            var idx = Options.settings.lastQueueIndex
+            const arr = JSON.parse(Options.settings.lastQueue || "[]")
+            for (let i = 0; i < arr.length; i++) playListModel.append(arr[i])
+            const idx = Options.settings.lastQueueIndex
             if (idx < 0 || idx >= playListModel.count) return
             playListModel.playListIndex = idx
             if (Options.settings.resumePosition && Options.lastSongs.position > 0) {
@@ -1218,7 +1300,7 @@ Window {
     }
 
     function startTrack(index: int): void {
-        var e = playListModel.get(index)
+        const e = playListModel.get(index)
         if (!e) return
         if (e.source === -1) window.playLocalSong(e.path, e.name)
         else { mainMedia.urlLocal = false; MusicApi.getMusicInfo(e.path, 0, e.source) }
@@ -1226,7 +1308,7 @@ Window {
 
     function noteNowPlaying(): void {
         if (playListModel.playListIndex < 0 || playListModel.count === 0 || !window.musicTitle) return
-        var e = playListModel.get(playListModel.playListIndex)
+        const e = playListModel.get(playListModel.playListIndex)
         Playback.pushHistory({
             title: window.musicTitle,
             artist: window.musicArtist,
@@ -1245,7 +1327,7 @@ Window {
     SearchCard {
         id: searchCard
         onSearchIndex: (index) => {
-            var name = Options.settings.searchList[index];
+            const name = Options.settings.searchList[index];
             mainSearchInput.text = name;
             window.doSearch(name);
             searchCard.close();
@@ -1301,7 +1383,7 @@ Window {
         onConfirm: {
             // 若有回调则执行回调，否则保持原有默认行为（关闭窗口）
             if (globalDialog.dialogCallback) {
-                var cb = globalDialog.dialogCallback;
+                const cb = globalDialog.dialogCallback;
                 globalDialog.dialogCallback = null;
                 cb();
             }
@@ -1330,7 +1412,7 @@ Window {
         cancelText: "保存"
         cancelIcon: "\uf00f"
         onCancel: {
-            var sysPicPath = StandardPaths.writableLocation(StandardPaths.PicturesLocation)
+            const sysPicPath = StandardPaths.writableLocation(StandardPaths.PicturesLocation)
             if(imageWatch.status === Image.Ready) {
                 imageWatch.grabToImage(function(result) {
                     result.saveToFile(sysPicPath + "/" + picWatch.fileName);

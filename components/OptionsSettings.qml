@@ -19,6 +19,7 @@ Settings {
     property list<string> searchList: [] //搜索记录
     property bool openShortCut: true
     property int cycleIndex: 0
+    property bool picCache: false
 
     //播放器
     property int soundQuality: 1 //音质

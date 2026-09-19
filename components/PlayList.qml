@@ -28,10 +28,10 @@ Popup {
         rectXy: Qt.rect(playList.x, playList.y, 360, playList.height)
     }
 
-    function locateCurrent() {
-        var i = playListModel.playListIndex
-        if (i < 0) return
-        playListView.positionViewAtIndex(i, ListView.Center)
+    function locateCurrent(): void {
+        const i = playListModel.playListIndex;
+        if (i < 0) return;
+        playListView.positionViewAtIndex(i, ListView.Center);
     }
 
     contentItem: Item {
@@ -90,11 +90,11 @@ Popup {
             shadowEnabled: false
             onClicked: {
                 globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
-                    function() {
-                        var title = playListModel.get(playListModel.playListIndex).name;
-                        var hash = playListModel.get(playListModel.playListIndex).path;
-                        var artist = playListModel.get(playListModel.playListIndex).songer;
-                        var source = playListModel.get(playListModel.playListIndex).source;
+                    function(): void {
+                        const title = playListModel.get(playListModel.playListIndex).name;
+                        const hash = playListModel.get(playListModel.playListIndex).path;
+                        const artist = playListModel.get(playListModel.playListIndex).songer;
+                        const source = playListModel.get(playListModel.playListIndex).source;
                         playListModel.remove( 0, playListModel.count );
                         //playListModel.append(indexData);
                         playListModel.append({ name: title, path: hash, songer: artist, source: source });
@@ -272,7 +272,7 @@ Popup {
                             shadowEnabled: false
                             tipText: "下一首播放"
                             onClicked: {
-                                var cur = playListModel.playListIndex
+                                const cur = playListModel.playListIndex
                                 if (index === cur) return
                                 playListModel.move(index, cur + 1, 1)
                                 if (index < cur) playListModel.playListIndex = cur - 1
@@ -316,8 +316,8 @@ Popup {
                             tipText: "移除"
                             onClicked: {
                                 if (playListModel.playListIndex !== index) {
-                                    if (playListModel.playListIndex > index) playListModel.playListIndex -= 1
-                                    playListModel.remove(index, 1)
+                                    if (playListModel.playListIndex > index) playListModel.playListIndex -= 1;
+                                    playListModel.remove(index, 1);
                                 }
                             }
                         }

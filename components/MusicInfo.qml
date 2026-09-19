@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 
 Popup {
@@ -54,7 +55,7 @@ Popup {
             y: 60
             width: root.width - 32
             height: root.height - 60
-            contentChildren: Column {
+            Column {
                 id: desktopSet
                 width: root.width - 32
                 spacing: 16

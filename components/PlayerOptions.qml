@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 
 // 播放器选项：倍速 / 音质 / 输出设备 / A-B 循环 / 睡眠定时 / 淡入淡出 / 跳转步长
 QOptionDialog {

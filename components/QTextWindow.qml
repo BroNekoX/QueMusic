@@ -16,7 +16,7 @@ Window {
         width: root.width - 8
         height: root.height
     // 使用 Text 或 TextEdit 来显示 Markdown
-    contentChildren: TextEdit {
+    TextEdit {
         id: markdownViewer
         width: root.width - 24
 

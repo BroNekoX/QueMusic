@@ -22,8 +22,8 @@ Item {
     QScrollView {
         id: scroll
         anchors.fill: parent
-        contentChildren: Column {
-            width: scroll.availableWidth
+        Column {
+            width: scroll.width
             height: implicitHeight
             spacing: 22
 
@@ -177,7 +177,7 @@ Item {
         onDownloaded: (i, d) => center.download(d)
     }
 
-    function openList(d) {
+    function openList(d: var): void {
         page.detailTitle = d.title || "歌单"
         page.detailCover = center.coverOf(d.cover)
         MusicApi.playlistSong.clear()

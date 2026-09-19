@@ -3,6 +3,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Layouts
 import QtQuick.Effects
 
@@ -33,10 +34,10 @@ Item {
     RectangularShadow {
         anchors.fill: root
         z: 0
-        offset.x: 5
-        offset.y: 5
+        offset.x: 0
+        offset.y: 8
         radius: root.radius
-        blur: 24
+        blur: 28
         spread: 0
         visible: root.shadowEnabled
         color: Style.themes.shadowColor

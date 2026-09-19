@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 
@@ -25,7 +26,7 @@ ListView {
     }
     property real viewh: tipview.contentHeight
 
-    function dialog(name,text,icon) {
+    function dialog(name: string, text: string, icon: string): void {
         tipModel.append({ icontype: icon, name: name, text: text });
     }
 
@@ -35,7 +36,7 @@ ListView {
                 properties: "x"
                 from: 400
                 to: 0
-                duration: 350
+                duration: 420
                 easing.type: Easing.OutExpo
             }
         }
@@ -45,7 +46,7 @@ ListView {
         ParallelAnimation{
             NumberAnimation {
                 properties: "y"
-                duration: 240
+                duration: 320
                 easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ]
             }
         }
@@ -78,7 +79,7 @@ ListView {
             target: amessage
             properties: "x"
             to: 350
-            duration: 240
+            duration: 320
             easing.type: Easing.InExpo
             onFinished: tipModel.remove(index)
         }

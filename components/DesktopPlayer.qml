@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
+import QueMusic 1.0
 import QtQuick.Controls.Basic
 
 Popup {
@@ -133,7 +134,7 @@ Popup {
     // 小窗播放器异步加载完成后自动显示（避免关闭按钮 hide 后无法再次出现）
     Connections {
         target: desktopPlayerLoader
-        function onStatusChanged() {
+        function onStatusChanged(): void {
             if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 2) {
                 desktopPlayerLoader.item.show();
             }

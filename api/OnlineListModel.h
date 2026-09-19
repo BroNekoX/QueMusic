@@ -10,10 +10,12 @@
 #include <QHash>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class OnlineListModel : public QAbstractListModel
 {
     Q_OBJECT
+    QML_ANONYMOUS
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 
 public:

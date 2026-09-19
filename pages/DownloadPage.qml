@@ -18,7 +18,7 @@ Item {
     }
 
     // 扫描下载目录
-    function refreshDownloads() {
+    function refreshDownloads(): void {
         downloadedModel.downloadDir = MusicApi.downloader.effectiveDownloadDir();
         downloadedModel.reload();
     }
@@ -27,11 +27,11 @@ Item {
 
     Connections {
         target: MusicApi.downloader
-        function onCompletedCountChanged() { refreshDownloads() }
+        function onCompletedCountChanged(): void { refreshDownloads() }
     }
     Connections {
         target: MusicApi
-        function onDownloadPathChanged() { refreshDownloads() }
+        function onDownloadPathChanged(): void { refreshDownloads() }
     }
 
     // 顶部标题
@@ -365,12 +365,12 @@ Item {
                 headerModel: ["标题","歌手","时长","操作"]
 
                 onClicked: (index) => {
-                    var item = downloadedModel.get(index);
+                    const item = downloadedModel.get(index);
                     if (!item || !item.fileUrl)
                         return;
                     window.playLocalSong(item.fileUrl, item.fileName);
 
-                    var listIndex = playListModel.indexOfPath(item.fileUrl);
+                    const listIndex = playListModel.indexOfPath(item.fileUrl);
                     if (listIndex === -1) {
                         playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
                         playListModel.playListIndex = playListModel.count - 1;
@@ -381,7 +381,7 @@ Item {
 
                 onToolClicked: (index,tool) => {
                     if (tool === 0) {
-                        var item = downloadedModel.get(index);
+                        const item = downloadedModel.get(index);
                         if (!item || !item.fileUrl)
                             return;
                         if (playListModel.indexOfPath(item.fileUrl) === -1) {

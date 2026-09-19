@@ -8,7 +8,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ------------------------- 优化开关 -------------------------
+# 优化开关
 # LTO：跨翻译单元内联 + 死代码消除（Release / RelWithDebInfo 生效）
 option(QUEMUSIC_ENABLE_LTO "Release 构建启用 LTO/IPO" ON)
 # QML 静态检查：只影响构建耗时，不影响运行性能
@@ -21,10 +21,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network Multimedia Concurrent Sql ShaderTools Widgets)
 
-# QML 中大量使用 qrc:/QueMusic/... 形式的绝对 URL：显式固定资源前缀策略，
-# 避免 Qt 后续版本把默认前缀改成 :/qt/qml/ 之后这些 URL 全部失效（QTP0001）
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 OLD)
 endif()
@@ -58,7 +56,7 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
     <QtMultimedia/QtMultimedia>
 )
 
-# ------------------------- 构建优化 -------------------------
+# 构建优化
 # 函数/数据分节 + 链接期垃圾回收：剥离未引用代码，减小体积、改善加载与指令缓存
 if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
@@ -209,6 +207,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/WindowsSmtcManager.h
         cpp/LogManager.cpp
         cpp/LogManager.h
+        cpp/SystemTrayManager.cpp
+        cpp/SystemTrayManager.h
         api/MusicApiService.cpp
         api/MusicApiService.h
         api/OnlineListModel.cpp
@@ -226,6 +226,8 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
     BATCHABLE
     FILES
         shaders/lyricfade.frag
+        shaders/cardblur.frag
+        shaders/cardblur_hq.frag
 )
 
 qt6_add_shaders(${PROJECT_NAME} "bgshaders"
@@ -255,6 +257,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
+        Qt6::Widgets
         QCloudMusicApi
         quemusic::taglib
         cryptopp::cryptopp

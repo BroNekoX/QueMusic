@@ -161,6 +161,7 @@ public:
     // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
     Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
     // 把单个本地文件移入系统回收站（找不到/无法移动时返回 false）
+    // 单文件移入回收站（主线程同步）；批量删除请用 LocalMusicScanner::deleteFiles
     Q_INVOKABLE bool moveLocalFileToTrash(const QString &filePath);
     // 工作线程解析内嵌标签（避免卡 UI）；命中经 localLyricsReady 回传，未命中自动转在线匹配
     Q_INVOKABLE void readLocalLyricsAsync(const QString &filePath, const QString &title,

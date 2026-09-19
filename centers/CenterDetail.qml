@@ -80,7 +80,7 @@ Rectangle {
             isEnd: MusicApi.playlistSong.count > 0
             onClicked: i => root.picked(i, MusicApi.playlistSong.get(i))
             onToolClicked: (i, tool) => {
-                var d = MusicApi.playlistSong.get(i)
+                const d = MusicApi.playlistSong.get(i)
                 if (tool === 0) root.queued(i, d)
                 else if (tool === 1) root.faved(i, d)
             }
@@ -90,11 +90,11 @@ Rectangle {
         }
     }
 
-    function addAll() {
-        var m = MusicApi.playlistSong
-        var n = 0
-        for (var i = 0; i < m.count; i++) {
-            var d = m.get(i)
+    function addAll(): void {
+        const m = MusicApi.playlistSong
+        let n = 0
+        for (let i = 0; i < m.count; i++) {
+            const d = m.get(i)
             if (d && d.hash && Playback.indexOfPath(d.hash) === -1) {
                 Playback.queue.append({ name: d.title, path: d.hash, songer: d.artist, source: MusicApi.songSource })
                 n++

@@ -47,7 +47,7 @@ Item {
                 model: FavoriteSongs
                 isList: false
                 onClicked: i => {
-                    var d = FavoriteSongs.get(i)
+                    const d = FavoriteSongs.get(i)
                     if (d.source === -1) center.playLocal(d.favId, d.title)
                     else MusicApi.getMusicInfo(d.favId, 0, d.source)
                 }
@@ -86,14 +86,14 @@ Item {
         onDownloaded: (i, d) => center.download(d)
     }
 
-    function openList(d) {
+    function openList(d: var): void {
         page.detailTitle = d.title || "歌单"
         page.detailCover = center.coverOf(d.cover)
         MusicApi.playlistSong.clear()
         MusicApi.getPlaylistSongs(d.favId, 1, 50)
         page.detailOpen = true
     }
-    function openSinger(d) {
+    function openSinger(d: var): void {
         page.detailTitle = d.title || "歌手"
         page.detailCover = center.coverOf(d.cover)
         MusicApi.playlistSong.clear()

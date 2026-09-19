@@ -14,16 +14,16 @@ SortFilterProxyModel {
     property string artistRole: "artist"
 
     readonly property int menuIndex: {
-        for (var i = 0; i < root.options.length; i++)
+        for (let i = 0; i < root.options.length; i++)
             if (root.options[i].mode === root.sortMode && root.options[i].desc === root.sortDesc) return i
         return 0
     }
 
-    function orderFor(baseDesc) {
+    function orderFor(baseDesc: bool): int {
         return baseDesc !== root.sortDesc ? Qt.DescendingOrder : Qt.AscendingOrder
     }
 
-    function selectMenu(i) {
+    function selectMenu(i: int): void {
         root.sortMode = root.options[i].mode
         root.sortDesc = root.options[i].desc
     }
@@ -50,5 +50,5 @@ SortFilterProxyModel {
     onSortModeChanged: root.invalidateSorter()
     onSortDescChanged: root.invalidateSorter()
 
-    function at(i) { return root.model.get(root.mapToSource(root.index(i, 0)).row) }
+    function at(i: int): var { return root.model.get(root.mapToSource(root.index(i, 0)).row) }
 }

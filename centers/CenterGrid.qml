@@ -100,8 +100,8 @@ Column {
         }
     }
 
-    function coverOf(c) {
-        var s = c ? String(c).replace("{size}", "256") : ""
+    function coverOf(c: var): string {
+        const s = c ? String(c).replace("{size}", "256") : ""
         return s !== "" ? s : "qrc:/QueMusic/resources/app/musicpic.png"
     }
 }

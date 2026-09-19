@@ -26,24 +26,24 @@ Window {
     property int nextIndex: 1
 
     // 时间格式化（复用）
-    function formatTime(ms) {
+    function formatTime(ms: real): string {
         if (isNaN(ms) || ms < 0) return "00:00";
-        var totalSeconds = Math.floor(ms / 1000);
-        var minutes = Math.floor(totalSeconds / 60);
-        var seconds = totalSeconds % 60;
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
         return (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 
     // 更新歌词索引
-    function updateCurrentIndex() {
-        var pos = mainMedia.position || 0;
-        var data = lyricsData;
+    function updateCurrentIndex(): void {
+        const pos = mainMedia.position || 0;
+        const data = lyricsData;
         if (!data || data.length === 0) {
             currentIndex = -1;
             nextIndex = -1;
             return;
         }
-        var idx = 0;
+        let idx = 0;
         while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
         currentIndex = idx;
         nextIndex = Math.min(idx + 1, data.length - 1);
@@ -60,7 +60,7 @@ Window {
     // 歌词数据变化时重置
     Connections {
         target: MusicApi
-        function onLyricsDataChanged() {
+        function onLyricsDataChanged(): void {
             lyricsData = MusicApi.lyricsData || [];
             updateCurrentIndex();
         }

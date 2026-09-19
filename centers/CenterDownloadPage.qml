@@ -13,14 +13,14 @@ Item {
 
     DownloadedMusicModel { id: downloaded }
 
-    function refresh() {
+    function refresh(): void {
         downloaded.downloadDir = MusicApi.downloader.effectiveDownloadDir()
         downloaded.reload()
     }
     Component.onCompleted: page.refresh()
     Connections {
         target: MusicApi.downloader
-        function onCompletedCountChanged() { page.refresh() }
+        function onCompletedCountChanged(): void { page.refresh() }
     }
 
     Column {
@@ -190,12 +190,12 @@ Item {
                 model: downloaded
                 isEnd: true
                 onClicked: i => {
-                    var d = downloaded.get(i)
+                    const d = downloaded.get(i)
                     center.playLocal(d.fileUrl, d.title || d.fileName)
                 }
                 onToolClicked: (i, tool) => {
                     if (tool === 0) {
-                        var d = downloaded.get(i)
+                        const d = downloaded.get(i)
                         center.enqueue({ title: d.title || d.fileName, artist: d.artist, hash: d.fileUrl, source: -1 })
                     }
                 }

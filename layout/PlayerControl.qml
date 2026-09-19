@@ -18,7 +18,7 @@ Rectangle {
     readonly property string mediaTime: Playback.fmt(mainMedia.position)
     Connections {
         target: playListModel
-        function onPlayListIndexChanged() {
+        function onPlayListIndexChanged(): void {
             // 空队列时 playListIndex 为 -1，get 会返回 undefined
             if(playListModel.playListIndex < 0)
                 return;
@@ -34,12 +34,12 @@ Rectangle {
     }
 
     // 拆分多歌手，覆盖常见分隔符：/ 、 ， , & ; ；(不含空格，避免拆坏英文歌手名)
-    function parseArtists(raw) {
-        var parts = raw.split(/\s*[\/、,，&;&；]\s*/);
-        var list = [];
+    function parseArtists(raw: string): var {
+        const parts = raw.split(/\s*[\/、,，&;&；]\s*/);
+        const list = [];
         list.push("搜索")
-        for(var i = 0; i < parts.length; i++) {
-            var s = parts[i].trim();
+        for(let i = 0; i < parts.length; i++) {
+            const s = parts[i].trim();
             if(s && list.indexOf(s) === -1) {
                 list.push(s);
             }
@@ -48,7 +48,7 @@ Rectangle {
     }
 
     // 统一搜索入口
-    function doSearchSongsMessage(name) {
+    function doSearchSongsMessage(name: string): void {
         MusicApi.searchSongsResults.clear();
         mainSearchInput.text = name;
         MusicApi.nowIndex = 0;
@@ -108,10 +108,10 @@ Rectangle {
                 horizontalPadding: 8
                 background: Rectangle {
                     anchors.fill: parent
-                    color: Style.themes.primaryColor
-                    border.width: 2
+                    color: Style.themes.fullColor
+                    border.width: 1
                     radius: height
-                    border.color: Style.themes.secondaryColor
+                    border.color: Style.themes.sideColor
                 }
             }
             // 背景轨道
@@ -120,7 +120,6 @@ Rectangle {
                 x: 0
                 width: musicControlMin.width
                 height: progressSlider.hovered ? 6 : 2
-                radius: 0
                 color: Style.themes.sideColor
 
                 // 已完成部分
@@ -128,7 +127,6 @@ Rectangle {
                     width: progressSlider.visualPosition * sliderControl.width
                     height: parent.height
                     color: Style.themes.themeColor
-                    radius: 0
                 }
             }
 
@@ -139,10 +137,10 @@ Rectangle {
                 y: 2
                 implicitWidth: 18
                 implicitHeight: 18
-                radius: 18
-                color: Style.themes.primaryColor
+                radius: 9
+                color: "#ffffff"
                 border.color: Style.themes.themeColor
-                border.width: 3
+                border.width: 2.5
             }
         }
     }
@@ -231,7 +229,7 @@ Rectangle {
                     if (mouse.button === Qt.RightButton) {
                         // 右键保留原有搜索菜单（多歌手选择）
                         if(!window.musicArtist)  return; //本地音乐没有歌手信息时，忽略
-                        var artists = musicControlMin.parseArtists(window.musicArtist);
+                        const artists = musicControlMin.parseArtists(window.musicArtist);
                         artistMenu.model = artists;// 多歌手,弹菜单
                         artistMenu.popup();
                         return;
@@ -522,7 +520,7 @@ Rectangle {
             if(mainLayout.state === "") {
                 controlMaxLoader.active = true;
             } else {
-                window.playermined();
+                barLeftWidgets.y = 12;
                 minedAnimation.start();
                 mainLayout.state = "";
             }
@@ -530,10 +528,10 @@ Rectangle {
     }
 
     // 收藏/取消收藏当前曲目
-    function toggleFavorite() {
-        var i = playListModel.playListIndex;
+    function toggleFavorite(): void {
+        const i = playListModel.playListIndex;
         if(i < 0 || i >= playListModel.count) return;
-        var e = playListModel.get(i);
+        const e = playListModel.get(i);
         if(e.source === -1) {
             mainWarn.tiped("本地歌曲请使用本地收藏", 0);
             return;
@@ -550,16 +548,16 @@ Rectangle {
         }
     }
 
-    function openPlayerOptions() { playerOptions.open() }
+    function openPlayerOptions(): void { playerOptions.open() }
 
     // 上一首
-    function lastMedia() { Playback.previous() }
+    function lastMedia(): void { Playback.previous() }
     // 下一首
-    function enterMedia() { Playback.next(false) }
+    function enterMedia(): void { Playback.next(false) }
     // 随机播放（洗牌牌堆，避免最近播放）
-    function randomMedia() { Playback.next(true) }
+    function randomMedia(): void { Playback.next(true) }
     // 切换播放列表显示
-    function togglePlayList() {
+    function togglePlayList(): void {
         if(playList.visible) {
             playList.close();
         } else {

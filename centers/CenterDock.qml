@@ -27,8 +27,8 @@ Rectangle {
     signal seek(real ratio)
     signal volumeMoved(real v)
 
-    function fmt(ms) {
-        var s = Math.max(0, Math.floor((ms || 0) / 1000))
+    function fmt(ms: real): string {
+        const s = Math.max(0, Math.floor((ms || 0) / 1000))
         return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2)
     }
 
@@ -75,7 +75,7 @@ Rectangle {
             onReleased: m => { bar.seeking = false; bar.moved(clamp(m.x / width)) }
             onCanceled: bar.seeking = false
         }
-        function clamp(v) { return Math.max(0, Math.min(1, v)) }
+        function clamp(v: real): real { return Math.max(0, Math.min(1, v)) }
     }
 
     Row {

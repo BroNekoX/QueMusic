@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 // 播放队列抽屉
 import QtQuick
+import QueMusic 1.0
 
 Rectangle {
     id: root
@@ -12,7 +13,7 @@ Rectangle {
     border.color: "#1fffffff"
 
     property bool opened: false
-    property var queue: null
+    property QueueModel queue: null
     property int currentIndex: -1
     property int areaTop: 0
     property int areaHeight: 400

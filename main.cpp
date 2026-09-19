@@ -4,7 +4,8 @@
 // Portions based on QWindowKit example code:
 // Copyright (C) 2023-2024 Stdware Collections (https://www.github.com/stdware)
 // Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
-#include <QtGui/QGuiApplication>
+// 系统托盘（QSystemTrayIcon）属于 QtWidgets，需要 QApplication 而非 QGuiApplication
+#include <QtWidgets/QApplication>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
 #include <QStandardPaths>
@@ -129,15 +130,18 @@ int main(int argc, char *argv[])
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 
-    // Qt scene graph 调试
+    // Qt RHI: scene graph 调试
     //qputenv("QSG_RENDER_TIMING", "1");
     //qputenv("QSG_INFO", "1");
     //qputenv("QSG_RENDERER_DEBUG", "render");
     //qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
 
-    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+    QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-    QGuiApplication application(argc, argv);
+    // QApplication（而非 QGuiApplication）：托盘图标与原生托盘菜单依赖 QtWidgets
+    QApplication application(argc, argv);
+    // 常驻托盘：进程存活不再由“最后一个窗口是否关闭”决定，退出统一走 QML 的 Qt.quit()
+    application.setQuitOnLastWindowClosed(false);
 
     QQuickWindow::setDefaultAlphaBuffer(true);
     //QQuickWindow::setTextRenderType(QQuickWindow::CurveTextRendering);
@@ -148,7 +152,8 @@ int main(int argc, char *argv[])
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");
-    application.setWindowIcon(QIcon("qrc:/QueMusic/resources/icon.ico"));
+    // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
+    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
     application.setApplicationName("QueMusic");
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
@@ -160,14 +165,11 @@ int main(int argc, char *argv[])
 
     // 账号管理器：QML 侧通过同名单例类型 AccountManager 访问
     AccountManager *accountManager = AccountManager::create(&engine, &engine);
+
     // 在线音乐 API 单例
     MusicApiService::setSharedAccountManager(accountManager);
-
-    // 说明：各数据模型（MyFolders / LocalFolders / Songs / FavoriteSongs /
-    // FavoritePlaylists / FavoriteArtists）同样是 QML 单例，由引擎在首次访问时创建并加载，
-    // 详见 cpp/AppModels.h。它们不再通过上下文属性暴露。
+    // 单例上下文： cpp/AppModels.h
     engine.rootContext()->setContextProperty("configDir", configPath);
-    // 运行时 Qt 版本，供“设置-关于”显示
     engine.rootContext()->setContextProperty("qtRuntimeVersion", QLibraryInfo::version().toString());
 
     QWK::registerTypes(&engine);

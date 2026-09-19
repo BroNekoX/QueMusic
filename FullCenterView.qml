@@ -35,7 +35,7 @@ Window {
     // 沉浸背景恒为深色，故打开期间固定深色主题，关闭时还原
     property int savedTheme: -1
 
-    function enter() {
+    function enter(): void {
         if (Style.settings.theme !== 1) {
             savedTheme = Style.settings.theme
             Style.settings.theme = 1
@@ -48,7 +48,7 @@ Window {
         raise()
         requestActivate()
     }
-    function exit() {
+    function exit(): void {
         if (visibility === Window.FullScreen)
             showNormal()
         else
@@ -58,7 +58,7 @@ Window {
             savedTheme = -1
         }
     }
-    function toggleFull() {
+    function toggleFull(): void {
         if (visibility === Window.FullScreen)
             showNormal()
         else
@@ -69,8 +69,8 @@ Window {
     FontLoader { id: iconFont; source: "qrc:/QueMusic/resources/fonts/feather.ttf" }
 
     // ==== 播放状态 ====
-    readonly property var player: Playback.player
-    readonly property var queue: Playback.queue
+    readonly property MediaPlayer player: Playback.player
+    readonly property QueueModel queue: Playback.queue
     readonly property int trackIndex: queue ? queue.playListIndex : -1
     readonly property var track: queue && trackIndex >= 0 && trackIndex < queue.count
                                  ? queue.get(trackIndex) : null
@@ -102,25 +102,25 @@ Window {
     Component.onCompleted: extractor.extractColorsFromUrl(cover)
 
     // ==== 页面共用操作 ====
-    function coverOf(c) {
-        var s = c ? String(c).replace("{size}", "256") : ""
+    function coverOf(c: var): string {
+        const s = c ? String(c).replace("{size}", "256") : ""
         return s !== "" ? s : "qrc:/QueMusic/resources/app/musicpic.png"
     }
-    function validSource(s) {
+    function validSource(s: var): var {
         return s !== undefined && s !== null ? s : MusicApi.songSource
     }
-    function playOnline(d) {
+    function playOnline(d: var): void {
         if (!d)
             return
-        var q = Options.settings.soundQuality
-        var h = q === 0 ? (d.hash || d.favId)
+        const q = Options.settings.soundQuality
+        const h = q === 0 ? (d.hash || d.favId)
               : q === 1 ? (d.hashhq || d.hash || d.favId)
                         : (d.hashsq || d.hash || d.favId)
         if (h)
             MusicApi.getMusicInfo(h, 0, validSource(d.source))
     }
     // 与 main.qml 的 playLocalSong 等价：换源前淡出，避免爆音
-    function playLocal(path, name) {
+    function playLocal(path: string, name: string): void {
         if (!player || !path)
             return
         player.urlLocal = true
@@ -130,10 +130,10 @@ Window {
         MusicApi.readLocalLyricsAsync(path, name || path, "", 0, true)
         Playback.swap(function() { player.source = path; player.play() })
     }
-    function enqueue(d) {
+    function enqueue(d: var): void {
         if (!d)
             return
-        var id = d.hash || d.favId || d.path
+        const id = d.hash || d.favId || d.path
         if (!id)
             return
         if (Playback.indexOfPath(id) !== -1) {
@@ -144,10 +144,10 @@ Window {
                        source: validSource(d.source) })
         mainWarn.tiped("成功加入播放列表", 1)
     }
-    function toggleFavorite(d) {
+    function toggleFavorite(d: var): void {
         if (!d)
             return
-        var id = d.hash || d.favId || d.path
+        const id = d.hash || d.favId || d.path
         if (!id)
             return
         if (FavoriteSongs.isFavorite(id, "song")) {
@@ -159,21 +159,21 @@ Window {
             mainWarn.tiped("成功收藏", 1)
         }
     }
-    function download(d) {
+    function download(d: var): void {
         if (d && (d.hash || d.favId))
             MusicApi.getMusicInfo(d.hash || d.favId, 1)
     }
     // QListView 的悬停工具：0 加入队列，1 收藏
-    function toolAction(tool, d) {
+    function toolAction(tool: int, d: var): void {
         if (tool === 0) enqueue(d)
         else if (tool === 1) toggleFavorite(d)
     }
     // QListView 的右键菜单：0 下载到本地
-    function menuAction(choice, d) {
+    function menuAction(choice: int, d: var): void {
         if (choice === 0) download(d)
     }
-    function doSearch(text) {
-        var key = text.trim()
+    function doSearch(text: string): void {
+        const key = text.trim()
         if (key === "")
             return
         searchKey = key

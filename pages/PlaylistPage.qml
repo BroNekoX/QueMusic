@@ -471,11 +471,11 @@ Item {
                 { title: "韩国", kg: 4, ne: 16 },
                 { title: "热门歌手", kg: 3, ne: 0 }
             ]
-            function loadSingers(typeIndex) {
+            function loadSingers(typeIndex: int): void {
                 singerTypeIndex = typeIndex;
                 singerPage = 1;
                 MusicApi.singerList.clear();
-                var area = MusicApi.songSource === 0 ? singerTypes[typeIndex].kg : singerTypes[typeIndex].ne;
+                const area = MusicApi.songSource === 0 ? singerTypes[typeIndex].kg : singerTypes[typeIndex].ne;
                 if(area === 0) {
                     MusicApi.getHotSingers(1, 30, MusicApi.songSource);
                 } else {
@@ -600,7 +600,7 @@ Item {
                                     return;
                                 }
                                 album.singerPage += 1;
-                                var area = MusicApi.songSource === 0
+                                const area = MusicApi.songSource === 0
                                     ? album.singerTypes[album.singerTypeIndex].kg
                                     : album.singerTypes[album.singerTypeIndex].ne;
                                 if(area === 0) {
@@ -654,8 +654,8 @@ Item {
                 }
                 onEnded: {
                     if(MusicApi.loadState) return;
-                    var id = MusicApi.globalid;
-                    var page = MusicApi.playlistSong.count / 20 + 1;
+                    const id = MusicApi.globalid;
+                    const page = MusicApi.playlistSong.count / 20 + 1;
                     if(playListSongsWindow.listType === "singer") {
                         if(MusicApi.playlistSong.count % 20 === 0)
                             MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);

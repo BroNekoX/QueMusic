@@ -10,20 +10,20 @@ Item {
     height: 36
     property bool loader: false
     visible: false
-    function loadAction() {
+    function loadAction(): void {
         root.visible = true;
         loadAnime.running = true;
     }
-    function finish() {
+    function finish(): void {
         loadAnime.running = false;
         finishAnime.running = true;
     }
     Connections {
         target: MusicApi
-        function onFinished() {
+        function onFinished(): void {
             root.finish()
         }
-        function onLoaded() {
+        function onLoaded(): void {
             root.loadAction()
         }
     }
