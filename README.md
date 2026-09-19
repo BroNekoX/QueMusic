@@ -2,7 +2,7 @@
 
 <p align="center"><img alt="Logo" src="doc/example/logo.png"></p>
 
-<p align="center"><b>基于 C++/Qt/QML 构建的现代跨平台音乐播放器（Beta）</b></p>
+<p align="center"><b>基于 C++/Qt/QML 构建的现代高性能跨平台音乐播放器（Beta）</b></p>
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
