@@ -28,7 +28,9 @@
 
 国内快速下载本应用及历史版本：
 
-永久下载链接：[下载](https://pan.baidu.com/s/1Q0ptzhJaFljabU8FHNrYSw) 提取码：iqda
+永久下载链接：[下载](https://pan.baidu.com/s/1Z14cgxzb44mi8HauS8F8zA?pwd=63sn) 提取码: 63sn
+
+下载链接同步更新
 
 加入QQ群获取最新消息：1105114511
 
