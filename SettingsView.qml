@@ -2991,9 +2991,10 @@ Item {
         QAlertDialog {
             id: updateDialog
             title: "有新版本！"
-            message: "发现QueMusic的新版本：(v" + updater.newVersion + ")，是否前往更新？/n 版本更新日志：" + updater.versionDescription
+            message: "发现QueMusic的新版本：(v" + updater.newVersion + ")，是否前往更新？\n 版本更新日志：" + updater.versionDescription
             isInput: false
             blurSource: settingsView
+            confirmText: "更新"
 
             onConfirm: {
                 Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/releases");
