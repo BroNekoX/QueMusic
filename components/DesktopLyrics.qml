@@ -19,6 +19,9 @@ Window {
     property bool active: true   // 外部控制显示/隐藏
     property int lyricSize: height / 4 - 18
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     // 歌词数据引用
     property var lyricsData: MusicApi.lyricsData || []
     property int currentIndex: 0
@@ -35,7 +38,7 @@ Window {
 
     // 更新歌词索引
     function updateCurrentIndex(): void {
-        const pos = mainMedia.position || 0;
+        const pos = player.position || 0;
         const data = lyricsData;
         if (!data || data.length === 0) {
             currentIndex = -1;
@@ -51,7 +54,7 @@ Window {
     // 定时更新
     Timer {
         interval: 240
-        running: mainMedia.onMedia && desktopLyricsWindow.visible
+        running: player.onMedia && desktopLyricsWindow.visible
         repeat: true
         onTriggered: updateCurrentIndex()
     }
@@ -212,14 +215,14 @@ Window {
                 // 播放/暂停
                 SButton {
                     width: 36; height: 36; radius: Style.settings.labelRadius
-                    iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
+                    iconCharacter: player.playing ? "\uf02f" : "\uf00e"
                     iconSize: 16
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.togglePlay()
-                    QTip { visible: parent.hovered; text: mainMedia.playing ? "暂停" : "播放" }
+                    QTip { visible: parent.hovered; text: player.playing ? "暂停" : "播放" }
                 }
 
                 // 下一首
@@ -240,7 +243,7 @@ Window {
                 x: desktopLyricsWindow.width - 68 - width
                 y: 6
                 height: 36
-                text: desktopLyricsWindow.formatTime(mainMedia.position) + " / " + desktopLyricsWindow.formatTime(mainMedia.duration)
+                text: desktopLyricsWindow.formatTime(player.position) + " / " + desktopLyricsWindow.formatTime(player.duration)
                 font.pixelSize: 13
                 verticalAlignment: Text.AlignVCenter
                 color: "#fffdfdfd"

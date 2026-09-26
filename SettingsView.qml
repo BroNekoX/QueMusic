@@ -10,6 +10,9 @@ import QueMusic 1.0
 Item {
     id: settingsView
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     // 账号登录面板展开状态
     property bool neteaseShowLogin: false
     property bool kugouShowLogin: false
@@ -1711,7 +1714,7 @@ Item {
 
                 EqualizerPanel {
                     width: settingStack.standWidth
-                    engine: mainMedia
+                    engine: player
                 }
             }
         }

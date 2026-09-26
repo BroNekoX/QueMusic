@@ -5,90 +5,107 @@
 #define GETWAVE_H
 
 #include "audio/AudioEngine.h"
+#include "audio/AudioRing.h"
 #include "audio/AudioSpectrumSink.h"
 
-#include <QMutex>
+#include <QAtomicInteger>
 #include <QObject>
-#include <QPointF>
+#include <QPointer>
 #include <QVector>
+#include <QImage>
+#include <QtMath>
+#include <algorithm>
+#include <complex>
+#include <memory>
+#include <vector>
 #include <QtQmlIntegration/qqmlintegration.h>
 #include <QtQuick/QQuickWindow>
 
-#include <atomic>
-#include <complex>
-#include <vector>
+using Complex = std::complex<float>;
 
-// 频谱条：音频回调线程把混音写进环形历史，渲染线程跟 vsync 逐帧取最近一窗做 FFT
-class GetWave : public QObject, public AudioSpectrumSink
+class GetWave : public QObject, public AudioSpectrumSink, public AudioSpectrumSource
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
-    Q_PROPERTY(QQuickWindow *renderWindow READ renderWindow WRITE setRenderWindow NOTIFY renderWindowChanged)
-    Q_PROPERTY(QVector<QPointF> wavePath READ wavePath NOTIFY wavePathChanged)
+    Q_PROPERTY(AudioEngine* engine READ engine WRITE setEngine NOTIFY engineChanged)
+    Q_PROPERTY(QList<qreal> spectrumData READ spectrumData NOTIFY spectrumChanged)
     Q_PROPERTY(int bands READ bands WRITE setBands NOTIFY bandsChanged)
+    Q_PROPERTY(QVector<QPointF> wavePath READ wavePath NOTIFY wavePathChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(QQuickWindow* renderWindow READ renderWindow WRITE setRenderWindow NOTIFY renderWindowChanged)
 
 public:
     explicit GetWave(QObject *parent = nullptr);
+    ~GetWave() override;
 
-    AudioEngine *engine() const { return m_engine; }
+    AudioEngine* engine() const { return m_engine.data(); }
     void setEngine(AudioEngine *engine);
 
-    QQuickWindow *renderWindow() const { return m_renderWindow; }
-    void setRenderWindow(QQuickWindow *window);
+    // AudioSpectrumSource：把可跨线程安全使用的句柄交给引擎，引擎不认识本类型
+    std::shared_ptr<AudioSpectrumSinkHandle> spectrumSinkHandle() override;
 
+    // AudioSpectrumSink：只由句柄在持锁状态下转发，音频线程从不直接持有 this
+    void pushSamples(const float *interleaved, int frames, int channels, int sampleRate) override;
+
+    QList<qreal> spectrumData() const;
     QVector<QPointF> wavePath() const;
 
-    int bands() const { return m_bands.load(std::memory_order_relaxed); }
-    void setBands(int bands);
+    // 渲染帧回调：窗口每帧调用一次，有新数据才重算频谱
+    Q_INVOKABLE void updateSpectrum();
 
-    bool enabled() const { return m_enabled.load(std::memory_order_relaxed); }
-    void setEnabled(bool on);
+    int bands() const { return m_bands; }
+    void setBands(int b);
+    bool enabled() const { return m_enabled; }
+    void setEnabled(bool e);
 
-    // 音频回调线程调用：只做降混与环形覆盖写，不取锁、不分配
-    void pushSamples(const float *interleaved, int frames, int channels, int sampleRate) override;
+    QQuickWindow* renderWindow() const { return m_renderWindow; }
+    void setRenderWindow(QQuickWindow *window);
 
 signals:
     void engineChanged();
-    void renderWindowChanged();
-    void wavePathChanged();
+    void spectrumChanged();
     void bandsChanged();
+    void wavePathChanged();
     void enabledChanged();
+    void renderWindowChanged();
 
 private:
-    static constexpr int kWindow = 4096; // 2 的幂：一次分析的采样窗口
-    static constexpr int kMask = kWindow - 1;
+    void fft(QVector<Complex> &data);
+    void rebuildWavePath(int bands, qreal width, qreal height);
 
-    // 以下均在渲染线程（frameSwapped）执行
-    void updateSpectrum();
-    void fft(QVector<std::complex<float>> &data);
-    void computeSpectrum(const float *samples, float sampleRate);
-    void buildPath(QVector<QPointF> &out) const;
+    void computeSpectrumFromFFT(const float *samples, int frames, float sampleRate);
 
-    AudioEngine *m_engine = nullptr;
+    // QPointer：引擎可能先于本对象销毁，析构时不能再解引用裸指针
+    QPointer<AudioEngine> m_engine;
+    // 与引擎共享的订阅句柄；析构时先 detach() 再让成员析构，音频线程才碰不到已销毁对象
+    std::shared_ptr<AudioSpectrumSinkHandle> m_handle;
+
+    QList<qreal>        m_spectrumData;
+    QVector<QPointF>    m_wavePath;
+    // 音频线程只写、渲染线程只读，全程无锁：音频回调绝不能等 GUI/渲染线程
+    AudioRing           m_ring;
+    std::vector<float>  m_mix;
+    std::vector<float>  m_snapshot;
+    // 仅用于渲染线程与 GUI 线程之间交换频谱结果，音频线程永不触碰
+    mutable QMutex      m_visMutex;
+
+    int                 m_bands = 96;
+    int                 m_fftSize = 4096;
+    bool                m_enabled = true;
+
+    qreal               m_smoothFactor = 0.6;
+
+    // 复用缓冲区，避免每次分配
+    QVector<Complex>    m_fftData;
+    QVector<float>      m_magnitudes;
+    QVector<float>      m_samples;
+
+    // 帧驱动：窗口每帧触发 updateSpectrum()，有新数据才重算
+    QAtomicInteger<int> m_dataReady = 0;
+    QAtomicInteger<int> m_sampleRate = 48000;
+
     QQuickWindow *m_renderWindow = nullptr;
     QMetaObject::Connection m_frameConnection;
-
-    std::vector<float> m_history;
-    std::vector<float> m_snapshot;
-    std::atomic<quint32> m_writePos{0};
-    std::atomic<int> m_sampleRate{48000};
-    quint32 m_lastPos = 0;
-
-    QVector<std::complex<float>> m_fftData;
-    QVector<float> m_magnitudes;
-    QVector<qreal> m_spectrum;   // bands 个，镜像后的显示值
-    QVector<qreal> m_bandsValue; // bands / 2 个，本窗原始值
-    QVector<qreal> m_level;      // bands / 2 个，逐窗平滑后的电平
-
-    // wavePath 渲染线程写、GUI 线程读，只在换手时短暂持锁
-    mutable QMutex m_pathMutex;
-    QVector<QPointF> m_wavePath;
-    QVector<QPointF> m_pendingPath;
-
-    std::atomic<int> m_bands{128};
-    std::atomic<bool> m_enabled{false};
 };
 
 #endif // GETWAVE_H

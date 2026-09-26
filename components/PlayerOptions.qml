@@ -11,11 +11,14 @@ QOptionDialog {
     cancelText: "音频工作台"
     cancelIcon: "\uf120"
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     readonly property var rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
     readonly property var seekSteps: [3, 5, 10, 15, 30]
 
     onCancel: {
-        optionsEQ.open();
+optionsEQ.open();
     }
 
     options: Column {
@@ -34,7 +37,7 @@ QOptionDialog {
                 model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                 onTransformed: (choiced) => {
                     Options.settings.playerRateIndex = choiced
-                    if (choiced !== 6) mainMedia.playbackRate = options.rates[choiced]
+                    if (choiced !== 6) player.playbackRate = options.rates[choiced]
                 }
             }
         }
@@ -53,10 +56,10 @@ QOptionDialog {
                 stepSize: 0.1
                 leftText: true
                 valueText: value.toFixed(1) + "x"
-                value: mainMedia.playbackRate
+                value: player.playbackRate
                 onMoved: {
                     if (Options.settings.playerRateIndex === 6)
-                        mainMedia.playbackRate = value
+                        player.playbackRate = value
                 }
             }
         }
@@ -70,8 +73,8 @@ QOptionDialog {
                 width: 160
                 anchors.right: parent.right
                 letRight: true
-                switchTrue: mainMedia.pitchCompensation
-                onToggled: mainMedia.pitchCompensation = !mainMedia.pitchCompensation
+                switchTrue: player.pitchCompensation
+                onToggled: player.pitchCompensation = !player.pitchCompensation
             }
         }
 

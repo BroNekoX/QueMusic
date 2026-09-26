@@ -16,7 +16,8 @@ Rectangle {
     border.width: 2
     border.color: Style.themes.borderColor
     // useId 模式下文本取自 model[choice].description；对象直接赋给 string 会产生 QML 类型警告
-    property string text: (!useId && model && model[choice] !== undefined) ? String(model[choice]) : ""
+    // 越界下标取到的是 undefined，这里改成显式范围判断，避免和 undefined 做比较
+    property string text: (!useId && model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
     property bool useId: false
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
@@ -57,7 +58,7 @@ Rectangle {
                 return root.text
             // 设备列表可能为空，直接取 .description 会抛 TypeError
             const item = root.model ? root.model[choice] : null
-            return (item && item.description !== undefined) ? String(item.description) : ""
+            return (item && item.description) ? String(item.description) : ""
         }
         color: root.textColor
         font.pixelSize: Style.settings.textmain
@@ -136,7 +137,7 @@ Rectangle {
                             if (!root.useId)
                                 return modelData
                             const item = root.model ? root.model[index] : null
-                            return (item && item.description !== undefined) ? String(item.description) : ""
+                            return (item && item.description) ? String(item.description) : ""
                         }
                         color: root.choice == index ? Style.themes.primaryColor : Style.themes.textColor
                         font.pixelSize: Style.settings.textmain
