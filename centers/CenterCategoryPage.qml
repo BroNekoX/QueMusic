@@ -21,11 +21,21 @@ Item {
         MusicApi.getHotSingers()
     }
 
+    // 分类列表到达后自动加载第一个分类的歌单
+    Connections {
+        target: MusicApi
+        function onAllPlaylistMenuChanged(): void {
+            if (page.menuIndex === 0 && MusicApi.musicPlaylists.count === 0
+                    && MusicApi.allPlaylistMenu.length > 0)
+                MusicApi.getCategoryPlaylists(MusicApi.allPlaylistMenu[0].id, 1, 30)
+        }
+    }
+
     QScrollView {
         id: scroll
         anchors.fill: parent
         Column {
-            width: scroll.availableWidth
+            width: scroll.width
             height: implicitHeight
             spacing: 14
 
@@ -33,15 +43,28 @@ Item {
                 width: parent.width
                 height: 36
                 spacing: 12
-                Text {
-                    text: "分类"
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
-                    color: "#f5f7fb"
+                Row {
                     height: parent.height
-                    verticalAlignment: Text.AlignVCenter
+                    spacing: 8
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3
+                        height: 14
+                        radius: 1.5
+                        color: center.c1
+                    }
+                    Text {
+                        text: "分类"
+                        font.pixelSize: 16
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: 0.3
+                        color: "#f2f5fa"
+                        height: parent.height
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
                 CenterTabs {
+                    anchors.verticalCenter: parent.verticalCenter
                     model: ["歌单", "榜单", "歌手"]
                     tabWidth: 64
                     height: 32
@@ -67,13 +90,14 @@ Item {
                     onTabClicked: i => {
                         page.menuIndex = i
                         MusicApi.musicPlaylists.clear()
-                        MusicApi.getMusicPlaylists(MusicApi.allPlaylistMenu[i].id, 1, 30)
+                        MusicApi.getCategoryPlaylists(MusicApi.allPlaylistMenu[i].id, 1, 30)
                     }
                 }
             }
 
             CenterGrid {
-                title: "分类歌单"
+                // B 站没有歌单实体，分类下展示的是该子分区的热门稿件
+                title: MusicApi.songSource === 2 ? "分区热门" : "分类歌单"
                 width: parent.width
                 visible: page.categoryTab === 0
                 source: MusicApi.musicPlaylists
@@ -89,7 +113,7 @@ Item {
                 badgeOf: m => m.source === 0 ? "酷狗" : m.source === 1 ? "网易云" : "B站"
                 onPicked: i => {
                     const d = MusicApi.toplistList.get(i)
-                    page.showDetail(d.title || "榜单", d.cover)
+                    page.showDetail(d.title || "榜单", d.cover, page.toplistLoader(Number(d.hash || d.rankid), d.source))
                     MusicApi.getMusicToplist(1, 30, Number(d.hash || d.rankid), d.source)
                 }
             }
@@ -103,7 +127,7 @@ Item {
                 round: true
                 onPicked: i => {
                     const d = MusicApi.singerList.get(i)
-                    page.showDetail(d.title || "歌手", d.cover)
+                    page.showDetail(d.title || "歌手", d.cover, page.singerLoader(d.hash))
                     MusicApi.getSingerSongs(d.hash, 1, 50, MusicApi.songSource)
                 }
             }
@@ -111,26 +135,54 @@ Item {
     }
 
     CenterDetail {
+        id: detail
         width: parent.width
         height: parent.height
+        blurSource: mainLayout
         opened: page.detailOpen
         title: page.detailTitle
         cover: page.detailCover
         onCloseClicked: page.detailOpen = false
         onPicked: (i, d) => center.playOnline(d)
-        onQueued: (i, d) => center.enqueue(d)
-        onFaved: (i, d) => center.toggleFavorite(d)
-        onDownloaded: (i, d) => center.download(d)
     }
 
-    function showDetail(t: var, c: var): void {
+    function showDetail(t: var, c: var, more: var): void {
         page.detailTitle = t
         page.detailCover = center.coverOf(c)
+        detail.loadMore = more
         MusicApi.playlistSong.clear()
         page.detailOpen = true
     }
     function openList(d: var): void {
-        page.showDetail(d.title || "歌单", d.cover)
-        MusicApi.getPlaylistSongs(d.hash, 1, 50)
+        page.showDetail(d.title || "歌单", d.cover, page.playlistLoader(d.hash))
+        MusicApi.getPlaylistSongs(d.hash, 1, detail.pageSize)
+    }
+    // 下一页加载器：整页返回才继续，注入给 CenterDetail.onEnded
+    function playlistLoader(id: var): var {
+        return function(): boolean {
+            const c = MusicApi.playlistSong.count
+            if (c === 0 || c % detail.pageSize !== 0)
+                return false
+            MusicApi.getPlaylistSongs(id, c / detail.pageSize + 1, detail.pageSize)
+            return true
+        }
+    }
+    function toplistLoader(id: var, src: var): var {
+        return function(): boolean {
+            const c = MusicApi.playlistSong.count
+            if (c === 0 || c % 30 !== 0)
+                return false
+            MusicApi.getMusicToplist(c / 30 + 1, 30, id, src)
+            return true
+        }
+    }
+    function singerLoader(id: var): var {
+        return function(): boolean {
+            const c = MusicApi.playlistSong.count
+            if (c === 0 || c % 50 !== 0)
+                return false
+            MusicApi.getSingerSongs(id, c / 50 + 1, 50, MusicApi.songSource)
+            return true
+        }
     }
 }

@@ -7,8 +7,9 @@ import QtCore
 
 QtObject {
     property bool recordingShortCut: false
-    property string version: "Beta-0.5.1"
-    property int versionCode: 51
+    readonly property string version: "0.5.1"
+    readonly property int versionCode: 51
+    readonly property int pluginApi: 10
 
     // 配置存储，后续也可以存储在服务器数据库中
     // 使用存储仅需把 QtObject 换成 Settings

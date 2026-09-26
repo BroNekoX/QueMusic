@@ -8,6 +8,7 @@
 #include <QAudio>
 #include <QAudioSink>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QIODevice>
 #include <QDebug>
@@ -30,10 +31,12 @@ constexpr int kMaxChunkFrames = 4096;
 constexpr int kMaxStretchInputFrames = 24576;
 constexpr int kPollIntervalMs = 50;
 constexpr qint64 kSeekThrottleMs = 90;
-// 播放缓冲限制在 10~200ms：再小会爆音，再大拖慢进度与切歌响应
+// 缓冲 10~100ms：再小易爆音，再大拖慢进度与切歌响应
 constexpr int kBufferMsMin = 10;
-constexpr int kBufferMsMax = 200;
-constexpr int kBufferMsDefault = 120;
+constexpr int kBufferMsMax = 100;
+constexpr int kBufferMsDefault = 30;
+// 设备缓冲的帧数下限：10ms@48k 仅 480 帧，下限过大会把它顶回去
+constexpr int kMinBufferFrames = 256;
 // 每次切换数据段的最小淡入长度，消除切换爆音
 constexpr int kClickGuardMs = 12;
 
@@ -96,13 +99,22 @@ private:
 AudioEngine::AudioEngine(QObject *parent)
     : QObject(parent)
 {
+    // ---- 临时性能诊断：构造耗时拆分（拿到结果后请删除本段）----
+    QElapsedTimer perfCtor;
+    perfCtor.start();
+    QElapsedTimer perfStep;
+    perfStep.start();
+    // ----------------------------------------------------------
+
     for (auto &ring : m_rings)
         ring.configure(kRingSeconds * 48000, 2);
     m_scratch.resize(size_t(kMaxChunkFrames) * 2);
     m_stretchIn.resize(size_t(kMaxStretchInputFrames) * 2);
     m_stretch.prepare(2, 48000);
     m_dsp.prepare(48000.0);
+    const qint64 perfRings = perfStep.restart();
     loadSettings();
+    const qint64 perfSettings = perfStep.restart();
     {
         QMutexLocker lock(&m_paramMutex);
         m_eqSnapshot = m_eq;
@@ -113,9 +125,12 @@ AudioEngine::AudioEngine(QObject *parent)
     m_outputContext->moveToThread(&m_outputThread);
     m_outputThread.setObjectName(QStringLiteral("QueMusicAudioOutput"));
     m_outputThread.start();
+    const qint64 perfThreadStart = perfStep.restart();
 
     setupSink();
+    const qint64 perfSink = perfStep.restart();
     startThread();
+    const qint64 perfDecodeStart = perfStep.restart();
 
     m_saveTimer = new QTimer(this);
     m_saveTimer->setSingleShot(true);
@@ -126,6 +141,16 @@ AudioEngine::AudioEngine(QObject *parent)
     m_pollTimer->setInterval(kPollIntervalMs);
     connect(m_pollTimer, &QTimer::timeout, this, &AudioEngine::pollState);
     m_pollTimer->start();
+
+    // ---- 临时性能诊断 ----
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ===== 构造函数耗时 %1 ms =====").arg(perfCtor.elapsed());
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   ring/dsp/stretch 准备      %1 ms").arg(perfRings);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   loadSettings              %1 ms").arg(perfSettings);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   启动输出线程              %1 ms").arg(perfThreadStart);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   setupSink（含设备枚举/打开） %1 ms  <== 启动卡顿来源").arg(perfSink);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   startThread（解码线程）     %1 ms").arg(perfDecodeStart);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ========================");
+    // ---------------------
 }
 
 AudioEngine::~AudioEngine()
@@ -181,11 +206,26 @@ int AudioEngine::decodeRateFor(int deviceRate) const
 
 bool AudioEngine::setupSink()
 {
+    // ---- 临时性能诊断：setupSink 耗时拆分（拿到结果后请删除本段）----
+    QElapsedTimer perfSetup;
+    perfSetup.start();
+    QElapsedTimer perfStep;
+    perfStep.start();
+    qint64 perfTeardown = 0, perfResolve = 0, perfFormat = 0, perfPark = 0;
+    qint64 perfOut1Outer = 0, perfOut1Inner = 0, perfOut2Outer = 0, perfOut2Inner = 0, perfEmit = 0;
+    // --------------------------------------------------------------
+
     teardownSink();
+    perfTeardown = perfStep.restart();
 
     const QAudioDevice device = resolveDevice();
-    if (device.isNull())
+    perfResolve = perfStep.restart();
+    if (device.isNull()) {
+        qDebug().noquote()
+            << QStringLiteral("[AudioEngine][perf] setupSink 失败：无可用输出设备（已耗时 %1 ms，其中枚举 %2 ms）")
+                   .arg(perfSetup.elapsed()).arg(perfResolve);
         return false;
+    }
 
     QAudioFormat format = device.preferredFormat();
     format.setChannelCount(2);
@@ -213,23 +253,39 @@ bool AudioEngine::setupSink()
     const int channels = format.channelCount();
     m_outSampleRate.store(rate, std::memory_order_relaxed);
     m_outChannels.store(channels, std::memory_order_relaxed);
+    perfFormat = perfStep.restart();
 
     // 重建缓冲必须与两个音频线程互斥：resize/configure 会释放旧内存，
     // 而音频线程手里还攥着旧指针，并发就是直接踩坏堆。
     // 解码线程先停靠，缓冲本身在输出线程内重建（与 render 同线程，天然互斥）
     m_audioFrozen.store(true, std::memory_order_release);
-    for (int i = 0; i < 200 && !m_decodeParked.load(std::memory_order_acquire); ++i)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // 只有解码线程在跑时才需要等它停靠。构造期 startThread() 尚未执行，没有任何线程会
+    // 置位 m_decodeParked，这个循环必然跑满 200 次；而 Windows 上 sleep_for(1ms) 实际按
+    // 系统计时粒度（约 15.6ms）休眠，200 次就是约 3.1 秒的启动阻塞。
+    // 解码线程不活跃时它只在 sleep 循环里等待、不触碰环形缓冲，因此跳过等待是安全的。
+    if (m_thread.joinable()) {
+        for (int i = 0; i < 200 && !m_decodeParked.load(std::memory_order_acquire); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     m_decodeActive.store(false, std::memory_order_relaxed);
+    perfPark = perfStep.restart();
 
-    invokeOnOutput([this, rate, channels] {
-        m_dsp.prepare(double(rate));
-        m_stretch.prepare(channels, rate);
-        m_stretchIn.resize(size_t(kMaxStretchInputFrames) * size_t(qMax(1, channels)));
-        m_scratch.resize(size_t(kMaxChunkFrames) * size_t(qMax(1, channels)));
-        for (auto &ring : m_rings)
-            ring.configure(kRingSeconds * rate, channels);
-    });
+    {
+        QElapsedTimer perfOut;
+        perfOut.start();
+        invokeOnOutput([this, rate, channels, &perfOut1Inner] {
+            QElapsedTimer perfInner;
+            perfInner.start();
+            m_dsp.prepare(double(rate));
+            m_stretch.prepare(channels, rate);
+            m_stretchIn.resize(size_t(kMaxStretchInputFrames) * size_t(qMax(1, channels)));
+            m_scratch.resize(size_t(kMaxChunkFrames) * size_t(qMax(1, channels)));
+            for (auto &ring : m_rings)
+                ring.configure(kRingSeconds * rate, channels);
+            perfOut1Inner = perfInner.elapsed();
+        });
+        perfOut1Outer = perfOut.elapsed();
+    }
 
     m_audioFrozen.store(false, std::memory_order_release);
     m_ringGen.store(0, std::memory_order_relaxed);
@@ -243,13 +299,15 @@ bool AudioEngine::setupSink()
 
     // sink 必须在输出线程里创建：拉取定时器跟着 sink 所在线程走，
     // 否则 readData 会落在 GUI 线程上，窗口一卡音频就断
+    QElapsedTimer perfOut2;
+    perfOut2.start();
     invokeOnOutput([&] {
+        QElapsedTimer perfInner;
+        perfInner.start();
         m_sink = new QAudioSink(device, m_format);
-        m_sink->setBufferSize(qMax<qsizetype>(m_format.bytesForDuration(kBufferMsDefault * 1000),
-                                              m_format.bytesForFrames(1024)));
-        if (m_bufferMs > 0)
-            m_sink->setBufferSize(qMax<qsizetype>(m_format.bytesForDuration(m_bufferMs * 1000),
-                                                  m_format.bytesForFrames(1024)));
+        m_sink->setBufferSize(qMax<qsizetype>(
+            m_format.bytesForDuration(qBound(kBufferMsMin, m_bufferMs, kBufferMsMax) * 1000),
+            m_format.bytesForFrames(kMinBufferFrames)));
         m_sink->setVolume(1.0);
         // 设备对象跨重建复用：Qt 音频后端可能在 sink 销毁后仍投递一次读取，此时设备必须还活着
         if (!m_io) {
@@ -266,9 +324,35 @@ bool AudioEngine::setupSink()
             if (state == QAudio::StoppedState && sink->error() != QAudio::NoError)
                 m_sinkErrorFlag.store(true, std::memory_order_relaxed);
         });
+        perfOut2Inner = perfInner.elapsed();
     });
+    perfOut2Outer = perfOut2.elapsed();
 
-    emit outputFormatChanged();
+    {
+        QElapsedTimer perfEmitTimer;
+        perfEmitTimer.start();
+        emit outputFormatChanged();
+        perfEmit = perfEmitTimer.elapsed();
+    }
+
+    // ---- 临时性能诊断输出 ----
+    qDebug().noquote()
+        << QStringLiteral("[AudioEngine][perf] ===== setupSink 明细（总计 %1 ms，设备=%2，格式=%3Hz/%4ch）=====")
+               .arg(perfSetup.elapsed()).arg(device.description())
+               .arg(m_format.sampleRate()).arg(m_format.channelCount());
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   1) teardownSink                    %1 ms").arg(perfTeardown);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   2) resolveDevice 枚举端点          %1 ms").arg(perfResolve);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   3) 格式协商 preferred/isSupported %1 ms").arg(perfFormat);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   4) 等解码线程停靠 park           %1 ms").arg(perfPark);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   5) invoke#1 dsp/ring  外 %1 / 内 %2 ms").arg(perfOut1Outer).arg(perfOut1Inner);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   6) invoke#2 new QAudioSink  外 %1 / 内 %2 ms").arg(perfOut2Outer).arg(perfOut2Inner);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   7) emit outputFormatChanged      %1 ms").arg(perfEmit);
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   参考：输出设备数=%1，默认设备=%2")
+                              .arg(QMediaDevices::audioOutputs().size())
+                              .arg(QMediaDevices::defaultAudioOutput().description());
+    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ========================");
+    // -------------------------
+
     return true;
 }
 
@@ -421,9 +505,11 @@ void AudioEngine::setPosition(qint64 ms)
 {
     const qint64 bound = m_durationMs > 0 ? qMin(ms, m_durationMs) : ms;
     const qint64 target = qMax<qint64>(0, bound);
-    // 先挂起位置发布：解码线程完成 seek、音频线程切到新数据段之前，
-    // 旧数据段仍在推进，若不挂起进度条会先闪回旧位置
-    m_pendingSeekMs.store(target, std::memory_order_release);
+    // 挂起位置发布，直到新数据段落地；无人执行 seek 时不能挂起，
+    // 否则标记没人清除，位置会永久停住
+    const bool canSeek = m_decodeActive.load(std::memory_order_relaxed)
+                         || m_openRequest.load(std::memory_order_relaxed);
+    m_pendingSeekMs.store(canSeek ? target : -1, std::memory_order_release);
     m_positionMs.store(target, std::memory_order_relaxed);
     emit positionChanged();
     if (m_mediaStatus == EndOfMedia) {
@@ -436,8 +522,11 @@ void AudioEngine::setPosition(qint64 ms)
 
 void AudioEngine::requestSeek(qint64 ms)
 {
-    if (!m_decodeActive.load(std::memory_order_relaxed) && !m_openRequest.load(std::memory_order_relaxed))
+    if (!m_decodeActive.load(std::memory_order_relaxed) && !m_openRequest.load(std::memory_order_relaxed)) {
+        // 没人执行就丢掉，别留到下次解码时莫名生效
+        m_seekRequest.store(-1, std::memory_order_relaxed);
         return;
+    }
     m_drained.store(false, std::memory_order_relaxed);
     m_seekRequest.store(ms, std::memory_order_relaxed);
 }
@@ -521,9 +610,12 @@ void AudioEngine::setOutputSampleRate(int rate)
     reconfigureOutput();
 }
 
+int AudioEngine::bufferMs() const { return m_bufferMs; }
+
 void AudioEngine::setBufferMs(int ms)
 {
-    const int clamped = ms <= 0 ? 0 : qBound(kBufferMsMin, ms, kBufferMsMax);
+    // 非正数视为未设置，落回默认缓冲
+    const int clamped = ms <= 0 ? kBufferMsDefault : qBound(kBufferMsMin, ms, kBufferMsMax);
     if (m_bufferMs == clamped)
         return;
     m_bufferMs = clamped;
@@ -852,7 +944,10 @@ void AudioEngine::beginGeneration(qint64 baseMs)
     m_rings[next & 1].clear();
     m_ringBaseMs.store(double(baseMs), std::memory_order_relaxed);
     m_ringGen.store(next, std::memory_order_release);
-    m_positionMs.store(baseMs, std::memory_order_relaxed);
+    // 拖动会排队多个 seek：旧请求落地时不能覆盖 GUI 刚发布的目标位置
+    const qint64 pending = m_pendingSeekMs.load(std::memory_order_acquire);
+    if (pending < 0 || pending == baseMs)
+        m_positionMs.store(baseMs, std::memory_order_relaxed);
 }
 
 void AudioEngine::startThread()
@@ -1014,15 +1109,6 @@ void AudioEngine::applyEqPreset(const QString &name)
         m_eq.gains[i] = gains.at(i);
     m_eq.enabled = true;
     publishParams(true, true, false, false);
-}
-
-QVariantList AudioEngine::eqPresetGains(const QString &name) const
-{
-    QVariantList list;
-    const QList<qreal> gains = AudioDsp::presetGains(name);
-    for (const qreal gain : gains)
-        list.append(gain);
-    return list;
 }
 
 QStringList AudioEngine::eqPresetNames() const { return AudioDsp::presetNames(); }
@@ -1244,7 +1330,7 @@ void AudioEngine::loadSettings()
     m_requestedRate = qBound(0, settings.value(QStringLiteral("outputSampleRate"), 0).toInt(), 384000);
     {
         const int saved = settings.value(QStringLiteral("outputBufferMs"), 0).toInt();
-        m_bufferMs = saved <= 0 ? 0 : qBound(kBufferMsMin, saved, kBufferMsMax);
+        m_bufferMs = saved <= 0 ? kBufferMsDefault : qBound(kBufferMsMin, saved, kBufferMsMax);
     }
 
     settings.endGroup();

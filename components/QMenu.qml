@@ -18,7 +18,7 @@ Menu {
     background: Rectangle {
         implicitWidth: 160
         implicitHeight: 40
-        color: Style.settings.primaryColor
+        color: Style.themes.primaryColor
         radius: Style.settings.labelRadius
         RectangularShadow {
             anchors.fill: parent

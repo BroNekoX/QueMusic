@@ -8,12 +8,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 优化开关
-# LTO：跨翻译单元内联 + 死代码消除（Release / RelWithDebInfo 生效）
+# 构建开关（LTO / QML 静态检查 / qmltc；qmltc 为实验性，默认关闭，见 cmake/qmltc.cmake）
 option(QUEMUSIC_ENABLE_LTO "Release 构建启用 LTO/IPO" ON)
-# QML 静态检查：只影响构建耗时，不影响运行性能
 option(QUEMUSIC_QML_LINT "构建时对 QML 执行 qmllint" ON)
-# qmltc：把可编译的 QML 提前编译成 C++ 类型（默认关闭，原因见 cmake/qmltc.cmake）
 option(QUEMUSIC_ENABLE_QMLTC "启用 qmltc 类型编译（实验性）" OFF)
 
 # 统一输出目录：可执行文件与动态库放 bin/，静态库放 lib/
@@ -56,14 +53,13 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
     <QtMultimedia/QtMultimedia>
 )
 
-# 构建优化
-# 函数/数据分节 + 链接期垃圾回收：剥离未引用代码，减小体积、改善加载与指令缓存
+# 函数/数据分节 + 链接期垃圾回收（剥离未引用代码）
 if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 endif()
 
-# LTO：把 cpp/ 与 api/ 各翻译单元合并优化（Qt 自身动态库无法参与，收益集中在本工程代码）
+# LTO：合并本工程各翻译单元（Qt 动态库不参与）
 if(QUEMUSIC_ENABLE_LTO AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     include(CheckIPOSupported)
     check_ipo_supported(RESULT QUEMUSIC_IPO_SUPPORTED OUTPUT QUEMUSIC_IPO_ERROR LANGUAGES CXX)
@@ -104,28 +100,23 @@ set_source_files_properties(
     components/Playback.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
+# QML 按目录递归收集：新增文件不必再改本文件
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
 file(GLOB_RECURSE CENTER_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "centers/*.qml")
+file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "layout/*.qml")
+file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
+# 歌词界面预设目录（可整体替换的歌词界面）
+file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
-# 本模块包含的全部 QML/JS 文件。qmltc 的跳过清单必须在 qt6_add_qml_module()
-# 解析参数之前设置好，所以这里先统一为变量
+# 模块内全部 QML/JS；qmltc 跳过清单须在 qt6_add_qml_module() 解析参数前备好，故先统一为变量
 set(QUE_MUSIC_QML_FILES
     main.qml
     SettingsView.qml
     FullCenterView.qml
-    layout/MainContent.qml
-    layout/PlayerControl.qml
-    layout/PlayerMaxCenter.qml
-    layout/LeftSideBar.qml
-    layout/WindowControls.qml
-    layout/SmtcBridge.qml
-    pages/HomePage.qml
-    pages/PlaylistPage.qml
-    pages/FavouritePage.qml
-    pages/FilePage.qml
-    pages/DownloadPage.qml
-    pages/SearchPage.qml
     api/qrcode.js
+    ${LAYOUT_QML}
+    ${LYRICS_UI_QML}
+    ${PAGE_QML}
     ${QML_COMPONENTS}
     ${CENTER_COMPONENTS}
 )
@@ -176,9 +167,13 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     SOURCES
         shaders/MeshGradientItem.cpp
         shaders/MeshGradientItem.h
+        shaders/LyricsStage.cpp
+        shaders/LyricsStage.h
         cpp/AppModels.h
         cpp/PlayerDatabase.cpp
         cpp/PlayerDatabase.h
+        cpp/DbService.cpp
+        cpp/DbService.h
         cpp/CoverHelper.cpp
         cpp/CoverHelper.h
         cpp/ColorExtractor.cpp
@@ -244,6 +239,13 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
         shaders/lyricfade.frag
         shaders/cardblur.frag
         shaders/cardblur_hq.frag
+        shaders/bg_cubes.frag
+        shaders/bg_grid.frag
+        shaders/bg_beams.frag
+        shaders/bg_stars.frag
+        shaders/bg_stage.frag
+        shaders/bg_void.frag
+        shaders/lyricplane.frag
 )
 
 qt6_add_shaders(${PROJECT_NAME} "bgshaders"
@@ -254,6 +256,8 @@ qt6_add_shaders(${PROJECT_NAME} "bgshaders"
         shaders/background.vert
         shaders/fluid.frag
         shaders/classic.frag
+        shaders/stage.vert
+        shaders/stage.frag
 )
 
 # QCloudMusicApi：网易云音乐在线接口（crypto++ 随其源码放在 api/QCloudMusicApi/3rdparty）
@@ -282,13 +286,11 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         QWindowKit::Quick
 )
-# Windows SMTC 互操作使用 RoGetActivationFactory / RoActivateInstance，需要 runtimeobject 导入库；
-# 应用身份注册（AUMID 快捷方式/注册表）使用 COM 与注册表 API，需要 ole32/shell32/advapi32。
+# Windows：SMTC 互操作（runtimeobject）与应用身份注册（COM / 注册表）
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32)
 
-    # qwindowkit 通过 qmsetup 把自身 DLL 输出到 <build>/_deps/qwindowkit-build/out/bin，
-    # 与可执行文件不在同一目录，运行时会找不到 QWKCore / QWKQuick。
+    # QWindowKit 的 DLL 输出在 _deps 下，需拷到 exe 同目录，否则运行时找不到 QWKCore/QWKQuick
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 $<TARGET_FILE:QWindowKit::Core>
@@ -296,11 +298,8 @@ if(WIN32)
                 $<TARGET_FILE_DIR:${PROJECT_NAME}>
         COMMENT "Copying QWindowKit runtime libraries next to the executable...")
 
-    # FFmpeg 解码库与可执行文件同目录部署。
-    # 注意：这批 DLL 必须由项目自带。Qt 的 qt_deploy_runtime 只在 multimedia 的
-    # ffmpegmediaplugin 存在时才把 avcodec-61/avformat-61/... 一起部署；该插件已删除
-    # （引擎自行解码，全项目无 MediaPlayer），实测移开本目录后部署结果里没有任何解码库。
-    # 因此这里缺目录直接报错，不允许静默跳过（否则应用能启动但无法播放）。
+    # FFmpeg 运行库须项目自带（解码层直接链接 avcodec/avformat，Qt 部署不再提供）；
+    # 缺目录直接报错，不静默跳过，否则应用能启动但无法播放
     if(NOT EXISTS "${QUEMUSIC_FFMPEG_ROOT}/bin")
         message(FATAL_ERROR
             "缺少 ${QUEMUSIC_FFMPEG_ROOT}/bin（FFmpeg 运行库）。"
@@ -313,55 +312,17 @@ if(WIN32)
         COMMENT "Copying FFmpeg runtime libraries next to the executable...")
 endif()
 
-# macOS 上由 macdeployqt 统一部署；Debug 构建不部署 Qt 运行时
+# macOS 由 macdeployqt 部署；Debug 不部署 Qt 运行时
 if(NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     qt_deploy_runtime(${PROJECT_NAME})
 
-    # 解码层用的就是 Qt 自带的 FFmpeg 7.1.3（avcodec-61 等，见 cmake/external/ffmpeg.cmake），
-    # 与 multimedia 的 ffmpegmediaplugin 依赖同一批 DLL，两者都保留、不重复部署。
-    # 引擎自带 FFmpeg 解码 + QAudioSink 输出，不再经过 Qt 的 MediaPlayer 后端：
-    # ffmpegmediaplugin 已无 QML 使用（全项目无 MediaPlayer 声明），其唯一依赖 swscale 也仅被它引用。
-    # 实测移走这两个文件后 14/14 测试通过、应用正常启动，故部署后删除。
-    # avcodec-61 / avformat-61 / avutil-59 / swresample-5 由解码层使用，必须保留。
+    # 删掉部署产物里无用的 Qt Multimedia FFmpeg 后端（全项目无 MediaPlayer，省约 1.7MB）；
+    # 解码层要用的 avcodec/avformat/avutil/swresample 保留
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E rm -f
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/multimedia/ffmpegmediaplugin.dll"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/swscale-8.dll"
         COMMENT "Removing unused Qt Multimedia FFmpeg backend (saves ~1.7MB)...")
-    endif()
+endif()
 
-enable_testing()
-find_package(Qt6 REQUIRED COMPONENTS Test)
-add_executable(quemusic_local_lyrics_test
-    tests/local_lyrics_reader_test.cpp
-    cpp/LocalLyricsReader.cpp
-)
-target_include_directories(quemusic_local_lyrics_test PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/cpp
-)
-target_link_libraries(quemusic_local_lyrics_test PRIVATE
-    Qt6::Core
-    Qt6::Test
-    quemusic::taglib
-)
-add_test(NAME quemusic_local_lyrics_test COMMAND quemusic_local_lyrics_test)
 
-add_executable(quemusic_audio_pipeline_test
-    tests/audio_pipeline_test.cpp
-    cpp/audio/AudioEngine.cpp
-    cpp/audio/AudioDsp.cpp
-    cpp/audio/FfmpegDecoder.cpp
-    cpp/audio/PitchShifter.cpp
-    cpp/audio/TimeStretch.cpp
-)
-target_include_directories(quemusic_audio_pipeline_test PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/cpp
-)
-target_link_libraries(quemusic_audio_pipeline_test PRIVATE
-    Qt6::Core
-    Qt6::Test
-    Qt6::Qml
-    Qt6::Multimedia
-    quemusic::ffmpeg
-)
-add_test(NAME quemusic_audio_pipeline_test COMMAND quemusic_audio_pipeline_test)

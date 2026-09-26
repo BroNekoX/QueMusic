@@ -29,6 +29,14 @@ Item {
             if (localSortOptions[i].field === localSortField && localSortOptions[i].desc === localSortReversed) return i
         return 0
     }
+    // 右键当前行：由 delegate 在弹菜单前写入，避免按 index 反查排序代理
+    property var menuRow: ({})
+
+    // 移入回收站；结果由 onDeleteFinished 提示
+    function deleteLocalFile(path: string, title: string): void {
+        globalDialog.openSimpleDialog("删除本地文件", "这将把「" + title + "」移入回收站，是否继续？",
+            function() { localFileModel.deleteFiles([path]) })
+    }
 
     function toggleChoose(key: var): void {
         filePage.chooseIndex = filePage.chooseIndex.indexOf(key) === -1
@@ -41,28 +49,14 @@ Item {
         filePage.setMode = 0;
     }
 
-    /*Connections {
+    // 导入在 DB 线程执行，数量由信号回报
+    Connections {
         target: Songs
-        function onMetadataReady(count) {
+        function onSongsAdded(count): void {
             if (count > 0)
-                mainWarn.tiped("歌曲信息已就绪（" + count + " 首）", 1);
-        }
-        function onSearchFinished(count) {
-            if (folderMusic.searching)
-                mainWarn.tiped(count > 0 ? "找到 " + count + " 个结果" : "没有找到匹配的歌曲", count > 0 ? 1 : 0);
+                Style.warned("已导入 " + count + " 首音乐", 1);
         }
     }
-    Connections {
-        target: localFileModel
-        function onMetadataReady(count) {
-            if (count > 0)
-                mainWarn.tiped("歌曲信息已就绪（" + count + " 首）", 1);
-        }
-        function onSearchFinished(count) {
-            if (localFolderMusic.searching)
-                mainWarn.tiped(count > 0 ? "找到 " + count + " 个结果" : "没有找到匹配的歌曲", count > 0 ? 1 : 0);
-        }
-    }*/
 
     function chooseTotal(): int {
         if (filePage.setMode === 3) return folderMusic.searching ? Songs.searchResults.count : Songs.rowCount();
@@ -104,32 +98,26 @@ Item {
             Style.warned("请先选择歌曲", 0);
             return;
         }
-        let added = 0;
+        const rows = [];
         if (filePage.setMode === 3) {
             for (let i = 0; i < Songs.rowCount(); i++) {
                 const song = Songs.get(i);
                 if (!song || !song.path || filePage.chooseIndex.indexOf(song.songId) === -1) continue;
-                if (playListModel.indexOfPath(song.path) !== -1) continue;
-                playListModel.append({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
-                added++;
+                rows.push({ name: song.name, path: song.path, songer: song.singer || "", source: -1 });
             }
         } else if (filePage.setMode === 4) {
             for (let j = 0; j < localFileModel.count; j++) {
                 const path = localFileModel.get(j, "fileUrl").toString();
                 if (filePage.chooseIndex.indexOf(path) === -1) continue;
-                if (playListModel.indexOfPath(path) !== -1) continue;
-                let title = localFileModel.get(j, "title") || "";
-                let artist = localFileModel.get(j, "artist") || "";
-                if (title === "") {
-                    const meta = coverHelper.loadFullMetadata(path);
-                    title = meta.title;
-                    artist = artist || meta.artist;
-                }
-                playListModel.append({ name: title || localFileModel.get(j, "fileName"), path: path, songer: artist || "", source: -1 });
-                added++;
+                // 标题/歌手由 LocalMusicScanner 后台解析，不再同步开 TagLib
+                const title = localFileModel.get(j, "title") || "";
+                const artist = localFileModel.get(j, "artist") || "";
+                rows.push({ name: title || localFileModel.get(j, "fileName"), path: path, songer: artist, source: -1 });
             }
         }
-        Style.warned(added === 0 ? "所选歌曲都已在播放列表中" : "成功加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
+        // 一次批量追加，逐条 append 会触发 N 次插入与信号
+        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
+        Style.warned(added === 0 ? "所选歌曲都已在播放列表中" : "已加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
     }
 
     function deleteChosen(): void {
@@ -167,7 +155,7 @@ Item {
         }
 
         filePage.chooseIndex = [];
-        Style.warned("成功删除" + count + (filePage.setMode < 3 ? "个文件夹" : "首音乐"), 1);
+        Style.warned("已删除 " + count + (filePage.setMode < 3 ? " 个文件夹" : " 首音乐"), 1);
     }
 
     // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
@@ -178,23 +166,21 @@ Item {
             Style.warned("当前文件夹没有歌曲", 0);
             return;
         }
-        let playFirst = -1;
-        let added = 0;
+        const rows = [];
         for (let i = 0; i < total; i++) {
             const item = searching ? Songs.searchResults.getRow(i) : Songs.get(i);
             if (!item || !item.name || !item.path) continue;
-            if (playListModel.indexOfPath(item.path) !== -1) continue;
-            playListModel.append({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
-            if (playFirst === -1) playFirst = playListModel.count - 1;
-            added++;
+            rows.push({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
         }
+        // 批量接口内部去重，并只发一次插入信号
+        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
         if (added === 0) {
             Style.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
-            Style.warned("成功加入播放列表 " + added + " 首", 1);
+            Style.warned("已加入播放列表 " + added + " 首", 1);
         }
-        if (play && playFirst !== -1) {
-            Playback.goTo(playFirst);
+        if (play && added > 0) {
+            Playback.goTo(playListModel.count - added);
         }
     }
 
@@ -206,25 +192,22 @@ Item {
             Style.warned("当前文件夹没有音频文件", 0);
             return;
         }
-        let playFirst = -1;
-        let added = 0;
+        const rows = [];
         for (let i = 0; i < total; i++) {
             const row = searching ? localFileModel.searchResults.getRow(i) : null;
             const name = row ? (row.title || row.name) : localFileModel.get(i, "fileName");
             const path = row ? row.fileUrl.toString() : localFileModel.get(i, "fileUrl").toString();
             if (!name || !path) continue;
-            if (playListModel.indexOfPath(path) !== -1) continue;
-            playListModel.append({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
-            if (playFirst === -1) playFirst = playListModel.count - 1;
-            added++;
+            rows.push({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
         }
+        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
         if (added === 0) {
             Style.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
-            Style.warned("成功加入播放列表 " + added + " 首", 1);
+            Style.warned("已加入播放列表 " + added + " 首", 1);
         }
-        if (play && playFirst !== -1) {
-            Playback.goTo(playFirst);
+        if (play && added > 0) {
+            Playback.goTo(playListModel.count - added);
         }
     }
 
@@ -331,7 +314,7 @@ Item {
                             onConfirm: {
                                 if(input!=="") {
                                     MyFolders.addFolder(input, "my", "");
-                                    Style.warned("成功添加一个文件夹",1);
+                                    Style.warned("已添加文件夹", 1);
                                 } else {
                                     Style.warned("请输入文件名",0);
                                 }
@@ -341,7 +324,7 @@ Item {
                     }
                 }
 
-                QListView {
+                QLocalView {
                     id: folderView
                     anchors.fill: parent
                     model: MyFolders
@@ -368,7 +351,7 @@ Item {
                         onConfirm: {
                             if(input!=="") {
                                 MyFolders.renameFolder(editDialog.folderId, input);
-                                mainWarn.tiped("成功修改文件夹名称",1);
+                                mainWarn.tiped("文件夹已重命名", 1);
                             } else {
                                 mainWarn.tiped("请输入文件名",0);
                             }
@@ -500,7 +483,7 @@ Item {
                                             globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                                 function() {
                                                     MyFolders.deleteFolder(model.folderId);
-                                                    Style.warned("成功删除一个我的文件夹",1);
+                                                    Style.warned("已删除「我的文件夹」", 1);
                                                 }
                                             );
                                         } else {
@@ -543,7 +526,7 @@ Item {
                         const folderPath = folderUrl.toString();
                         const folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
                         LocalFolders.addFolder(folderName, "local", folderPath);
-                        mainWarn.tiped("成功定位一个本地文件夹",1);
+                        mainWarn.tiped("已定位本地文件夹", 1);
 
                     }
                 }
@@ -578,7 +561,7 @@ Item {
                     }
                 }
 
-                QListView {
+                QLocalView {
                     id: localFolderView
                     anchors.fill: parent
                     model: LocalFolders
@@ -738,7 +721,7 @@ Item {
                                         globalDialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
                                             function() {
                                                 LocalFolders.deleteFolder(model.folderId);
-                                                Style.warned("成功移除一个本地文件夹",1);
+                                                Style.warned("已移除本地文件夹", 1);
                                             }
                                         );
                                     }
@@ -783,10 +766,8 @@ Item {
                         }
                     }
 
-                    if (importList.length > 0) {
-                        const added = Songs.addSongs(Songs.folderId, importList);
-                        Style.warned("成功导入 " + added + " 首音乐", 1);
-                    }
+                    if (importList.length > 0)
+                        Songs.addSongs(Songs.folderId, importList);
                 }
                 onRejected: {
                     console.log("操作取消");
@@ -859,14 +840,13 @@ Item {
                     iconCharacter: "\uf10c"
                     shadowEnabled: false
                     buttonColor: Style.themes.sideColor
-                    tipText: "刷新当前文件夹"
+                    tipText: "重新解析标签并刷新"
                     onClicked: {
                         Songs.clearSearch();
                         folderMusic.searching = false;
                         filterInput1.text = "";
-                        if (Songs.folderId >= 0) {
-                            Songs.loadByFolder(Songs.folderId);
-                        }
+                        // 丢弃 TAG 缓存重读（普通刷新只读库）
+                        Songs.rescanTags();
                         fileView.scrollTop();
                         Style.warned("已刷新当前列表", 1);
                     }
@@ -970,7 +950,7 @@ Item {
                 }
             }
 
-            QListView {
+            QLocalView {
                 id: fileView
                 x: 24
                 y: 128
@@ -979,15 +959,11 @@ Item {
                 model: folderMusic.searching ? songSearchSort : songSort
                 clip: true
                 reuseItems: false
-                headerModel: ["标题","歌手","","菜单"]
                 property int transY: 0
                 transform: Translate { y: fileView.transY }
                 populate: Transition {
                     id: localFileLoadAnime2
                     SequentialAnimation {
-                        // 顶住透明度用 NumberAnimation(0→0) 而不是 PropertyAction：
-                        // PropertyAction 是真的把属性写成 0，被打断/回收时会残留成永久 0。
-                        // 交错时长封顶，避免几百行时十几秒的滞留。
                         NumberAnimation {
                             properties: "opacity"
                             from: 0
@@ -1012,6 +988,28 @@ Item {
                         }
                     }
                 }
+                // 0 立即播放 / 1 下一首播放 / 2 加入列表 / 3 音频详情 / 4 编辑元数据 / 5 从文件夹移除
+                onMenuClicked: (index, choice) => {
+                    const r = filePage.menuRow
+                    if (!r || !r.path) return
+                    const item = { name: r.title, path: r.path, songer: r.artist, source: -1 }
+                    if (choice === 0) {
+                        Playback.playItem(item)
+                    } else if (choice === 1) {
+                        Playback.playNext(item)
+                        Style.warned("已设为下一首播放", 1)
+                    } else if (choice === 2) {
+                        const added = Playback.enqueue(item)
+                        Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                    } else if (choice === 3) {
+                        audioInfoDialog.showInfo(r.path)
+                    } else if (choice === 4) {
+                        metaDialog.edit(r.path, 0)
+                    } else if (choice === 5) {
+                        Songs.deleteSong(r.songId)
+                        Style.warned("已从文件夹移除", 1)
+                    }
+                }
                 delegate: Rectangle {
                     id: listfile
                     height: 60
@@ -1022,7 +1020,6 @@ Item {
                     property int transY: 0
                     transform: Translate { y: listfile.transY }
 
-                    // reuseItems 下非 model 提供的属性不会随复用自动恢复，按官方建议手动复位
                     ListView.onReused: { listfile.transY = 0; listfile.opacity = 1; }
                     ListView.onPooled: { listfile.transY = 0; listfile.opacity = 1; }
 
@@ -1088,19 +1085,28 @@ Item {
                         id: fileArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: {
-                            if(filePage.setMode === 3) {
-                                filePage.toggleChoose(model.songId);
-                                return;
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.LeftButton) {
+                                if(filePage.setMode === 3) {
+                                    filePage.toggleChoose(model.songId);
+                                    return;
+                                }
+                                Playback.playLocalSong(model.path, listfile.songTitle);
+                                const musicName = listfile.songTitle;
+                                const musicPath = model.path;
+                                const listIndex = playListModel.indexOfName(musicName);
+                                if (listIndex == -1) {
+                                    playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
+                                    playListModel.playListIndex = playListModel.count - 1;
+                                }
+                            } else {
+                                fileView.menu.index = index;
+                                filePage.menuRow = { path: model.path, title: listfile.songTitle,
+                                                     artist: listfile.artistName, songId: model.songId };
+                                fileView.menu.popup();
                             }
-                            Playback.playLocalSong(model.path, listfile.songTitle);
-                            const musicName = listfile.songTitle;
-                            const musicPath = model.path;
-                            const listIndex = playListModel.indexOfName(musicName);
-                            if (listIndex == -1) {
-                                playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
-                                playListModel.playListIndex = playListModel.count - 1;
-                            }
+                            forceActiveFocus();
                         }
                         Row {
                             anchors.right: parent.right
@@ -1124,7 +1130,7 @@ Item {
                                     const listIndex = playListModel.indexOfName(musicName);
                                     if (listIndex == -1) {
                                         playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
-                                        Style.warned("成功加入播放列表",1);
+                                        Style.warned("已加入播放列表", 1);
                                     }
                                 }
                             }
@@ -1154,12 +1160,11 @@ Item {
                                 tipText: "从当前文件夹移除"
                                 onClicked: {
                                     Songs.deleteSong(model.songId);
-                                    Style.warned("成功移除一个音乐",1);
+                                    Style.warned("已从文件夹移除", 1);
                                 }
                             }
                         }
                     }
-
                 }
             }
         }
@@ -1331,7 +1336,7 @@ Item {
                 }
             }
 
-            QListView {
+            QLocalView {
                 id: localFileView
                 x: 24
                 y: 128
@@ -1340,13 +1345,9 @@ Item {
                 model: localFolderMusic.searching ? localFileModel.searchResults : localFileModel
                 clip: true
                 reuseItems: false
-                headerModel: ["标题","歌手","","菜单"]
                 populate: Transition {
                     id: localFileLoadAnime
                     SequentialAnimation {
-                        // 顶住透明度用 NumberAnimation(0→0) 而不是 PropertyAction：
-                        // PropertyAction 是真的把属性写成 0，被打断/回收时会残留成永久 0。
-                        // 交错时长封顶，避免几百行时十几秒的滞留。
                         NumberAnimation {
                             properties: "opacity"
                             from: 0
@@ -1369,6 +1370,27 @@ Item {
                                 easing.type: Easing.OutCubic
                             }
                         }
+                    }
+                }
+                // 0 立即播放 / 1 下一首播放 / 2 加入列表 / 3 音频详情 / 4 编辑元数据 / 5 移入回收站
+                onMenuClicked: (index, choice) => {
+                    const r = filePage.menuRow
+                    if (!r || !r.path) return
+                    const item = { name: r.title, path: r.path, songer: r.artist, source: -1 }
+                    if (choice === 0) {
+                        Playback.playItem(item)
+                    } else if (choice === 1) {
+                        Playback.playNext(item)
+                        Style.warned("已设为下一首播放", 1)
+                    } else if (choice === 2) {
+                        const added = Playback.enqueue(item)
+                        Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                    } else if (choice === 3) {
+                        audioInfoDialog.showInfo(r.path)
+                    } else if (choice === 4) {
+                        metaDialog.edit(r.path, 1)
+                    } else if (choice === 5) {
+                        filePage.deleteLocalFile(r.path, r.title)
                     }
                 }
                 delegate: Rectangle {
@@ -1449,19 +1471,28 @@ Item {
                         id: localFileArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: {
-                            if(filePage.setMode === 4) {
-                                filePage.toggleChoose(model.fileUrl.toString());
-                                return;
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.LeftButton) {
+                                if(filePage.setMode === 4) {
+                                    filePage.toggleChoose(model.fileUrl.toString());
+                                    return;
+                                }
+                                Playback.playLocalSong(model.fileUrl.toString(), listLocalFile.songTitle);
+                                const musicName = listLocalFile.songTitle;
+                                const musicPath = model.fileUrl.toString();
+                                const listIndex = playListModel.indexOfName(musicName);
+                                if (listIndex == -1) {
+                                    playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
+                                    playListModel.playListIndex = playListModel.count - 1;
+                                }
+                            } else {
+                                localFileView.menu.index = index;
+                                filePage.menuRow = { path: model.fileUrl.toString(), title: listLocalFile.songTitle,
+                                                     artist: listLocalFile.artistName, songId: -1 };
+                                localFileView.menu.popup();
                             }
-                            Playback.playLocalSong(model.fileUrl.toString(), listLocalFile.songTitle);
-                            const musicName = listLocalFile.songTitle;
-                            const musicPath = model.fileUrl.toString();
-                            const listIndex = playListModel.indexOfName(musicName);
-                            if (listIndex == -1) {
-                                playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
-                                playListModel.playListIndex = playListModel.count - 1;
-                            }
+                            forceActiveFocus();
                         }
                         Row {
                             anchors.right: parent.right
@@ -1509,26 +1540,16 @@ Item {
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                                 shadowEnabled: false
                                 tipText: "从本地文件夹移除（移入回收站）"
-                                onClicked: {
-                                    const targetName = model.fileName;
-                                    const targetPath = model.fileUrl.toString();
-                                    globalDialog.openSimpleDialog("删除本地文件", "这将把「" + targetName + "」从当前文件夹移入回收站，是否继续？",
-                                        function() {
-                                            // 单文件不弹进度框，结果由 onDeleteFinished 提示
-                                            localFileModel.deleteFiles([targetPath]);
-                                        }
-                                    );
-                                }
+                                onClicked: filePage.deleteLocalFile(model.fileUrl.toString(), model.fileName)
                             }
                         }
                     }
-
                 }
             }
         }
     }
 
-    // 批量删除进度提示（删除在 LocalMusicScanner 的工作线程执行）
+    // 批量删除进度提示
     Popup {
         id: deleteProgressDialog
         parent: Overlay.overlay
@@ -1715,6 +1736,228 @@ Item {
             borderWidth: 1
             text: "完成"
             onClicked: filePage.clearChoose()
+        }
+    }
+
+    // 音频详情：TagLib 只读表头，同步调用
+    QOptionDialog {
+        id: audioInfoDialog
+        title: "音频详情"
+        cancelText: ""
+        confirmText: "关闭"
+        property var rows: []
+
+        function showInfo(path: string): void {
+            const info = MusicApi.readLocalAudioInfo(path)
+            const rows = []
+            const add = (label, value) => {
+                const text = value === undefined || value === null ? "" : String(value)
+                if (text !== "" && text !== "0") rows.push({ label: label, value: text })
+            }
+            add("标题", info.title)
+            add("歌手", info.artist)
+            add("专辑", info.album)
+            add("流派", info.genre)
+            add("年份", info.year)
+            add("音轨号", info.track)
+            add("时长", info.duration > 0
+                ? Math.floor(info.duration / 60) + ":" + String(info.duration % 60).padStart(2, "0") : "")
+            add("格式", info.format)
+            add("比特率", info.bitrate > 0 ? info.bitrate + " kbps" : "")
+            add("采样率", info.sampleRate > 0 ? info.sampleRate + " Hz" : "")
+            add("声道", info.channels)
+            add("大小", info.size > 0 ? (info.size / 1048576).toFixed(2) + " MB" : "")
+            add("文件名", info.fileName)
+            audioInfoDialog.rows = rows
+            audioInfoDialog.open()
+        }
+
+        options: Column {
+            width: parent.width
+            spacing: 8
+            Repeater {
+                model: audioInfoDialog.rows
+                delegate: Row {
+                    width: parent.width
+                    height: 24
+                    spacing: 12
+                    Text {
+                        width: 68
+                        height: parent.height
+                        text: modelData.label
+                        color: Style.themes.textColor
+                        font.pixelSize: Style.settings.textmain
+                        verticalAlignment: Text.AlignVCenter
+                        opacity: 0.65
+                    }
+                    Text {
+                        width: parent.width - 80
+                        height: parent.height
+                        text: modelData.value
+                        color: Style.themes.fontColor
+                        font.pixelSize: Style.settings.textmain
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideMiddle
+                    }
+                }
+            }
+        }
+    }
+
+    // 编辑元数据：标签 + 封面 + 歌词，统一走 TagLib 写回
+    QOptionDialog {
+        id: metaDialog
+        title: "编辑元数据"
+        confirmText: "保存"
+        cancelText: "取消"
+        property string filePath: ""
+        property int source: 0 // 0 我的文件夹 / 1 本地文件夹
+        property var values: ({})
+        property string coverPick: "" // 用户新选的封面图，空表示不修改
+        // 打开时读一次；放在 binding 里每次重算都会同步开 TagLib
+        property string embeddedCover: ""
+
+        readonly property string coverPreview: {
+            if (coverPick !== "")
+                return coverPick
+            if (embeddedCover !== "")
+                return embeddedCover
+            return "qrc:/QueMusic/resources/app/musicpic.png"
+        }
+
+        function edit(path: string, src: int): void {
+            const info = MusicApi.readLocalAudioInfo(path)
+            filePath = path
+            source = src
+            coverPick = ""
+            embeddedCover = path !== "" ? (coverHelper.findEmbeddedCover(path) || "") : ""
+            values = {
+                title: info.title || info.fileName.replace(/\.[^.]+$/, ""),
+                artist: info.artist || "",
+                album: info.album || "",
+                genre: info.genre || "",
+                year: info.year > 0 ? String(info.year) : "",
+                track: info.track > 0 ? String(info.track) : ""
+            }
+            lyricsArea.text = MusicApi.readLocalLyricsText(path)
+            metaDialog.open()
+        }
+
+        onConfirm: {
+            values.lyrics = lyricsArea.text
+            values.cover = coverPick
+            MusicApi.writeLocalMetadata(filePath, values)
+        }
+
+        options: Column {
+            width: parent.width
+            spacing: 12
+            Row {
+                width: parent.width
+                height: 96
+                spacing: 12
+                QPicture {
+                    width: 96
+                    height: 96
+                    source: metaDialog.coverPreview
+                    radius1: 10
+                    radius2: 10
+                    radius3: 10
+                    radius4: 10
+                }
+                Column {
+                    width: parent.width - 108
+                    spacing: 8
+                    Text {
+                        text: "封面"
+                        color: Style.themes.textColor
+                        font.pixelSize: Style.settings.textmain
+                        opacity: 0.65
+                    }
+                    QButton {
+                        width: 108
+                        height: 32
+                        radius: 16
+                        text: "选择图片"
+                        onClicked: coverDialog.open()
+                    }
+                }
+            }
+            Repeater {
+                model: [
+                    { label: "标题", key: "title" },
+                    { label: "歌手", key: "artist" },
+                    { label: "专辑", key: "album" },
+                    { label: "流派", key: "genre" },
+                    { label: "年份", key: "year" },
+                    { label: "音轨号", key: "track" }
+                ]
+                delegate: Row {
+                    width: parent.width
+                    height: 36
+                    spacing: 12
+                    Text {
+                        width: 56
+                        height: parent.height
+                        text: modelData.label
+                        color: Style.themes.textColor
+                        font.pixelSize: Style.settings.textmain
+                        verticalAlignment: Text.AlignVCenter
+                        opacity: 0.65
+                    }
+                    QInput {
+                        width: parent.width - 68
+                        height: 36
+                        inputText: metaDialog.values[modelData.key] !== undefined
+                                   ? String(metaDialog.values[modelData.key]) : ""
+                        onInputTextChanged: metaDialog.values[modelData.key] = inputText
+                    }
+                }
+            }
+            Text {
+                text: "歌词（可带 [mm:ss.xx] 时间轴）"
+                color: Style.themes.textColor
+                font.pixelSize: Style.settings.textmain
+                opacity: 0.65
+            }
+            TextArea {
+                id: lyricsArea
+                width: parent.width
+                //height: 180
+                color: Style.themes.fontColor
+                font.pixelSize: Style.settings.textmain
+                wrapMode: TextEdit.Wrap
+                selectByMouse: true
+                background: Rectangle {
+                    radius: Style.settings.labelRadius
+                    color: Style.themes.fullColor
+                    border.width: 1
+                    border.color: Style.themes.sideColor
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: coverDialog
+        title: "选择封面图片"
+        nameFilters: ["图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)"]
+        onAccepted: metaDialog.coverPick = selectedFile.toString()
+    }
+
+    Connections {
+        target: MusicApi
+        function onLocalMetadataSaved(filePath, ok): void {
+            if (!ok) {
+                Style.warned("元数据保存失败，文件可能只读或格式不支持", 0);
+                return;
+            }
+            Style.warned("元数据已保存", 1);
+            // 只让改动的这首重读标签，其余沿用缓存
+            if (metaDialog.source === 0)
+                Songs.rescanTags(filePath);
+            else
+                localFileModel.rescan();
         }
     }
 }

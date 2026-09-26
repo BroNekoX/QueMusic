@@ -35,6 +35,9 @@ public:
 
     Q_INVOKABLE QVariantMap get(int index) const;
     Q_INVOKABLE void append(const QVariantMap &item);
+    // 批量追加：一次 beginInsertRows，跳过已存在或本批重复的 path。
+    // 返回实际加入数；追加在队尾，故首条下标 = count() - 返回值。
+    Q_INVOKABLE int appendBatch(const QVariantList &items);
     Q_INVOKABLE void insert(int index, const QVariantMap &item);
     Q_INVOKABLE void remove(int index, int count = 1);
     Q_INVOKABLE void move(int from, int to, int count = 1);

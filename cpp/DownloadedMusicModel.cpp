@@ -5,11 +5,78 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QUrl>
 #include <QStringList>
+#include <QUrl>
+#include <QtConcurrent/QtConcurrentRun>
+
+namespace {
+
+const QStringList &audioExtensions()
+{
+    static const QStringList exts = {
+        QStringLiteral("mp3"),   QStringLiteral("wav"),  QStringLiteral("aac"),
+        QStringLiteral("flac"),  QStringLiteral("ogg"),  QStringLiteral("eac3"),
+        QStringLiteral("wma"),   QStringLiteral("ac3"),  QStringLiteral("alac"),
+        QStringLiteral("m4a"),   QStringLiteral("mkv"),  QStringLiteral("wmv"),
+        QStringLiteral("avi"),   QStringLiteral("mpeg4")
+    };
+    return exts;
+}
+
+QVariantMap readMetadataFile(const QString &jsonPath)
+{
+    QFile file(jsonPath);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject())
+        return {};
+    return doc.object().toVariantMap();
+}
+
+// 目录枚举 + 逐文件读同名 .json：全部在工作线程执行
+QVector<DownloadedItem> scanDownloads(const QString &downloadDir)
+{
+    QVector<DownloadedItem> items;
+    if (downloadDir.isEmpty())
+        return items;
+
+    const QFileInfoList files = QDir(downloadDir).entryInfoList(QDir::Files, QDir::Name);
+    items.reserve(files.size());
+    const QStringList &exts = audioExtensions();
+
+    for (const QFileInfo &fi : files) {
+        if (!exts.contains(fi.suffix().toLower()))
+            continue;
+
+        DownloadedItem item;
+        item.fileName = fi.fileName();
+        item.fileUrl = QUrl::fromLocalFile(fi.absoluteFilePath()).toString();
+
+        const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
+                                 + fi.completeBaseName() + QStringLiteral(".json");
+        const QVariantMap meta = readMetadataFile(jsonPath);
+        item.title = meta.value(QStringLiteral("title")).toString();
+        item.artist = meta.value(QStringLiteral("artist")).toString();
+        item.cover = meta.value(QStringLiteral("cover")).toString();
+        item.duration = meta.value(QStringLiteral("duration")).toInt();
+        item.hash = meta.value(QStringLiteral("hash")).toString();
+        item.lyrics = meta.value(QStringLiteral("lyrics")).toList();
+        item.translate = meta.value(QStringLiteral("translate")).toList();
+        if (item.title.isEmpty())
+            item.title = fi.completeBaseName();
+
+        items.append(item);
+    }
+    return items;
+}
+
+} // namespace
 
 DownloadedMusicModel::DownloadedMusicModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -84,61 +151,27 @@ QVariantMap DownloadedMusicModel::get(int row) const
     return m;
 }
 
-QVariantMap DownloadedMusicModel::readMetadata(const QString &jsonPath) const
-{
-    QVariantMap meta;
-    QFile f(jsonPath);
-    if (!f.open(QIODevice::ReadOnly))
-        return meta;
-
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-    if (!doc.isObject())
-        return meta;
-    return doc.object().toVariantMap();
-}
-
+// 目录枚举与逐文件读 .json 放到线程池，避免阻塞界面
 void DownloadedMusicModel::reload()
 {
-    static const QStringList audioExts = {
-        QStringLiteral("mp3"),   QStringLiteral("wav"),  QStringLiteral("aac"),
-        QStringLiteral("flac"),  QStringLiteral("ogg"),  QStringLiteral("eac3"),
-        QStringLiteral("wma"),   QStringLiteral("ac3"),  QStringLiteral("alac"),
-        QStringLiteral("m4a"),   QStringLiteral("mkv"),  QStringLiteral("wmv"),
-        QStringLiteral("avi"),   QStringLiteral("mpeg4")
-    };
+    const QString downloadDir = m_downloadDir;
+    const quint64 generation = ++m_generation;
 
+    auto *watcher = new QFutureWatcher<QVector<DownloadedItem>>(this);
+    connect(watcher, &QFutureWatcher<QVector<DownloadedItem>>::finished, this,
+            [this, watcher, generation] {
+        watcher->deleteLater();
+        if (generation != m_generation)
+            return;
+        applyItems(watcher->result());
+    });
+    watcher->setFuture(QtConcurrent::run([downloadDir] { return scanDownloads(downloadDir); }));
+}
+
+void DownloadedMusicModel::applyItems(const QVector<DownloadedItem> &items)
+{
     beginResetModel();
-    m_items.clear();
-
-    if (!m_downloadDir.isEmpty()) {
-        const QDir dir(m_downloadDir);
-        const QFileInfoList files = dir.entryInfoList(QDir::Files, QDir::Name);
-        for (const QFileInfo &fi : files) {
-            if (!audioExts.contains(fi.suffix().toLower()))
-                continue;
-
-            DownloadedItem item;
-            item.fileName = fi.fileName();
-            item.fileUrl = QUrl::fromLocalFile(fi.absoluteFilePath()).toString();
-
-            const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
-                                     + fi.completeBaseName() + QStringLiteral(".json");
-            const QVariantMap meta = readMetadata(jsonPath);
-            item.title = meta.value(QStringLiteral("title")).toString();
-            item.artist = meta.value(QStringLiteral("artist")).toString();
-            item.cover = meta.value(QStringLiteral("cover")).toString();
-            item.duration = meta.value(QStringLiteral("duration")).toInt();
-            item.hash = meta.value(QStringLiteral("hash")).toString();
-            item.lyrics = meta.value(QStringLiteral("lyrics")).toList();
-            item.translate = meta.value(QStringLiteral("translate")).toList();
-
-            if (item.title.isEmpty())
-                item.title = fi.completeBaseName();
-
-            m_items.append(item);
-        }
-    }
-
+    m_items = items;
     endResetModel();
     emit countChanged();
 }

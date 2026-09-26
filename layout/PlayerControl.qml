@@ -3,13 +3,14 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 
 //底部控制栏
 Rectangle {
     id: musicControlMin
-    y: parent.height - 78 + controlMaxLoader.hideHeight
+    y: parent.height - 78 + musicControlMax.hideHeight
     height: 78
     color: Style.themes.primaryBlurColor
     clip: false
@@ -131,13 +132,13 @@ Rectangle {
                     //visible: progressSlider.hovered || progressSlider.pressed
                     visible: parent.visible
                     text: musicControlMin.mediaTime
-                    horizontalPadding: 8
+                    horizontalPadding: 10
                     background: Rectangle {
                         anchors.fill: parent
-                        color: Style.themes.fullColor
-                        border.width: 1
+                        color: "#fcfdff"
+                        border.width: 2
                         radius: height
-                        border.color: Style.themes.sideColor
+                        border.color: "#cccdcf"
                     }
                 }
             }
@@ -147,18 +148,52 @@ Rectangle {
     //音乐信息
     Item {
         id: musicinfo
-        x: musicControlMin.musicInfoX
+        x: 0//musicControlMin.musicInfoX
         y: 14
         z: 1
         clip: false
-        width: 200
+        width: 300
         height: 50
+        Item {
+            id: musicpic
+            z: 5
+            width: 50
+            height: 50
+            clip: false
+            x: 24
+            property int radius: 12
+            Image {
+                id: sourcepic
+                anchors.fill: musicpic
+                fillMode: Image.PreserveAspectCrop
+                visible: false
+                source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+                sourceSize: Qt.size(64, 64)
+            }
+            Rectangle {
+                id: maskpic
+                anchors.fill: musicpic
+                color: "#ff000000"
+                radius: musicpic.radius
+                layer.enabled: true
+                visible: false
+            }
+            MultiEffect {
+                z: 1
+                anchors.fill: musicpic
+                source: sourcepic
+                maskEnabled: true
+                maskSource: maskpic
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+        }
 
         Text {
             id: titleDisplay
             y: 0
-            x: 0
-            width: 128
+            x: 88
+            width: 136
             elide: Text.ElideRight
             height: 25
             text: Playback.musicTitle
@@ -180,13 +215,12 @@ Rectangle {
                         titleMenu.popup();
                         return;
                     }
-                    // 左键与控制栏整体点击行为一致——底部栏打开播放页，播放页点播放栏关闭
-                    if(mainLayout.state === "") {
-                        controlMaxLoader.active = true;
+                    if(musicControlMax.visible) {
+                        openMaxLyric.running = false;
+                        closeMaxLyric.running = true;
                     } else {
-                        window.playermined();
-                        minedAnimation.start();
-                        mainLayout.state = "";
+                        closeMaxLyric.running = false;
+                        openMaxLyric.running = true;
                     }
                 }
                 QTip {
@@ -206,8 +240,8 @@ Rectangle {
         Text {
             id: artistDisplay
             y: 25
-            x: 0
-            width: 128
+            x: 88
+            width: 136
             elide: Text.ElideRight
             height: 25
             text: Playback.musicArtist
@@ -231,13 +265,12 @@ Rectangle {
                         artistMenu.popup();
                         return;
                     }
-                    // 左键与控制栏整体点击行为一致：底部栏态打开播放页，播放页点同一位置关闭
-                    if(mainLayout.state === "") {
-                        controlMaxLoader.active = true;
+                    if(musicControlMax.visible) {
+                        openMaxLyric.running = false;
+                        closeMaxLyric.running = true;
                     } else {
-                        window.playermined();
-                        minedAnimation.start();
-                        mainLayout.state = "";
+                        closeMaxLyric.running = false;
+                        openMaxLyric.running = true;
                     }
                 }
                 QTip {
@@ -260,7 +293,7 @@ Rectangle {
         }
         SButton {
             id: likeButton
-            x: 132
+            x: 224
             y: 5
             iconCharacter: "\uf0c8"
             width: 40
@@ -275,11 +308,11 @@ Rectangle {
                     console.log("收藏的hash/id:",playListModel.get(playListModel.playListIndex).path);
                     if (FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
                         FavoriteSongs.removeFavorite(playListModel.get(playListModel.playListIndex).path, "song");
-                        mainWarn.tiped("取消收藏",0);
+                        mainWarn.tiped("已取消收藏", 0);
                         iconColor = Style.themes.textColor;
                     } else {
                         FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, Playback.musicTitle, Playback.musicArtist, mainMedia.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(mainMedia.duration / 1000), "song");
-                        mainWarn.tiped("成功收藏",1);
+                        mainWarn.tiped("已收藏", 1);
                         iconColor = Style.themes.themeColor;
                     }
                 }
@@ -287,7 +320,7 @@ Rectangle {
             tipText: "收藏"
         }
         SButton {
-            x: 174
+            x: 266
             y: 5
             iconCharacter: "\uf011"
             width: 40
@@ -308,7 +341,6 @@ Rectangle {
             }
             tipText: "下载"
         }
-
     }
 
     //中间控制
@@ -402,7 +434,7 @@ Rectangle {
         height: 40
         clip: false
 
-        Label {
+        Text {
             height: 40
             width: 80
             text: musicControlMin.mediaTime + " / " + Playback.fmt(mainMedia.duration)
@@ -424,10 +456,8 @@ Rectangle {
             shadowEnabled: false
             onClicked: {
                 if(musicInfo.visible) {
-                    //playerInfoDialog.close();
                     musicInfo.close();
                 } else {
-                    //playerInfoDialog.open();
                     musicInfo.open();
                 }
             }
@@ -512,12 +542,12 @@ Rectangle {
         z: 0
         anchors.fill: parent
         onClicked: {
-            if(mainLayout.state === "") {
-                controlMaxLoader.active = true;
+            if(musicControlMax.visible) {
+                openMaxLyric.running = false;
+                closeMaxLyric.running = true;
             } else {
-                barLeftWidgets.y = 12;
-                minedAnimation.start();
-                mainLayout.state = "";
+                closeMaxLyric.running = false;
+                openMaxLyric.running = true;
             }
         }
     }
@@ -534,12 +564,12 @@ Rectangle {
         if(FavoriteSongs.isFavorite(e.path, "song")) {
             FavoriteSongs.removeFavorite(e.path, "song");
             likeButton.iconColor = Style.themes.textColor;
-            mainWarn.tiped("取消收藏", 0);
+            mainWarn.tiped("已取消收藏", 0);
         } else {
             FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, mainMedia.urlStr,
                                       e.source, Math.floor(mainMedia.duration / 1000), "song");
             likeButton.iconColor = Style.themes.themeColor;
-            mainWarn.tiped("成功收藏", 1);
+            mainWarn.tiped("已收藏", 1);
         }
     }
 
@@ -614,5 +644,16 @@ Rectangle {
 
     MusicInfo {
         id: musicInfo
+    }
+
+    QOptionDialog {
+        id: optionsEQ
+        title: "音频工作台"
+        width: 640
+        options: EqualizerPanel {
+            width: parent.width
+            controlWidth: parent.width
+            engine: mainMedia
+        }
     }
 }

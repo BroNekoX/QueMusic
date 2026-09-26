@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
+// 歌单/歌曲模型：SQL 走 DbService，TAG 解析结果写回 songs 表。
 #ifndef FOLDERMODEL_H
 #define FOLDERMODEL_H
 
-#include "CoverHelper.h"
+#include <QAbstractListModel>
+#include <QDateTime>
+#include <QList>
+#include <QSqlDatabase>
+#include <QVector>
+#include <QtQml/qqmlregistration.h>
+
 #include "SearchResultModel.h"
 
-#include <QAbstractListModel>
-#include <QSqlDatabase>
-#include <QThread>
-#include <QVector>
-#include <QDateTime>
-#include <QtQml/qqmlregistration.h>
 #include <atomic>
-
-class QTimer;
+#include <functional>
 
 struct FolderItem {
     int id = -1;
@@ -32,46 +32,18 @@ struct SongItem {
     QString path;
     QString singer;
     int duration = 0;
-    // 后台富集的 TAG 信息（不落库）
     QString tagTitle;
     QString tagArtist;
     QString tagCoverUrl;
+    bool tagged = false;
 };
 
-// 工作线程逐文件解析 TAG（title/artist/内嵌封面），批量回传
-struct SongEnrichResult {
-    int row = -1;
-    QString title;
-    QString artist;
-    QString coverUrl;
-};
-Q_DECLARE_METATYPE(SongEnrichResult)
-Q_DECLARE_METATYPE(QList<SongEnrichResult>)
-
-class SongEnrichWorker : public QObject {
-    Q_OBJECT
-public:
-    struct Task {
-        int row;
-        QString path;
-    };
-    QList<Task> tasks;
-    QString cacheDir;
-    std::atomic<bool> cancel{false};
-    std::atomic<quint64> generation{0};
-
-public slots:
-    void run();
-
-signals:
-    void enriched(quint64 gen, QList<SongEnrichResult> results);
-    void enrichDone(quint64 gen, int count);
-};
+// 在 DB 线程执行；失败时写 error
+using DbMutator = std::function<void(QSqlDatabase &db, QString &error)>;
 
 class FolderModel : public QAbstractListModel
 {
     Q_OBJECT
-    // 供 QML 单例 AppEnv 作为属性类型使用；不让 QML 直接按名字实例化
     QML_ANONYMOUS
     Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged)
 
@@ -91,11 +63,10 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void loadFromDatabase();
-    Q_INVOKABLE int addFolder(const QString &name, const QString &type, const QString &path = "");
-    Q_INVOKABLE bool deleteFolder(int folderId);
-    // 单事务批量删除（逐个调用会 N 次整表 reset）
-    Q_INVOKABLE int deleteFolders(const QVariantList &folderIds);
-    Q_INVOKABLE bool renameFolder(int folderId, const QString &newName);
+    Q_INVOKABLE void addFolder(const QString &name, const QString &type, const QString &path = QString());
+    Q_INVOKABLE void deleteFolder(int folderId);
+    Q_INVOKABLE void deleteFolders(const QVariantList &folderIds);
+    Q_INVOKABLE void renameFolder(int folderId, const QString &newName);
 
     QString filterType() const { return m_filterType; }
     void setFilterType(const QString &type);
@@ -105,10 +76,12 @@ signals:
     void errorOccurred(const QString &message);
 
 private:
-    void refreshModel();
-    QSqlDatabase m_db;
+    void applyRows(quint64 generation, const QVector<FolderItem> &rows);
+    void mutate(DbMutator mutator);
+
     QVector<FolderItem> m_items;
-    QString m_filterType = "my";
+    QString m_filterType = QStringLiteral("my");
+    std::atomic<quint64> m_generation{0};
 };
 
 class SongModel : public QAbstractListModel
@@ -140,14 +113,15 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void loadByFolder(int folderId);
+    Q_INVOKABLE void reload() { loadByFolder(m_folderId); }
     Q_INVOKABLE QVariantMap get(int index) const;
-    Q_INVOKABLE int addSong(int folderId, const QString &name, const QString &path, const QString &singer = "");
-    Q_INVOKABLE int addSongs(int folderId, const QVariantList &songs);
-    Q_INVOKABLE bool deleteSong(int songId);
-    // 单事务批量删除；逐个 deleteSong 会每次整表 reset + 全量重跑 TAG（O(N×M)）
-    Q_INVOKABLE int deleteSongs(const QVariantList &songIds);
+    Q_INVOKABLE void addSong(int folderId, const QString &name, const QString &path, const QString &singer = QString());
+    Q_INVOKABLE void addSongs(int folderId, const QVariantList &songs);
+    Q_INVOKABLE void deleteSong(int songId);
+    Q_INVOKABLE void deleteSongs(const QVariantList &songIds);
+    // 丢弃 TAG 缓存重解析；path 为空表示整个文件夹
+    Q_INVOKABLE void rescanTags(const QString &path = QString());
 
-    // 分块遍历内存行，命中行流式追加进 searchResults
     Q_INVOKABLE void startSearch(const QString &text);
     Q_INVOKABLE void clearSearch();
     bool searchActive() const { return m_searchActive; }
@@ -159,29 +133,30 @@ public:
 signals:
     void folderIdChanged();
     void errorOccurred(const QString &message);
-    void metadataReady(int count);
     void searchActiveChanged();
     void searchFinished(int count);
-
-private slots:
-    void onEnriched(quint64 gen, QList<SongEnrichResult> results);
-    void onEnrichDone(quint64 gen, int count);
-    void searchStep();
+    // 批量导入完成（替代原来的同步返回值）
+    void songsAdded(int count);
 
 private:
     void refreshModel();
+    void applyRows(quint64 generation, const QVector<SongItem> &rows);
     void startEnrichment();
-    QSqlDatabase m_db;
+    void enrichBatch();
+    void persistTags(const QList<int> &ids, const QStringList &titles,
+                     const QStringList &artists, const QStringList &covers);
+    void submitSearch();
+    void mutate(DbMutator mutator);
+
     QVector<SongItem> m_items;
+    QList<int> m_enrichPending;
     int m_folderId = -1;
-    QThread m_enrichThread;
-    SongEnrichWorker *m_enrichWorker = nullptr;
-    std::atomic<quint64> m_enrichGen{0};
+    std::atomic<quint64> m_loadGeneration{0};
+    std::atomic<quint64> m_searchGeneration{0};
     SearchResultModel *m_searchResults = nullptr;
-    QTimer *m_searchTimer = nullptr;
     QString m_searchText;
-    int m_searchPos = 0;
     bool m_searchActive = false;
+    bool m_enriching = false;
 };
 
 #endif // FOLDERMODEL_H

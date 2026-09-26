@@ -69,7 +69,6 @@ Item {
                     MusicApi.songSource = choiced;
                     recommendView.scrollTop();
                     MusicApi.hotPlayLists.clear();
-                    //MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                 }
             }
         }
@@ -332,7 +331,7 @@ Item {
                                     const indexHash = Options.lastSongs.hash;
                                     if (playListModel.indexOfPath(indexHash) === -1) {
                                         playListModel.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
-                                        mainWarn.tiped("成功加入播放列表",1);
+                                        mainWarn.tiped("已加入播放列表", 1);
                                     }
                                 }
                             }
@@ -639,6 +638,7 @@ Item {
                     cellWidth: 172
                     cellHeight: 280
                     rightMargin: -8
+                    leftMargin: 8
                     topMargin: 8
                     enabled: homeView.scrollToY === homeView.contentHeight - homeView.height
                     interactive: enabled
@@ -649,16 +649,13 @@ Item {
 
                     onAtYEndChanged: {
                         if (atYEnd && !MusicApi.loadState) {
-                            if(MusicApi.songSource === 0) {
-                                scrollTop();
-                                MusicApi.hotPlayLists.clear();
-                            }
-                            if(MusicApi.hotPlayLists.count % 20 === 0) {
+                            // 整页返回说明还有下一页，继续追加；不足一页说明已到底，回到第一页重载
+                            if (MusicApi.hotPlayLists.count % 20 === 0) {
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                             } else {
                                 scrollTop();
                                 MusicApi.hotPlayLists.clear();
-                                MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                                MusicApi.getHotPlaylists(1);
                             }
                         }
                     }
@@ -748,6 +745,7 @@ Item {
                                 x: 20 + playIcon.width
                                 height: 32
                                 text: Math.floor(model.playcount / 10000) + "万"
+                                visible: model.playcount >= 10000
                                 font.pixelSize: Style.settings.textTip
                                 color: Style.themes.textColor
                                 verticalAlignment: Text.AlignVCenter
@@ -756,6 +754,7 @@ Item {
                                 x: parent.width - width - 16
                                 height: 32
                                 text: model.duration + "首"
+                                visible: model.duration > 0
                                 font.pixelSize: Style.settings.textTip
                                 color: Style.themes.textColor
                                 verticalAlignment: Text.AlignVCenter
@@ -792,26 +791,6 @@ Item {
                                    MusicApi.getMusicInfo(model.get(index).hashsq);
                                }
                            }
-
-                onToolClicked: (index,tool) => {
-                                   switch(tool) {
-                                   case 0:
-                                       if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                                           playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                                           mainWarn.tiped("成功加入播放列表",1);
-                                       }
-                                       break;
-                                   case 1:
-                                       if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                                           FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                                           mainWarn.tiped("取消收藏",0);
-                                       } else {
-                                           FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                                           mainWarn.tiped("成功收藏",1);
-                                       }
-                                       break;
-                                   }
-                               }
 
                 onEnded: {
                     if(MusicApi.recommendSongs.count % 20 === 0 && MusicApi.recommendSongs.count !== 0) {
@@ -855,26 +834,6 @@ Item {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
-
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 0:
-                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                            mainWarn.tiped("成功加入播放列表",1);
-                        }
-                        break;
-                    case 1:
-                        if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                            FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                            mainWarn.tiped("取消收藏",0);
-                        } else {
-                            FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                            mainWarn.tiped("成功收藏",1);
-                        }
-                        break;
                     }
                 }
 
@@ -932,10 +891,6 @@ Item {
                 hotlistsWindow.opened(model.get(index));
                 window.exitIndex = 2;
             }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                }
-            }
         }
     }
     PlayListWindow {
@@ -964,26 +919,6 @@ Item {
                                    MusicApi.getMusicInfo(model.get(index).hashsq);
                                }
                            }
-
-                onToolClicked: (index,tool) => {
-                                   switch(tool) {
-                                   case 0:
-                                       if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                                           playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                                           mainWarn.tiped("成功加入播放列表",1);
-                                       }
-                                       break;
-                                   case 1:
-                                       if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                                           FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                                           mainWarn.tiped("取消收藏",0);
-                                       } else {
-                                           FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                                           mainWarn.tiped("成功收藏",1);
-                                       }
-                                       break;
-                                   }
-                               }
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {

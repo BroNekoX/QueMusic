@@ -65,16 +65,21 @@ Popup {
         }
 
         SButton {
-            iconCharacter: "\uf050"
+            iconCharacter: "\uf092"
             x: parent.width - 130
             y: 12
             width: 36
             height: 36
             radius: 18
             buttonColor: "transparent"
-            tipText: "定位当前"
+            tipText: "刷新与定位"
             shadowEnabled: false
-            onClicked: playList.locateCurrent();
+            onClicked: {
+                playListView.model = [];
+                playListView.model = playListModel;
+                playList.locateCurrent();
+                playListView.scrollToY = playListView.contentY;
+            }
         }
 
         SButton {
@@ -96,7 +101,6 @@ Popup {
                         const artist = playListModel.get(playListModel.playListIndex).songer;
                         const source = playListModel.get(playListModel.playListIndex).source;
                         playListModel.remove( 0, playListModel.count );
-                        //playListModel.append(indexData);
                         playListModel.append({ name: title, path: hash, songer: artist, source: source });
                         playListModel.playListIndex = 0;
                         Style.warned("已清空播放列表",1);
@@ -290,10 +294,10 @@ Popup {
                                 if (model.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
                                 if (FavoriteSongs.isFavorite(model.path, "song")) {
                                     FavoriteSongs.removeFavorite(model.path, "song")
-                                    mainWarn.tiped("取消收藏", 0)
+                                    mainWarn.tiped("已取消收藏", 0)
                                 } else {
                                     FavoriteSongs.addFavorite(model.path, model.name, model.songer, "", model.source, 0, "song")
-                                    mainWarn.tiped("成功收藏", 1)
+                                    mainWarn.tiped("已收藏", 1)
                                 }
                             }
                         }

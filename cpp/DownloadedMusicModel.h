@@ -59,10 +59,12 @@ signals:
     void countChanged();
 
 private:
-    QVariantMap readMetadata(const QString &jsonPath) const;
+    void applyItems(const QVector<DownloadedItem> &items);
 
     QString m_downloadDir;
     QVector<DownloadedItem> m_items;
+    // 丢弃过期的扫描结果
+    quint64 m_generation = 0;
 };
 
 #endif // DOWNLOADEDMUSICMODEL_H

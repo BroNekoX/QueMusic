@@ -23,7 +23,7 @@
 extern void qml_register_types_QueMusic();
 
 #if defined(Q_OS_WIN)
-// 注册Windows SMTC
+// Windows SMTC（系统媒体控制）身份注册所需 API
 #include <windows.h>
 #include <winreg.h>
 #include <shobjidl.h>
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 #if defined(Q_OS_WIN)
     registerSmtcAppIdentity();
 #endif
-    // 从Options.ini读取设置，设置一些高级项喵~
+    // 渲染后端 / 垂直同步 / 动画驱动开关（须在 QApplication 之前设环境变量）
     QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
     QSettings opt(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
     switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
@@ -130,18 +130,20 @@ int main(int argc, char *argv[])
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 
+    // Qt scene graph 调试
+    //qputenv("QSG_RENDER_TIMING", "1");
+    qputenv("QSG_INFO", "1");
+    qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
+
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-    // QApplication（而非 QGuiApplication）：托盘图标与原生托盘菜单依赖 QtWidgets
-    QApplication application(argc, argv);
-    // 常驻托盘：进程存活不再由“最后一个窗口是否关闭”决定，退出统一走 QML 的 Qt.quit()
-    application.setQuitOnLastWindowClosed(false);
+    QApplication application(argc, argv);   // 用 QApplication：托盘图标/原生托盘菜单依赖 QtWidgets
+    application.setQuitOnLastWindowClosed(false);   // 常驻托盘：退出统一走 QML 的 Qt.quit()
 
     QQuickWindow::setDefaultAlphaBuffer(true);
     QQmlApplicationEngine engine;
 
-    // 显式注册QML_ELEMENT 类型
-    qml_register_types_QueMusic();
+    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型（QueMusic 模块）
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");
@@ -152,16 +154,11 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
-    // 日志系统：接管 Qt 消息并写入“安装目录/logs”。提前创建，保证从启动早期就记录；
-    // QML 侧通过同名单例类型 LogManager 访问。
-    LogManager::create(&engine, &engine);
+    LogManager::create(&engine, &engine);   // 日志单例：接管 Qt 消息，写入安装目录/logs
+    AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例
 
-    // 账号管理器：QML 侧通过同名单例类型 AccountManager 访问
-    AccountManager *accountManager = AccountManager::create(&engine, &engine);
-
-    // 在线音乐 API 单例
-    MusicApiService::setSharedAccountManager(accountManager);
-    // 单例上下文： cpp/AppModels.h
+    MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
+    // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
     engine.rootContext()->setContextProperty("configDir", configPath);
     engine.rootContext()->setContextProperty("qtRuntimeVersion", QLibraryInfo::version().toString());
 

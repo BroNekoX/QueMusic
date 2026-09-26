@@ -8,17 +8,14 @@ import QueMusic 1.0
 QOptionDialog {
     id: options
     title: "播放器选项"
-    cancelIcon: "\uf0c7"
+    cancelText: "音频工作台"
+    cancelIcon: "\uf120"
 
     readonly property var rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
     readonly property var seekSteps: [3, 5, 10, 15, 30]
 
     onCancel: {
-        Options.settings.playerRateIndex = 2
-        mainMedia.playbackRate = 1.0
-        Playback.clearAb()
-        Playback.stopSleep()
-        Playback.muted = false
+        optionsEQ.open();
     }
 
     options: Column {
@@ -183,6 +180,7 @@ QOptionDialog {
                 from: 1
                 to: 120
                 stepSize: 1
+                leftText: true
                 valueText: value.toString() + "分"
                 value: Options.settings.sleepMinutes
                 onMoved: Options.settings.sleepMinutes = value

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 // QRCodeView — 用 Canvas 渲染二维码文本
-// qrText 变化时自动重绘；二维码由 qrcode.js（轻量实现）生成
+// qrText 变化时自动重绘；二维码由 qrcode.js（轻量实现）生成喵~
 import QtQuick
 import "qrc:/QueMusic/api/qrcode.js" as QRCode
 

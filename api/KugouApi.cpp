@@ -59,6 +59,35 @@ QString titleFromFilename(const QString &filename, const QString &fallback = QSt
     return i > 0 ? filename.mid(i + 1).trimmed() : fallback;
 }
 
+// 部分歌单接口用 4294967295 表示播放量缺失，统一按 0 处理（否则卡片会显示成 429496 万）
+qint64 playCount(const QJsonObject &o)
+{
+    const qint64 v = qint64(o.value(QStringLiteral("playcount")).toDouble());
+    return v >= 4294967295 ? 0 : v;
+}
+
+// 歌单列表 → 统一字段（imgurl 的 {size} 占位符换成小图）
+QVariantList parsePlaylists(const QJsonArray &arr)
+{
+    QVariantList info;
+    for (const QJsonValue &v : arr) {
+        const QJsonObject s = v.toObject();
+        QString cover = s.value(QStringLiteral("imgurl")).toString();
+        if (cover.contains(QStringLiteral("{size}")))
+            cover.replace(QStringLiteral("{size}"), QStringLiteral("64"));
+        info << ApiCommon::song(
+            s.value(QStringLiteral("specialname")).toString(),
+            s.value(QStringLiteral("username")).toString(),
+            cover,
+            QString::number(s.value(QStringLiteral("specialid")).toVariant().toLongLong()),
+            0,   // 这两个接口都不返回歌曲数，交给卡片隐藏
+            s.value(QStringLiteral("intro")).toString(),
+            QString(), QString(), 0,
+            playCount(s));
+    }
+    return info;
+}
+
 // 高清(320k) hash：pay_type_320 == 3 表示需付费，回退普通 hash；
 // 没有 320hash 时用 trans_param.ogg_320_hash（部分曲目只提供 ogg）。
 QString hqHashFrom(const QJsonObject &song, const QString &base)
@@ -133,16 +162,11 @@ QByteArray rawDeflateInflate(const QByteArray &raw)
 QByteArray inflateSmart(const QByteArray &data)
 {
     QByteArray out = zlibInflate(data);
-    if (!out.isEmpty()) {
-        qDebug() << "[krc] 裸 zlib 解压成功, 长度:" << out.size();
-        return out;
-    }
-    qDebug() << "[krc] 裸 zlib 失败，尝试 raw-deflate 补头...";
-    out = rawDeflateInflate(data);
     if (!out.isEmpty())
-        qDebug() << "[krc] raw-deflate 补头解压成功, 长度:" << out.size();
-    else
-        qWarning() << "[krc] raw-deflate 补头也失败！";
+        return out;
+    out = rawDeflateInflate(data);
+    if (out.isEmpty())
+        qWarning() << "[krc] 歌词解压失败";
     return out;
 }
 } // namespace
@@ -281,7 +305,6 @@ void KugouApi::get(const QString &url, const Callback &cb)
     if (!m_cookie.isEmpty())
         req.setRawHeader("Cookie", m_cookie.toUtf8());
 
-    qDebug() << "正在请求酷狗api：" << url;
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, cb] {
         reply->deleteLater();
@@ -491,7 +514,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     s.value(QStringLiteral("songcount")).toInt(),
                     s.value(QStringLiteral("intro")).toString(),
                     QString(), QString(), 0,
-                    qint64(s.value(QStringLiteral("playcount")).toDouble()));
+                    playCount(s));
             }
         } else if (type == 2) { // 专辑
             for (const QJsonValue &v : arr) {
@@ -530,26 +553,29 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
     });
 }
 
-// 歌单分类
+// 歌单分类：category/list 给出 21 个真实分类
+// （tag/list、tag/info 那套拿不到可用的歌单 id，全为 0，故不使用）
 void KugouApi::getPlaylistMenu(int type)
 {
     Q_UNUSED(type);
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/list"));
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/list"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("pid"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("apiver"), QStringLiteral("2"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("apiver"), QStringLiteral("2"));
     url.setQuery(q);
 
     get(url.toString(), [this](const QJsonObject &json) {
         QVariantList info;
         for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
                                      .value(QStringLiteral("info")).toArray()) {
-            const QJsonObject t = v.toObject();
+            const QJsonObject c = v.toObject();
+            const QString id = QString::number(c.value(QStringLiteral("categoryid")).toInt());
             info << QVariantMap{
-                {QStringLiteral("title"), t.value(QStringLiteral("name")).toString()},
-                {QStringLiteral("id"), t.value(QStringLiteral("id")).toVariant().toLongLong()},
-                {QStringLiteral("category"), t.value(QStringLiteral("id")).toString()},
+                {QStringLiteral("title"), c.value(QStringLiteral("categoryname")).toString()},
+                {QStringLiteral("id"), id},
+                {QStringLiteral("tagid"), id},
+                {QStringLiteral("category"), id},
+                {QStringLiteral("cover"), c.value(QStringLiteral("imgurl")).toString()},
             };
         }
         emit resultReady(QStringLiteral("getPlaylistMenu"),
@@ -557,21 +583,26 @@ void KugouApi::getPlaylistMenu(int type)
     });
 }
 
-// 分类信息（透传 data，并显式带上 special_tag_id 供上层拉取该分类歌单）
-void KugouApi::getMenuInfo(const QString &id)
+// 分类歌单：sort=1 为热度排序，返回真实播放量；每个分类各自一套歌单、可持续翻页
+void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pageSize)
 {
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/info"));
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/special"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("apiver"), QStringLiteral("2"));
-    q.addQueryItem(QStringLiteral("id"), id);
+    q.addQueryItem(QStringLiteral("withsong"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("sort"), QStringLiteral("1"));
+    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("ugc"), QStringLiteral("1"));
+    q.addQueryItem(QStringLiteral("categoryid"), categoryid);
+    q.addQueryItem(QStringLiteral("page"), QString::number(qMax(page, 1)));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(qMax(pageSize, 1)));
     url.setQuery(q);
 
-    get(url.toString(), [this, id](const QJsonObject &json) {
-        QJsonObject raw = json.value(QStringLiteral("data")).toObject();
-        // 兜底：tag/info 返回可能不含 tagid 字段，强制注入请求的 id
-        if (!raw.contains(QStringLiteral("special_tag_id")))
-            raw.insert(QStringLiteral("special_tag_id"), id);
-        emit resultReady(QStringLiteral("getMenuInfo"), raw.toVariantMap(), Source);
+    get(url.toString(), [this](const QJsonObject &json) {
+        emit resultReady(QStringLiteral("getCategoryPlaylists"),
+                         ApiCommon::listResult(parsePlaylists(
+                             json.value(QStringLiteral("data")).toObject()
+                                 .value(QStringLiteral("info")).toArray())),
+                         Source);
     });
 }
 
@@ -589,25 +620,11 @@ void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
     url.setQuery(q);
 
     get(url.toString(), [this](const QJsonObject &json) {
-        QVariantList info;
-        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
-                                     .value(QStringLiteral("info")).toArray()) {
-            const QJsonObject s = v.toObject();
-            QString cover = s.value(QStringLiteral("imgurl")).toString();
-            if (cover.contains(QStringLiteral("{size}")))
-                cover.replace(QStringLiteral("{size}"), QStringLiteral("64"));
-            info << ApiCommon::song(
-                s.value(QStringLiteral("specialname")).toString(),
-                s.value(QStringLiteral("username")).toString(),
-                cover,
-                QString::number(s.value(QStringLiteral("specialid")).toVariant().toLongLong()),
-                s.value(QStringLiteral("slid")).toInt(),
-                s.value(QStringLiteral("intro")).toString(),
-                QString(), QString(), 0,
-                qint64(s.value(QStringLiteral("playcount")).toDouble()));
-        }
         emit resultReady(QStringLiteral("getMusicPlaylists"),
-                         ApiCommon::listResult(info), Source);
+                         ApiCommon::listResult(parsePlaylists(
+                             json.value(QStringLiteral("data")).toObject()
+                                 .value(QStringLiteral("info")).toArray())),
+                         Source);
     });
 }
 
@@ -718,38 +735,41 @@ void KugouApi::getHotPlaylistMenu(int type)
     });
 }
 
-// 热门歌单
+// 热门歌单：按热度搜歌单，结果自带真实播放量与歌曲数，与分类歌单不同源。
+// 关键词逐页轮换，每个词 20 页（实测各词均 ≥22 页，不会翻空），共 160 页持续出新。
 void KugouApi::getHotPlaylists(int page, int pageSize)
 {
-    Q_UNUSED(pageSize);
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v5/special/recommend"));
+    static const QStringList kKeywords{
+        QStringLiteral("热门"), QStringLiteral("古风"), QStringLiteral("粤语"),
+        QStringLiteral("摇滚"), QStringLiteral("车载"), QStringLiteral("电音"),
+        QStringLiteral("民谣"), QStringLiteral("爵士")};
+    constexpr int kPagesPerKeyword = 20;
+    const int index = qMax(page, 1) - 1;
+
+    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/search/special"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("recommend_expire"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("sign"), QStringLiteral("52186982747e1404d426fa3f2a1e8ee4"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("uid"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
-    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("appid"), QStringLiteral("1005"));
-    q.addQueryItem(QStringLiteral("mid"), QStringLiteral("286974383886022203545511837994020015101"));
-    q.addQueryItem(QStringLiteral("_t"), QStringLiteral("1545746286"));
-    q.addQueryItem(QStringLiteral("page"), QString::number(page));
+    q.addQueryItem(QStringLiteral("keyword"), kKeywords.at(index % kKeywords.size()));
+    q.addQueryItem(QStringLiteral("page"),
+                   QString::number(index / kKeywords.size() % kPagesPerKeyword + 1));
+    q.addQueryItem(QStringLiteral("pagesize"), QString::number(qMax(pageSize, 1)));
     url.setQuery(q);
 
     get(url.toString(), [this](const QJsonObject &json) {
         QVariantList info;
         for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
-                                     .value(QStringLiteral("list")).toArray()) {
+                                     .value(QStringLiteral("info")).toArray()) {
             const QJsonObject s = v.toObject();
+            const QString creator = s.value(QStringLiteral("nickname")).toString();
             info << ApiCommon::song(
                 s.value(QStringLiteral("specialname")).toString(),
-                s.value(QStringLiteral("nickname")).toString(),
+                creator,
                 s.value(QStringLiteral("imgurl")).toString(),
                 QString::number(s.value(QStringLiteral("specialid")).toVariant().toLongLong()),
                 s.value(QStringLiteral("songcount")).toInt(),
-                s.value(QStringLiteral("intro")).toString(),
+                creator,
                 QString(), QString(), 0,
-                qint64(s.value(QStringLiteral("playcount")).toDouble()));
+                playCount(s));
         }
         emit resultReady(QStringLiteral("getHotPlaylists"),
                          ApiCommon::listResult(info), Source);

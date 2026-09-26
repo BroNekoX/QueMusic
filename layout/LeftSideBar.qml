@@ -172,10 +172,6 @@ Rectangle {
         y: 173
     }
 
-
-    // 应用标题（图标 + QueMusic + Beta 徽标）已移到 main.qml 的 titleBar 上，
-    // 这样标题栏能拉成全宽（整条顶部均可拖动），macOS 上也能整块让位给系统红绿灯。
-
     // Navigation List
     ListModel {
         id: navModel

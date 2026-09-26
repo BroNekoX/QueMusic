@@ -56,11 +56,6 @@ bool ColorExtractor::busy() const
     return m_busy;
 }
 
-void ColorExtractor::extractColors()
-{
-    extractColorsFromUrl(m_imageSource);
-}
-
 void ColorExtractor::extractColorsFromUrl(const QUrl &url)
 {
     m_imageSource = url;
@@ -75,25 +70,6 @@ void ColorExtractor::extractColorsFromUrl(const QUrl &url)
     } else if (!url.isEmpty()) {
         m_networkManager->get(QNetworkRequest(url));
     }
-}
-
-// 直接吃封面像素，省掉写临时文件再解码的往返
-void ColorExtractor::extractColorsFromImage(const QVariant &image)
-{
-    QImage source;
-    if (image.userType() == QMetaType::QImage) {
-        source = image.value<QImage>();
-    } else if (image.canConvert<QByteArray>()) {
-        source.loadFromData(image.toByteArray());
-    }
-    if (source.isNull())
-        return;
-
-    const QImage key = source.convertToFormat(QImage::Format_ARGB32);
-    const QString cacheKey = QStringLiteral("px:%1")
-        .arg(qHashBits(key.constBits(), size_t(key.sizeInBytes())), 0, 16);
-
-    runTask(cacheKey, [source]() { return extract(source); });
 }
 
 void ColorExtractor::onImageDownloaded(QNetworkReply *reply)

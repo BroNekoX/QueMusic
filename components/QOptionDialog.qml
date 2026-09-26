@@ -10,8 +10,8 @@ Popup {
     property Item blurSource: mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
-    //default property alias options: dialogContent.data
-    property Component options
+    default property alias options: content.children
+    //property Component options
     property string cancelText: ""
     property string cancelIcon: "\uf10f"
     property string confirmText: "完成"
@@ -51,6 +51,7 @@ Popup {
             id: titleText
             text: "Title"
             font.pixelSize: 20
+            height: 20
             font.bold: true
             color: Style.themes.fontColor
             wrapMode: Text.WordWrap
@@ -71,9 +72,10 @@ Popup {
                 anchors.top: dialogContent.top
                 anchors.bottom: dialogContent.bottom
             }
-            Component.onCompleted: {
-                const component = dialog.options
-                component.createObject(dialogContent.contentItem);
+            Item {
+                id: content
+                width: dialogContent.contentWidth
+                height: children[0].height
             }
         }
 
@@ -82,7 +84,7 @@ Popup {
             spacing: 10
 
             QButton {
-                width: 108
+                width: 120
                 height: 36
                 text: dialog.cancelText
                 visible: dialog.cancelText !== ""

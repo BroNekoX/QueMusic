@@ -19,6 +19,13 @@ Item {
     property int duration: 0
     property int playcount: 0
     property int standTopMargin: 184
+    property real transX: 0
+    property int originX: 0
+    property list<ParallelAnimation> animeOnList: [openAnime0,openAnime1]
+    property list<ParallelAnimation> animeOutList: [closeAnime0,closeAnime1]
+    property int animeType: Style.settings.animeType
+    transform: Translate { x: root.transX }
+    Component.onCompleted: originX = mainTarget.x;
 
     property int winIndex: 1
     property Item mainTarget
@@ -44,9 +51,9 @@ Item {
         }
     }
     function closed(): void {
-        windowOpenAnime.running = false;
+        animeOnList[animeType].running = false;
         mainTarget.visible = true;
-        windowCloseAnime.running = true;
+        animeOutList[animeType].running = true;
         window.exitIndex -= 1;
     }
     Connections {
@@ -54,15 +61,20 @@ Item {
         enabled: root.visible
         function onExit(): void {
             if(window.exitIndex <= root.winIndex) {
-                windowOpenAnime.running = false;
+                root.animeOnList[root.animeType].running = false;
                 root.mainTarget.visible = true;
-                windowCloseAnime.running = true;
+                root.animeOutList[root.animeType].running = true;
             }
         }
     }
 
     ParallelAnimation {
-        id: windowOpenAnime
+        id: openAnime0
+        onStarted: {
+            root.transX = 0;
+            root.mainTarget.x = root.originX;
+        }
+
         NumberAnimation {
             target: root
             property: "scale"
@@ -80,14 +92,14 @@ Item {
             duration: 360
         }
         NumberAnimation {
-            target: mainTarget
+            target: root.mainTarget
             property: "scale"
             from: 1
             to: 1.1
             duration: 100
         }
         NumberAnimation {
-            target: mainTarget
+            target: root.mainTarget
             property: "opacity"
             from: 1
             to: 0
@@ -96,7 +108,11 @@ Item {
         onFinished: root.mainTarget.visible = false
     }
     ParallelAnimation {
-        id: windowCloseAnime
+        id: closeAnime0
+        onStarted: {
+            root.transX = 0;
+            root.mainTarget.x = root.originX;
+        }
         NumberAnimation {
             target: root
             property: "scale"
@@ -112,20 +128,102 @@ Item {
             duration: 100
         }
         NumberAnimation {
-            target: mainTarget
+            target: root.mainTarget
             property: "scale"
-            from: 1.16
+            from: 1.2
             to: 1
             easing.type: Easing.OutExpo
-            duration: 240
+            duration: 280
         }
         NumberAnimation {
-            target: mainTarget
+            target: root.mainTarget
             property: "opacity"
             from: 0
             to: 1
             easing.type: Easing.OutExpo
-            duration: 240
+            duration: 280
+        }
+        onFinished: {
+            loadWidget.active = false
+            root.visible = false
+        }
+    }
+
+    ParallelAnimation {
+        id: openAnime1
+        onStarted: {
+            root.scale = 1;
+            root.mainTarget.scale = 1;
+        }
+        NumberAnimation {
+            target: root
+            property: "transX"
+            from: 180
+            to: 0
+            easing.type: Easing.OutExpo
+            duration: 420
+        }
+        NumberAnimation {
+            target: root
+            property: "opacity"
+            from: 0
+            to: 1
+            easing.type: Easing.OutExpo
+            duration: 420
+        }
+        NumberAnimation {
+            target: root.mainTarget
+            property: "x"
+            from: root.originX
+            to: root.originX - 180
+            easing.type: Easing.InCubic
+            duration: 120
+        }
+        NumberAnimation {
+            target: root.mainTarget
+            property: "opacity"
+            from: 1
+            to: 0
+            easing.type: Easing.InCubic
+            duration: 120
+        }
+        onFinished: root.mainTarget.visible = false
+    }
+    ParallelAnimation {
+        id: closeAnime1
+        onStarted: {
+            root.scale = 1;
+            root.mainTarget.scale = 1;
+        }
+        NumberAnimation {
+            target: root
+            property: "transX"
+            from: 0
+            to: 180
+            duration: 100
+        }
+        NumberAnimation {
+            target: root
+            property: "opacity"
+            from: 1
+            to: 0
+            duration: 100
+        }
+        NumberAnimation {
+            target: root.mainTarget
+            property: "x"
+            from: root.originX - 180
+            to: root.originX
+            easing.type: Easing.OutExpo
+            duration: 320
+        }
+        NumberAnimation {
+            target: root.mainTarget
+            property: "opacity"
+            from: 0
+            to: 1
+            easing.type: Easing.OutExpo
+            duration: 320
         }
         onFinished: {
             loadWidget.active = false
@@ -283,11 +381,11 @@ Item {
                 onClicked: {
                     if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
                         FavoritePlaylists.removeFavorite(root.id, "playlist");
-                        mainWarn.tiped("取消收藏",0);
+                        mainWarn.tiped("已取消收藏", 0);
                         iconColor = Style.themes.textColor
                     } else {
                         FavoritePlaylists.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
-                        mainWarn.tiped("成功收藏",1);
+                        mainWarn.tiped("已收藏", 1);
                         iconColor = Style.themes.themeColor
                     }
                 }
@@ -298,9 +396,10 @@ Item {
     Loader {
         id: loadWidget
         active: false
+        asynchronous: true
         onLoaded: {
             root.visible = true;
-            windowOpenAnime.start();
+            root.animeOnList[root.animeType].start();
         }
     }
 }

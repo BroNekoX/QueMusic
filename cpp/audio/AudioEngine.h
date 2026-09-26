@@ -136,7 +136,7 @@ public:
     int outputSampleRate() const { return m_outSampleRate.load(std::memory_order_relaxed); }
     void setOutputSampleRate(int rate);
     int decodeSampleRate() const { return m_decodeRate.load(std::memory_order_relaxed); }
-    int bufferMs() const { return m_bufferMs; }
+    int bufferMs() const;
     void setBufferMs(int ms);
     QString outputFormatName() const;
     bool dspEnabled() const { return m_dspEnabled.load(std::memory_order_relaxed); }
@@ -193,7 +193,6 @@ public:
     Q_INVOKABLE void fadeInOnNextAudio(int ms);
     Q_INVOKABLE void setEqBand(int index, qreal gainDb);
     Q_INVOKABLE void applyEqPreset(const QString &name);
-    Q_INVOKABLE QVariantList eqPresetGains(const QString &name) const;
     Q_INVOKABLE QStringList eqPresetNames() const;
     Q_INVOKABLE QStringList eqBandLabels() const;
     Q_INVOKABLE void setSpectrumSink(QObject *sink);
@@ -300,7 +299,7 @@ private:
     std::atomic<int> m_decodeRate{48000};
     int m_chunkFrames = 4096;
     int m_requestedRate = 0;
-    int m_bufferMs = 0;
+    int m_bufferMs = 0; // loadSettings() 会落定为 10~100 的有效值
 
     AudioRing m_rings[2];
     std::atomic<int> m_ringGen{0};

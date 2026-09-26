@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-// 胶囊标签栏：顶部主导航与页内小标签共用
+// 胶囊标签栏：顶部主导航与页内小标签共用（深色玻璃 + 主题光 pill）喵~
 import QtQuick
+import QtQuick.Effects
 
 Item {
     id: root
@@ -17,10 +18,10 @@ Item {
     Rectangle {
         anchors.fill: parent
         z: 0
-        color: "#aafafafa"
-        border.color: "#aaffffff"
-        border.width: 2
-        radius: 21
+        radius: height / 2
+        color: "#14ffffff"
+        border.width: 1
+        border.color: "#1fffffff"
     }
 
     Rectangle {
@@ -30,9 +31,19 @@ Item {
         width: root.tabWidth
         height: parent.height - 6
         radius: height / 2
-        color: "#ffffff"
+        color: "#2bffffff"
+        border.width: 1
+        border.color: "#24ffffff"
         visible: root.showPill
-        Behavior on x { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+        // 选中页签的主题色微光
+        RectangularShadow {
+            anchors.fill: parent
+            anchors.margins: -6
+            radius: parent.radius
+            blur: 16
+            color: Qt.rgba(center.c1.r, center.c1.g, center.c1.b, 0.55)
+        }
+        Behavior on x { NumberAnimation { duration: 260; easing.type: Easing.OutExpo } }
     }
 
     Row {
@@ -47,9 +58,9 @@ Item {
                 readonly property bool active: index === root.currentIndex
                 Rectangle {
                     anchors.fill: parent
-                    radius: 21
-                    opacity: area.containsMouse ? 1 : 0
-                    color: "#31111111"
+                    radius: height / 2
+                    opacity: area.containsMouse && !active ? 1 : 0
+                    color: "#14ffffff"
                     Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
                 Text {
@@ -57,10 +68,11 @@ Item {
                     text: modelData
                     font.pixelSize: 13
                     font.weight: active ? Font.DemiBold : Font.Normal
-                    color: active ? "#14161c" : (area.containsMouse ? "#ffffff" : "#555555")
+                    color: active ? "#ffffff" : (area.containsMouse ? "#e8edf4" : "#98a4b4")
                     elide: Text.ElideRight
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
+                    Behavior on color { ColorAnimation { duration: 160 } }
                 }
                 MouseArea {
                     id: area

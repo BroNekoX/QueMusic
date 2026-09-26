@@ -122,12 +122,9 @@ public:
 public slots:
     void request(const QString &action, const QVariantMap &call)
     {
-        if (!m_api)
-            m_api = new ApiHelper;
-
         const QString member = call.value(QStringLiteral("member")).toString();
         const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
-        const QVariantMap raw = m_api->invoke(member, arg);
+        const QVariantMap raw = helper()->invoke(member, arg);
 
         // 播放信息：song_detail 之后追加 song_url_v1 拿真实播放链接，
         // 免登录可得 128k，带登录态 Cookie 可得 exhigh(320k) 及以上
@@ -136,37 +133,38 @@ public slots:
             QVariantMap urlArg;
             urlArg.insert(QStringLiteral("id"), arg.value(QStringLiteral("id")));
             urlArg.insert(QStringLiteral("level"), QStringLiteral("exhigh"));
-            const QVariantMap urlRaw = m_api->invoke(QStringLiteral("song_url_v1"), urlArg);
+            const QVariantMap urlRaw = helper()->invoke(QStringLiteral("song_url_v1"), urlArg);
             const QVariantList urlData = urlRaw.value(QStringLiteral("body")).toMap()
                                               .value(QStringLiteral("data")).toList();
-            if (urlData.isEmpty()) {
-                // 请求失败：留给外层回退公开外链
-            } else {
+            if (!urlData.isEmpty()) {
                 const QString url = urlData.first().toMap()
                                         .value(QStringLiteral("url")).toString();
                 effective.insert(QStringLiteral("play_url"), url);
                 if (url.isEmpty()) // 服务端明确不给地址：版权/VIP 限制
                     effective.insert(QStringLiteral("url_unavailable"), true);
             }
-            qDebug() << "[netease] getMusicInfo id:" << arg.value(QStringLiteral("id"))
-                     << "play_url:" << effective.value(QStringLiteral("play_url")).toString();
+            // 拿不到 data 时留给外层回退公开外链
         }
 
-        QVariant data = mapResult(action, effective, call);
-        emit result(action, data, kSource);
+        emit result(action, mapResult(action, effective, call), kSource);
     }
 
-    void setCookie(const QString &cookie)
-    {
-        if (!m_api)
-            m_api = new ApiHelper;
-        m_api->set_cookie(cookie);
-    }
+    void setCookie(const QString &cookie) { helper()->set_cookie(cookie); }
 
 signals:
     void result(const QString &action, const QVariant &data, int source);
 
 private:
+    // ApiHelper 的 debug 日志是「每个请求三行」，会刷满控制台，首次创建时就关掉
+    ApiHelper *helper()
+    {
+        if (!m_api) {
+            m_api = new ApiHelper;
+            m_api->setFilterRules(QStringLiteral("QCloudMusicApi.debug=false"));
+        }
+        return m_api;
+    }
+
     // 把 QCloudMusicApi 原始返回映射为 MusicApiService 期望的 data
     static QVariant mapResult(const QString &action, const QVariantMap &raw,
                               const QVariantMap &call)
@@ -197,12 +195,20 @@ private:
             }
         }
         else if (action == QLatin1String("getPlaylistMenu")) {
+            // catalogue 有 70 个标签，只保留平台标记的热门标签（约 15 个）。
+            // top_playlist 的 cat 只认分类名（传数字 id 会返回无关歌单），故 id 直接给分类名。
             const QVariantMap categories = data.value(QStringLiteral("categories")).toMap();
             for (const QVariant &v : data.value(QStringLiteral("sub")).toList()) {
                 const QVariantMap s = v.toMap();
+                if (!s.value(QStringLiteral("hot")).toBool())
+                    continue;
+                const QString name = s.value(QStringLiteral("name")).toString();
+                if (name.isEmpty())
+                    continue;
                 info << QVariantMap{
-                    {QStringLiteral("title"), s.value(QStringLiteral("name")).toString()},
-                    {QStringLiteral("id"), songId(s.value(QStringLiteral("id")))},
+                    {QStringLiteral("title"), name},
+                    {QStringLiteral("id"), name},
+                    {QStringLiteral("tagid"), name},
                     {QStringLiteral("category"),
                      categories.value(s.value(QStringLiteral("category")).toString()).toString()},
                 };
@@ -478,15 +484,6 @@ void NeteaseCloudApi::getPlaylistMenu(int type)
     call.insert(QStringLiteral("member"), QStringLiteral("playlist_catlist"));
     call.insert(QStringLiteral("arg"), QVariantMap());
     enqueue(QStringLiteral("getPlaylistMenu"), call);
-}
-
-void NeteaseCloudApi::getMenuInfo(const QString &id)
-{
-    QVariantMap data;
-    data.insert(QStringLiteral("special_tag_id"), id);
-    data.insert(QStringLiteral("id"), id);
-    data.insert(QStringLiteral("name"), QString());
-    emit resultReady(QStringLiteral("getMenuInfo"), data, kSource);
 }
 
 void NeteaseCloudApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)

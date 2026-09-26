@@ -40,10 +40,8 @@ public:
     QVector<QColor> dominantColors() const;
     bool busy() const;
 
-    // 三个入口均立即返回，结果经信号回传
+    // 立即返回，结果经 colorsExtracted / colorsExtractedAsString 回传
     Q_INVOKABLE void extractColorsFromUrl(const QUrl &url);
-    Q_INVOKABLE void extractColorsFromImage(const QVariant &image);
-    Q_INVOKABLE void extractColors();
 
 signals:
     void imageSourceChanged();

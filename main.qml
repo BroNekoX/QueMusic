@@ -6,7 +6,6 @@ import QueMusic 1.0
 import QtCore
 import QtMultimedia
 import QWindowKit 1.0
-import QtQuick.Effects
 import QtQuick.Controls.Basic
 
 Window {
@@ -47,18 +46,18 @@ Window {
         Style.changeUi();
         Style.changeTheme();
 
-        // 会话恢复与历史加载移出首帧：启动只做装配，数据就绪后回填
+        // 会话恢复 / 历史加载 / 封面缓存维护都是磁盘与网络 I/O，全部移出首帧
         Qt.callLater(function() {
             Playback.loadHistory();
             Playback.restoreSession();
+
+            if(Options.settings.cacheUrl)
+                coverHelper.setCacheDir(Options.settings.cacheUrl);
+            coverHelper.pruneCache(Options.settings.cacheSize);
+
+            if(Options.settings.autoUpdate)
+                autoUpdateTimer.start();
         });
-
-        if(Options.settings.cacheUrl)
-            coverHelper.setCacheDir(Options.settings.cacheUrl);
-        coverHelper.pruneCache(Options.settings.cacheSize);
-
-        if(Options.settings.autoUpdate)
-            autoUpdateTimer.start();
     }
 
     Binding {
@@ -210,6 +209,7 @@ Window {
         width: window.width
         height: 60
         color: "transparent"
+        property bool toBarLyric: musicControlMax.y === 0
 
         // 此组件创建时，将此组件与 qwindowkit 绑定，标题栏事件由此传入
         Component.onCompleted: windowAgent.setTitleBar(titleBar);
@@ -262,7 +262,7 @@ Window {
                 onReleased: searchCard.open();
                 onAccepted: {
                     if(text.trim() == "") {
-                        mainWarn.tiped("请输入文本>-<",0);
+                        mainWarn.tiped("请输入搜索内容", 0);
                         return;
                     }
                     window.doSearch(text);
@@ -285,7 +285,7 @@ Window {
                 buttonColor: "transparent"
                 onClicked: {
                     if(mainSearchInput.text.trim() == "") {
-                        mainWarn.tiped("请输入文本>-<",0);
+                        mainWarn.tiped("请输入搜索内容", 0);
                         return;
                     }
                     window.doSearch(mainSearchInput.text);
@@ -301,14 +301,14 @@ Window {
                 rightMargin: 16
             }
             spacing: 0
-            y: 10 - controlMaxLoader.hideHeight
+            y: 10 - musicControlMax.hideHeight
             height: 40
 
             QWKButton {
                 id: fullDesktopButton
                 largeicon: true
                 buttonColor: musicCenter.active ? Style.themes.containColor : "transparent"
-                source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
+                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
                     if(musicCenter.active) {
                         musicCenter.active = false;
@@ -323,7 +323,7 @@ Window {
             QWKButton {
                 id: settingButton
                 largeicon: true
-                source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/settingd.svg" : "qrc:/QueMusic/resources/window-bar/setting.svg"
+                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/settingd.svg" : "qrc:/QueMusic/resources/window-bar/setting.svg"
                 onClicked: {
                     settingsView.active = true;
                 }
@@ -332,7 +332,7 @@ Window {
 
             QWKButton {
                 id: minButton
-                source: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
+                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
                 onClicked: window.showMinimized();
                 Component.onCompleted: {
                     if(window.isMacOS) {
@@ -344,8 +344,8 @@ Window {
             }
 
             QWKButton {
-                readonly property string maximized: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/maximized.svg" : "qrc:/QueMusic/resources/window-bar/maximize.svg"
-                readonly property string restored: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/restored.svg" : "qrc:/QueMusic/resources/window-bar/restore.svg"
+                readonly property string maximized: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/maximized.svg" : "qrc:/QueMusic/resources/window-bar/maximize.svg"
+                readonly property string restored: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/restored.svg" : "qrc:/QueMusic/resources/window-bar/restore.svg"
                 id: maxButton
                 source: window.visibility === Window.Maximized ? restored : maximized
                 onClicked: {
@@ -366,7 +366,7 @@ Window {
 
             QWKButton {
                 readonly property string hover: Style.darkis ? "qrc:/QueMusic/resources/window-bar/close.svg" : "qrc:/QueMusic/resources/window-bar/closed.svg"
-                readonly property string unhover: Style.darkis || mainLayout.state !== "" ? "qrc:/QueMusic/resources/window-bar/closed.svg" : "qrc:/QueMusic/resources/window-bar/close.svg"
+                readonly property string unhover: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/closed.svg" : "qrc:/QueMusic/resources/window-bar/close.svg"
                 id: closeButton
                 source: closeButton.hovered ? hover : unhover
                 hoverColor: "#ee4848"
@@ -387,77 +387,6 @@ Window {
         anchors.fill: parent
         z: 5
         property int maxLyricType: 0
-
-        readonly property int piclong: mainLayout.width < 1280 ? mainLayout.height / 3 + mainLayout.width / 8 - 100 : mainLayout.height / 3 + 60
-
-        ParallelAnimation {
-            id: maxedAnimation
-            NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: mainLayout.height; to: 0; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 30; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-        }
-        ParallelAnimation {
-            id: minedAnimation
-            NumberAnimation { target: controlMaxLoader; property: "y"; duration: 320; from: 0; to: mainLayout.height; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            NumberAnimation { target: musicControlMin; property: "musicInfoX"; duration: 320; to: 100; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 1.00, 1, 1 ] }
-            onFinished: {
-                controlMaxLoader.visible = false;
-                controlMaxLoader.active = false;
-                controlMaxLoader.hideHeight = 0;
-            }
-        }
-
-        states: [
-            State {
-                name: ""
-                PropertyChanges { target: musicpic; x: 30; y: mainLayout.height - 64; radius: 12; height: 50; width: 50 }
-                PropertyChanges { target: musicpicShadow; visible: false }
-            },
-            State {
-                name: "MaxedCover"
-                PropertyChanges { target: musicpic; x: mainLayout.width * 0.5 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
-                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width; lyricsType: 1; infoX: mainLayout.width * 0.5 - (mainLayout.piclong / 2) }
-                PropertyChanges { target: musicpicShadow; visible: true }
-            },
-            State {
-                name: "MaxedNormal"
-                PropertyChanges { target: musicpic; x: mainLayout.width * 0.23 - (mainLayout.piclong / 2); y: mainLayout.height / 1.7 - mainLayout.piclong; radius: 24; height: mainLayout.piclong; width: mainLayout.piclong }
-                PropertyChanges { target: controlMaxLoader; lyricsX: mainLayout.width * 0.46; lyricsType: 0; infoX: mainLayout.width * 0.23 - (mainLayout.piclong / 2) }
-                PropertyChanges { target: musicpicShadow; visible: true }
-            },
-            State {
-                name: "MaxedLyric"
-                PropertyChanges { target: musicpic; x: -400; y: mainLayout.height / 2; radius: 12; height: 50; width: 50 }
-                PropertyChanges { target: controlMaxLoader; lyricsX: 48; lyricsType: 2; infoX: -400 }
-                PropertyChanges { target: musicpicShadow; visible: false }
-            }
-            
-        ]
-        transitions: [
-            Transition {
-                from: ""; to: "*"
-                ParallelAnimation {
-                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.12, 1, 1 ] }
-                    NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
-                }
-            },
-            Transition {
-                from: "*"; to: ""
-                ParallelAnimation {
-                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.12, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
-                    NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
-                }
-            },
-            Transition {
-                from: "*"; to: "*"
-                ParallelAnimation {
-                    NumberAnimation { target: musicpic; properties: "x,y,width,height"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }//0.23, 0.04, 0.00, 1.20
-                    NumberAnimation { target: musicpic; property: "radius"; duration: 350; easing.type: Easing.OutExpo }
-                    NumberAnimation { target: controlMaxLoader; property: "lyricsX"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
-                    NumberAnimation { target: controlMaxLoader; property: "infoX"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
-                    NumberAnimation { target: controlMaxLoader; property: "infoY"; duration: 350; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.30, 0.06, 0.00, 1.00, 1, 1 ] }
-                }
-            }
-        ]
 
         Connections {
             target: Style
@@ -543,94 +472,44 @@ Window {
             z: 4
         }
 
-        Item {
-            id: musicpic
-            z: 5
-            width: 50
-            height: 50
-            clip: false
-            x: 30
-            opacity: controlMaxLoader.basicCd && controlMaxLoader.visible ? 0 : 1
-            y: mainLayout.height - 64
-            property int radius: 12
-            scale: mainMedia.playing ? 1.0 : 0.84
-            Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.20, 0.04, 0.00, 1.64, 1, 1 ] } }
-            Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-            RectangularShadow {
-                id: musicpicShadow
-                anchors.fill: musicpic
-                z: 0
-                offset.x: 2
-                offset.y: 12
-                radius: 24
-                blur: 32
-                visible: false
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                color: "#66000000"
-            }
-            Image {
-                id: sourcepic
-                anchors.fill: musicpic
-                fillMode: Image.PreserveAspectCrop
-                visible: false
-                source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
-                sourceSize: Qt.size(512, 512)
-            }
-            Rectangle {
-                id: maskpic
-                anchors.fill: musicpic
-                color: "#ff000000"
-                radius: musicpic.radius
-                layer.enabled: true
-                visible: false
-            }
-            MultiEffect {
-                z: 1
-                anchors.fill: musicpic
-                source: sourcepic
-                maskEnabled: true
-                maskSource: maskpic
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
-            }
-            // 为优化性能，取消鼠标点击相关设计，下载封面可到关于歌曲下载
-        }
-
-        Loader {
-            id: controlMaxLoader
-            x: 0
-            z: 3
-            visible: false
-            active: false
-            property int lyricsX: mainLayout.width * 0.46
-            property int lyricsType: 0// 0. normal 1. Cover 2. Lyrics
-            property int infoX: mainLayout.width * 0.23 - (mainLayout.piclong / 2)
-            property bool isHideGui: false
-            property int hideHeight: 0
-            property bool basicCd: false
-            Behavior on hideHeight { enabled: controlMaxLoader.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
-            onLoaded: {
-                barLeftWidgets.y = -48;
-                minedAnimation.stop();
-                visible = true;
-                maxedAnimation.start();
-                switch(mainLayout.maxLyricType) {
-                case 0:
-                    mainLayout.state = "MaxedNormal";
-                    break;
-                case 1:
-                    mainLayout.state = "MaxedCover";
-                    break;
-                case 2:
-                    mainLayout.state = "MaxedLyric";
-                    break;
-                }
-            }
+        PlayerMaxCenter {
+            id: musicControlMax
             width: mainLayout.width
             height: mainLayout.height
-            sourceComponent: PlayerMaxCenter {}//"qrc:/QueMusic/layout/PlayerMaxCenter.qml"
+            y: 100//mainLayout.height
+            visible: false
+            z: 3
         }
+
+        NumberAnimation {
+            id: openMaxLyric
+            duration: 420
+            target: musicControlMax
+            property: "y"
+            from: mainLayout.height
+            to: 0
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [ 0.30, 0.08, 0.00, 1.00, 1, 1 ]
+            onStarted: {
+                musicControlMax.visible = true;
+                barLeftWidgets.y = -48;
+            }
+        }
+        NumberAnimation {
+            id: closeMaxLyric
+            duration: 420
+            target: musicControlMax
+            property: "y"
+            to: mainLayout.height
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [ 0.50, 0.08, 0.00, 1.00, 1, 1 ]
+            onStarted: barLeftWidgets.y = 12;
+            onFinished: {
+                musicControlMax.visible = false;
+                musicControlMax.hideHeight = 0;
+            }
+        }
+
         Item {
             id: coverColor
             width: 800
@@ -664,6 +543,8 @@ Window {
         id: settingsView
         anchors.fill: parent
         active: false
+        // 设置页是单个大树（一次约 6800 个对象/173 ms），同步创建会卡掉一整帧
+        asynchronous: true
         visible: false
         z: 6
         source: "qrc:/QueMusic/SettingsView.qml"//"qrc:/QueMusic/SettingsView.qml"
@@ -772,10 +653,8 @@ Window {
         to: 1
         easing.type: Easing.OutCubic
         onFinished: {
-            mainLayout.state = "";
+            closeMaxLyric.running = true;
             mainLayout.visible = false;
-            barLeftWidgets.y = 12;
-            minedAnimation.start();
         }
     }
     NumberAnimation {
@@ -786,7 +665,7 @@ Window {
         from: 1
         to: 0
         easing.type: Easing.OutCubic
-        onStarted: mainLayout.visible = true
+        onStarted: mainLayout.visible = true;
         onFinished: {
             settingsView.visible = false;
             settingsView.active = false;
@@ -873,7 +752,7 @@ Window {
         id: getWave
         engine: mainMedia
         renderWindow: window
-        enabled: Style.settings.waveDisplay && controlMaxLoader.visible
+        enabled: Style.settings.waveDisplay && musicControlMax.visible
         bands: 128
     }
 
@@ -1018,8 +897,6 @@ Window {
     }
 
 
-    // 连续自动跳过计数：坏文件（文件被移走/在线源失效）会把队列刷成无限跳歌
-
     SearchCard {
         id: searchCard
         onSearchIndex: (index) => {
@@ -1111,7 +988,7 @@ Window {
                     mainWarn.tiped("已保存至系统图片文件夹",1);
                 },Qt.size(512,512))
             } else {
-                mainWarn.tiped("图片正在快速加载",0);
+                mainWarn.tiped("图片尚未加载完成，请稍候", 0);
             }
         }
         function dialog(_source: string, _title: string): void {

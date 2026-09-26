@@ -108,38 +108,6 @@ Item {
                     MusicApi.getMusicInfo(model.get(index).hashsq);
                 }
             }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                case 0:
-                    if (Playback.indexOfPath(model.get(index).hash) == -1) {
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                        mainWarn.tiped("成功加入播放列表",1);
-                    }
-                    break;
-                case 1:
-                    if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                        FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                        mainWarn.tiped("取消收藏",0);
-                    } else {
-                        FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                        mainWarn.tiped("成功收藏",1);
-                    }
-                    break;
-                }
-            }
-            onMenuClicked: (index,choice) => {
-                switch(choice) {
-                case 0:
-                    if(Options.settings.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash,1);
-                    } else if(Options.settings.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq,1);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq,1);
-                    }
-                    break;
-                }
-            }
         }
         QListView {
             id: searchLists
@@ -172,19 +140,6 @@ Item {
                 playListSongsWindow.opened(model.get(index));
                 window.exitIndex = 2;
             }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                case 1:
-                    if (FavoritePlaylists.isFavorite(model.get(index).hash, "playlist")) {
-                        FavoritePlaylists.removeFavorite(model.get(index).hash, "playlist");
-                        mainWarn.tiped("取消收藏",0);
-                    } else {
-                        FavoritePlaylists.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
-                        mainWarn.tiped("成功收藏",1);
-                    }
-                    break;
-                }
-            }
         }
         QListView {
             id: searchAlbum
@@ -209,16 +164,6 @@ Item {
             }
             onClicked: (index) => {
                 MusicApi.getMusicInfo(model.get(index).hash);
-            }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                case 0:
-                    if (Playback.indexOfPath(model.get(index).hash) == -1) {
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                        mainWarn.tiped("成功加入播放列表",1);
-                    }
-                    break;
-                }
             }
         }
         QListView {
@@ -250,38 +195,6 @@ Item {
                     MusicApi.getMusicInfo(model.get(index).hashsq);
                 }
             }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                case 0:
-                    if (Playback.indexOfPath(model.get(index).hash) == -1) {
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                        mainWarn.tiped("成功加入播放列表",1);
-                    }
-                    break;
-                case 1:
-                    if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                        FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                        mainWarn.tiped("取消收藏",0);
-                    } else {
-                        FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                        mainWarn.tiped("成功收藏",1);
-                    }
-                    break;
-                }
-            }
-            onMenuClicked: (index,choice) => {
-                switch(choice) {
-                case 0:
-                    if(Options.settings.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash,1);
-                    } else if(Options.settings.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq,1);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq,1);
-                    }
-                    break;
-                }
-            }
         }
     }
 
@@ -309,23 +222,6 @@ Item {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 0:
-                        playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                        mainWarn.tiped("成功加入播放列表",1);
-                        break;
-                    case 1:
-                        if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                            FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                            mainWarn.tiped("取消收藏",0);
-                        } else {
-                            FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "song");
-                            mainWarn.tiped("成功收藏",1);
-                        }
-                        break;
                     }
                 }
 

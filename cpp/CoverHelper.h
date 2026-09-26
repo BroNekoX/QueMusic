@@ -29,8 +29,6 @@ public:
 
     QString currentCoverUrl() const;
 
-    Q_INVOKABLE QString convertVariantToUrl(const QVariant &imageVariant);
-
     // 音频同目录查找同名/常见命名封面（cover/folder/AlbumArt），未命中返回空
     Q_INVOKABLE QString findLocalCover(const QString &sourcePath);
 

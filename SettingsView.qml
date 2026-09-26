@@ -699,7 +699,7 @@ Item {
                                 blurSource: settingsView
                                 onAccepted: {
                                     Style.settings.colorList.push(Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0));
-                                    mainWarn.tiped("成功添加一个主题颜色",1);
+                                    mainWarn.tiped("已添加主题颜色", 1);
                                 }
                             }
                         }
@@ -750,7 +750,7 @@ Item {
                                 nameFilters: ["图片文件 (*.jpg *.png *.jpeg *.pkm *.svg *.gif *.bmp *.tiff *.xbm *.xpm *.pbm *.pgm *.ppm)"]
                                 onAccepted: {
                                     Style.settings.backgroundImage = imagefileDialog.selectedFile;
-                                    mainWarn.tiped("成功设置背景图片",1);
+                                    mainWarn.tiped("已设置背景图片", 1);
                                     Style.changeUi();
                                     Style.changeTheme();
                                 }
@@ -759,7 +759,7 @@ Item {
                     }
                 }
 
-                QHead { text: "账号与登录" }
+                QHead { text: "在线平台与账户" }
 
                 Rectangle {
                     width: settingStack.standWidth
@@ -801,7 +801,7 @@ Item {
                         Grid {
                             x: 16
                             width: parent.width - 32
-                            height: 270
+                            height: 144
                             columns: 3
                             columnSpacing: 14
                             rowSpacing: 14
@@ -1007,7 +1007,7 @@ Item {
                                 text: "清理"
                                 onClicked: {
                                     coverHelper.clearCache();
-                                    Style.warned("成功清除图片缓存",1);
+                                    Style.warned("已清除图片缓存", 1);
                                 }
                             }
                             bottomLine: false
@@ -1180,6 +1180,19 @@ Item {
                                 value: Style.settings.blurSize
                                 onMoved: {
                                     Style.settings.blurSize = value
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "子页面切入切出动画"
+                            tip: "在打开或关闭子页面所使用的动画效果"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: Style.settings.animeType
+                                model: ["放大缩小","左右渐入"]
+                                onTransformed: (choiced) => {
+                                    Style.settings.animeType = choiced;
                                 }
                             }
                         }
@@ -1690,7 +1703,7 @@ Item {
                     height: 40
                     color: Style.themes.fontColor
                     verticalAlignment: Text.AlignVCenter
-                    text: "播放"
+                    text: "音频"
                     font.pixelSize: Style.settings.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
@@ -1884,7 +1897,7 @@ Item {
                         const seq = shortcutset.keyEventToSequence(event)
                         if (seq) {
                             shortcutset.stopRecording(true, seq)
-                            mainWarn.tiped("设置成功！", 1)
+                            mainWarn.tiped("设置已保存", 1)
                             event.accepted = true
                         }
                         // 如果是无效键（如单独的修饰键），不处理，等待有效组合
@@ -2044,7 +2057,7 @@ Item {
                 x: 24 + settingStack.containX
                 y: 70
                 z: 5
-                model: ["外观类","功能类","音源"]
+                model: ["歌词界面","功能","音乐源"]
                 tabWidth: 100
                 width: 304
                 rectXy: Qt.rect(0, 10, width, 40)
@@ -2099,7 +2112,7 @@ Item {
                     height: downloadChildPage.height
                     Text {
                         anchors.fill: parent
-                        text: "外观类"
+                        text: "歌词界面"
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                         color: Style.themes.textColor
@@ -2127,7 +2140,7 @@ Item {
                     height: downloadChildPage.height
                     Text {
                         anchors.fill: parent
-                        text: "音源\n并不建议使用音源，以防止出现的版权问题和违规获取"
+                        text: "音乐源"
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                         color: Style.themes.textColor
@@ -2403,7 +2416,7 @@ Item {
                         id: description
                         anchors.centerIn: parent
                         width: settingStack.standWidth - 48
-                        text: "QueMusic是一个基于Qt QML开发的全能音乐播放器，旨在让听歌变得更简单，让每个操作变得简单，QueMusic拥有行业领先的性能，在Qt RHI * QML * C++强大组合下，性能卓越，UI美观丝滑，基于C++的在线音源使其拥有强大的稳定在线体验，QueMusic让听歌变得更简单。"
+                        text: "QueMusic是一个基于Qt QML开发的全能音乐播放器，旨在让听歌变得更简单，在Qt RHI * QML * C++强大组合下，性能卓越，UI美观丝滑，基于C++的在线音源使其拥有强大的稳定在线体验，并且由此实现美观强大的自定义功能，QueMusic希望做一个全能的音乐播放器。"
                         wrapMode: Text.Wrap
                         color: Style.themes.textColor
                         font.pixelSize: 13
@@ -2442,7 +2455,20 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: Options.version + " (" + Options.versionCode + ")"
+                                text: Options.version + " (" + Options.versionCode + ") (Beta)"
+                                color: Style.themes.textColor
+                                font.pixelSize: 14
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        SettingItem {
+                            width: settingStack.standWidth - 32
+                            label: "QuePlugin API版本"
+                            controlWidth: 120
+                            Text {
+                                anchors.right: parent.right
+                                height: 36
+                                text: Options.pluginApi + " (Beta)"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2455,7 +2481,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "Qt-Community-" + qtRuntimeVersion
+                                text: "Qt-" + qtRuntimeVersion + "(Community)"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2463,12 +2489,12 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
-                            label: "渲染与主体架构"
+                            label: "渲染技术"
                             controlWidth: 120
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "QML Engine/Qt RHI"
+                                text: "QRHI/Qt Scene Graph"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2476,38 +2502,12 @@ Item {
                         }
                         SettingItem {
                             width: settingStack.standWidth - 32
-                            label: "编译架构"
+                            label: "主体技术"
                             controlWidth: 120
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "LLVM-MinGW17 / Clang"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "编程语言"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "C++，QML，JS，Sql"
-                                color: Style.themes.textColor
-                                font.pixelSize: 14
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-                        SettingItem {
-                            width: settingStack.standWidth - 32
-                            label: "QWindowKit版本"
-                            controlWidth: 120
-                            Text {
-                                anchors.right: parent.right
-                                height: 36
-                                text: "1.5.1.0-2606"
+                                text: "C++/JS/QtQuick"
                                 color: Style.themes.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2532,7 +2532,7 @@ Item {
                     AccountCard {
                         source: "qrc:/QueMusic/resources/app/icons/qticon.png"
                         title: "Qt Community"
-                        text: "强大的开源软件包框架"
+                        text: "强大的开源跨平台软件包框架"
                         openUrl: "https://github.com/qt"
                     }
                     AccountCard {
@@ -2608,7 +2608,7 @@ Item {
                     }
                 }
 
-                Text { text: "期待您的贡献/反馈/加入"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "期待您的贡献与反馈"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
 
                 Row {
                     spacing: 20
@@ -2616,7 +2616,7 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "SourceCode"
+                        text: "Github"
                         iconCharacter: "\uf0dd"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic");
@@ -2626,7 +2626,7 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "QueMusic网站(未推出)"
+                        text: "QueMusic Web（X）"
                         iconCharacter: "\uf0d7"
                         onClicked: {
                             Qt.openUrlExternally("example.com");
@@ -2636,7 +2636,7 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "Bug反馈"
+                        text: "Bug反馈/issue"
                         iconCharacter: "\uf06e"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic/issues");
@@ -2660,7 +2660,7 @@ Item {
                         anchors.centerIn: parent
                         color: Style.themes.fontColor
                         font.pixelSize: Style.settings.textmain
-                        text: "Copyright (c) 2025-2026 QueMusic Contributors"
+                        text: "Copyright (c) 2025-2026 QueMusic Contributors\n   本项目基于 Apache License 2.0 协议获得许可"
                     }
                 }
             }

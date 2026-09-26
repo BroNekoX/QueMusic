@@ -95,35 +95,6 @@ QString CoverHelper::currentCoverUrl() const
     return m_currentCoverUrl;
 }
 
-QString CoverHelper::convertVariantToUrl(const QVariant &imageVariant)
-{
-    QImage image = toImage(imageVariant);
-    if (image.isNull()) {
-        setCoverUrl(QString());
-        return QString();
-    }
-
-    if (qMax(image.width(), image.height()) > kMaxCoverSize)
-        image = image.scaled(kMaxCoverSize, kMaxCoverSize, Qt::KeepAspectRatio,
-                             Qt::FastTransformation);
-
-    // 按像素内容命名，重复播放直接命中缓存
-    const QImage fingerprint = image.convertToFormat(QImage::Format_ARGB32);
-    const QString fileName = QString::number(
-        qHashBits(fingerprint.constBits(), size_t(fingerprint.sizeInBytes())), 16)
-        + QStringLiteral(".png");
-    const QString path = m_cacheDir + QLatin1Char('/') + fileName;
-
-    if (!QFileInfo::exists(path) && !image.save(path, "PNG")) {
-        setCoverUrl(QString());
-        return QString();
-    }
-
-    const QString url = QUrl::fromLocalFile(path).toString();
-    setCoverUrl(url);
-    return url;
-}
-
 QString CoverHelper::findLocalCover(const QString &sourcePath)
 {
     if (sourcePath.isEmpty())
@@ -415,30 +386,35 @@ void CoverHelper::setCacheDir(const QString &path)
     setCoverUrl(QString());
 }
 
+// 放到线程池：启动时会调用一次，不能占着 UI 线程。
+// 按 mtime 从旧到新删，新写入的缓存排在最末，不会被误删。
 void CoverHelper::pruneCache(int maxMB)
 {
     if (maxMB <= 0)
         return;
-    QDir dir(m_cacheDir);
-    if (!dir.exists())
-        return;
+    const QString cacheDir = m_cacheDir;
+    QtConcurrent::run([cacheDir, maxMB] {
+        QDir dir(cacheDir);
+        if (!dir.exists())
+            return;
 
-    const qint64 limit = qint64(maxMB) * 1024 * 1024;
-    QMultiMap<qint64, QFileInfo> entries;
-    qint64 total = 0;
-    const QFileInfoList files = dir.entryInfoList(QDir::Files);
-    for (const QFileInfo &fi : files) {
-        total += fi.size();
-        entries.insert(fi.lastModified().toMSecsSinceEpoch(), fi);
-    }
+        const qint64 limit = qint64(maxMB) * 1024 * 1024;
+        QMultiMap<qint64, QFileInfo> entries;
+        qint64 total = 0;
+        const QFileInfoList files = dir.entryInfoList(QDir::Files);
+        for (const QFileInfo &fi : files) {
+            total += fi.size();
+            entries.insert(fi.lastModified().toMSecsSinceEpoch(), fi);
+        }
 
-    while (total > limit && !entries.isEmpty()) {
-        auto it = entries.begin();
-        const QFileInfo fi = it.value();
-        entries.erase(it);
-        total -= fi.size();
-        QFile::remove(fi.absoluteFilePath());
-    }
+        while (total > limit && !entries.isEmpty()) {
+            auto it = entries.begin();
+            const QFileInfo fi = it.value();
+            entries.erase(it);
+            total -= fi.size();
+            QFile::remove(fi.absoluteFilePath());
+        }
+    });
 }
 
 void CoverHelper::setCoverUrl(const QString &url)

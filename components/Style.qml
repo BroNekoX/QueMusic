@@ -14,7 +14,6 @@ QtObject {
     readonly property int animeDuration: settings.premiumAnime
         ? (settings.animeSpeed === 0 ? 480 : settings.animeSpeed === 2 ? 180 : 320)
         : 120
-    //readonly property var themes: darkis ? darkThemes[settings.color] : lightThemes[settings.color]
     onDarkisChanged: {
         Style.changeTheme();
     }

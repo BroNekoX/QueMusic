@@ -1,7 +1,14 @@
 #include "CustomFlow.h"
-#include <QQuickWindow>
-#include <QQmlEngine>
-#include <QDebug>
+
+namespace {
+
+// Repeater 自身也是 QQuickItem，但它只负责生成 delegate，不参与流式排布
+bool isFlowItem(QQuickItem *item)
+{
+    return !item->inherits("QQuickRepeater");
+}
+
+} // namespace
 
 CustomFlow::CustomFlow(QQuickItem *parent)
     : QQuickItem(parent)
@@ -35,6 +42,9 @@ void CustomFlow::componentComplete()
 {
     QQuickItem::componentComplete();
     m_complete = true;
+    const auto children = childItems();
+    for (auto *item : children)
+        trackItem(item);
     markDirty();
     polish();
 }
@@ -44,10 +54,51 @@ void CustomFlow::itemChange(ItemChange change, const ItemChangeData &data)
     QQuickItem::itemChange(change, data);
     if (!m_complete)
         return;
-    if (change == ItemChildAddedChange || change == ItemChildRemovedChange) {
+    switch (change) {
+    case ItemChildAddedChange:
+        trackItem(data.item);
         markDirty();
         polish();
+        break;
+    case ItemChildRemovedChange:
+        untrackItem(data.item);
+        markDirty();
+        polish();
+        break;
+    case ItemVisibleHasChanged:
+        markDirty();
+        polish();
+        break;
+    default:
+        break;
     }
+}
+
+// 子项宽高常常"先创建、后就绪"（逐字歌词的文本随字体与字号稍后落地），
+// 尺寸变化必须重排，否则首帧按 0 尺寸摊开的行会一直叠在一起
+void CustomFlow::trackItem(QQuickItem *item)
+{
+    if (!item || m_tracked.contains(item))
+        return;
+    m_tracked.insert(item);
+    connect(item, &QQuickItem::widthChanged, this, &CustomFlow::onChildChanged);
+    connect(item, &QQuickItem::heightChanged, this, &CustomFlow::onChildChanged);
+    connect(item, &QQuickItem::visibleChanged, this, &CustomFlow::onChildChanged);
+    connect(item, &QObject::destroyed, this, [this, item] { m_tracked.remove(item); });
+}
+
+void CustomFlow::untrackItem(QQuickItem *item)
+{
+    if (!item)
+        return;
+    m_tracked.remove(item);
+    disconnect(item, nullptr, this, nullptr);
+}
+
+void CustomFlow::onChildChanged()
+{
+    markDirty();
+    polish();
 }
 
 void CustomFlow::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry)
@@ -84,7 +135,7 @@ void CustomFlow::doLayout()
     QList<QQuickItem*> visibleChildren;
     visibleChildren.reserve(children.size());
     for (auto *item : children) {
-        if (item->isVisible())
+        if (isFlowItem(item) && item->isVisible())
             visibleChildren.append(item);
     }
 

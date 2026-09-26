@@ -3,6 +3,8 @@
 
 #include "QueueModel.h"
 
+#include <QSet>
+
 // 继承QListModel自定义
 QueueModel::QueueModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -64,6 +66,34 @@ QVariantMap QueueModel::get(int index) const
 void QueueModel::append(const QVariantMap &item)
 {
     insert(m_items.size(), item);
+}
+
+int QueueModel::appendBatch(const QVariantList &items)
+{
+    if (items.isEmpty())
+        return 0;
+
+    QVector<Track> tracks;
+    tracks.reserve(items.size());
+    QSet<QString> seen;
+    for (const QVariant &entry : items) {
+        const Track t = toTrack(entry.toMap());
+        if (t.path.isEmpty() || m_indexOfPath.contains(t.path) || seen.contains(t.path))
+            continue;
+        seen.insert(t.path);
+        tracks.append(t);
+    }
+    if (tracks.isEmpty())
+        return 0;
+
+    const int first = m_items.size();
+    beginInsertRows(QModelIndex(), first, first + tracks.size() - 1);
+    m_items += tracks;
+    for (int i = 0; i < tracks.size(); ++i)
+        m_indexOfPath.insert(tracks.at(i).path, first + i);
+    endInsertRows();
+    emit countChanged();
+    return tracks.size();
 }
 
 void QueueModel::insert(int index, const QVariantMap &item)

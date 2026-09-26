@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-// 窗口控制：最小化 / 全屏 / 关闭（几何图形绘制，不依赖私有区字形）
+// 窗口控制：最小化 / 全屏切换（Esc 或系统关闭键退出沉浸中心）喵~
 import QtQuick
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
@@ -14,25 +14,28 @@ Row {
 
     SButton {
         iconCharacter: "\uf055"
-        width: 40
-        height: 40
-        radius: 12
-        buttonColor: "transparent"
-        iconColor: "#fcfdff"
-        iconSize: 20
+        width: 38
+        height: 38
+        radius: 19
+        buttonColor: "#14ffffff"
+        hoverColor: "#24ffffff"
+        iconColor: "#dfe6f0"
+        iconSize: 18
         shadowEnabled: false
-        tipText: "Account"
+        onClicked: root.minimize()
+        tipText: "最小化"
     }
     SButton {
         iconCharacter: "\uf07a"
-        width: 40
-        height: 40
-        radius: 12
+        width: 38
+        height: 38
+        radius: 19
         buttonColor: "transparent"
-        iconColor: "#fcfdff"
-        iconSize: 20
+        hoverColor: "#1affffff"
+        iconColor: "#dfe6f0"
+        iconSize: 18
         shadowEnabled: false
-        onClicked: root.toggleFull();
+        onClicked: root.toggleFull()
         tipText: "全屏"
     }
 }

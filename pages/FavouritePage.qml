@@ -73,7 +73,7 @@ Item {
         y: 68
         width: parent.width - 48
         height: parent.height - 68
-        pageList: [songs,lists,local,singer,history]
+        pageList: [songsLoader,listsLoader,local,singer,historyLoader]
 
         // 顶部常驻显示
         Item {
@@ -151,108 +151,95 @@ Item {
             }
         }
 
-        QListView {
-            id: songs
-            width: favouriteChildPage.width + 16
-            height: favouriteChildPage.height
-            model: songSort
-            clip: true
-            topMargin: 72
-            selectedIndices: favouritePage.chooseIndex
+        Loader {
+            id: songsLoader
+            asynchronous: true
+            active: visible
+            visible: true
+            sourceComponent: QListView {
+                id: songs
+                width: favouriteChildPage.width + 16
+                height: favouriteChildPage.height
+                model: songSort
+                clip: true
+                topMargin: 72
+                selectedIndices: favouritePage.chooseIndex
 
-            onClicked: (index) => {
-                if (favouritePage.setMode === 1) {
-                    const idx = favouritePage.chooseIndex.indexOf(index);
-                    if (idx === -1) {
-                        favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                onClicked: (index) => {
+                    if (favouritePage.setMode === 1) {
+                        const idx = favouritePage.chooseIndex.indexOf(index);
+                        if (idx === -1) {
+                            favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                        } else {
+                            favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                        }
                     } else {
-                        favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                        const r = songSort.at(index);
+                        MusicApi.getMusicInfo(r.id, 0, r.source);
                     }
-                } else {
-                    const r = songSort.at(index);
-                    MusicApi.getMusicInfo(r.id, 0, r.source);
                 }
-            }
-            onToolClicked: (index,tool) => {
-                const r = songSort.at(index);
-                switch(tool) {
-                case 0:
-                    if (playListModel.indexOfPath(r.id) === -1) {
-                        playListModel.append({ name: r.title, path: r.id, songer: r.artist, source: r.source });
-                        mainWarn.tiped("成功加入播放列表",1);
-                    }
-                    break;
-                case 1:
-                    FavoriteSongs.removeFavorite(r.id, "song");
-                    mainWarn.tiped("取消收藏",0);
+                Text {
+                    anchors.centerIn: parent
+                    visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
+                    text: "没有收藏的内容？快去收藏一些歌曲吧"
+                    color: Style.themes.textColor
+                    font.pixelSize: 14
                 }
-            }
-            onMenuClicked: (index,choice) => {
-                const r = songSort.at(index);
-                switch(choice) {
-                case 0:
-                    MusicApi.getMusicInfo(r.id,1,r.source);
-                    break;
-                }
-            }
-            Text {
-                anchors.centerIn: parent
-                visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
-                text: "没有收藏的内容？快去收藏一些歌曲吧"
-                color: Style.themes.textColor
-                font.pixelSize: 14
             }
         }
-        QListView {
-            id: lists
-            width: favouriteChildPage.width + 16
-            height: favouriteChildPage.height
-            model: listSort
-            clip: true
-            isList: true
-            topMargin: 72
+
+        Loader {
+            id: listsLoader
+            asynchronous: true
+            active: visible
             visible: false
-            selectedIndices: favouritePage.chooseIndex
+            sourceComponent: QListView {
+                id: lists
+                width: favouriteChildPage.width + 16
+                height: favouriteChildPage.height
+                //property bool built: visible
+                //onVisibleChanged: if (visible) built = true
+                //model: built ? listSort : null
+                model: listSort
+                clip: true
+                isList: true
+                topMargin: 72
+                selectedIndices: favouritePage.chooseIndex
 
-            onClicked: (index) => {
-                if (favouritePage.setMode === 1) {
-                    const idx = favouritePage.chooseIndex.indexOf(index);
-                    if (idx === -1) {
-                        favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                onClicked: (index) => {
+                    if (favouritePage.setMode === 1) {
+                        const idx = favouritePage.chooseIndex.indexOf(index);
+                        if (idx === -1) {
+                            favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
+                        } else {
+                            favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                        }
                     } else {
-                        favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                        const r = listSort.at(index);
+                        MusicApi.playlistSong.clear();
+                        MusicApi.globalid = r.id;
+                        MusicApi.getPlaylistSongs(r.id,1,20,r.source);
+                        playListSongsWindow.songSource = r.source;
+                        playListSongsWindow.opened({ id: r.id, title: r.title, artist: r.artist, cover: r.cover, duration: r.duration });
+                        window.exitIndex = 1;
                     }
-                } else {
-                    const r = listSort.at(index);
-                    MusicApi.playlistSong.clear();
-                    MusicApi.globalid = r.id;
-                    MusicApi.getPlaylistSongs(r.id,1,20,r.source);
-                    playListSongsWindow.songSource = r.source;
-                    playListSongsWindow.opened({ id: r.id, title: r.title, artist: r.artist, cover: r.cover, duration: r.duration });
-                    window.exitIndex = 1;
                 }
-            }
-            onToolClicked: (index,tool) => {
-                switch(tool) {
-                case 1:
-                    FavoritePlaylists.removeFavorite(listSort.at(index).id, "playlist");
-                    mainWarn.tiped("取消收藏",0);
+                AnimatedImage {
+                    anchors.centerIn: parent
+                    visible: FavoritePlaylists.loading
+                    playing: visible
+                    source: "qrc:/QueMusic/resources/loader.gif"
                 }
-            }
-            AnimatedImage {
-                anchors.centerIn: parent
-                visible: FavoritePlaylists.loading
-                playing: visible
-                source: "qrc:/QueMusic/resources/loader.gif"
-            }
-            Text {
-                anchors.centerIn: parent
-                visible: !FavoritePlaylists.loading && FavoritePlaylists.count === 0
-                text: "没有收藏的内容？快去收藏一些歌单吧"
-                color: Style.themes.textColor
-                font.pixelSize: 14
+                Text {
+                    anchors.centerIn: parent
+                    visible: !FavoritePlaylists.loading && FavoritePlaylists.count === 0
+                    text: "没有收藏的内容？快去收藏一些歌单吧"
+                    color: Style.themes.textColor
+                    font.pixelSize: 14
+                }
             }
         }
+
         Item {
             id: local
             visible: false
@@ -277,55 +264,62 @@ Item {
                 font.pixelSize: 14
             }
         }
-        QListView {
-            id: history
+
+        Loader {
+            id: historyLoader
+            asynchronous: true
+            active: visible
             visible: false
-            width: favouriteChildPage.width + 16
-            height: favouriteChildPage.height
-            model: Playback.history
-            clip: true
-            topMargin: 72
-            menuModel: ["加入播放列表", "收藏", "移除记录"]
-            toolText0: "\uf095"
-            toolText1: "\uf0c8"
+            sourceComponent: QListView {
+                id: history
+                //visible: false
+                width: favouriteChildPage.width + 16
+                height: favouriteChildPage.height
+                //property bool built: visible
+                //onVisibleChanged: if (visible) built = true
+                //model: built ? Playback.history : null
+                model: Playback.history
+                clip: true
+                topMargin: 72
+                menuModel: ["加入播放列表", "收藏", "移除记录"]
+                toolText0: "\uf095"
+                toolText1: "\uf0c8"
 
-            function addToQueue(e: var): void {
-                if (playListModel.indexOfPath(e.path) !== -1) return
-                playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
-                mainWarn.tiped("成功加入播放列表", 1)
-            }
-            function toggleFav(e: var): void {
-                if (e.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
-                if (FavoriteSongs.isFavorite(e.path, "song")) {
-                    FavoriteSongs.removeFavorite(e.path, "song")
-                    mainWarn.tiped("取消收藏", 0)
-                } else {
-                    FavoriteSongs.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
-                    mainWarn.tiped("成功收藏", 1)
+                function addToQueue(e: var): void {
+                    if (playListModel.indexOfPath(e.path) !== -1) return
+                    playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                    mainWarn.tiped("已加入播放列表", 1)
                 }
-            }
+                function toggleFav(e: var): void {
+                    if (e.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
+                    if (FavoriteSongs.isFavorite(e.path, "song")) {
+                        FavoriteSongs.removeFavorite(e.path, "song")
+                        mainWarn.tiped("已取消收藏", 0)
+                    } else {
+                        FavoriteSongs.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
+                        mainWarn.tiped("已收藏", 1)
+                    }
+                }
 
-            onClicked: (index) => {
-                const e = Playback.history.get(index)
-                Playback.playItem({ name: e.title, path: e.path, songer: e.artist, source: e.source })
-            }
-            onToolClicked: (index, tool) => {
-                const e = Playback.history.get(index)
-                if (tool === 0) history.addToQueue(e)
-                else history.toggleFav(e)
-            }
-            onMenuClicked: (index, choice) => {
-                const e = Playback.history.get(index)
-                if (choice === 0) history.addToQueue(e)
-                else if (choice === 1) history.toggleFav(e)
-                else Playback.history.remove(index, 1)
-            }
-            Text {
-                anchors.centerIn: parent
-                visible: Playback.history.count === 0
-                text: "还没有播放记录，去听点什么吧"
-                color: Style.themes.textColor
-                font.pixelSize: 14
+                onClicked: (index) => {
+                    const e = Playback.history.get(index)
+                    Playback.playItem({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                }
+                // 记录列表有专属菜单项（移除记录），其余动作仍走内置实现
+                menuHandler: function(choice: int, index: int): bool {
+                    const e = Playback.history.get(index)
+                    if (choice === 0) { history.addToQueue(e); return true }
+                    if (choice === 1) { history.toggleFav(e); return true }
+                    Playback.history.remove(index, 1)
+                    return true
+                }
+                Text {
+                    anchors.centerIn: parent
+                    visible: Playback.history.count === 0
+                    text: "还没有播放记录，去听点什么吧"
+                    color: Style.themes.textColor
+                    font.pixelSize: 14
+                }
             }
         }
 
@@ -384,24 +378,29 @@ Item {
                     onClicked: {
                         switch(favouritePage.setMode) {
                         case 1:
-                            globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌曲",
+                            globalDialog.openSimpleDialog("取消收藏",
+                                "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 首歌曲",
                                 function() {
-                                    for(var i=0;i<favouritePage.chooseIndex.length;i++) {
+                                    // 先记下数量：下面清空 chooseIndex 后就读不到了
+                                    const total = favouritePage.chooseIndex.length;
+                                    for(var i = 0; i < total; i++) {
                                         FavoriteSongs.removeFavorite(songSort.at(favouritePage.chooseIndex[i]).id, "song");
                                     }
                                     favouritePage.chooseIndex = [];
-                                    Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌曲",1);
+                                    Style.warned("已取消收藏 " + total + " 首歌曲", 1);
                                 }
                             );
                             break;
                         case 2:
-                            globalDialog.openSimpleDialog("取消收藏", "这将取消收藏这些歌单",
+                            globalDialog.openSimpleDialog("取消收藏",
+                                "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 个歌单",
                                 function() {
-                                    for(var i=0;i<favouritePage.chooseIndex.length;i++) {
+                                    const total = favouritePage.chooseIndex.length;
+                                    for(var i = 0; i < total; i++) {
                                         FavoritePlaylists.removeFavorite(listSort.at(favouritePage.chooseIndex[i]).id, "playlist");
                                     }
                                     favouritePage.chooseIndex = [];
-                                    Style.warned("成功取消" + favouritePage.chooseIndex.length + "个收藏歌单",1);
+                                    Style.warned("已取消收藏 " + total + " 个歌单", 1);
                                 }
                             );
                             break;
@@ -423,7 +422,7 @@ Item {
                                 const fav = songSort.at(favouritePage.chooseIndex[a]);
                                 if (playListModel.indexOfPath(fav.id) === -1) {
                                     playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
-                                    mainWarn.tiped("成功加入播放列表",1);
+                                    mainWarn.tiped("已加入播放列表", 1);
                                 }
                             }
                             break;
@@ -474,25 +473,6 @@ Item {
                         MusicApi.getMusicInfo(model.get(index).hashhq,0,playListSongsWindow.songSource);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq,0,playListSongsWindow.songSource);
-                    }
-                }
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 0:
-                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: playListSongsWindow.songSource });
-                            mainWarn.tiped("成功加入播放列表",1);
-                        }
-                        break;
-                    case 1:
-                        if (FavoriteSongs.isFavorite(model.get(index).hash, "song")) {
-                            FavoriteSongs.removeFavorite(model.get(index).hash, "song");
-                            mainWarn.tiped("取消收藏",0);
-                        } else {
-                            FavoriteSongs.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, playListSongsWindow.songSource, model.get(index).duration, "song");
-                            mainWarn.tiped("成功收藏",1);
-                        }
-                        break;
                     }
                 }
 

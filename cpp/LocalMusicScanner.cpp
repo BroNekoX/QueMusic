@@ -12,7 +12,6 @@
 #include <QMetaObject>
 #include <QSet>
 #include <QStandardPaths>
-#include <QTimer>
 #include <QUrl>
 #include <algorithm>
 
@@ -32,6 +31,7 @@ QString toLocalPath(const QString &raw)
 void LocalScanWorker::run()
 {
     cancel.store(false);
+    m_index.clear();
     const QString path = folder;
     if (path.isEmpty()) {
         emit failed(generation.load(), QStringLiteral("empty folder"));
@@ -81,6 +81,8 @@ void LocalScanWorker::run()
         break;
     }
     emit finished(generation.load(), list);
+    // 先按文件名交出搜索副本，扫描一结束就能搜
+    m_index = list;
 
     // 元数据富集：与扫描同线程，逐文件一次 TagLib 打开（title/artist/cover 共享），
     // 按 50 个一批回传，UI 侧渐进刷新行数据
@@ -101,7 +103,41 @@ void LocalScanWorker::run()
             emit progress(gen, i + 1);
         }
     }
+    // 富集完成后再交一次，此时 title/artist 也可搜
+    m_index = list;
     emit enrichDone(gen, total);
+}
+
+// worker 线程执行；分批 emit 让 UI 边收边显示
+void LocalScanWorker::search(const QString &needle, quint64 searchGeneration)
+{
+    const int total = m_index.size();
+    if (needle.isEmpty() || total == 0) {
+        emit searchDone(searchGeneration, 0);
+        return;
+    }
+
+    constexpr int kChunk = 512;
+    QList<int> batch;
+    batch.reserve(kChunk);
+    int hits = 0;
+    for (int i = 0; i < total; ++i) {
+        const LocalFileEntry &e = m_index.at(i);
+        if (!e.name.contains(needle, Qt::CaseInsensitive)
+                && !e.title.contains(needle, Qt::CaseInsensitive)
+                && !e.artist.contains(needle, Qt::CaseInsensitive)) {
+            continue;
+        }
+        batch.append(i);
+        ++hits;
+        if (batch.size() >= kChunk) {
+            emit searchBatch(searchGeneration, batch);
+            batch.clear();
+        }
+    }
+    if (!batch.isEmpty())
+        emit searchBatch(searchGeneration, batch);
+    emit searchDone(searchGeneration, hits);
 }
 
 // 不检查 cancel：删除是用户确认过的操作，中途被取消会出现「删一半」
@@ -127,6 +163,21 @@ void LocalScanWorker::deleteFiles(const QStringList &paths)
         ++processed;
         emit deleteProgress(generation.load(), processed, total);
     }
+
+    // 同步收缩索引：UI 侧按同样规则摘行，下标必须继续对齐
+    if (!removed.isEmpty()) {
+        QSet<QString> targets;
+        for (const QString &path : removed)
+            targets.insert(path);
+        QList<LocalFileEntry> kept;
+        kept.reserve(m_index.size());
+        for (const LocalFileEntry &entry : m_index) {
+            if (!targets.contains(entry.path))
+                kept.append(entry);
+        }
+        m_index = std::move(kept);
+    }
+
     emit deleteFinished(generation.load(), removed, failed);
 }
 
@@ -134,6 +185,7 @@ LocalMusicScanner::LocalMusicScanner(QObject *parent)
     : QAbstractListModel(parent)
 {
     qRegisterMetaType<QList<LocalFileEntry>>("QList<LocalFileEntry>");
+    qRegisterMetaType<QList<int>>("QList<int>");
 
     m_worker = new LocalScanWorker;
     m_worker->moveToThread(&m_thread);
@@ -145,10 +197,9 @@ LocalMusicScanner::LocalMusicScanner(QObject *parent)
                                              SearchResultModel::TitleRole,
                                              SearchResultModel::ArtistRole,
                                              SearchResultModel::CoverUrlRole}, this);
-    m_searchTimer = new QTimer(this);
-    m_searchTimer->setInterval(0);
-    connect(m_searchTimer, &QTimer::timeout, this, &LocalMusicScanner::searchStep);
 
+    connect(m_worker, &LocalScanWorker::searchBatch, this, &LocalMusicScanner::onWorkerSearchBatch);
+    connect(m_worker, &LocalScanWorker::searchDone, this, &LocalMusicScanner::onWorkerSearchDone);
     connect(m_worker, &LocalScanWorker::progress, this, &LocalMusicScanner::onWorkerProgress);
     connect(m_worker, &LocalScanWorker::finished, this, &LocalMusicScanner::onWorkerFinished);
     connect(m_worker, &LocalScanWorker::enriched, this, &LocalMusicScanner::onWorkerEnriched);
@@ -353,64 +404,73 @@ void LocalMusicScanner::startSearch(const QString &text)
 {
     m_searchText = text.trimmed();
     m_searchResults->clearRows();
-    m_searchPos = 0;
+
     if (m_searchText.isEmpty()) {
+        m_searchGeneration.fetch_add(1);
         if (m_searchActive) {
             m_searchActive = false;
             emit searchActiveChanged();
         }
-        m_searchTimer->stop();
         emit searchFinished(0);
         return;
     }
+
     if (!m_searchActive) {
         m_searchActive = true;
         emit searchActiveChanged();
     }
-    m_searchTimer->start();
+
+    const quint64 searchGeneration = m_searchGeneration.fetch_add(1) + 1;
+    const QString needle = m_searchText;
+    LocalScanWorker *worker = m_worker;
+    // 匹配丢给扫描线程；旧结果靠 generation 失效
+    QMetaObject::invokeMethod(worker, [worker, needle, searchGeneration] {
+        worker->search(needle, searchGeneration);
+    }, Qt::QueuedConnection);
 }
 
 void LocalMusicScanner::clearSearch()
 {
-    m_searchTimer->stop();
+    m_searchGeneration.fetch_add(1);
     m_searchText.clear();
     m_searchResults->clearRows();
-    m_searchPos = 0;
     if (m_searchActive) {
         m_searchActive = false;
         emit searchActiveChanged();
     }
 }
 
-void LocalMusicScanner::searchStep()
+void LocalMusicScanner::onWorkerSearchBatch(quint64 searchGeneration, const QList<int> &rows)
 {
-    const int chunk = 400;
-    const int total = m_entries.size();
-    const QString needle = m_searchText;
+    if (searchGeneration != m_searchGeneration.load())
+        return;
+
     QList<SearchResultModel::Row> batch;
-    for (int i = 0; i < chunk && m_searchPos < total; ++m_searchPos, ++i) {
-        const LocalFileEntry &e = m_entries.at(m_searchPos);
-        if (e.name.contains(needle, Qt::CaseInsensitive)
-                || e.title.contains(needle, Qt::CaseInsensitive)
-                || e.artist.contains(needle, Qt::CaseInsensitive)) {
-            SearchResultModel::Row row;
-            row.name = e.name;
-            row.path = e.path;
-            row.fileUrl = QUrl::fromLocalFile(e.path);
-            row.size = e.size;
-            row.modified = e.modified;
-            row.title = e.title;
-            row.artist = e.artist;
-            row.coverUrl = e.coverUrl;
-            batch.append(row);
-        }
+    batch.reserve(rows.size());
+    for (int i : rows) {
+        if (i < 0 || i >= m_entries.size())
+            continue;
+        const LocalFileEntry &e = m_entries.at(i);
+        SearchResultModel::Row row;
+        row.name = e.name;
+        row.path = e.path;
+        row.fileUrl = QUrl::fromLocalFile(e.path);
+        row.size = e.size;
+        row.modified = e.modified;
+        row.title = e.title;
+        row.artist = e.artist;
+        row.coverUrl = e.coverUrl;
+        batch.append(row);
     }
     if (!batch.isEmpty())
         m_searchResults->appendBatch(batch);
-    if (m_searchPos >= total) {
-        m_searchTimer->stop();
-        emit searchFinished(m_searchResults->rowCount());
-    }
+}
+
+void LocalMusicScanner::onWorkerSearchDone(quint64 searchGeneration, int total)
+{
+    if (searchGeneration != m_searchGeneration.load())
+        return;
+    emit searchFinished(total);
 }
 
 void LocalMusicScanner::onWorkerProgress(quint64 gen, int count)

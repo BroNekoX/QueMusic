@@ -45,16 +45,31 @@ Item {
             }
         }
 
-        QListView {
+        Rectangle {
             width: parent.width
             height: parent.height - 52
             visible: page.searchTab === 0 || page.searchTab === 3
-            model: MusicApi.searchSongsResults
-            toolText0: "\uf095"
-            toolText1: "\uf0c8"
-            onClicked: i => center.playOnline(MusicApi.searchSongsResults.get(i))
-            onToolClicked: (i, tool) => center.toolAction(tool, MusicApi.searchSongsResults.get(i))
-            onMenuClicked: (i, choice) => center.menuAction(choice, MusicApi.searchSongsResults.get(i))
+            radius: 22
+            color: Style.themes.primaryColor
+            border.width: 1
+            border.color: "#12ffffff"
+            QListView {
+                anchors.fill: parent
+                anchors.margins: 8
+                model: MusicApi.searchSongsResults
+                toolText0: "\uf095"
+                toolText1: "\uf0c8"
+                onClicked: i => center.playOnline(MusicApi.searchSongsResults.get(i))
+                onEnded: {
+                    if (MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
+                        MusicApi.searchSongs(page.searchKey, page.searchTab,
+                                             MusicApi.searchSongsResults.count / 20 + 1, 20)
+                        isEnd = false
+                    } else if (MusicApi.searchSongsResults.count !== 0) {
+                        isEnd = true
+                    }
+                }
+            }
         }
 
         CenterGrid {
@@ -68,23 +83,29 @@ Item {
     }
 
     CenterDetail {
+        id: detail
         width: parent.width
         height: parent.height
+        blurSource: mainLayout
         opened: page.detailOpen
         title: page.detailTitle
         cover: page.detailCover
         onCloseClicked: page.detailOpen = false
         onPicked: (i, d) => center.playOnline(d)
-        onQueued: (i, d) => center.enqueue(d)
-        onFaved: (i, d) => center.toggleFavorite(d)
-        onDownloaded: (i, d) => center.download(d)
     }
 
     function openList(d: var): void {
         page.detailTitle = d.title || "歌单"
         page.detailCover = center.coverOf(d.cover)
         MusicApi.playlistSong.clear()
-        MusicApi.getPlaylistSongs(d.hash, 1, 50)
+        MusicApi.getPlaylistSongs(d.hash, 1, detail.pageSize)
+        detail.loadMore = function(): boolean {
+            const c = MusicApi.playlistSong.count
+            if (c === 0 || c % detail.pageSize !== 0)
+                return false
+            MusicApi.getPlaylistSongs(d.hash, c / detail.pageSize + 1, detail.pageSize)
+            return true
+        }
         page.detailOpen = true
     }
     function switchTab(index: int): void {
@@ -92,6 +113,6 @@ Item {
         MusicApi.searchSongsResults.clear()
         MusicApi.nowIndex = index
         if (center.searchKey !== "")
-            MusicApi.searchSongs(center.searchKey, index, 1, 30)
+            MusicApi.searchSongs(center.searchKey, index, 1, 20)
     }
 }

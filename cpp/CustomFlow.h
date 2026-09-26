@@ -2,6 +2,7 @@
 #define CUSTOMFLOW_H
 
 #include <QQuickItem>
+#include <QSet>
 #include <QtQml/qqml.h>
 
 class CustomFlow : public QQuickItem
@@ -41,12 +42,16 @@ protected:
 private:
     void doLayout();
     void markDirty();
+    void trackItem(QQuickItem *item);
+    void untrackItem(QQuickItem *item);
+    void onChildChanged();
 
 private:
     double m_spacing = 0.0;
     Alignment m_alignment = AlignLeft;
     bool m_complete = false;
     bool m_dirty = true;
+    QSet<QQuickItem *> m_tracked;
 };
 
 #endif // CUSTOMFLOW_H

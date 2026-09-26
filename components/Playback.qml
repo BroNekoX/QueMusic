@@ -45,12 +45,27 @@ QtObject {
         goTo(cur > 0 ? cur - 1 : count - 1)
     }
 
-    // 播放一首曲目：已在队列则直接跳转，否则追加到队尾
+    // 追加到队尾；已在队列返回 false
+    function enqueue(item: var): bool {
+        if (!queue || !item || !item.path || indexOfPath(item.path) !== -1) return false
+        queue.append({ name: item.name, path: item.path, songer: item.songer, source: item.source })
+        return true
+    }
+
+    // 插到当前曲目之后；没有当前曲目时追加到队尾
+    function playNext(item: var): void {
+        if (!queue || !item || !item.path) return
+        const at = queue.playListIndex + 1
+        queue.insert(at <= 0 ? count : at,
+                     { name: item.name, path: item.path, songer: item.songer, source: item.source })
+    }
+
+    // 已在队列则直接跳转，否则追加到队尾再起播
     function playItem(item: var): void {
         if (!queue || !item || !item.path) return
         let i = indexOfPath(item.path)
         if (i < 0) {
-            queue.append({ name: item.name, path: item.path, songer: item.songer, source: item.source })
+            if (!enqueue(item)) return
             i = count - 1
         }
         goTo(i)
@@ -68,7 +83,7 @@ QtObject {
         if (queue.playListIndex < 0 || count === 0 || !musicTitle) return
         const e = queue.get(queue.playListIndex)
         pushHistory({ title: musicTitle, artist: musicArtist, path: e.path, source: e.source,
-                      cover: mainMedia.urlStr || "",
+                      cover: player.urlStr || "",
                       duration: player ? Math.floor(player.duration / 1000) : 0, time: Date.now() })
     }
 

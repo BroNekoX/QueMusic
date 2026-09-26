@@ -165,6 +165,7 @@ Window {
             y: 12
             height: 36
             width: desktopLyricsWindow.width / 2 - 80
+            elide: Text.ElideRight
             text: Playback.musicTitle + " - " + Playback.musicArtist
             verticalAlignment: Text.AlignVCenter
             color: "#fffafafa"

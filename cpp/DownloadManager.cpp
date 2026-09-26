@@ -175,29 +175,6 @@ void DownloadManager::removeTask(int taskId)
     }
 }
 
-void DownloadManager::clearCompleted()
-{
-    // 找出所有已完成/错误的任务索引
-    QList<int> toRemove;
-    for (int i = 0; i < m_tasks.size(); ++i) {
-        if (m_tasks[i].status == DownloadTask::Completed ||
-            m_tasks[i].status == DownloadTask::Error) {
-            toRemove.prepend(i);
-        }
-    }
-
-    for (int idx : toRemove) {
-        beginRemoveRows(QModelIndex(), idx, idx);
-        m_tasks.removeAt(idx);
-        endRemoveRows();
-    }
-
-    if (!toRemove.isEmpty()) {
-        emit taskCountChanged();
-        emit completedCountChanged();
-    }
-}
-
 void DownloadManager::cancelCurrent()
 {
     if (m_currentTaskId >= 0) {

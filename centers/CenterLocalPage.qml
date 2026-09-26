@@ -4,6 +4,7 @@
 // 本地模型只有 name/singer/path，没有 cover/title，故用轻量 CenterList
 import QtQuick
 import QueMusic 1.0
+import 'qrc:/QueMusic/components'
 
 Item {
     id: page
@@ -30,11 +31,19 @@ Item {
                 color: "#f5f7fb"
                 verticalAlignment: Text.AlignVCenter
             }
-            CenterList {
+            Rectangle {
                 width: parent.width
                 height: 190
-                model: MyFolders
-                onPicked: (i, d) => page.loadFolder(d.folderId)
+                radius: 18
+                color: Style.themes.primaryColor
+                border.width: 1
+                border.color: "#12ffffff"
+                CenterList {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    model: MyFolders
+                    onPicked: (i, d) => page.loadFolder(d.folderId)
+                }
             }
             Text {
                 width: parent.width
@@ -45,11 +54,19 @@ Item {
                 color: "#f5f7fb"
                 verticalAlignment: Text.AlignVCenter
             }
-            CenterList {
+            Rectangle {
                 width: parent.width
                 height: parent.height - 276
-                model: LocalFolders
-                onPicked: (i, d) => page.loadFolder(d.folderId)
+                radius: 18
+                color: Style.themes.primaryColor
+                border.width: 1
+                border.color: "#12ffffff"
+                CenterList {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    model: LocalFolders
+                    onPicked: (i, d) => page.loadFolder(d.folderId)
+                }
             }
         }
         Column {
@@ -65,11 +82,19 @@ Item {
                 color: "#f5f7fb"
                 verticalAlignment: Text.AlignVCenter
             }
-            CenterList {
+            Rectangle {
                 width: parent.width
                 height: parent.height - 34
-                model: Songs
-                onPicked: (i, d) => center.playLocal(d.path, d.name)
+                radius: 18
+                color: Style.themes.primaryColor
+                border.width: 1
+                border.color: "#12ffffff"
+                CenterList {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    model: Songs
+                    onPicked: (i, d) => center.playLocal(d.path, d.name)
+                }
             }
         }
     }

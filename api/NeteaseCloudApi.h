@@ -33,7 +33,6 @@ public slots:
     void setCookie(const QString &cookie); // 同步 AccountManager 的网易云登录态
     void searchSongs(const QString &keyword, int type, int page, int pageSize);
     void getPlaylistMenu(int type);
-    void getMenuInfo(const QString &id);
     void getMusicPlaylists(const QString &tagid, int page, int pageSize);
     void getPlaylistSongs(const QString &listid, int page, int pageSize);
     void getRecommendSongs(int page, int pageSize);

@@ -20,8 +20,20 @@
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
 
+#include <attachedpictureframe.h>
+#include <audioproperties.h>
 #include <fileref.h>
+#include <flacfile.h>
+#include <flacpicture.h>
+#include <id3v2tag.h>
+#include <mp4coverart.h>
+#include <mp4file.h>
+#include <mp4tag.h>
+#include <mpegfile.h>
 #include <tag.h>
+#include <tbytevector.h>
+#include <tfile.h>
+#include <tpropertymap.h>
 #include <tstring.h>
 
 namespace {
@@ -44,6 +56,78 @@ QString firstNonEmpty(const QVariantMap &m, std::initializer_list<const char *> 
 QString tagString(const TagLib::String &value)
 {
     return QString::fromUtf8(value.toCString(true));
+}
+
+// file:// URL 与纯路径统一归一成磁盘路径
+QString localPath(const QString &filePath)
+{
+    const QString path = QUrl::fromUserInput(filePath).toLocalFile();
+    return path.isEmpty() ? filePath : path;
+}
+
+TagLib::ByteVector toByteVector(const QByteArray &data)
+{
+    return TagLib::ByteVector(data.constData(), size_t(data.size()));
+}
+
+TagLib::String toTagString(const QString &text)
+{
+    return TagLib::String(text.toUtf8().constData(), TagLib::String::UTF8);
+}
+
+QString imageMime(const QByteArray &data)
+{
+    if (data.startsWith(QByteArrayLiteral("\x89PNG")))
+        return QStringLiteral("image/png");
+    if (data.startsWith(QByteArrayLiteral("GIF8")))
+        return QStringLiteral("image/gif");
+    if (data.startsWith(QByteArrayLiteral("BM")))
+        return QStringLiteral("image/bmp");
+    return QStringLiteral("image/jpeg");
+}
+
+// MP3(APIC) / FLAC(Picture) / MP4(covr)，其余容器忽略
+bool embedCover(TagLib::File *file, const QByteArray &data)
+{
+    const QString mime = imageMime(data);
+    if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(file)) {
+        TagLib::ID3v2::Tag *tag = mpeg->ID3v2Tag(true);
+        if (tag == nullptr)
+            return false;
+        tag->removeFrames("APIC");
+        auto *frame = new TagLib::ID3v2::AttachedPictureFrame;
+        frame->setMimeType(toTagString(mime));
+        frame->setType(TagLib::ID3v2::AttachedPictureFrame::FrontCover);
+        frame->setPicture(toByteVector(data));
+        tag->addFrame(frame);
+        return true;
+    }
+    if (auto *flac = dynamic_cast<TagLib::FLAC::File *>(file)) {
+        flac->removePictures();
+        auto *picture = new TagLib::FLAC::Picture;
+        picture->setMimeType(toTagString(mime));
+        picture->setType(TagLib::FLAC::Picture::FrontCover);
+        picture->setData(toByteVector(data));
+        flac->addPicture(picture);
+        return true;
+    }
+    if (auto *mp4 = dynamic_cast<TagLib::MP4::File *>(file)) {
+        TagLib::MP4::Tag *tag = mp4->tag();
+        if (tag == nullptr)
+            return false;
+        auto format = TagLib::MP4::CoverArt::JPEG;
+        if (mime == QLatin1String("image/png"))
+            format = TagLib::MP4::CoverArt::PNG;
+        else if (mime == QLatin1String("image/gif"))
+            format = TagLib::MP4::CoverArt::GIF;
+        else if (mime == QLatin1String("image/bmp"))
+            format = TagLib::MP4::CoverArt::BMP;
+        TagLib::MP4::CoverArtList covers;
+        covers.append(TagLib::MP4::CoverArt(format, toByteVector(data)));
+        tag->setItem("covr", covers);
+        return true;
+    }
+    return false;
 }
 } // namespace
 
@@ -272,17 +356,25 @@ void MusicApiService::getPlaylistMenu(int type, int source)
     DISPATCH(source, getPlaylistMenu(type));
 }
 
-void MusicApiService::getMenuInfo(const QString &id, int source)
-{
-    setLoadState(true);
-    DISPATCH(source, getMenuInfo(id));
-}
-
 void MusicApiService::getMusicPlaylists(const QString &tagid, int page, int pageSize,
                                         int source)
 {
     setLoadState(true);
     DISPATCH(source, getMusicPlaylists(tagid, page, pageSize));
+}
+
+// 分类页的歌单（酷狗走 category/special，与首页热门分类卡片的 tag 体系不同源）
+void MusicApiService::getCategoryPlaylists(const QString &id, int page, int pageSize, int source)
+{
+    setLoadState(true);
+    const int resolved = resolve(source);
+    syncSource(resolved);
+    if (resolved == kSourceKugou)
+        m_kugou.getCategoryPlaylists(id, page, pageSize);
+    else if (resolved == kSourceNetease)
+        m_netease.getMusicPlaylists(id, page, pageSize);   // 菜单里的 id 即分类名(cat)
+    else
+        m_bilibili.getMusicPlaylists(id, page, pageSize);
 }
 
 void MusicApiService::getPlaylistSongs(const QString &listid, int page, int pageSize,
@@ -397,23 +489,6 @@ void MusicApiService::setLocalLyrics()
     setLyricsTranslate(QVariantList()); // 清空翻译，避免残留
 }
 
-QVariantMap MusicApiService::readLocalLyrics(const QString &filePath)
-{
-    return LocalLyricsReader::read(filePath);
-}
-
-bool MusicApiService::moveLocalFileToTrash(const QString &filePath)
-{
-    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
-    if (localPath.isEmpty())
-        localPath = filePath;
-
-    QFile f(localPath);
-    if (!f.exists())
-        return false;
-    return f.moveToTrash();
-}
-
 void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QString &title,
                                            const QString &artist, int duration,
                                            bool allowOnlineSearch)
@@ -496,11 +571,8 @@ QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
     if (filePath.isEmpty())
         return meta;
 
-    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
-    if (localPath.isEmpty())
-        localPath = filePath;
-
-    const QFileInfo fi(localPath);
+    const QString path = localPath(filePath);
+    const QFileInfo fi(path);
     const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
                              + fi.completeBaseName() + QStringLiteral(".json");
     if (QFileInfo::exists(jsonPath)) {
@@ -513,7 +585,7 @@ QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
     }
 
     // 无 .json 时读取音频内嵌 TAG，本地歌曲同样能拿到标题/歌手/歌词元数据
-    const QByteArray encodedPath = QFile::encodeName(localPath);
+    const QByteArray encodedPath = QFile::encodeName(path);
     TagLib::FileRef ref(encodedPath.constData(), false);
     if (ref.isNull() || ref.file() == nullptr)
         return meta;
@@ -528,18 +600,13 @@ QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
             meta.insert(QStringLiteral("album"), tagString(tag->album()));
     }
 
-    const QVariantMap lyricMap = LocalLyricsReader::read(localPath);
+    const QVariantMap lyricMap = LocalLyricsReader::read(path);
     if (lyricMap.value(QStringLiteral("found")).toBool()) {
         meta.insert(QStringLiteral("lyrics"), lyricMap.value(QStringLiteral("lyrics")));
         meta.insert(QStringLiteral("translate"), lyricMap.value(QStringLiteral("translate")));
     }
 
     return meta;
-}
-
-QVariantMap MusicApiService::readLocalMetadata(const QString &filePath)
-{
-    return readLocalMetadataBlocking(filePath);
 }
 
 void MusicApiService::readLocalMetadataAsync(const QString &filePath)
@@ -560,13 +627,11 @@ QString MusicApiService::readLocalCoverHint(const QString &filePath)
 {
     if (filePath.isEmpty())
         return QString();
-    QString localPath = QUrl::fromUserInput(filePath).toLocalFile();
-    if (localPath.isEmpty())
-        localPath = filePath;
-    if (auto it = m_coverHintCache.constFind(localPath); it != m_coverHintCache.constEnd())
+    const QString path = localPath(filePath);
+    if (auto it = m_coverHintCache.constFind(path); it != m_coverHintCache.constEnd())
         return it.value();
 
-    const QFileInfo fi(localPath);
+    const QFileInfo fi(path);
     const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
                              + fi.completeBaseName() + QStringLiteral(".json");
     QString hint;
@@ -575,8 +640,117 @@ QString MusicApiService::readLocalCoverHint(const QString &filePath)
         const QVariantMap meta = QJsonDocument::fromJson(f.readAll()).object().toVariantMap();
         hint = meta.value(QStringLiteral("cover")).toString();
     }
-    m_coverHintCache.insert(localPath, hint);
+    m_coverHintCache.insert(path, hint);
     return hint;
+}
+
+// 只读表头，毫秒级，可同步调用
+QVariantMap MusicApiService::readLocalAudioInfo(const QString &filePath)
+{
+    QVariantMap info;
+    const QString path = localPath(filePath);
+    if (path.isEmpty())
+        return info;
+
+    const QFileInfo fi(path);
+    info.insert(QStringLiteral("fileName"), fi.fileName());
+    info.insert(QStringLiteral("size"), fi.size());
+
+    const QByteArray encoded = QFile::encodeName(path);
+    TagLib::FileRef ref(encoded.constData());
+    info.insert(QStringLiteral("format"), fi.suffix().toUpper());
+    if (ref.isNull() || ref.file() == nullptr)
+        return info;
+
+    if (const TagLib::Tag *tag = ref.tag()) {
+        info.insert(QStringLiteral("title"), tagString(tag->title()));
+        info.insert(QStringLiteral("artist"), tagString(tag->artist()));
+        info.insert(QStringLiteral("album"), tagString(tag->album()));
+        info.insert(QStringLiteral("genre"), tagString(tag->genre()));
+        info.insert(QStringLiteral("year"), int(tag->year()));
+        info.insert(QStringLiteral("track"), int(tag->track()));
+    }
+    if (const TagLib::AudioProperties *ap = ref.audioProperties()) {
+        info.insert(QStringLiteral("duration"), ap->lengthInSeconds());
+        info.insert(QStringLiteral("bitrate"), ap->bitrate());
+        info.insert(QStringLiteral("sampleRate"), ap->sampleRate());
+        info.insert(QStringLiteral("channels"), ap->channels());
+    }
+    return info;
+}
+
+bool MusicApiService::writeLocalMetadataBlocking(const QString &filePath, const QVariantMap &meta)
+{
+    const QString path = localPath(filePath);
+    if (path.isEmpty() || !QFileInfo::exists(path))
+        return false;
+
+    const QByteArray encoded = QFile::encodeName(path);
+    TagLib::FileRef ref(encoded.constData());
+    if (ref.isNull() || ref.tag() == nullptr)
+        return false;
+
+    const auto tagged = [&meta](const char *key) {
+        return toTagString(meta.value(QLatin1String(key)).toString());
+    };
+    TagLib::Tag *tag = ref.tag();
+    tag->setTitle(tagged("title"));
+    tag->setArtist(tagged("artist"));
+    tag->setAlbum(tagged("album"));
+    tag->setGenre(tagged("genre"));
+    tag->setYear(meta.value(QStringLiteral("year")).toString().toUInt());
+    tag->setTrack(meta.value(QStringLiteral("track")).toString().toUInt());
+
+    // LYRICS 会映射到各容器对应字段（USLT / Vorbis LYRICS / ©lyr）。
+    // setProperties 会删掉表里没有的既有属性，所以必须先取出全部现有属性再替换。
+    const QString lyrics = meta.value(QStringLiteral("lyrics")).toString().trimmed();
+    if (!lyrics.isEmpty()) {
+        TagLib::PropertyMap props = ref.file()->properties();
+        props.replace("LYRICS", TagLib::StringList(toTagString(lyrics)));
+        ref.file()->setProperties(props);
+    }
+
+    const QString cover = meta.value(QStringLiteral("cover")).toString();
+    if (!cover.isEmpty()) {
+        QFile image(localPath(cover));
+        if (image.open(QIODevice::ReadOnly))
+            embedCover(ref.file(), image.readAll());
+    }
+    return ref.save();
+}
+
+// 同目录 .lrc 优先，其次内嵌
+QString MusicApiService::readLocalLyricsText(const QString &filePath)
+{
+    const QString path = localPath(filePath);
+    if (path.isEmpty())
+        return QString();
+
+    const QFileInfo fi(path);
+    QFile sidecar(fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName()
+                  + QStringLiteral(".lrc"));
+    if (sidecar.open(QIODevice::ReadOnly))
+        return QString::fromUtf8(sidecar.readAll());
+
+    const QByteArray encoded = QFile::encodeName(path);
+    TagLib::FileRef ref(encoded.constData(), false);
+    if (ref.isNull() || ref.file() == nullptr)
+        return QString();
+
+    TagLib::PropertyMap props = ref.file()->properties();
+    const TagLib::StringList values = props.value("LYRICS");
+    return values.isEmpty() ? QString() : tagString(values.front());
+}
+
+void MusicApiService::writeLocalMetadata(const QString &filePath, const QVariantMap &meta)
+{
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, filePath]() {
+        watcher->deleteLater();
+        emit localMetadataSaved(filePath, watcher->result());
+    });
+    watcher->setFuture(
+        QtConcurrent::run(&MusicApiService::writeLocalMetadataBlocking, filePath, meta));
 }
 
 // setter
@@ -586,14 +760,6 @@ void MusicApiService::setAllPlaylistMenu(const QVariant &v)
         return;
     m_allPlaylistMenu = v;
     emit allPlaylistMenuChanged();
-}
-
-void MusicApiService::setPlaylistmenuInfo(const QVariant &v)
-{
-    if (m_playlistmenuInfo == v)
-        return;
-    m_playlistmenuInfo = v;
-    emit playlistmenuInfoChanged();
 }
 
 void MusicApiService::setLyricsData(const QVariant &v)
@@ -777,33 +943,9 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
             menu << s;
         }
         setAllPlaylistMenu(menu);
-    } else if (action == QLatin1String("getMenuInfo")) {
-        setPlaylistmenuInfo(d);
-        // 收到分类信息后自动拉取该分类下的歌单
-        QVariant tid = d.value(QStringLiteral("special_tag_id"));
-        if (!tid.isValid() || tid.toString().isEmpty())
-            tid = d.value(QStringLiteral("tag_id"));
-        if (!tid.isValid() || tid.toString().isEmpty())
-            tid = d.value(QStringLiteral("tagid"));
-        if (!tid.isValid() || tid.toString().isEmpty())
-            return;
-        // 网易云 top_playlist 的 cat 参数需要分类名（而非数字 id），
-        // 从已缓存的分类列表 allPlaylistMenu 中按 id 反查分类名。
-        QString playlistArg = tid.toString();
-        if (source == 1) {
-            const QVariantList menu = m_allPlaylistMenu.toList();
-            for (const QVariant &v : menu) {
-                const QVariantMap it = v.toMap();
-                if (it.value(QStringLiteral("id")).toString() == tid.toString()) {
-                    playlistArg = it.value(QStringLiteral("title")).toString();
-                    break;
-                }
-            }
-            if (playlistArg.isEmpty())
-                playlistArg = tid.toString();
-        }
-        getMusicPlaylists(playlistArg, 1, 20, source);
     } else if (action == QLatin1String("getMusicPlaylists")) {
+        m_musicPlaylists.append(normalizeList(info));
+    } else if (action == QLatin1String("getCategoryPlaylists")) {
         m_musicPlaylists.append(normalizeList(info));
     } else if (action == QLatin1String("getPlaylistSongs")) {
         m_playlistSong.append(normalizeList(info));

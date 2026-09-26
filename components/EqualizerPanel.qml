@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 均衡器与音频处理面板：10 段参数均衡 + 声道工具 + ReplayGain + 限幅
+// 均衡器与音频处理面板：10 段参数均衡 + 声道工具 + ReplayGain + 限幅喵~
 import QtQuick
 import QtQuick.Effects
 import QueMusic 1.0
@@ -18,6 +18,7 @@ Column {
     readonly property int trackTop: 6
     readonly property int trackHeight: faderHeight - 40
     readonly property var sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
+    property int controlWidth: settingStack.standWidth
 
     QHead { width: panel.width; text: "均衡器与音频处理" }
 
@@ -80,6 +81,7 @@ Column {
             SettingItemCard {
                 label: "音频处理总开关"
                 tip: "关闭后全链直通，不做均衡/限幅/声道处理"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -94,6 +96,7 @@ Column {
             SettingItemCard {
                 label: "输出采样率"
                 tip: "设备默认时不重采样；改此项会重开输出并保留播放位置"
+                width: panel.controlWidth
                 controlItem: QDrop {
                     anchors.fill: parent
                     choice: panel.engine
@@ -109,17 +112,17 @@ Column {
 
             SettingItemCard {
                 label: "输出缓冲"
-                tip: "范围 10-200 ms，越小延迟越低；0 为自动（120 ms）"
+                tip: "范围 10-100 ms，越小延迟越低；默认 30 ms"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
-                    // 拖动过程中改缓冲会反复重开设备，只在松手时生效
                     live: false
-                    from: 0
-                    to: 200
+                    from: 10
+                    to: 100
                     stepSize: 10
                     leftText: true
-                    valueText: value === 0 ? "自动" : value + " ms"
-                    value: panel.engine ? panel.engine.bufferMs : 0
+                    valueText: value + " ms"
+                    value: panel.engine ? panel.engine.bufferMs : 30
                     onMoved: {
                         if (panel.engine)
                             panel.engine.bufferMs = value
@@ -130,6 +133,7 @@ Column {
             SettingItemCard {
                 label: "音高"
                 tip: "半音为单位，±12 半音（一个八度）；不影响播放速度"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -12
@@ -148,6 +152,7 @@ Column {
             SettingItemCard {
                 label: "启用均衡器"
                 tip: "10 段参数均衡，增益范围 ±24 dB"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -162,6 +167,7 @@ Column {
             SettingItemCard {
                 label: "预设"
                 tip: "套用后可直接微调各频段"
+                width: panel.controlWidth
                 controlItem: QDrop {
                     anchors.fill: parent
                     choice: 0
@@ -176,6 +182,7 @@ Column {
             SettingItemCard {
                 label: "前级增益"
                 tip: "整体电平补偿，避免 EQ 抬升后削波"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -24
@@ -194,6 +201,7 @@ Column {
             SettingItemCard {
                 label: "频段 Q 值"
                 tip: "越小过渡越平缓，越大越窄；影响全部频段"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: 0.3
@@ -212,6 +220,7 @@ Column {
             SettingItemCard {
                 label: "自动余量"
                 tip: "按 EQ 最大抬升量自动回退增益，降低削波风险"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -338,6 +347,7 @@ Column {
             SettingItemCard {
                 label: "重置"
                 tip: "所有频段归零并关闭均衡"
+                width: panel.controlWidth
                 bottomLine: false
                 controlItem: SButton {
                     anchors.fill: parent
@@ -372,6 +382,7 @@ Column {
             SettingItemCard {
                 label: "声道平衡"
                 tip: "左负右正，0 为居中"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -1
@@ -390,6 +401,7 @@ Column {
             SettingItemCard {
                 label: "立体声宽度"
                 tip: "0 为单声道叠加，1 为原始，2 为超宽"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: 0
@@ -408,6 +420,7 @@ Column {
             SettingItemCard {
                 label: "左声道增益"
                 tip: "仅作用于左声道"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -12
@@ -426,6 +439,7 @@ Column {
             SettingItemCard {
                 label: "右声道增益"
                 tip: "仅作用于右声道"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -12
@@ -444,6 +458,7 @@ Column {
             SettingItemCard {
                 label: "单声道"
                 tip: "左右声道叠加后同时输出"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -458,6 +473,7 @@ Column {
             SettingItemCard {
                 label: "交换声道"
                 tip: "左右对调，用于修正接反的音箱"
+                width: panel.controlWidth
                 bottomLine: false
                 controlItem: QSwitch {
                     anchors.fill: parent
@@ -487,6 +503,7 @@ Column {
             SettingItemCard {
                 label: "ReplayGain"
                 tip: "按标签增益归一化音量：关闭 / 单曲 / 专辑"
+                width: panel.controlWidth
                 controlItem: QDrop {
                     anchors.fill: parent
                     choice: panel.engine ? panel.engine.replayGainMode : 0
@@ -501,6 +518,7 @@ Column {
             SettingItemCard {
                 label: "ReplayGain 前级"
                 tip: "在标签增益基础上再整体增减"
+                width: panel.controlWidth
                 controlItem: QSlider {
                     anchors.fill: parent
                     from: -12
@@ -519,6 +537,7 @@ Column {
             SettingItemCard {
                 label: "削波保护"
                 tip: "按曲目峰值限制增益上限"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -533,6 +552,7 @@ Column {
             SettingItemCard {
                 label: "限幅器"
                 tip: "输出前的峰值保护，防止数字削波"
+                width: panel.controlWidth
                 controlItem: QSwitch {
                     anchors.fill: parent
                     letRight: true
@@ -547,6 +567,7 @@ Column {
             SettingItemCard {
                 label: "限幅阈值"
                 tip: "低于 0 dB 更安全，代价是整体响度略降"
+                width: panel.controlWidth
                 bottomLine: false
                 controlItem: QSlider {
                     anchors.fill: parent

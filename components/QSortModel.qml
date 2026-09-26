@@ -12,6 +12,8 @@ SortFilterProxyModel {
     property var options: []            // [{label, mode, desc}]，供菜单展示与回显
     property string nameRole: "name"
     property string artistRole: "artist"
+    // 以 var 持有源模型，才能探测它的取行接口
+    readonly property var sourceModel: root.model
 
     readonly property int menuIndex: {
         for (let i = 0; i < root.options.length; i++)
@@ -50,5 +52,13 @@ SortFilterProxyModel {
     onSortModeChanged: root.invalidateSorter()
     onSortDescChanged: root.invalidateSorter()
 
-    function at(i: int): var { return root.model.get(root.mapToSource(root.index(i, 0)).row) }
+    // 行取值：Favorites / SongModel 用 get(row)，SearchResultModel 用 getRow(row)
+    function get(i: int): var {
+        const s = sourceModel
+        if (!s || i < 0)
+            return null
+        const src = root.mapToSource(root.index(i, 0))
+        return src.valid ? (s.getRow ? s.getRow(src.row) : s.get(src.row)) : null
+    }
+    function at(i: int): var { return get(i) }
 }

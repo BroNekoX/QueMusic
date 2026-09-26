@@ -13,7 +13,7 @@ ListView {
     delegate: Item {
         id: row
         width: root.width
-        height: 44
+        height: 46
         required property int index
         readonly property var info: ({
             name: model.name, title: model.title, singer: model.singer, artist: model.artist,
@@ -23,10 +23,11 @@ ListView {
 
         Rectangle {
             anchors.fill: parent
-            radius: 10
-            color: "#ffffff"
-            opacity: area.containsMouse ? 0.10 : 0
-            Behavior on opacity { NumberAnimation { duration: 120 } }
+            radius: 12
+            color: area.containsMouse ? "#14ffffff" : "#08ffffff"
+            Behavior on color { ColorAnimation { duration: 140 } }
+            border.width: area.containsMouse ? 1 : 0
+            border.color: "#22ffffff"
         }
         Column {
             x: 14
@@ -37,8 +38,8 @@ ListView {
                 height: 24
                 text: model.name || model.title || ""
                 font.pixelSize: 13
-                font.bold: true
-                color: "#f2f5fa"
+                font.weight: Font.DemiBold
+                color: "#eef2f8"
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -47,7 +48,7 @@ ListView {
                 height: 18
                 text: model.singer || model.artist || model.path || ""
                 font.pixelSize: 11
-                color: "#9fb2c2"
+                color: "#8d99aa"
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -57,7 +58,7 @@ ListView {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.picked(index, row.info)
+            onClicked: root.picked(row.index, row.info)
         }
     }
 }

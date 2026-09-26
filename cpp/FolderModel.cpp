@@ -3,29 +3,87 @@
 //
 #include "FolderModel.h"
 
-#include "PlayerDatabase.h"
-#include "SearchResultModel.h"
-#include <QSqlQuery>
+#include "CoverHelper.h"
+#include "DbService.h"
+
+#include <QFutureWatcher>
+#include <QPointer>
 #include <QSqlError>
-#include <QSqlDriver>
-#include <QStandardPaths>
-#include <QDir>
-#include <QDebug>
-#include <QMetaObject>
-#include <QTimer>
+#include <QSqlQuery>
+#include <QtConcurrent/QtConcurrentRun>
+
+#include <algorithm>
+
+namespace {
+
+// TAG 解析结果（工作线程 → GUI 线程）
+struct EnrichResult {
+    int row = -1;
+    QString title;
+    QString artist;
+    QString coverUrl;
+};
+
+constexpr int kEnrichBatchSize = 64;
+
+const QString kFolderColumns = QStringLiteral("id, name, type, path, created_at");
+const QString kSongColumns =
+    QStringLiteral("id, folder_id, name, path, singer, duration, tag_title, tag_artist, tag_cover, tagged");
+
+SongItem readSong(const QSqlQuery &query)
+{
+    SongItem item;
+    item.id = query.value(0).toInt();
+    item.folderId = query.value(1).toInt();
+    item.name = query.value(2).toString();
+    item.path = query.value(3).toString();
+    item.singer = query.value(4).toString();
+    item.duration = query.value(5).toInt();
+    item.tagTitle = query.value(6).toString();
+    item.tagArtist = query.value(7).toString();
+    item.tagCoverUrl = query.value(8).toString();
+    item.tagged = query.value(9).toInt() != 0;
+    return item;
+}
+
+// 转义 LIKE 通配符，避免用户输入的 % _ 被当成模式
+QString likePattern(const QString &needle)
+{
+    QString escaped = needle;
+    escaped.replace(QLatin1Char('\\'), QStringLiteral("\\\\"));
+    escaped.replace(QLatin1Char('%'), QStringLiteral("\\%"));
+    escaped.replace(QLatin1Char('_'), QStringLiteral("\\_"));
+    return QLatin1Char('%') + escaped + QLatin1Char('%');
+}
+
+SearchResultModel::Row toSearchRow(const SongItem &item)
+{
+    SearchResultModel::Row row;
+    row.songId = item.id;
+    row.folderId = item.folderId;
+    row.name = item.name;
+    row.path = item.path;
+    row.singer = item.singer;
+    row.duration = item.duration;
+    row.tagTitle = item.tagTitle;
+    row.tagArtist = item.tagArtist;
+    row.tagCoverUrl = item.tagCoverUrl;
+    return row;
+}
+
+} // namespace
+
+// ---------------------------------------------------------------- FolderModel
 
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = playerDatabase();
     loadFromDatabase();
 }
 
-
 int FolderModel::rowCount(const QModelIndex &parent) const
 {
-    if (parent.isValid()) return 0;
-    return m_items.size();
+    return parent.isValid() ? 0 : m_items.size();
 }
 
 QVariant FolderModel::data(const QModelIndex &index, int role) const
@@ -33,7 +91,7 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() >= m_items.size())
         return {};
 
-    const auto &item = m_items.at(index.row());
+    const FolderItem &item = m_items.at(index.row());
     switch (role) {
     case IdRole:        return item.id;
     case NameRole:      return item.name;
@@ -57,150 +115,139 @@ QHash<int, QByteArray> FolderModel::roleNames() const
 
 void FolderModel::loadFromDatabase()
 {
-    refreshModel();
+    const quint64 generation = m_generation.fetch_add(1) + 1;
+    const QString type = m_filterType;
+    QPointer<FolderModel> self(this);
+
+    DbService::instance()->submit([self, type, generation](QSqlDatabase &db) {
+        QVector<FolderItem> rows;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("SELECT %1 FROM folders WHERE type = :type ORDER BY created_at ASC")
+                          .arg(kFolderColumns));
+        query.bindValue(QStringLiteral(":type"), type);
+        if (query.exec()) {
+            while (query.next()) {
+                FolderItem item;
+                item.id = query.value(0).toInt();
+                item.name = query.value(1).toString();
+                item.type = query.value(2).toString();
+                item.path = query.value(3).toString();
+                item.createdAt = query.value(4).toDateTime();
+                rows.append(item);
+            }
+        }
+        DbService::post(self, [self, generation, rows] {
+            if (self)
+                self->applyRows(generation, rows);
+        });
+    });
 }
 
-int FolderModel::addFolder(const QString &name, const QString &type, const QString &path)
+void FolderModel::applyRows(quint64 generation, const QVector<FolderItem> &rows)
 {
-    QSqlQuery query(m_db);
-    query.prepare("INSERT INTO folders (name, type, path) VALUES (:name, :type, :path)");
-    query.bindValue(":name", name);
-    query.bindValue(":type", type);
-    query.bindValue(":path", path);
-    if (!query.exec()) {
-        emit errorOccurred("添加文件夹失败: " + query.lastError().text());
-        return -1;
+    if (generation != m_generation.load())
+        return;
+
+    // 行集未变只发 dataChanged，避免整表 reset 重建视图缓存
+    if (m_items.size() == rows.size()) {
+        bool sameOrder = std::equal(rows.cbegin(), rows.cend(), m_items.cbegin(),
+                                    [](const FolderItem &a, const FolderItem &b) { return a.id == b.id; });
+        if (sameOrder) {
+            m_items = rows;
+            if (!m_items.isEmpty())
+                emit dataChanged(index(0), index(m_items.size() - 1));
+            return;
+        }
     }
-    int newId = query.lastInsertId().toInt();
-    refreshModel();
-    return newId;
+
+    beginResetModel();
+    m_items = rows;
+    endResetModel();
 }
 
-bool FolderModel::deleteFolder(int folderId)
+void FolderModel::mutate(DbMutator mutator)
 {
-    QSqlQuery query(m_db);
-    query.prepare("DELETE FROM folders WHERE id = :id");
-    query.bindValue(":id", folderId);
-    if (!query.exec()) {
-        emit errorOccurred("删除文件夹失败: " + query.lastError().text());
-        return false;
-    }
-    refreshModel();
-    return true;
+    QPointer<FolderModel> self(this);
+    DbService::instance()->submit([self, mutator = std::move(mutator)](QSqlDatabase &db) {
+        QString error;
+        mutator(db, error);
+        DbService::post(self, [self, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty())
+                emit self->errorOccurred(error);
+            self->loadFromDatabase();
+        });
+    });
 }
 
-int FolderModel::deleteFolders(const QVariantList &folderIds)
+void FolderModel::addFolder(const QString &name, const QString &type, const QString &path)
 {
-    if (folderIds.isEmpty())
-        return 0;
-
-    // 单事务 + 只刷新一次；逐个 deleteFolder 会每删一个就整表 reset
-    bool ownTransaction = false;
-    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions))
-        ownTransaction = m_db.transaction();
-
-    QSqlQuery query(m_db);
-    query.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id"));
-    int removed = 0;
-    for (const QVariant &value : folderIds) {
-        bool ok = false;
-        const int id = value.toInt(&ok);
-        if (!ok)
-            continue;
-        query.bindValue(QStringLiteral(":id"), id);
-        if (query.exec())
-            ++removed;
-        else
-            emit errorOccurred(QStringLiteral("删除文件夹失败: ") + query.lastError().text());
-    }
-
-    if (ownTransaction && !m_db.commit()) {
-        m_db.rollback();
-        emit errorOccurred(QStringLiteral("提交批量删除失败: ") + m_db.lastError().text());
-        return 0;
-    }
-
-    if (removed > 0)
-        refreshModel();
-    return removed;
+    mutate([name, type, path](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("INSERT INTO folders (name, type, path) VALUES (:name, :type, :path)"));
+        query.bindValue(QStringLiteral(":name"), name);
+        query.bindValue(QStringLiteral(":type"), type);
+        query.bindValue(QStringLiteral(":path"), path);
+        if (!query.exec())
+            error = QStringLiteral("添加文件夹失败: ") + query.lastError().text();
+    });
 }
 
-bool FolderModel::renameFolder(int folderId, const QString &newName)
+void FolderModel::deleteFolder(int folderId)
 {
-    QSqlQuery query(m_db);
-    query.prepare("UPDATE folders SET name = :name WHERE id = :id");
-    query.bindValue(":name", newName);
-    query.bindValue(":id", folderId);
-    if (!query.exec()) {
-        emit errorOccurred("重命名失败: " + query.lastError().text());
-        return false;
-    }
-    refreshModel();
-    return true;
+    mutate([folderId](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id"));
+        query.bindValue(QStringLiteral(":id"), folderId);
+        if (!query.exec())
+            error = QStringLiteral("删除文件夹失败: ") + query.lastError().text();
+    });
+}
+
+void FolderModel::deleteFolders(const QVariantList &folderIds)
+{
+    mutate([folderIds](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id"));
+        for (const QVariant &value : folderIds) {
+            bool ok = false;
+            const int id = value.toInt(&ok);
+            if (!ok)
+                continue;
+            query.bindValue(QStringLiteral(":id"), id);
+            if (!query.exec())
+                error = QStringLiteral("删除文件夹失败: ") + query.lastError().text();
+        }
+    });
+}
+
+void FolderModel::renameFolder(int folderId, const QString &newName)
+{
+    mutate([folderId, newName](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("UPDATE folders SET name = :name WHERE id = :id"));
+        query.bindValue(QStringLiteral(":name"), newName);
+        query.bindValue(QStringLiteral(":id"), folderId);
+        if (!query.exec())
+            error = QStringLiteral("重命名失败: ") + query.lastError().text();
+    });
 }
 
 void FolderModel::setFilterType(const QString &type)
 {
-    if (m_filterType != type) {
-        m_filterType = type;
-        emit filterTypeChanged();
-        refreshModel();
-    }
+    if (m_filterType == type)
+        return;
+    m_filterType = type;
+    emit filterTypeChanged();
+    loadFromDatabase();
 }
 
-void FolderModel::refreshModel()
-{
-    beginResetModel();
-    m_items.clear();
-
-    QSqlQuery query(m_db);
-    query.prepare("SELECT id, name, type, path, created_at FROM folders WHERE type = :type ORDER BY created_at ASC");
-    query.bindValue(":type", m_filterType);
-    if (query.exec()) {
-        while (query.next()) {
-            FolderItem item;
-            item.id = query.value(0).toInt();
-            item.name = query.value(1).toString();
-            item.type = query.value(2).toString();
-            item.path = query.value(3).toString();
-            item.createdAt = query.value(4).toDateTime();
-            m_items.append(item);
-        }
-    }
-    endResetModel();
-}
-
-void SongEnrichWorker::run()
-{
-    cancel.store(false);
-    QList<SongEnrichResult> batch;
-    const quint64 gen = generation.load();
-    for (const Task &t : tasks) {
-        if (cancel.load())
-            return;
-        SongEnrichResult r;
-        r.row = t.row;
-        CoverHelper::Metadata meta;
-        r.coverUrl = CoverHelper::readCoverFromTag(t.path, cacheDir, &meta);
-        r.title = meta.title;
-        r.artist = meta.artist;
-        batch.append(r);
-        if (batch.size() >= 25) {
-            emit enriched(gen, batch);
-            batch.clear();
-        }
-    }
-    if (!batch.isEmpty())
-        emit enriched(gen, batch);
-    emit enrichDone(gen, tasks.size());
-}
+// ------------------------------------------------------------------ SongModel
 
 SongModel::SongModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_db = playerDatabase();
-    qRegisterMetaType<QList<SongEnrichResult>>("QList<SongEnrichResult>");
-
     m_searchResults = new SearchResultModel({SearchResultModel::SongIdRole,
                                              SearchResultModel::FolderIdRole,
                                              SearchResultModel::NameRole,
@@ -210,29 +257,13 @@ SongModel::SongModel(QObject *parent)
                                              SearchResultModel::TagTitleRole,
                                              SearchResultModel::TagArtistRole,
                                              SearchResultModel::TagCoverUrlRole}, this);
-    m_searchTimer = new QTimer(this);
-    m_searchTimer->setInterval(0);
-    connect(m_searchTimer, &QTimer::timeout, this, &SongModel::searchStep);
 }
 
-SongModel::~SongModel()
-{
-    if (m_enrichWorker) {
-        m_enrichWorker->cancel.store(true);
-        m_enrichWorker->generation.fetch_add(1);
-        m_enrichThread.quit();
-        m_enrichThread.wait();
-        delete m_enrichWorker;
-        m_enrichWorker = nullptr;
-    }
-    if (m_searchTimer)
-        m_searchTimer->stop();
-}
+SongModel::~SongModel() = default;
 
 int SongModel::rowCount(const QModelIndex &parent) const
 {
-    if (parent.isValid()) return 0;
-    return m_items.size();
+    return parent.isValid() ? 0 : m_items.size();
 }
 
 QVariant SongModel::data(const QModelIndex &index, int role) const
@@ -240,7 +271,7 @@ QVariant SongModel::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() >= m_items.size())
         return {};
 
-    const auto &item = m_items.at(index.row());
+    const SongItem &item = m_items.at(index.row());
     switch (role) {
     case IdRole:          return item.id;
     case FolderIdRole:    return item.folderId;
@@ -275,17 +306,17 @@ QVariantMap SongModel::get(int index) const
     if (index < 0 || index >= m_items.size())
         return {};
     const SongItem &item = m_items.at(index);
-    QVariantMap map;
-    map.insert(QStringLiteral("songId"), item.id);
-    map.insert(QStringLiteral("folderId"), item.folderId);
-    map.insert(QStringLiteral("name"), item.name);
-    map.insert(QStringLiteral("path"), item.path);
-    map.insert(QStringLiteral("singer"), item.singer);
-    map.insert(QStringLiteral("duration"), item.duration);
-    map.insert(QStringLiteral("tagTitle"), item.tagTitle);
-    map.insert(QStringLiteral("tagArtist"), item.tagArtist);
-    map.insert(QStringLiteral("tagCoverUrl"), item.tagCoverUrl);
-    return map;
+    return {
+        {QStringLiteral("songId"), item.id},
+        {QStringLiteral("folderId"), item.folderId},
+        {QStringLiteral("name"), item.name},
+        {QStringLiteral("path"), item.path},
+        {QStringLiteral("singer"), item.singer},
+        {QStringLiteral("duration"), item.duration},
+        {QStringLiteral("tagTitle"), item.tagTitle},
+        {QStringLiteral("tagArtist"), item.tagArtist},
+        {QStringLiteral("tagCoverUrl"), item.tagCoverUrl}
+    };
 }
 
 void SongModel::loadByFolder(int folderId)
@@ -294,264 +325,360 @@ void SongModel::loadByFolder(int folderId)
     refreshModel();
 }
 
-int SongModel::addSong(int folderId, const QString &name, const QString &path, const QString &singer)
-{
-    QSqlQuery query(m_db);
-    query.prepare("INSERT INTO songs (folder_id, name, path, singer) VALUES (:folder_id, :name, :path, :singer)");
-    query.bindValue(":folder_id", folderId);
-    query.bindValue(":name", name);
-    query.bindValue(":path", path);
-    query.bindValue(":singer", singer);
-    if (!query.exec()) {
-        emit errorOccurred("添加歌曲失败: " + query.lastError().text());
-        return -1;
-    }
-    int newId = query.lastInsertId().toInt();
-    if (folderId == m_folderId) {
-        refreshModel();
-    }
-    return newId;
-}
-
-int SongModel::addSongs(int folderId, const QVariantList &songs)
-{
-    if (songs.isEmpty())
-        return 0;
-
-    // 批量导入时用单个事务承载全部 INSERT，最后统一刷新一次模型，
-    // 避免逐条 addSong 带来的事务/刷新开销把 UI 卡成假死。
-    bool ownTransaction = false;
-    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions)) {
-        ownTransaction = m_db.transaction();
-    }
-
-    QSqlQuery query(m_db);
-    query.prepare("INSERT INTO songs (folder_id, name, path, singer) VALUES (:folder_id, :name, :path, :singer)");
-    int added = 0;
-    for (const QVariant &entry : songs) {
-        const QVariantMap song = entry.toMap();
-        const QString name = song.value(QStringLiteral("name")).toString();
-        const QString path = song.value(QStringLiteral("path")).toString();
-        if (name.isEmpty() || path.isEmpty())
-            continue;
-        query.bindValue(":folder_id", folderId);
-        query.bindValue(":name", name);
-        query.bindValue(":path", path);
-        query.bindValue(":singer", song.value(QStringLiteral("singer")).toString());
-        if (query.exec()) {
-            ++added;
-        } else {
-            emit errorOccurred(QStringLiteral("添加歌曲失败: ") + query.lastError().text());
-        }
-    }
-
-    if (ownTransaction && !m_db.commit()) {
-        m_db.rollback();
-        emit errorOccurred(QStringLiteral("提交批量导入失败: ") + m_db.lastError().text());
-        return 0;
-    }
-
-    if (folderId == m_folderId) {
-        refreshModel();
-    }
-    return added;
-}
-
-bool SongModel::deleteSong(int songId)
-{
-    QSqlQuery query(m_db);
-    query.prepare("DELETE FROM songs WHERE id = :id");
-    query.bindValue(":id", songId);
-    if (!query.exec()) {
-        emit errorOccurred("删除歌曲失败: " + query.lastError().text());
-        return false;
-    }
-    refreshModel();
-    return true;
-}
-
-int SongModel::deleteSongs(const QVariantList &songIds)
-{
-    if (songIds.isEmpty())
-        return 0;
-
-    // 单事务 + 只刷新一次；旧写法逐个 deleteSong 会整表 reset + 重建全量 TAG 富集
-    bool ownTransaction = false;
-    if (m_db.driver() && m_db.driver()->hasFeature(QSqlDriver::Transactions))
-        ownTransaction = m_db.transaction();
-
-    QSqlQuery query(m_db);
-    query.prepare(QStringLiteral("DELETE FROM songs WHERE id = :id"));
-    int removed = 0;
-    for (const QVariant &value : songIds) {
-        bool ok = false;
-        const int id = value.toInt(&ok);
-        if (!ok)
-            continue;
-        query.bindValue(QStringLiteral(":id"), id);
-        if (query.exec())
-            ++removed;
-        else
-            emit errorOccurred(QStringLiteral("删除歌曲失败: ") + query.lastError().text());
-    }
-
-    if (ownTransaction && !m_db.commit()) {
-        m_db.rollback();
-        emit errorOccurred(QStringLiteral("提交批量删除失败: ") + m_db.lastError().text());
-        return 0;
-    }
-
-    if (removed > 0)
-        refreshModel();
-    return removed;
-}
-
 void SongModel::setFolderId(int folderId)
 {
-    if (m_folderId != folderId) {
-        m_folderId = folderId;
-        emit folderIdChanged();
-        refreshModel();
-    }
+    if (m_folderId == folderId)
+        return;
+    m_folderId = folderId;
+    emit folderIdChanged();
+    refreshModel();
 }
 
 void SongModel::refreshModel()
 {
     clearSearch();
-    beginResetModel();
-    m_items.clear();
+    m_enriching = false;
+    m_enrichPending.clear();
 
-    if (m_folderId < 0) {
-        endResetModel();
+    const quint64 generation = m_loadGeneration.fetch_add(1) + 1;
+    const int folderId = m_folderId;
+
+    if (folderId < 0) {
+        applyRows(generation, {});
         return;
     }
 
-    QSqlQuery query(m_db);
-    query.prepare("SELECT id, folder_id, name, path, singer, duration FROM songs WHERE folder_id = :folder_id ORDER BY id ASC");
-    query.bindValue(":folder_id", m_folderId);
-    if (query.exec()) {
-        while (query.next()) {
-            SongItem item;
-            item.id = query.value(0).toInt();
-            item.folderId = query.value(1).toInt();
-            item.name = query.value(2).toString();
-            item.path = query.value(3).toString();
-            item.singer = query.value(4).toString();
-            item.duration = query.value(5).toInt();
-            m_items.append(item);
+    QPointer<SongModel> self(this);
+    DbService::instance()->submit([self, folderId, generation](QSqlDatabase &db) {
+        QVector<SongItem> rows;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("SELECT %1 FROM songs WHERE folder_id = :folder ORDER BY id ASC")
+                          .arg(kSongColumns));
+        query.bindValue(QStringLiteral(":folder"), folderId);
+        if (query.exec()) {
+            while (query.next())
+                rows.append(readSong(query));
+        }
+        DbService::post(self, [self, generation, rows] {
+            if (self)
+                self->applyRows(generation, rows);
+        });
+    });
+}
+
+void SongModel::applyRows(quint64 generation, const QVector<SongItem> &rows)
+{
+    if (generation != m_loadGeneration.load())
+        return;
+
+    // 行集一致则原地更新，保留 ListView 缓存
+    if (m_items.size() == rows.size()) {
+        bool sameOrder = std::equal(rows.cbegin(), rows.cend(), m_items.cbegin(),
+                                    [](const SongItem &a, const SongItem &b) { return a.id == b.id; });
+        if (sameOrder) {
+            m_items = rows;
+            if (!m_items.isEmpty())
+                emit dataChanged(index(0), index(m_items.size() - 1));
+            startEnrichment();
+            return;
         }
     }
+
+    beginResetModel();
+    m_items = rows;
     endResetModel();
     startEnrichment();
 }
 
 void SongModel::startEnrichment()
 {
-    if (m_items.isEmpty())
+    if (m_enriching)
         return;
-    if (!m_enrichWorker) {
-        m_enrichWorker = new SongEnrichWorker;
-        m_enrichWorker->moveToThread(&m_enrichThread);
-        connect(m_enrichWorker, &SongEnrichWorker::enriched, this, &SongModel::onEnriched);
-        connect(m_enrichWorker, &SongEnrichWorker::enrichDone, this, &SongModel::onEnrichDone);
-        m_enrichThread.start();
+
+    m_enrichPending.clear();
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (!m_items.at(i).tagged)
+            m_enrichPending.append(i);
     }
-    const quint64 gen = m_enrichGen.fetch_add(1) + 1;
-    m_enrichWorker->cancel.store(true);
-    m_enrichWorker->generation.store(gen);
-    m_enrichWorker->tasks.clear();
-    for (int i = 0; i < m_items.size(); ++i)
-        m_enrichWorker->tasks.append({i, m_items.at(i).path});
-    m_enrichWorker->cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-                               + QStringLiteral("/cache");
-    QDir().mkpath(m_enrichWorker->cacheDir);
-    QMetaObject::invokeMethod(m_enrichWorker, "run", Qt::QueuedConnection);
+    if (m_enrichPending.isEmpty())
+        return;
+
+    m_enriching = true;
+    enrichBatch();
 }
 
-void SongModel::onEnriched(quint64 gen, QList<SongEnrichResult> results)
+void SongModel::enrichBatch()
 {
-    if (gen != m_enrichGen.load())
+    if (m_enrichPending.isEmpty()) {
+        m_enriching = false;
         return;
-    const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole};
-    for (const SongEnrichResult &r : results) {
-        if (r.row < 0 || r.row >= m_items.size())
-            continue;
-        m_items[r.row].tagTitle = r.title;
-        m_items[r.row].tagArtist = r.artist;
-        m_items[r.row].tagCoverUrl = r.coverUrl;
-        emit dataChanged(index(r.row), index(r.row), roles);
     }
+
+    const quint64 generation = m_loadGeneration.load();
+    const int count = std::min(kEnrichBatchSize, int(m_enrichPending.size()));
+    const QList<int> slice = m_enrichPending.mid(0, count);
+    m_enrichPending.remove(0, count);
+
+    QVector<QString> paths;
+    paths.reserve(slice.size());
+    for (int row : slice)
+        paths.append(m_items.at(row).path);
+
+    auto *watcher = new QFutureWatcher<QList<EnrichResult>>(this);
+    connect(watcher, &QFutureWatcher<QList<EnrichResult>>::finished, this, [this, watcher, generation, slice] {
+        watcher->deleteLater();
+        if (generation != m_loadGeneration.load()) {
+            m_enriching = false;
+            m_enrichPending.clear();
+            return;
+        }
+
+        const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole};
+        QList<int> ids;
+        QStringList titles;
+        QStringList artists;
+        QStringList covers;
+        for (const EnrichResult &result : watcher->result()) {
+            if (result.row < 0 || result.row >= m_items.size())
+                continue;
+            SongItem &item = m_items[result.row];
+            item.tagTitle = result.title;
+            item.tagArtist = result.artist;
+            item.tagCoverUrl = result.coverUrl;
+            item.tagged = true;
+            ids.append(item.id);
+            titles.append(result.title);
+            artists.append(result.artist);
+            covers.append(result.coverUrl);
+            emit dataChanged(index(result.row), index(result.row), roles);
+        }
+        persistTags(ids, titles, artists, covers);
+        enrichBatch();
+    });
+
+    watcher->setFuture(QtConcurrent::run([slice, paths] {
+        QList<EnrichResult> out;
+        out.reserve(slice.size());
+        const QString cacheDir = DbService::cacheDir();
+        for (int i = 0; i < slice.size(); ++i) {
+            EnrichResult result;
+            result.row = slice.at(i);
+            CoverHelper::Metadata meta;
+            result.coverUrl = CoverHelper::readCoverFromTag(paths.at(i), cacheDir, &meta);
+            result.title = meta.title;
+            result.artist = meta.artist;
+            out.append(result);
+        }
+        return out;
+    }));
 }
 
-void SongModel::onEnrichDone(quint64 gen, int count)
+void SongModel::persistTags(const QList<int> &ids, const QStringList &titles,
+                            const QStringList &artists, const QStringList &covers)
 {
-    if (gen != m_enrichGen.load())
+    if (ids.isEmpty())
         return;
-    emit metadataReady(count);
+
+    DbService::instance()->submit([ids, titles, artists, covers](QSqlDatabase &db) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "UPDATE songs SET tag_title = :title, tag_artist = :artist, tag_cover = :cover, tagged = 1 "
+            "WHERE id = :id"));
+        for (int i = 0; i < ids.size(); ++i) {
+            query.bindValue(QStringLiteral(":title"), titles.value(i));
+            query.bindValue(QStringLiteral(":artist"), artists.value(i));
+            query.bindValue(QStringLiteral(":cover"), covers.value(i));
+            query.bindValue(QStringLiteral(":id"), ids.at(i));
+            query.exec();
+        }
+    });
+}
+
+void SongModel::addSong(int folderId, const QString &name, const QString &path, const QString &singer)
+{
+    mutate([folderId, name, path, singer](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "INSERT OR IGNORE INTO songs (folder_id, name, path, singer) VALUES (:folder, :name, :path, :singer)"));
+        query.bindValue(QStringLiteral(":folder"), folderId);
+        query.bindValue(QStringLiteral(":name"), name);
+        query.bindValue(QStringLiteral(":path"), path);
+        query.bindValue(QStringLiteral(":singer"), singer);
+        if (!query.exec())
+            error = QStringLiteral("添加歌曲失败: ") + query.lastError().text();
+    });
+}
+
+void SongModel::addSongs(int folderId, const QVariantList &songs)
+{
+    QPointer<SongModel> self(this);
+    DbService::instance()->submit([self, folderId, songs](QSqlDatabase &db) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "INSERT OR IGNORE INTO songs (folder_id, name, path, singer) VALUES (:folder, :name, :path, :singer)"));
+        db.transaction();
+        int added = 0;
+        QString error;
+        for (const QVariant &entry : songs) {
+            const QVariantMap song = entry.toMap();
+            const QString name = song.value(QStringLiteral("name")).toString();
+            const QString path = song.value(QStringLiteral("path")).toString();
+            if (name.isEmpty() || path.isEmpty())
+                continue;
+            query.bindValue(QStringLiteral(":folder"), folderId);
+            query.bindValue(QStringLiteral(":name"), name);
+            query.bindValue(QStringLiteral(":path"), path);
+            query.bindValue(QStringLiteral(":singer"), song.value(QStringLiteral("singer")).toString());
+            if (query.exec()) {
+                if (query.numRowsAffected() > 0)
+                    ++added;
+            } else {
+                error = QStringLiteral("添加歌曲失败: ") + query.lastError().text();
+            }
+        }
+        db.commit();
+
+        DbService::post(self, [self, folderId, added, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty())
+                emit self->errorOccurred(error);
+            emit self->songsAdded(added);
+            if (folderId == self->m_folderId)
+                self->refreshModel();
+        });
+    });
+}
+
+void SongModel::deleteSong(int songId)
+{
+    mutate([songId](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("DELETE FROM songs WHERE id = :id"));
+        query.bindValue(QStringLiteral(":id"), songId);
+        if (!query.exec())
+            error = QStringLiteral("删除歌曲失败: ") + query.lastError().text();
+    });
+}
+
+void SongModel::deleteSongs(const QVariantList &songIds)
+{
+    mutate([songIds](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("DELETE FROM songs WHERE id = :id"));
+        for (const QVariant &value : songIds) {
+            bool ok = false;
+            const int id = value.toInt(&ok);
+            if (!ok)
+                continue;
+            query.bindValue(QStringLiteral(":id"), id);
+            if (!query.exec())
+                error = QStringLiteral("删除歌曲失败: ") + query.lastError().text();
+        }
+    });
+}
+
+void SongModel::rescanTags(const QString &path)
+{
+    const int folderId = m_folderId;
+    mutate([path, folderId](QSqlDatabase &db, QString &error) {
+        QSqlQuery query(db);
+        if (path.isEmpty()) {
+            query.prepare(QStringLiteral("UPDATE songs SET tagged = 0 WHERE folder_id = :folder"));
+            query.bindValue(QStringLiteral(":folder"), folderId);
+        } else {
+            query.prepare(QStringLiteral("UPDATE songs SET tagged = 0 WHERE path = :path"));
+            query.bindValue(QStringLiteral(":path"), path);
+        }
+        if (!query.exec())
+            error = QStringLiteral("重置标签缓存失败: ") + query.lastError().text();
+    });
+}
+
+void SongModel::mutate(DbMutator mutator)
+{
+    QPointer<SongModel> self(this);
+    const int folderId = m_folderId;
+    DbService::instance()->submit([self, folderId, mutator = std::move(mutator)](QSqlDatabase &db) {
+        QString error;
+        mutator(db, error);
+        DbService::post(self, [self, folderId, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty())
+                emit self->errorOccurred(error);
+            if (folderId == self->m_folderId)
+                self->refreshModel();
+        });
+    });
 }
 
 void SongModel::startSearch(const QString &text)
 {
     m_searchText = text.trimmed();
     m_searchResults->clearRows();
-    m_searchPos = 0;
-    if (m_searchText.isEmpty()) {
+
+    if (m_searchText.isEmpty() || m_folderId < 0) {
+        m_searchGeneration.fetch_add(1);
         if (m_searchActive) {
             m_searchActive = false;
             emit searchActiveChanged();
         }
-        m_searchTimer->stop();
         emit searchFinished(0);
         return;
     }
+
     if (!m_searchActive) {
         m_searchActive = true;
         emit searchActiveChanged();
     }
-    m_searchTimer->start();
+    submitSearch();
 }
 
 void SongModel::clearSearch()
 {
-    m_searchTimer->stop();
     m_searchText.clear();
+    m_searchGeneration.fetch_add(1);
     m_searchResults->clearRows();
-    m_searchPos = 0;
     if (m_searchActive) {
         m_searchActive = false;
         emit searchActiveChanged();
     }
 }
 
-void SongModel::searchStep()
+void SongModel::submitSearch()
 {
-    const int chunk = 400;
-    const int total = m_items.size();
-    const QString needle = m_searchText;
-    QList<SearchResultModel::Row> batch;
-    for (int i = 0; i < chunk && m_searchPos < total; ++m_searchPos, ++i) {
-        const SongItem &it = m_items.at(m_searchPos);
-        if (it.name.contains(needle, Qt::CaseInsensitive)
-                || it.singer.contains(needle, Qt::CaseInsensitive)
-                || it.tagTitle.contains(needle, Qt::CaseInsensitive)
-                || it.tagArtist.contains(needle, Qt::CaseInsensitive)) {
-            SearchResultModel::Row row;
-            row.songId = it.id;
-            row.folderId = it.folderId;
-            row.name = it.name;
-            row.path = it.path;
-            row.singer = it.singer;
-            row.duration = it.duration;
-            row.tagTitle = it.tagTitle;
-            row.tagArtist = it.tagArtist;
-            row.tagCoverUrl = it.tagCoverUrl;
-            batch.append(row);
+    if (m_folderId < 0)
+        return;
+
+    const quint64 generation = m_searchGeneration.fetch_add(1) + 1;
+    const int folderId = m_folderId;
+    const QString pattern = likePattern(m_searchText);
+    QPointer<SongModel> self(this);
+
+    // 匹配交给 SQL，不占 GUI 线程
+    DbService::instance()->submit([self, folderId, pattern, generation](QSqlDatabase &db) {
+        QList<SearchResultModel::Row> rows;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "SELECT %1 FROM songs WHERE folder_id = :folder AND ("
+            "name LIKE :p1 ESCAPE '\\' OR singer LIKE :p2 ESCAPE '\\' "
+            "OR tag_title LIKE :p3 ESCAPE '\\' OR tag_artist LIKE :p4 ESCAPE '\\') ORDER BY id ASC")
+                          .arg(kSongColumns));
+        query.bindValue(QStringLiteral(":folder"), folderId);
+        query.bindValue(QStringLiteral(":p1"), pattern);
+        query.bindValue(QStringLiteral(":p2"), pattern);
+        query.bindValue(QStringLiteral(":p3"), pattern);
+        query.bindValue(QStringLiteral(":p4"), pattern);
+        if (query.exec()) {
+            while (query.next())
+                rows.append(toSearchRow(readSong(query)));
         }
-    }
-    if (!batch.isEmpty())
-        m_searchResults->appendBatch(batch);
-    if (m_searchPos >= total) {
-        m_searchTimer->stop();
-        emit searchFinished(m_searchResults->rowCount());
-    }
+        DbService::post(self, [self, generation, rows] {
+            if (!self || generation != self->m_searchGeneration.load())
+                return;
+            self->m_searchResults->appendBatch(rows);
+            emit self->searchFinished(rows.size());
+        });
+    });
 }

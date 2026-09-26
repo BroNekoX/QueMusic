@@ -132,7 +132,10 @@ bool FfmpegDecoder::open(const QString &pathOrUrl, QString *error)
     }
     avcodec_parameters_to_context(m_codecCtx, stream->codecpar);
     m_codecCtx->pkt_timebase = stream->time_base;
-    m_codecCtx->thread_count = 0;
+    // 音频解码用不上帧级多线程：thread_count=0 会让 FFmpeg 按 CPU 核数创建线程上下文
+    // 及其私有缓冲（本机 16 核即 16 份）。固定 1：48 kHz 立体声的解码开销远小于
+    // 一个线程上下文的代价，而线程数与常驻缓冲会一直挂着。
+    m_codecCtx->thread_count = 1;
 
     ret = avcodec_open2(m_codecCtx, decoder, nullptr);
     if (ret < 0) {

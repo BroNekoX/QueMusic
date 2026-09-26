@@ -52,7 +52,6 @@ class MusicApiService : public QObject
 
     // 非模型数据
     Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged)
-    Q_PROPERTY(QVariant playlistmenuInfo READ playlistmenuInfo WRITE setPlaylistmenuInfo NOTIFY playlistmenuInfoChanged)
     Q_PROPERTY(QVariant lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged)
     Q_PROPERTY(QVariant lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged)
 
@@ -101,8 +100,6 @@ public:
 
     QVariant allPlaylistMenu() const { return m_allPlaylistMenu; }
     void setAllPlaylistMenu(const QVariant &v);
-    QVariant playlistmenuInfo() const { return m_playlistmenuInfo; }
-    void setPlaylistmenuInfo(const QVariant &v);
     QVariant lyricsData() const { return m_lyricsData; }
     void setLyricsData(const QVariant &v);
     QVariant lyricsTranslate() const { return m_lyricsTranslate; }
@@ -127,9 +124,11 @@ public:
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);
     Q_INVOKABLE void getPlaylistMenu(int type, int source = -1);
-    Q_INVOKABLE void getMenuInfo(const QString &id, int source = -1);
     Q_INVOKABLE void getMusicPlaylists(const QString &tagid, int page = 1, int pageSize = 20,
                                        int source = -1);
+    // 分类页的歌单列表（酷狗用 category/special，与首页热门分类卡片不同源）
+    Q_INVOKABLE void getCategoryPlaylists(const QString &id, int page = 1, int pageSize = 20,
+                                          int source = -1);
     Q_INVOKABLE void getPlaylistSongs(const QString &listid, int page = 1, int pageSize = 20,
                                       int source = -1);
     Q_INVOKABLE void getRecommendSongs(int page = 1, int pageSize = 20, int source = -1);
@@ -153,17 +152,16 @@ public:
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
     // 本地音乐（无歌词）时调用：清掉在线歌词残留，显示占位歌词 [{time:0, text:"纯音乐，请欣赏"}]
     Q_INVOKABLE void setLocalLyrics();
-    // 读取本地音频同目录同名 .json 元数据（不存在返回空 map）
-    Q_INVOKABLE QVariantMap readLocalMetadata(const QString &filePath);
     // 工作线程读取本地元数据，经 localMetadataReady 回传（GUI 线程零文件 IO）
     Q_INVOKABLE void readLocalMetadataAsync(const QString &filePath);
     // 仅读取同目录同名 .json 中的 cover 字段（不解析音频文件），带缓存
     Q_INVOKABLE QString readLocalCoverHint(const QString &filePath);
-    // 读取本地歌词：同名 .lrc 优先，其次读取音频内嵌歌词。
-    Q_INVOKABLE QVariantMap readLocalLyrics(const QString &filePath);
-    // 把单个本地文件移入系统回收站（找不到/无法移动时返回 false）
-    // 单文件移入回收站（主线程同步）；批量删除请用 LocalMusicScanner::deleteFiles
-    Q_INVOKABLE bool moveLocalFileToTrash(const QString &filePath);
+    // TagLib 只读：标签 + 音频属性
+    Q_INVOKABLE QVariantMap readLocalAudioInfo(const QString &filePath);
+    // 同目录 .lrc 优先，其次内嵌
+    Q_INVOKABLE QString readLocalLyricsText(const QString &filePath);
+    // 写回标签（meta 可含 lyrics 文本与 cover 图片路径）；写盘在工作线程
+    Q_INVOKABLE void writeLocalMetadata(const QString &filePath, const QVariantMap &meta);
     // 工作线程解析内嵌标签（避免卡 UI）；命中经 localLyricsReady 回传，未命中自动转在线匹配
     Q_INVOKABLE void readLocalLyricsAsync(const QString &filePath, const QString &title,
                                           const QString &artist, int duration = 0,
@@ -185,7 +183,6 @@ signals:
     void songSourceChanged();
     void soundQualityChanged();
     void allPlaylistMenuChanged();
-    void playlistmenuInfoChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
     void loadStateChanged();
@@ -198,6 +195,7 @@ signals:
                           const QVariantList &translate);
     void localLyricsFailed(const QString &filePath);
     void localMetadataReady(const QString &filePath, const QVariantMap &meta);
+    void localMetadataSaved(const QString &filePath, bool ok);
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
@@ -205,6 +203,7 @@ private slots:
 private:
     int resolve(int source) const; // source<0 → 默认源
     static QVariantMap readLocalMetadataBlocking(const QString &filePath);
+    static bool writeLocalMetadataBlocking(const QString &filePath, const QVariantMap &meta);
     // 音质：记录 hash ↔ hashhq/hashsq，按设置把 hash 升级成高清；映射落盘以便重启后仍可用
     void rememberHashes(const QVariantList &items);
     QString resolveQualityHash(const QString &hash) const;
@@ -257,7 +256,6 @@ private:
     OnlineListModel m_personalRadar;
 
     QVariant m_allPlaylistMenu;
-    QVariant m_playlistmenuInfo;
     QVariant m_lyricsData;
     QVariant m_lyricsTranslate { QVariantList() };    // 初始化为空列表：QML 侧 .length 绑定在歌词未加载时也可用
 

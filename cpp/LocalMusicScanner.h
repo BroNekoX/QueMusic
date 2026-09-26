@@ -17,8 +17,6 @@
 
 #include "SearchResultModel.h"
 
-class QTimer;
-
 struct LocalFileEntry {
     QString name;
     QString path;
@@ -43,6 +41,9 @@ public:
     std::atomic<bool> cancel{false};
     std::atomic<quint64> generation{0};
 
+    // worker 线程执行：匹配最近一次扫描结果，分批回传命中行下标
+    void search(const QString &needle, quint64 searchGeneration);
+
 public slots:
     void run();
     // 批量移入回收站（与扫描同线程，串行执行）
@@ -56,6 +57,12 @@ signals:
     void failed(quint64 gen, const QString &message);
     void deleteProgress(quint64 gen, int processed, int total);
     void deleteFinished(quint64 gen, const QStringList &removed, const QStringList &failed);
+    void searchBatch(quint64 searchGeneration, const QList<int> &rows);
+    void searchDone(quint64 searchGeneration, int total);
+
+private:
+    // 搜索索引，只在 worker 线程访问；下标与 UI 侧 m_entries 对应
+    QList<LocalFileEntry> m_index;
 };
 
 class LocalMusicScanner : public QAbstractListModel
@@ -95,7 +102,7 @@ public:
     // 批量移入回收站：工作线程执行 + 上报进度；完成后只摘掉对应行，不重扫目录
     Q_INVOKABLE void deleteFiles(const QVariantList &paths);
 
-    // 资源管理器式搜索：分块遍历已扫描条目，命中行流式追加进 searchResults
+    // 资源管理器式搜索：匹配在扫描线程执行，命中行分批追加进 searchResults
     Q_INVOKABLE void startSearch(const QString &text);
     Q_INVOKABLE void clearSearch();
 
@@ -145,7 +152,8 @@ private slots:
     void onWorkerFailed(quint64 gen, const QString &message);
     void onWorkerDeleteProgress(quint64 gen, int processed, int total);
     void onWorkerDeleteFinished(quint64 gen, const QStringList &removed, const QStringList &failed);
-    void searchStep();
+    void onWorkerSearchBatch(quint64 searchGeneration, const QList<int> &rows);
+    void onWorkerSearchDone(quint64 searchGeneration, int total);
 
 private:
     void clearEntries();
@@ -163,9 +171,8 @@ private:
     QThread m_thread;
     LocalScanWorker *m_worker = nullptr;
     std::atomic<quint64> m_generation{0};
+    std::atomic<quint64> m_searchGeneration{0};
     SearchResultModel *m_searchResults = nullptr;
-    QTimer *m_searchTimer = nullptr;
     QString m_searchText;
-    int m_searchPos = 0;
     bool m_searchActive = false;
 };

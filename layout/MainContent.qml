@@ -23,11 +23,8 @@ Rectangle {
     ]
 
     property int pageIndex: 0
-    //signal stackChange(int index)
     function contentIndexed(choice: int): void {
         if(choice !== mainContent.pageIndex) {
-            //pageAnineOn.stop();
-            //pageAnineOn.start();
             mainContent.pages[mainContent.pageIndex].visible = false;
             mainContent.pages[mainContent.pageIndex].active = false;
             mainContent.pages[choice].active = true;
@@ -51,11 +48,12 @@ Rectangle {
             duration: 320
             easing.type: Easing.OutCubic
         }
+        // 位移写 shiftY，由各 Loader 的 Translate 消费；直接动画 y 会逐帧重排整页
         NumberAnimation {
-            property: "y"
+            property: "shiftY"
             target: pageAnine.target
-            from: 240
-            to: 60
+            from: 180
+            to: 0
             duration: 320
             easing.type: Easing.OutExpo
         }
@@ -71,6 +69,8 @@ Rectangle {
         height: mainContent.pageHeight
         visible: true
         active: true
+        property real shiftY: 0
+        transform: Translate { y: homePage.shiftY }
         sourceComponent: HomePage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(0) }
     }
@@ -81,10 +81,13 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
         active: false
+        property real shiftY: 0
+        transform: Translate { y: playlistPage.shiftY }
         sourceComponent: PlaylistPage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(1) }
     }
@@ -95,10 +98,13 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
         active: false
+        property real shiftY: 0
+        transform: Translate { y: favouritePage.shiftY }
         sourceComponent: FavouritePage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(3) }
     }
@@ -110,10 +116,13 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
         active: false
+        property real shiftY: 0
+        transform: Translate { y: filePage.shiftY }
         sourceComponent: FilePage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(4) }
     }
@@ -124,10 +133,13 @@ Rectangle {
         x: 0
         y: 60
         opacity: 1
+        //asynchronous: true
         width: mainContent.width
         height: mainContent.pageHeight
         visible: false
         active: false
+        property real shiftY: 0
+        transform: Translate { y: downloadPage.shiftY }
         sourceComponent: DownloadPage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(5) }
     }
@@ -143,6 +155,8 @@ Rectangle {
         height: mainContent.pageHeight
         visible: false
         active: false
+        property real shiftY: 0
+        transform: Translate { y: searchPage.shiftY }
         sourceComponent: SearchPage {}
         onLoaded: { visible = true; mainContent.finishedLoaderPage(6) }
     }

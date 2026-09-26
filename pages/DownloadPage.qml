@@ -377,17 +377,6 @@ Item {
                     }
                 }
 
-                onToolClicked: (index,tool) => {
-                    if (tool === 0) {
-                        const item = downloadedModel.get(index);
-                        if (!item || !item.fileUrl)
-                            return;
-                        if (playListModel.indexOfPath(item.fileUrl) === -1) {
-                            playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
-                            mainWarn.tiped("成功加入播放列表", 1);
-                        }
-                    }
-                }
             }
         }
 

@@ -32,15 +32,28 @@ Item {
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12
-                Text {
-                    text: "下载管理"
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
-                    color: "#f5f7fb"
+                Row {
                     height: 36
-                    verticalAlignment: Text.AlignVCenter
+                    spacing: 8
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3
+                        height: 14
+                        radius: 1.5
+                        color: center.c1
+                    }
+                    Text {
+                        text: "下载管理"
+                        font.pixelSize: 16
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: 0.3
+                        color: "#f2f5fa"
+                        height: 36
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
                 CenterTabs {
+                    anchors.verticalCenter: parent.verticalCenter
                     model: ["正在下载", "已下载"]
                     tabWidth: 76
                     height: 32
@@ -57,7 +70,12 @@ Item {
                 text: "打开目录"
                 iconCharacter: "\uf0b6"
                 height: 34
+                radius: 17
                 fontSize: 12
+                buttonColor: "#1fffffff"
+                textColor: "#eef2f8"
+                iconColor: "#eef2f8"
+                shadowEnabled: false
                 onClicked: Qt.openUrlExternally("file:///" + MusicApi.downloader.effectiveDownloadDir())
             }
         }
@@ -65,6 +83,14 @@ Item {
         Item {
             width: parent.width
             height: parent.height - 50
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 22
+                color: Style.themes.primaryColor
+                border.width: 1
+                border.color: "#12ffffff"
+            }
 
             Text {
                 visible: page.downloadTab === 0 && MusicApi.downloader.taskCount === 0
@@ -78,8 +104,8 @@ Item {
             }
 
             ListView {
-                width: parent.width
-                height: parent.height
+                anchors.fill: parent
+                anchors.margins: 8
                 visible: page.downloadTab === 0
                 model: MusicApi.downloader
                 clip: true
@@ -139,7 +165,11 @@ Item {
                             width: 88 * (model.progress || 0)
                             height: 6
                             radius: 3
-                            color: "#ffffff"
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0; color: center.c1 }
+                                GradientStop { position: 1; color: Qt.lighter(center.c2, 1.1) }
+                            }
                             Behavior on width { NumberAnimation { duration: 120 } }
                         }
                     }
@@ -184,20 +214,14 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
             QListView {
-                width: parent.width
-                height: parent.height
+                anchors.fill: parent
+                anchors.margins: 8
                 visible: page.downloadTab === 1 && downloaded.count > 0
                 model: downloaded
                 isEnd: true
                 onClicked: i => {
                     const d = downloaded.get(i)
                     center.playLocal(d.fileUrl, d.title || d.fileName)
-                }
-                onToolClicked: (i, tool) => {
-                    if (tool === 0) {
-                        const d = downloaded.get(i)
-                        center.enqueue({ title: d.title || d.fileName, artist: d.artist, hash: d.fileUrl, source: -1 })
-                    }
                 }
             }
         }

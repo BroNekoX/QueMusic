@@ -7,6 +7,115 @@
 
 ## [Unreleased]
 
+### 🧩 重构
+- **歌词界面模块化**：`layout/PlayerMaxCenter.qml`（873 行）拆为宿主框架（269 行：沉浸偏移、控件自动隐藏、
+  控制按钮、主题色动画）+ 歌词界面模块 `layout/MainLyric.qml`（649 行：流体背景 / 封面 / 歌曲文本 / 歌词内容）。
+  宿主用 `Loader` + `sourceComponent` 声明式注入 `position`/`playbackRate`/`playing`/`mediaActive`/`lyricsModel`/
+  `translateModel`/`title`/`artist`/`coverUrl`/三主色/`hideHeight`/`lyricSize`，模块只读这些属性、不反向依赖宿主实现
+  （为后续"可替换的歌词界面插件"预留同一套契约）
+- **按需加载**：`Loader.active: musicControlMax.visible` ⇒ 沉浸页不可见时整体卸载，320ms 歌词定位定时器与
+  各动画/着色器随之停止（原先仅在定时器 `running` 上判 `visible`，卸载后无任何空转）
+- 样式弹窗保留在宿主 `PlayerMaxCenter`（它同时控制壳层沉浸模式与模块的封面/主题模式、位置校准）；
+  封面模式/主题模式/位置校准/翻译开关等界面状态**由宿主持有**并注入模块，避免 `Loader` 卸载重建后状态丢失
+  （主题模式切换的位移动画改由模块在 `lyricType` 变化时自行触发）
+- 顺带修正：歌词换源重排改由模块内 `Connections` 触发（原绑定 `MusicApi.lyricsDataChanged`），
+  避免创建期属性初始化提前触发；删除两处调试 `console.log`
+- **歌词界面可整主题替换**：`Loader` 由 `sourceComponent` 改为 `source`，绑定 `lyricThemes` 列表条目
+  ⇒ 换主题 = 换加载的文件（新增「播放器主题」弹窗作为入口，后续插件在 `lyricThemes` 中注册即可）
+- **数据注入改为运行时 `inject(item)`**（`onLoaded` 中用 `Qt.binding` 注入 position/lyricsModel/currentIndex 等），
+  模块属性只读；样式类改动一律经白名单 `requestStyle(key, value)` → `applyStyleRequest()` 请求宿主处理，
+  模块不直接改宿主状态（为插件预留受控写入口）
+- **样式白名单收口**：`applyStyleRequest` 改为 `styleAllow` 登记表（11 个键，数值带 `[min,max]` 钳制与
+  NaN 守卫，未登记的键一律忽略）；此前「默认/自由/视频壁纸」主题里 12 处**直接写 `Style.settings`** 的代码
+  全部改走 `request(key, value)`，并给「视频壁纸」补齐了缺失的 `requestStyle` 契约
+- **宿主控件去重**：`PlayerMaxCenter` 顶部三个同款 `SButton` 抽成内联组件 `MaxButton`（样式单一来源）
+- **320ms 歌词定位定时器上移到宿主**：宿主遍历列表按播放进度算出 `lyricIndex` 并注入，再调用模块的
+  `timerFunction()` 刷新列表位置与等待动画；模块内定时器已移除，页面不可见时宿主定时器不运行
+- **「播放器样式」弹窗拆分**：`标准歌词大小`/`歌词位置校准`/`自动进入沉浸模式` 为常驻项；其余项由当前歌词
+  界面模块经 `styleOptions` 组件提供（`MainLyric` 提供 封面模式/主题模式/弹簧动画/音波），换模块即换这部分，
+  未提供则不显示；这些项按需实例化（`Loader.active` 跟随弹窗可见性），弹窗关闭时不建对象
+- **「播放器主题」弹窗改用 `GridView`**：主题数量不定，网格自适应（1 个占满整行、多个两列），选中态用
+  `Style.themes.themeColor`；不启用内层滚动（滚动交给 `QOptionDialog` 自带的 `Flickable`，避免嵌套滚动冲突）
+- **函数补全类型标注**（`function(name: type): type`）并简化：`inject()` 改为键值表 + `k in it` 判存（缺属性自动
+  跳过，便于直接换插件）；`tick()` 拆出 `checkWaitAnime()`、`springValue` 用 `Math.max` 收口、循环内边界值提出复用；
+  `animeTo()` 去掉未使用的 `instant` 参数
+- **歌词界面主题 4 种（`lyricsui/`）**：与 `MainLyric` 同一份注入契约（只声明自己用到的属性即可），
+  在「播放器主题」里切换
+  - 默认：`layout/MainLyric.qml`（保持原样）
+  - 极简 `lyricsui/LyricsSimple.qml`：布局与默认一致，去掉封面阴影与全部复杂动画（逐行弹簧 / 等待 / 逐字），
+    歌词改为普通 `ListView` 由 `contentY` 直接驱动
+  - 自由 `lyricsui/LyricsFree.qml`：原版 + 大量自定义项（歌词间隔、歌词卡片**翻转**、当前行放大、
+    非当前行透明度、逐字唱后颜色、唱行颜色），全部写入 `Style.settings` 持久化，颜色用 `ColorPickerDialog` 选取；
+    卡片绕竖轴翻转（类似 `Flipable`），统一向左、幅度随离界面中心的距离增大
+  - 3d `lyricsui/Lyrics3D.qml`：背景是 `shaders/cubes.frag` 的方块场，**相机完全由鼠标驱动、不自转**
+    （`HoverHandler` 跟踪、不吞点击）；天空为**彩色双色调星云**（fbm）+ 两层视差星空 + 上浮星火粒子，
+    均随音频增亮 —— 修掉原先空白处一片黑
+  - **3d 主题三层结构**：① 背景着色器 `shaders/bg_*.frag`（方块场 / 光栅地平 / 光棱 / 近黑底，按预设换
+    `fragmentShader`）② **点云舞台（新增 C++）** ③ `lyricplane.frag` 歌词平面（负责发光）
+  - **点云舞台 = 真 3D 点云**（与 MineRadio 同一套做法）：新增 `shaders/LyricsStage.{h,cpp}` +
+    `shaders/stage.vert/frag`。14000 个发光点的**位置 / 大小 / 亮度全部由顶点着色器在 GPU 算出**，
+    按深度做尺寸与亮度衰减 ⇒ 真景深真视差；片元输出 `alpha=0 + 预乘颜色` ⇒ 在 Qt 预乘混合下等效
+    **加色发光**。与背景共用同一套相机（yaw/pitch/lookAt + kFocal=1.9）⇒ 点和方块场在同一个三维空间里。
+    分布 4 种：星尘（体积云）/ 光隧（圆管流动）/ 星环（球面 + 赤道细环）/ 舞台（地面圆盘 + 上升光柱）
+  - **修复歌词视角左右半边相反**：倾斜量原先加在**世界坐标系**，相机转到另一半时同一个偏移变成反向 ⇒
+    改为加在**相机坐标系**（cb[0]=右 / cb[1]=上），左右一致
+  - **当前行发光改为"字体发光"**：去掉背后的矩形光晕条，也去掉滚动扫过带/已唱提亮（观感像"叠了层渐变
+    在后面滚"）⇒ 整行**按字形**发光：着色器沿字形轮廓加强近圈晕 + 字形自发光，按 `uLineV` 只作用当前行，
+    面板项更名「当前行发光」；行距 ×1.45，当前行放大到 1.22、其它行缩小 ⇒ 层次分明
+  - **点云粒子放大**：点半径原先算出只有 ~0.2 像素（`0.25% × 屏高/深度`）⇒ 改为 `5.5%~10% × 屏高/深度`
+    （深度 9 时约 5~7 像素，近处更大），透视尺寸衰减保留
+  - **歌词上下渐隐**：纹理边缘在 3D 倾斜下会被拉伸 ⇒ 着色器对顶部/底部 12% 做 alpha 渐隐，直接隐去
+  - **"糊"的两个根因已修**：① 歌词纹理原先走 mip 采样（字形被 mip 化）⇒ 改为**固定 LOD 0** 采样且
+    `ShaderEffectSource.mipmap: false`；② 发光原先用 `textureLod(...,3.0)` 当模糊（mip 层可能不存在 ⇒
+    字根本不发光）⇒ 改为**两圈 8 向明采样**累加 alpha：近圈紧贴字形、远圈做大范围晕，锐利不糊，
+    字形本身也加自发光
+  - 配色统一为**近黑底 + 加色发光 + 高饱和**（饱和度提升 + 亮度地板 + tonemap），方块场恢复可见
+  - 自定义入口移到**翻译按钮左边**（同一行、同尺寸），面板保持**卡片弹出**（预设网格 + 14 个滑杆 +
+    2 个取色器），与宿主「播放器样式」弹窗共用同一份 `styleOptions`
+  - 许可：预设与特效思路参考 MineRadio（GPL-3.0-only），**未移植其任何代码**，全部原创实现（本项目 Apache-2.0）
+  - **许可说明**：3d 背景预设与歌词特效的**思路**参考 MineRadio（GPL-3.0-only），但**未移植其任何代码**，
+    全部为本项目原创实现（本项目为 Apache-2.0）
+  - **歌词改用真实透视**：QML 的 `Rotation`/`Matrix4x4` 都是仿射（实测带 `m34` 透视项会直接塌成一条线），
+    故歌词先平铺进 `ShaderEffectSource`，再由同一个着色器投影成场景中的一块全息平面；平面法线始终朝向
+    相机再叠加鼠标倾斜（0.46 / 0.30 rad）⇒ 任何鼠标位置都读得到字，又能看出真的立体翻转
+  - 频谱注入改用**标量 uniform**（`uLow/uMid/uHigh/uAir/uLevel`）：Qt 对 `float uWave[64]` 这类从
+    JS 数组绑定的数组 uniform 不保证生效（方块不跳动的根因），标量必然生效且更省；
+    同时修正着色器的纹理坐标 y 方向 —— 原先地面被渲染到屏幕上方
+  - 移除曾压住最下面歌词行的下半部分 3D 音波层（背景已有地面方块场，且少一次全屏 pass）；
+    无歌词（未播放）时 `ShaderEffectSource.live` 为 false，不逐帧离屏渲染
+  - `inject()` 对缺省属性加守卫（`if ("requestStyle" in it)` 等），避免换插件/预设时刷
+    `Cannot assign to non-existent property` 告警
+- **「自由」颜色修正**：`唱行颜色` 原先只作用在普通 `Text` 上，而逐字歌词实际由 `CustomFlow` 渲染
+  （`lyricFlowText`）⇒ 看起来"没颜色"；现在同时作用于 `lyricFlowText`
+- **「极简」→「视频壁纸」**：歌词样式保持极简（`ListView` + `contentY` 直接驱动），背景改为循环播放的
+  视频（`Video` + `autoPlay` + 静音 + `PreserveAspectCrop`），未设置时回退流体背景；「播放器样式」新增
+  「视频壁纸」项（`FileDialog` 选择 / 清除），路径存 `Style.settings.lyricWallpaper`。
+  注：Qt 6 的 `Video` 没有 `playing`/`volume` 属性、`playbackState` 只读 ⇒ 播放控制只用 `autoPlay`
+- **「3d」背景改为着色器**：新增 `shaders/cubes.frag`（原创实现）——高度场步进的 3D 方块场，方块高度按
+  频谱低/中/中高/高四段电平起伏（标量 uniform）；`shaders/wave3d.frag` 已删除（会压住歌词行，
+  文件与 CMake 登记一并移除）
+- **「视频壁纸」主题并入「自由」**：删除 `lyricsui/LyricsVideoWall.qml`（宿主主题列表 4 → 3），
+  自由模式新增「背景样式」四选一 —— 流体 / 图片 / 视频 / 星空（星空复用 `bg_stars.frag`，`uMouse` 固定 0
+  ⇒ 不受鼠标影响），图片与视频各带选择 / 清除（`FileDialog`）
+- **各主题设置改为模块自持**：`lyricsui/LyricsFree.qml` 内的 `Settings`（category "LyricsFree"）持有
+  `bgStyle/bgImage/bgVideo` + 原 6 项（`lyricSpacingScale` 等，读取与写入 21 处机械迁移）；写入由
+  `request(key, value)` 改为直接写 `cfg`；`StyleSettings.qml` 与宿主白名单里对应的死键已删除，
+  白名单只保留「宿主状态 + 跨主题共用」的 `basicCd/lyricType/premiumLyricAnime/waveDisplay`
+- **「自由」卡片翻转改为整块翻**：原先是逐行各自按距离算角度（观感假）⇒ 改为在 `lyricContent` 上加
+  单个绕竖轴旋转（`angle: -cfg.lyricCardAngle`，320ms 过渡），整块歌词统一向左翻
+- **死代码清理**：删除 `lyricplane.frag` 中声明但从未使用的 `uColor`（着色器与 QML 两侧同步删除，
+  16/16 uniform 仍逐个对齐）；删除已无引用的 `lyricWallpaper` 设置键
+  **注**：`example/cubescape.frag`（Inigo Quilez 作品）授权明确禁止用于任何产品，项目未采用其代码
+  - 「播放器主题」由 `GridView` 改为 `Flow + Repeater`（不额外引入滚动容器，滚动交给弹窗自身）；
+    `components/StyleSettings.qml` 新增 6 个歌词自定义项
+
+- **注释清理**：`CMakeLists.txt` 注释 30 → 20 行（构建开关 / LTO·gc-sections / QML 收集·qmltc / Windows 库·
+  QWK 拷贝 / FFmpeg 部署 / 部署清理 六处只留关键事实，并修正一处 `endif()` 缩进）；`main.cpp` 去掉口语化
+  说明、把"为什么"改成约束（如渲染后端开关须在 `QApplication` 之前设环境变量）；删除 7 处**被注释掉的
+  死代码**（PlayerOptions / PlayList / QOptionDialog / MainContent / PlayerControl / HomePage / Style）；
+  `cpp/AppModels.h` 头说明 10 → 7 行（保留"为何用单例"与"构造函数陷阱"两个关键点）、
+  `cpp/LocalLyricsReader.h` 中英混杂注释统一为中文
+
 ### ⚡ 优化
 - **音频回调内零分配**：`applyPendingParams()` 原在参数变化时构造 `QList<qreal>`（拖 EQ 滑块即每次回调都分配
   内存）。新增 `AudioDsp::setEqGains(const double *, int)` 直读快照数组，音频线程不再触碰容器分配
@@ -58,17 +167,55 @@
 - **改变窗口宽度导致音频一顿一顿**：频谱通路用互斥量在音频回调与渲染线程之间传数据，窗口 resize 时渲染
   线程变慢会把音频线程卡在锁上造成欠载。改为无锁环形缓冲，音频回调全程不取锁
 - 音高/倍速联动错误：重采样读指针压实缓冲时多减了一次基准偏移，导致读位置回退、时长被拉长约 2 倍
+- **拖动进度条时位置回闪**：连续拖动会排队多个 seek，旧请求落地时 `beginGeneration()` 无条件把位置回写成
+  该旧请求的时间点，覆盖掉 GUI 侧刚发布的目标位置。现在挂起 seek 期间只有落到目标段才回写位置；
+  另修复无人执行 seek（源未就绪/打开失败）时挂起标记无人清除、进度条永久停住的问题
+- **逐字歌词首行整行重叠**：`CustomFlow` 只在自己尺寸或子项增删时重排，子项（逐字文本）宽高由字体与字号
+  稍后算出的情况不会触发重排，首帧按 0 尺寸摊平后一直保持重叠。现在跟踪子项的宽高与可见性变化并重排，
+  同时不再把 `Repeater` 本身当作参与流式排布的内容
+- **收藏 / 本地排序列表的操作全部失效**：列表按 ListModel 约定用 `model.get(行)` 取行，而 `QSortModel`
+  （`SortFilterProxyModel`）没有该方法，抛 `TypeError: Property 'get' … is not a function`。现在代理按源模型的
+  接口取行（`Favorites` / `SongModel` 走 `get(row)`，`SearchResultModel` 走 `getRow(row)`，并用 `mapToSource`
+  把代理行号换回源行号）；另修正收藏行字段：`get()` 返回的键是 `id`（只有 delegate 的 role 名叫 `favId`），
+  原先按 `favId` 取值恒为 `undefined`，收藏列表的播放/详情/加入列表因此拿不到 key
 
 ### 🔧 变更
+- **在线列表统一（`QListView`）**：收藏 / 加入播放列表 / 下一首播放 / 下载 / 歌曲与歌单信息全部下沉到组件内部
+  —— 右键菜单歌曲 5 项（下载、下一首播放、添加到列表、收藏、歌曲信息）、歌单 2 项（收藏、歌单信息），
+  行尾 3 个按钮统一为「更多 / 收藏 / 加入列表（歌单信息）」，信息弹窗用组件内置的 `QOptionDialog`；
+  页面只保留 `onClicked`（播放或打开详情）与 `onEnded`（分页），删除了散落在 7 个页面中的重复实现
+  （SearchPage 7 处 / PlaylistPage 4 处 / HomePage 4 处 / FavouritePage 6 处 / DownloadPage 1 处）；
+  收藏图标只在悬停时查询，滚动时不再逐行访问数据库
 - 音量与淡入淡出下沉到音频线程逐样本完成（`AudioDsp::processVolume`），不再由 QML 动画在 GUI 线程
   每帧调 `QAudioSink::setVolume`（那是 COM 调用，GUI 忙时会抖动）
 - 切歌过渡：淡出在 C++ 完成，淡入在**新数据段真正出声的第一批样本**上开始推进；每次切段另有 12ms
   保护性淡入消除爆音
 - 结束不再关闭输出设备（保持常开），下一首起播没有设备重开的空档
-- 播放缓冲限制在 **10–200 ms**（0 = 自动 120 ms）；UI 滑杆同步收窄
+- 播放缓冲限制在 **10–100 ms**（默认 30 ms）；UI 滑杆同步收窄
+- 频谱波形 `GetWave`：音频线程只降混写入环形历史，渲染线程仍跟 `frameSwapped` 逐帧取最近 4096 帧做 FFT。
+  波形路径改为双缓冲换手，去掉未使用的 `spectrumData` 属性与整段计算持有的大锁
+- 频谱观感：段间三点混合 + 上升快/下降慢的非对称平滑，柱子不再逐帧乱抖；dB 映射放宽到 −62~−6 dB，低位更饱满。
+  频段边界改为按比例递推，每帧的 `exp` 从 128 次降到 2 次
 - `AudioDsp` 新增旁路开关：总开关关闭时跳过均衡/声道/限幅，但音量与淡变仍生效
 
 ### ✨ 新增
+- **沉浸中心翻新（FullCenterView + centers/）**：Aurora 背景（封面主色驱动的三束漂移光带 + 可读性蒙层，
+  随歌换色）、Liquid Glass 播放坞/队列抽屉/详情页（实时模糊 + 顶部高光缝 + 微描边 + 玻璃徽章）、
+  folia 式 Hero 大标题排版与统一分区标题（主色短线 + 加宽字距）；窗口控制补上最小化功能
+- **沉浸中心二轮（Shapes 极光 + 功能修复）**：背景升级为 `QtQuick.Shapes` 真径向光团 + 双色极光丝带；
+  修复歌单详情/播放队列列表高度溢出导致的底部显示不全；播放坞新增播放呼吸光晕与跳动的"正在播放"角标，
+  选中页签加主题微光、封面卡悬浮投影；队列/详情补滚动条与空状态提示
+- **沉浸中心四轮（空白页根因）**：`Flickable.availableWidth` 无 NOTIFY，构造期为 0 后绑定不再更新，
+  首页/分类页内容整块 0 宽不可见（改用 `scroll.width`）；Window 直接子项改显式宽高绑定
+  （`anchors.fill: parent` 会因 contentItem 就绪前尺寸为 0 而把整条布局链锁死）；
+  `PathAngleArc` 误用不存在的 `radius` 致极光光团完全不渲染（改 `radiusX`/`radiusY`）；
+  `CenterLocalPage` 缺 `import 'qrc:/QueMusic/components'` 使 `Style` 未定义、卡片底色失效并导致文字不可见；
+  `enter()` 补发一次 `Style.changeTheme()`（色板仅在 darkis 变化时刷新，启动即深色会停在浅色默认值）；
+  各列表补 `Style.themes.primaryColor` 卡片背景
+- **沉浸中心三轮（分页 + 兼容修复）**：修复 Center 全部列表不接 `onEnded` 分页导致的数据只有第一页
+  （搜索/新歌/歌单详情/榜单/歌手现已滚动自动加载下一页，`CenterDetail` 用 `loadMore` 闭包注入）；
+  极光丝带改用闭合波浪带 + `fillGradient` 实现（运行时 `ShapePath` 无 `strokeGradient`，原先静默失效）；
+  搜索统一按 20 条/页请求；推荐页滚动区改 `availableWidth` 防滚动条遮挡
 - **音高调节**：±12 半音（一个八度），不影响播放速度与进度推进；与倍速可叠加
 - 自测增加到 11 项，新增：切歌压力（连续换源 + seek + 自然结束）、变速换算方向、
   进度不回退、配置持久化、变调时长/频率校验（过零计数）

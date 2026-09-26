@@ -82,7 +82,7 @@ Item {
                 case 0:
                     break;
                 case 1:
-                    MusicApi.getMenuInfo(MusicApi.allPlaylistMenu[0].id)
+                    MusicApi.getCategoryPlaylists(MusicApi.allPlaylistMenu[0].id, 1, 20)
                     break;
                 case 2:
                     break;
@@ -233,29 +233,6 @@ Item {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
                     }
                 }
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 0:
-                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                            mainWarn.tiped("成功加入播放列表",1);
-                        }
-                        break;
-                    }
-                }
-                onMenuClicked: (index,choice) => {
-                    switch(choice) {
-                    case 0:
-                        if(Options.settings.soundQuality === 0) {
-                            MusicApi.getMusicInfo(model.get(index).hash,1);
-                        } else if(Options.settings.soundQuality === 1) {
-                            MusicApi.getMusicInfo(model.get(index).hashhq,1);
-                        } else {
-                            MusicApi.getMusicInfo(model.get(index).hashsq,1);
-                        }
-                        break;
-                    }
-                }
             }
         }
         Item {
@@ -305,7 +282,7 @@ Item {
                                 musicMenuPage.musicMenuIndex = index;
                                 MusicApi.globaltagid = MusicApi.allPlaylistMenu[index].id;
                                 MusicApi.musicPlaylists.clear();
-                                MusicApi.getMenuInfo(MusicApi.allPlaylistMenu[index].id);
+                                MusicApi.getCategoryPlaylists(MusicApi.globaltagid, 1, 20);
                             }
                         }
                     }
@@ -324,7 +301,7 @@ Item {
 
                 onEnded: {
                     if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {
-                        MusicApi.getMusicPlaylists(MusicApi.globaltagid, MusicApi.musicPlaylists.count / 20 + 1, 20);
+                        MusicApi.getCategoryPlaylists(MusicApi.globaltagid, MusicApi.musicPlaylists.count / 20 + 1, 20);
                         isEnd = false;
                     } else {
                         if(MusicApi.musicPlaylists.count !== 0) {
@@ -341,19 +318,6 @@ Item {
                     //var title = model.get(index).title;
                     playListSongsWindow.opened(model.get(index));
                     window.exitIndex = 2;
-                }
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 1:
-                        if (FavoritePlaylists.isFavorite(model.get(index).hash, "playlist")) {
-                            FavoritePlaylists.removeFavorite(model.get(index).hash, "playlist");
-                            mainWarn.tiped("取消收藏",0);
-                        } else {
-                            FavoritePlaylists.addFavorite(model.get(index).hash, model.get(index).title, model.get(index).artist, model.get(index).cover, MusicApi.songSource, model.get(index).duration, "playlist");
-                            mainWarn.tiped("成功收藏",1);
-                        }
-                        break;
-                    }
                 }
             }
         }
@@ -640,16 +604,6 @@ Item {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
-                onToolClicked: (index,tool) => {
-                    switch(tool) {
-                    case 0:
-                        if (playListModel.indexOfPath(model.get(index).hash) === -1) {
-                            playListModel.append({ name: model.get(index).title, path: model.get(index).hash, songer: model.get(index).artist, source: MusicApi.songSource });
-                            mainWarn.tiped("成功加入播放列表",1);
-                        }
-                        break;
                     }
                 }
                 onEnded: {

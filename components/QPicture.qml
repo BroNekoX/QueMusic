@@ -21,16 +21,23 @@ Item {
     property alias picScale: mask.scale
     property size sourceSize: Qt.size(width,height)
 
+    readonly property url fallbackSource: "qrc:/QueMusic/resources/app/musicpic.png"
+    property bool loadFailed: false
+    onSourceChanged: loadFailed = false
+
     Image {
         id: sourceItem
-        source: root.source
+        source: root.loadFailed ? root.fallbackSource : root.source
         anchors.fill: parent
         sourceSize: root.sourceSize
         cache: root.cache
         asynchronous: true
         fillMode: Image.PreserveAspectCrop
         visible: false
-        onStatusChanged: if(status === Image.Error) source = "qrc:/QueMusic/resources/app/musicpic.png";
+        onStatusChanged: {
+            if(status === Image.Error && source !== root.fallbackSource)
+                root.loadFailed = true;
+        }
     }
 
     MultiEffect {

@@ -7,7 +7,11 @@
 // （Songs / MyFolders / LocalFolders / FavoriteSongs / FavoritePlaylists / FavoriteArtists）
 // 窗口 id 为 center：centers/ 内组件用 root 指自己、center 指本窗口
 //
+// 注意：Window 不是 Item，直接子项一律用显式宽高绑定 center.width/height，
+// 不用 anchors.fill: parent —— contentItem 尺寸在构造期未就绪会让整条布局链锁死在 0。
+//
 import QtQuick
+import QtQuick.Shapes
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 import 'qrc:/QueMusic/centers'
@@ -26,7 +30,7 @@ Window {
     height: 860
     minimumWidth: 1020
     minimumHeight: 640
-    color: "#06060a"
+    color: "#05060b"
     visible: true
 
     // 复用项目组件（QListView 等）依赖 Style.themes 配色，
@@ -38,6 +42,9 @@ Window {
             savedTheme = Style.settings.theme
             Style.settings.theme = 1
         }
+        // 色板只在 darkis 变化时才刷新；启动即深色时 StyleThemes 还停在浅色默认值上，
+        // 这里补发一次信号，保证中心内的 Style.themes 取到深色值
+        Style.changeTheme()
         visible = true
         if (startFullscreen)
             showFullScreen()
@@ -50,7 +57,7 @@ Window {
         if (visibility === Window.FullScreen)
             showNormal()
         else
-            hide()
+            musicCenter.active = false;
         if (savedTheme >= 0) {
             Style.settings.theme = savedTheme
             savedTheme = -1
@@ -78,7 +85,7 @@ Window {
     readonly property bool hasMedia: player ? player.mediaStatus !== AudioEngine.NoMedia : false
     readonly property bool playing: player ? player.playing : false
 
-    // ==== 封面主色 ====
+    // ==== 封面主色：极光与强调色全部由它驱动 ====
     property color c1: "#2b6cff"
     property color c2: "#8b5cf6"
     property color c3: "#22d3ee"
@@ -111,9 +118,7 @@ Window {
         if (!d)
             return
         const q = Options.settings.soundQuality
-        const h = q === 0 ? (d.hash || d.favId)
-              : q === 1 ? (d.hashhq || d.hash || d.favId)
-                        : (d.hashsq || d.hash || d.favId)
+        const h = (q === 2 ? d.hashsq : q === 1 ? d.hashhq : d.hash) || d.hash || d.favId || d.id
         if (h)
             MusicApi.getMusicInfo(h, 0, validSource(d.source))
     }
@@ -127,48 +132,6 @@ Window {
         MusicApi.readLocalLyricsAsync(path, name || path, "", 0, true)
         Playback.swap(function() { player.source = path; player.play() })
     }
-    function enqueue(d: var): void {
-        if (!d)
-            return
-        const id = d.hash || d.favId || d.path
-        if (!id)
-            return
-        if (Playback.indexOfPath(id) !== -1) {
-            mainWarn.tiped("已在播放队列中", 0)
-            return
-        }
-        queue.append({ name: d.title || d.name, path: id, songer: d.artist || d.singer || "",
-                       source: validSource(d.source) })
-        mainWarn.tiped("成功加入播放列表", 1)
-    }
-    function toggleFavorite(d: var): void {
-        if (!d)
-            return
-        const id = d.hash || d.favId || d.path
-        if (!id)
-            return
-        if (FavoriteSongs.isFavorite(id, "song")) {
-            FavoriteSongs.removeFavorite(id, "song")
-            mainWarn.tiped("取消收藏", 0)
-        } else {
-            FavoriteSongs.addFavorite(id, d.title || d.name, d.artist || d.singer, coverOf(d.cover),
-                                      validSource(d.source), d.duration || 0, "song")
-            mainWarn.tiped("成功收藏", 1)
-        }
-    }
-    function download(d: var): void {
-        if (d && (d.hash || d.favId))
-            MusicApi.getMusicInfo(d.hash || d.favId, 1)
-    }
-    // QListView 的悬停工具：0 加入队列，1 收藏
-    function toolAction(tool: int, d: var): void {
-        if (tool === 0) enqueue(d)
-        else if (tool === 1) toggleFavorite(d)
-    }
-    // QListView 的右键菜单：0 下载到本地
-    function menuAction(choice: int, d: var): void {
-        if (choice === 0) download(d)
-    }
     function doSearch(text: string): void {
         const key = text.trim()
         if (key === "")
@@ -176,26 +139,163 @@ Window {
         searchKey = key
         MusicApi.searchSongsResults.clear()
         MusicApi.nowIndex = 0
-        MusicApi.searchSongs(key, 0, 1, 30)
+        MusicApi.searchSongs(key, 0, 1, 20)
         pageIndex = 5
         if (pages.status === Loader.Ready)
             pages.item.switchTab(0)
     }
 
-    // ==== 背景蒙层 ====
-    Rectangle {
-        anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#5c000000" }
-            GradientStop { position: 0.45; color: "#9905070c" }
-            GradientStop { position: 1.0; color: "#f0060710" }
+    // ==== 极光背景：封面主色驱动的光团与丝带，随歌换色 ====
+    Item {
+        id: backdrop
+        width: center.width
+        height: center.height
+        z: 0
+
+        // 径向光团：真径向渐变，GPU 几何直绘、无条带
+        component GlowOrb: Item {
+            id: orb
+            property color tint: center.c1
+            property real glowRadius: 320
+            property real baseX: 0
+            property real baseY: 0
+            property real drift: 80
+            property int period: 32000
+            x: baseX
+            y: baseY
+            width: glowRadius * 2
+            height: glowRadius * 2
+            Shape {
+                anchors.fill: parent
+                ShapePath {
+                    strokeWidth: -1
+                    fillGradient: RadialGradient {
+                        centerX: orb.width / 2
+                        centerY: orb.height / 2
+                        focalX: orb.width / 2
+                        focalY: orb.height / 2
+                        centerRadius: Math.min(orb.width, orb.height) / 2
+                        focalRadius: 0
+                        GradientStop { position: 0; color: Qt.rgba(orb.tint.r, orb.tint.g, orb.tint.b, 0.46) }
+                        GradientStop { position: 0.5; color: Qt.rgba(orb.tint.r, orb.tint.g, orb.tint.b, 0.15) }
+                        GradientStop { position: 1; color: Qt.rgba(orb.tint.r, orb.tint.g, orb.tint.b, 0.0) }
+                    }
+                    PathAngleArc {
+                        centerX: orb.width / 2
+                        centerY: orb.height / 2
+                        radiusX: Math.min(orb.width, orb.height) / 2
+                        radiusY: Math.min(orb.width, orb.height) / 2
+                        startAngle: 0
+                        sweepAngle: 359.9
+                    }
+                }
+            }
+            SequentialAnimation {
+                running: center.visible
+                loops: Animation.Infinite
+                NumberAnimation { target: orb; property: "x"; to: orb.baseX + orb.drift;
+                                  duration: orb.period / 2; easing.type: Easing.InOutSine }
+                NumberAnimation { target: orb; property: "x"; to: orb.baseX - orb.drift;
+                                  duration: orb.period; easing.type: Easing.InOutSine }
+            }
+        }
+
+        // 极光丝带：闭合波浪带 + 垂直渐变，边缘渐隐
+        component AuroraRibbon: Shape {
+            id: ribbon
+            property color tint: center.c1
+            property color tint2: center.c2
+            property real baseY: 0
+            property real waveA: 210
+            property real waveB: 290
+            property real waveC: 170
+            property real thickness: 170
+            y: baseY
+            height: 560
+            opacity: 0.26
+            ShapePath {
+                strokeWidth: -1
+                fillGradient: LinearGradient {
+                    x1: 0; y1: 0; x2: 0; y2: 1
+                    GradientStop { position: 0.0; color: Qt.rgba(ribbon.tint.r, ribbon.tint.g, ribbon.tint.b, 0) }
+                    GradientStop { position: 0.42; color: Qt.rgba(ribbon.tint.r, ribbon.tint.g, ribbon.tint.b, 0.9) }
+                    GradientStop { position: 0.68; color: Qt.rgba(ribbon.tint2.r, ribbon.tint2.g, ribbon.tint2.b, 0.75) }
+                    GradientStop { position: 1.0; color: Qt.rgba(ribbon.tint2.r, ribbon.tint2.g, ribbon.tint2.b, 0) }
+                }
+                startX: -160
+                startY: ribbon.waveB
+                PathCurve { x: ribbon.width * 0.22; y: ribbon.waveA }
+                PathCurve { x: ribbon.width * 0.52; y: ribbon.waveB }
+                PathCurve { x: ribbon.width + 160; y: ribbon.waveC }
+                PathLine { x: ribbon.width + 160; y: ribbon.waveC + ribbon.thickness * 1.15 }
+                PathCurve { x: ribbon.width * 0.52; y: ribbon.waveB + ribbon.thickness * 0.7 }
+                PathCurve { x: ribbon.width * 0.22; y: ribbon.waveA + ribbon.thickness * 1.25 }
+                PathLine { x: -160; y: ribbon.waveB + ribbon.thickness }
+            }
+            SequentialAnimation {
+                running: center.visible
+                loops: Animation.Infinite
+                NumberAnimation { target: ribbon; property: "y"; to: ribbon.baseY - 30;
+                                  duration: 27000; easing.type: Easing.InOutSine }
+                NumberAnimation { target: ribbon; property: "y"; to: ribbon.baseY + 30;
+                                  duration: 27000; easing.type: Easing.InOutSine }
+            }
+        }
+
+        GlowOrb {
+            tint: center.c1
+            baseX: center.width * 0.08 - 320
+            baseY: -240
+            glowRadius: 330
+            drift: 100; period: 32000
+        }
+        GlowOrb {
+            tint: center.c2
+            baseX: center.width - 600
+            baseY: center.height * 0.16 - 210
+            glowRadius: 310
+            drift: 76; period: 41000
+        }
+        GlowOrb {
+            tint: center.c3
+            baseX: center.width * 0.3 - 280
+            baseY: center.height - 410
+            glowRadius: 350
+            drift: 64; period: 37000
+        }
+
+        AuroraRibbon {
+            tint: center.c1
+            tint2: center.c2
+            baseY: -60
+            width: center.width
+        }
+        AuroraRibbon {
+            tint: center.c3
+            tint2: center.c2
+            baseY: center.height - 400
+            opacity: 0.17
+            waveA: 250; waveB: 170; waveC: 300
+            width: center.width
+        }
+
+        // 压暗蒙层：保证任意封面色下文字可读，底部再沉一档承托播放坞
+        Rectangle {
+            width: center.width
+            height: center.height
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#5c05060b" }
+                GradientStop { position: 0.5; color: "#7d070810" }
+                GradientStop { position: 1.0; color: "#ea04050a" }
+            }
         }
     }
 
     // 对话框类组件以 mainLayout 作为模糊源，故根容器沿用该 id
     Item {
         id: mainLayout
-        anchors.fill: parent
+        width: center.width
+        height: center.height
 
         focus: true
         Keys.onPressed: event => {
@@ -217,32 +317,47 @@ Window {
         // 顶栏：品牌 / 页面 Tab / 音源 / 窗口控制
         Item {
             id: header
-            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 24 }
-            height: 42
+            x: 22
+            y: 22
+            width: Math.max(0, mainLayout.width - 44)
+            height: 46
 
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "QueMusic Center"
-                    font.pixelSize: 18
+                    text: "QueMusic"
                     font.family: "Poppins"
+                    font.pixelSize: 19
                     font.weight: Font.DemiBold
-                    color: "#eef1f6"
+                    font.letterSpacing: 0.4
+                    color: "#f4f6fb"
+                }
+                Text {
+                    anchors { verticalCenter: parent.verticalCenter; verticalCenterOffset: 4 }
+                    text: "CENTER"
+                    font.pixelSize: 10
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 3.2
+                    color: "#7f8b9d"
                 }
                 Rectangle {
-                    y: 20
-                    width: 40
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: devLabel.implicitWidth + 16
                     height: 20
-                    color: Style.themes.themeColor
-                    radius: 6
+                    radius: 10
+                    color: "#22ffffff"
+                    border.width: 1
+                    border.color: "#2affffff"
                     Text {
+                        id: devLabel
                         anchors.centerIn: parent
-                        text: "Dev"
-                        font.pixelSize: 13
-                        color:  Style.themes.primaryColor
-
+                        text: "DEV"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: 1.5
+                        color: "#c8d2e0"
                     }
                 }
             }
@@ -250,7 +365,7 @@ Window {
             CenterTabs {
                 anchors.centerIn: parent
                 model: ["推荐", "分类", "收藏", "本地", "下载", "搜索"]
-                tabWidth: 80
+                tabWidth: 82
                 currentIndex: center.pageIndex
                 onTabClicked: i => center.pageIndex = i
             }
@@ -276,25 +391,13 @@ Window {
             }
         }
 
-        Item {
-            id: content
-            anchors {
-                left: parent.left; right: parent.right
-                top: header.bottom; bottom: dock.top
-                leftMargin: 28; rightMargin: 28; topMargin: 24; bottomMargin: 8
-            }
-            Loader {
-                id: pages
-                anchors { top: parent.top; bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
-                width: Math.min(parent.width, center.maxContentWidth)
-                sourceComponent: [recommendPage, categoryPage, favoritePage, localPage, downloadPage, searchPage][Math.min(center.pageIndex, 5)]
-            }
-        }
-
+        // 播放坞固定在底部，内容区吃掉剩余高度
         CenterDock {
             id: dock
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            anchors.margins: 24
+            x: 22
+            y: Math.max(0, mainLayout.height - height - 22)
+            width: Math.max(0, mainLayout.width - 44)
+            blurSource: mainLayout
             cover: center.cover
             title: center.songTitle
             artist: center.songArtist
@@ -309,10 +412,42 @@ Window {
             onVolumeMoved: v => Playback.setVolume(v)
         }
 
+        Item {
+            id: content
+            x: 30
+            y: header.y + header.height + 18
+            width: Math.max(0, mainLayout.width - 60)
+            height: Math.max(0, dock.y - y - 14)
+
+            Loader {
+                id: pages
+                x: Math.max(0, (content.width - width) / 2)
+                y: 0
+                width: Math.min(content.width, center.maxContentWidth)
+                height: content.height
+                // 用 URL 字符串而非 Component 对象：数组/分支返回 Component 在 AOT 下不可靠
+                source: {
+                    switch (center.pageIndex) {
+                    case 1: return "qrc:/QueMusic/centers/CenterCategoryPage.qml"
+                    case 2: return "qrc:/QueMusic/centers/CenterFavoritePage.qml"
+                    case 3: return "qrc:/QueMusic/centers/CenterLocalPage.qml"
+                    case 4: return "qrc:/QueMusic/centers/CenterDownloadPage.qml"
+                    case 5: return "qrc:/QueMusic/centers/CenterSearchPage.qml"
+                    default: return "qrc:/QueMusic/centers/CenterRecommendPage.qml"
+                    }
+                }
+                onStatusChanged: {
+                    if (status === Loader.Error)
+                        console.warn("[Center] 页面加载失败:", source)
+                }
+            }
+        }
+
         CenterQueue {
+            blurSource: mainLayout
             areaTop: content.y
             areaHeight: content.height
-            areaRight: 28
+            areaRight: 30
             opened: center.showQueue
             queue: center.queue
             currentIndex: center.trackIndex
