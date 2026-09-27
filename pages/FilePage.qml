@@ -10,6 +10,9 @@ import 'qrc:/QueMusic/components'
 Item {
     id: filePage
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     property int folderNumber: 0
     property int setMode: 0
     property var chooseIndex: []
@@ -1016,7 +1019,7 @@ Item {
                     width: fileView.width - 16
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 3 && filePage.chooseIndex.indexOf(model.songId) !== -1
-                    color: listfile.chosen || mainMedia.source == model.path ? Style.themes.containColor : "transparent"
+                    color: listfile.chosen || player.source == model.path ? Style.themes.containColor : "transparent"
                     property int transY: 0
                     transform: Translate { y: listfile.transY }
 
@@ -1399,7 +1402,7 @@ Item {
                     width: localFileView.width - 16
                     radius: Style.settings.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(model.fileUrl.toString()) !== -1
-                    color: listLocalFile.chosen || mainMedia.source == model.fileUrl ? Style.themes.containColor : "transparent"
+                    color: listLocalFile.chosen || player.source == model.fileUrl ? Style.themes.containColor : "transparent"
                     property int transY: 0
                     transform: Translate { y: listLocalFile.transY }
 

@@ -83,7 +83,7 @@ QtObject {
         if (queue.playListIndex < 0 || count === 0 || !musicTitle) return
         const e = queue.get(queue.playListIndex)
         pushHistory({ title: musicTitle, artist: musicArtist, path: e.path, source: e.source,
-                      cover: player.urlStr || "",
+cover: player.urlStr || "",
                       duration: player ? Math.floor(player.duration / 1000) : 0, time: Date.now() })
     }
 

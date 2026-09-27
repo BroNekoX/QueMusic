@@ -6,6 +6,7 @@
 
 #include "AudioDsp.h"
 #include "AudioRing.h"
+#include "AudioSpectrumSink.h"
 #include "FfmpegDecoder.h"
 #include "PitchShifter.h"
 
@@ -22,13 +23,13 @@
 #include <atomic>
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <thread>
 #include <vector>
 
 class QAudioSink;
 class QIODevice;
 class QTimer;
-class AudioSpectrumSink;
 class EngineIoDevice;
 
 class AudioEngine : public QObject
@@ -195,6 +196,7 @@ public:
     Q_INVOKABLE void applyEqPreset(const QString &name);
     Q_INVOKABLE QStringList eqPresetNames() const;
     Q_INVOKABLE QStringList eqBandLabels() const;
+    // 订阅频谱：sink 需实现 AudioSpectrumSource，引擎只拿走共享句柄（见 AudioSpectrumSink.h）
     Q_INVOKABLE void setSpectrumSink(QObject *sink);
 
 signals:
@@ -254,6 +256,9 @@ private:
     void reconfigureOutput();
     int decodeRateFor(int deviceRate) const;
     void invokeOnOutput(std::function<void()> fn);
+    void publishSpectrumHandle(std::shared_ptr<AudioSpectrumSinkHandle> handle);
+    // 音频线程取句柄：抢不到锁就直接跳过本块，绝不阻塞音频回调
+    std::shared_ptr<AudioSpectrumSinkHandle> acquireSpectrumHandle();
     void loadSettings();
     void saveSettings();
     void scheduleSave();
@@ -350,7 +355,8 @@ private:
 
     QTimer *m_pollTimer = nullptr;
     QTimer *m_saveTimer = nullptr;
-    AudioSpectrumSink *m_spectrumSink = nullptr;
-    QObject *m_spectrumObject = nullptr;
+    // 频谱订阅：只保存共享句柄 + 保护它的锁，音频线程绝不直接引用 QObject
+    QMutex m_spectrumMutex;
+    std::shared_ptr<AudioSpectrumSinkHandle> m_spectrumHandle;
     qint64 m_lastSinkErrorMs = 0;
 };

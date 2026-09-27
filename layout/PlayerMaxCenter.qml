@@ -9,6 +9,8 @@ import 'qrc:/QueMusic/components'
 
 Rectangle {
     id: musicControlMax
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
     property int hideHeight: 0
     color: "#000000"
     property color mainColor: "#00ee66"
@@ -57,16 +59,16 @@ Rectangle {
     function inject(it: Item): void {
         if (!it) return;
         const src = {
-            position: () => mainMedia.position,
-            playbackRate: () => mainMedia.playbackRate,
-            playing: () => mainMedia.playing,
-            mediaActive: () => mainMedia.onMedia,
+            position: () => player.position,
+            playbackRate: () => player.playbackRate,
+            playing: () => player.playing,
+            mediaActive: () => player.onMedia,
             lyricsModel: () => MusicApi.lyricsData || [],
             translateModel: () => MusicApi.lyricsTranslate || [],
             currentIndex: () => musicControlMax.lyricIndex,
             title: () => Playback.musicTitle,
             artist: () => Playback.musicArtist,
-            coverUrl: () => mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
+            coverUrl: () => player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
             mainColor: () => musicControlMax.mainColor,
             secondColor: () => musicControlMax.secondColor,
             thirdColor: () => musicControlMax.thirdColor,
@@ -146,11 +148,11 @@ Rectangle {
         id: lyricTimer
         interval: 320
         repeat: true
-        running: musicControlMax.visible && mainMedia.onMedia
+        running: musicControlMax.visible && player.onMedia
         onTriggered: {
             const data = MusicApi.lyricsData;
             if (data && data.length > 0) {
-                const pos = mainMedia.position + musicControlMax.lyricMoveMs + 320;
+                const pos = player.position + musicControlMax.lyricMoveMs + 320;
                 let idx = musicControlMax.lyricIndex;
                 while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
                 while (idx > 0 && pos < data[idx].time) idx--;
