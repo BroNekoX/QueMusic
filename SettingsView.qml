@@ -18,6 +18,11 @@ Item {
     property bool kugouShowLogin: false
     // 扫码被风控时展开的备用登录方式（手机号 / 粘贴 Cookie）
     property bool neteaseAltVisible: false
+    // 手机号登录的输入框在弹窗的 options（Component）里，弹窗外层读不到那些 id，
+    // 所以由输入框把内容上报上来，弹窗底部的「取消」按钮据此变成「确认登录」
+    property string neteasePhone: ""
+    property string neteaseCaptcha: ""
+    readonly property bool neteasePhoneReady: neteasePhone !== "" && neteaseCaptcha !== ""
     property string neteaseLoginStatus: "等待登录…"
     property string kugouLoginStatus: "等待登录…"
 
@@ -42,10 +47,23 @@ Item {
     QOptionDialog {
         id: neteaseQrDialog
         title: "网易云音乐 - 扫码登录"
-        cancelText: "取消"
+        // 手机号和验证码都填好后，左下的「取消」变成「确认登录」：
+        // 手机号输入区在可滚动区域里，这排按钮才是始终看得见的确认入口
+        cancelText: settingsView.neteasePhoneReady ? "确认登录" : "取消"
+        cancelIcon: settingsView.neteasePhoneReady ? "\uf0e7" : "\uf10f"
+        cancelCloses: !settingsView.neteasePhoneReady
         confirmText: "关闭"
         blurSource: settingsView
-        onCancel: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
+        onCancel: {
+            if (settingsView.neteasePhoneReady) {
+                // 登录中/失败都不关弹窗，好让提示留在眼前（成功后由 neteaseLoginChanged 收起）
+                AccountManager.loginNeteaseWithCellphone(settingsView.neteasePhone,
+                                                         settingsView.neteaseCaptcha);
+                return;
+            }
+            AccountManager.cancelNeteaseQrLogin();
+            settingsView.neteaseShowLogin = false;
+        }
         onConfirm: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
         onClosed: { AccountManager.cancelNeteaseQrLogin(); settingsView.neteaseShowLogin = false; }
 
@@ -119,6 +137,18 @@ Item {
                 spacing: 10
                 visible: settingsView.neteaseAltVisible
 
+                // 上报输入内容：弹窗外层看不到本组件里的 id，靠这两个绑定驱动左下按钮的形态
+                Binding {
+                    target: settingsView
+                    property: "neteasePhone"
+                    value: neteasePhoneInput.text.trim()
+                }
+                Binding {
+                    target: settingsView
+                    property: "neteaseCaptcha"
+                    value: neteaseCaptchaInput.text.trim()
+                }
+
                 TextField {
                     id: neteasePhoneInput
                     width: parent.width
@@ -179,6 +209,17 @@ Item {
                     textColor: Style.themes.primaryColor
                     onClicked: AccountManager.loginNeteaseWithCellphone(neteasePhoneInput.text,
                                                                       neteaseCaptchaInput.text)
+                }
+
+                // 发送验证码/登录的进度与失败原因：弹窗上方那条提示滚上去就看不见了，这里就近再显示一份
+                Text {
+                    width: parent.width
+                    text: AccountManager.neteaseQrMessage
+                    color: Style.themes.fontColor
+                    opacity: 0.7
+                    font.pixelSize: Style.settings.textmain - 3
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
                 }
             }
 
