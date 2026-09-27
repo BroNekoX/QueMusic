@@ -17,6 +17,7 @@ public:
     {
         QVariantList lyrics;
         QVariantList translate;
+        QString source;   // SYLT 逐音节重建时为 "embedded-sylt"（无翻译，需在线补）
     };
 
     // 解析 LRC（标准行时间戳 + 增强的逐字时间戳）为歌词模型

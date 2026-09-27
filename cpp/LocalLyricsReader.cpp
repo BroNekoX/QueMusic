@@ -298,6 +298,103 @@ QVariantList LocalLyricsReader::parsePlainLyrics(const QString &text)
     return {lyricLine(0, cleaned)};
 }
 
+// 标签里的整段歌词文本：能解析出时间轴就按 LRC 处理（含翻译配对），否则整段作为一行
+static LocalLyricsReader::Parsed parseEmbeddedText(const QString &text)
+{
+    const LocalLyricsReader::Parsed timed = LocalLyricsReader::parseLrcWithTranslation(text);
+    if (!timed.lyrics.isEmpty())
+        return timed;
+    const QString plain = text.trimmed();
+    if (plain.isEmpty())
+        return {};
+    return {{lyricLine(0, plain)}, {}, QString()};
+}
+
+// 把 SYLT 音节按时间落到各行：行内容与翻译不变，只补行内逐字 info
+static LocalLyricsReader::Parsed attachSyllables(LocalLyricsReader::Parsed parsed,
+                                                 const QList<QPair<qint64, QString>> &syllables)
+{
+    if (syllables.isEmpty())
+        return parsed;
+    const int lines = parsed.lyrics.size();
+    int i = 0;
+    for (int li = 0; li < lines; ++li) {
+        QVariantMap line = parsed.lyrics.at(li).toMap();
+        const qint64 start = line.value(QStringLiteral("time")).toLongLong();
+        const bool last = li + 1 >= lines;
+        const qint64 stop = last ? 0 : parsed.lyrics.at(li + 1).toMap()
+                                              .value(QStringLiteral("time")).toLongLong();
+        QVariantList words;
+        while (i < syllables.size() && (last || syllables.at(i).first < stop)) {
+            const qint64 time = syllables.at(i).first;
+            const QString text = syllables.at(i).second;
+            if (time >= start && !text.isEmpty()) {
+                const qint64 next = i + 1 < syllables.size() ? syllables.at(i + 1).first
+                                                              : time + 320;
+                words << QVariantMap{
+                    {QStringLiteral("offset"), QVariant::fromValue<qint64>(time - start)},
+                    {QStringLiteral("duration"),
+                     QVariant::fromValue<qint64>(qMax<qint64>(0, next - time))},
+                    {QStringLiteral("text"), text}};
+            }
+            ++i;
+        }
+        if (!words.isEmpty()) {
+            line.insert(QStringLiteral("info"), words);
+            parsed.lyrics[li] = line;
+        }
+    }
+    return parsed;
+}
+
+// 只有 SYLT 时：按"停顿"（间隔明显大于行内平均）分组为显示行，行内音节进 info
+static LocalLyricsReader::Parsed groupSyllables(const QList<QPair<qint64, QString>> &items,
+                                                qint64 defaultGap, int maxLineChars)
+{
+    const int n = items.size();
+    QVariantList lyrics;
+    for (int i = 0; i < n;) {
+        const qint64 lineTime = items.at(i).first;
+        int end = i + 1;
+        int chars = qMax(0, items.at(i).second.trimmed().size());
+        qint64 gapSum = 0;
+        int gapCount = 0;
+        while (end < n && chars < maxLineChars) {
+            const qint64 gap = items.at(end).first - items.at(end - 1).first;
+            const qint64 avg = gapCount > 0 ? gapSum / gapCount : defaultGap;
+            if (gap >= qMax<qint64>(320, avg * 3 / 2))
+                break;
+            gapSum += gap;
+            ++gapCount;
+            chars += qMax(0, items.at(end).second.trimmed().size());
+            ++end;
+        }
+
+        QVariantList words;
+        QString fullText;
+        for (int j = i; j < end; ++j) {
+            const QString raw = items.at(j).second;
+            if (raw.trimmed().isEmpty() && fullText.isEmpty())
+                continue;                       // 行首空白丢弃，行内保留
+            const qint64 start = items.at(j).first;
+            const qint64 stop = j + 1 < n ? items.at(j + 1).first : start + defaultGap;
+            words << QVariantMap{
+                {QStringLiteral("offset"), QVariant::fromValue<qint64>(start - lineTime)},
+                {QStringLiteral("duration"),
+                 QVariant::fromValue<qint64>(qMax<qint64>(0, stop - start))},
+                {QStringLiteral("text"), raw}};
+            fullText += raw;
+        }
+        if (!fullText.trimmed().isEmpty()) {
+            QVariantMap line = lyricLine(lineTime, fullText.trimmed());
+            line.insert(QStringLiteral("info"), words);
+            lyrics.append(line);
+        }
+        i = end;
+    }
+    return {lyrics, {}, QStringLiteral("embedded-sylt")};
+}
+
 LocalLyricsReader::Parsed LocalLyricsReader::parseEmbeddedLyrics(const QString &filePath)
 {
     const QByteArray encodedPath = QFile::encodeName(filePath);
@@ -308,63 +405,36 @@ LocalLyricsReader::Parsed LocalLyricsReader::parseEmbeddedLyrics(const QString &
     if (ref.isNull() || ref.file() == nullptr)
         return {};
 
-    // SYLT 是 ID3v2 的原生同步歌词帧，时间戳为绝对毫秒。每一条目本身
-    // 就是一个音节/词，直接映射成在线歌词的字级 info 结构。
+    constexpr qint64 kDefaultGap = 320;   // 仅 SYLT 时的默认音节间隔(ms)
+    constexpr int kMaxLineChars = 28;     // 仅 SYLT 时的单行字数兜底
+
+    // SYLT（ID3v2 同步歌词，绝对毫秒）一条只是一个音节/词：有行级歌词时只用来补行内逐字，
+    // 没有行级歌词时才按"停顿"分组为显示行。
+    QList<QPair<qint64, QString>> syllables;
     if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(ref.file())) {
         if (auto *id3v2 = mpeg->ID3v2Tag()) {
-            const auto synchronized = id3v2->frameList("SYLT");
-            for (auto *frame : synchronized) {
+            for (auto *frame : id3v2->frameList("SYLT")) {
                 auto *sylt = dynamic_cast<TagLib::ID3v2::SynchronizedLyricsFrame *>(frame);
                 if (!sylt || sylt->timestampFormat()
                                  != TagLib::ID3v2::SynchronizedLyricsFrame::AbsoluteMilliseconds)
                     continue;
-
-                const auto entries = sylt->synchedText();
-                const int count = static_cast<int>(entries.size());
-                if (count > 0) {
-                    QVariantList lyrics;
-                    for (int i = 0; i < count; ++i) {
-                        const QString text = tagString(entries[i].text).trimmed();
-                        if (text.isEmpty())
-                            continue;
-                        const qint64 time = entries[i].time;
-                        const qint64 nextTime = i + 1 < count ? entries[i + 1].time : time;
-
-                        QVariantMap line = lyricLine(time, text);
-                        QVariantList words;
-                        QVariantMap word;
-                        word.insert(QStringLiteral("offset"), QVariant::fromValue<qint64>(0));
-                        word.insert(QStringLiteral("duration"),
-                                    qMax<qint64>(0, nextTime - time));
-                        word.insert(QStringLiteral("text"), text);
-                        words.append(word);
-                        line.insert(QStringLiteral("info"), words);
-                        lyrics.append(line);
-                    }
-                    if (!lyrics.isEmpty())
-                        return {lyrics, {}};
-                }
+                for (const auto &entry : sylt->synchedText())
+                    syllables.append({entry.time, tagString(entry.text)});
             }
 
-            const auto unsynchronized = id3v2->frameList("USLT");
-            for (auto *frame : unsynchronized) {
+            // 行级歌词优先（USLT 通常带翻译），拿到就返回并补上逐字
+            for (auto *frame : id3v2->frameList("USLT")) {
                 auto *uslt = dynamic_cast<TagLib::ID3v2::UnsynchronizedLyricsFrame *>(frame);
                 if (!uslt)
                     continue;
-                const QString text = tagString(uslt->text());
-                const Parsed timed = parseLrcWithTranslation(text);
-                if (!timed.lyrics.isEmpty())
-                    return timed;
-                const QVariantList plain = parsePlainLyrics(text);
-                if (!plain.isEmpty())
-                    return {plain, {}};
+                const Parsed parsed = parseEmbeddedText(tagString(uslt->text()));
+                if (!parsed.lyrics.isEmpty())
+                    return attachSyllables(parsed, syllables);
             }
         }
     }
 
-    // TagLib exposes Vorbis/FLAC, MP4, ASF and other text metadata through the
-    // common property map. This also covers ID3v2 LYRICS properties not selected
-    // by the frame-specific path above.
+    // Vorbis/FLAC、MP4、ASF 等把歌词放在通用属性表里（也覆盖上面的 ID3v2 LYRICS）
     const TagLib::PropertyMap properties = ref.properties();
     for (auto it = properties.cbegin(); it != properties.cend(); ++it) {
         const QString key = tagString(it->first).toUpper();
@@ -373,9 +443,13 @@ LocalLyricsReader::Parsed LocalLyricsReader::parseEmbeddedLyrics(const QString &
         const QString text = tagString(it->second.toString("")).trimmed();
         if (text.isEmpty())
             continue;
-        const Parsed timed = parseLrcWithTranslation(text);
-        return timed.lyrics.isEmpty() ? Parsed{parsePlainLyrics(text), {}} : timed;
+        const Parsed parsed = parseEmbeddedText(text);
+        if (!parsed.lyrics.isEmpty())
+            return attachSyllables(parsed, syllables);
     }
+
+    if (!syllables.isEmpty())     // 只有 SYLT：按停顿分组为显示行
+        return groupSyllables(syllables, kDefaultGap, kMaxLineChars);
     return {};
 }
 
@@ -396,17 +470,24 @@ QVariantMap LocalLyricsReader::read(const QString &filePath)
         return result(QStringLiteral("none"), {});
 
     const QFileInfo audioInfo(localPath);
-    const QString sidecarPath = audioInfo.absolutePath() + QLatin1Char('/')
-                                + audioInfo.completeBaseName() + QStringLiteral(".lrc");
-    QFile sidecar(sidecarPath);
-    if (sidecar.open(QIODevice::ReadOnly)) {
+    const QString base = audioInfo.absolutePath() + QLatin1Char('/')
+                         + audioInfo.completeBaseName();
+    // 同名 .lrc 优先，其次同名 .txt（内容不是 LRC 时自动跳过）
+    for (const QString &ext : QStringList{QStringLiteral(".lrc"), QStringLiteral(".txt")}) {
+        QFile sidecar(base + ext);
+        if (!sidecar.open(QIODevice::ReadOnly))
+            continue;
         const Parsed parsed = parseLrcWithTranslation(QString::fromUtf8(sidecar.readAll()));
-        if (!parsed.lyrics.isEmpty())
-            return result(QStringLiteral("sidecar"), parsed);
+        if (parsed.lyrics.isEmpty())
+            continue;
+        return result(QStringLiteral("sidecar"), parsed);
     }
 
     const Parsed embedded = parseEmbeddedLyrics(localPath);
-    if (!embedded.lyrics.isEmpty())
-        return result(QStringLiteral("embedded"), embedded);
+    if (!embedded.lyrics.isEmpty()) {
+        return result(embedded.source.isEmpty() ? QStringLiteral("embedded")
+                                                : embedded.source,
+                      embedded);
+    }
     return result(QStringLiteral("none"), {});
 }

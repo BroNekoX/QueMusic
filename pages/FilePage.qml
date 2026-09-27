@@ -963,6 +963,7 @@ Item {
                 transform: Translate { y: fileView.transY }
                 populate: Transition {
                     id: localFileLoadAnime2
+                    enabled: Style.settings.premiumAnime
                     SequentialAnimation {
                         NumberAnimation {
                             properties: "opacity"
@@ -1347,6 +1348,7 @@ Item {
                 reuseItems: false
                 populate: Transition {
                     id: localFileLoadAnime
+                    enabled: Style.settings.premiumAnime
                     SequentialAnimation {
                         NumberAnimation {
                             properties: "opacity"

@@ -8,10 +8,8 @@
 #include <QAudio>
 #include <QAudioSink>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QIODevice>
-#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QMediaDevices>
@@ -99,22 +97,13 @@ private:
 AudioEngine::AudioEngine(QObject *parent)
     : QObject(parent)
 {
-    // ---- 临时性能诊断：构造耗时拆分（拿到结果后请删除本段）----
-    QElapsedTimer perfCtor;
-    perfCtor.start();
-    QElapsedTimer perfStep;
-    perfStep.start();
-    // ----------------------------------------------------------
-
     for (auto &ring : m_rings)
         ring.configure(kRingSeconds * 48000, 2);
     m_scratch.resize(size_t(kMaxChunkFrames) * 2);
     m_stretchIn.resize(size_t(kMaxStretchInputFrames) * 2);
     m_stretch.prepare(2, 48000);
     m_dsp.prepare(48000.0);
-    const qint64 perfRings = perfStep.restart();
     loadSettings();
-    const qint64 perfSettings = perfStep.restart();
     {
         QMutexLocker lock(&m_paramMutex);
         m_eqSnapshot = m_eq;
@@ -125,12 +114,9 @@ AudioEngine::AudioEngine(QObject *parent)
     m_outputContext->moveToThread(&m_outputThread);
     m_outputThread.setObjectName(QStringLiteral("QueMusicAudioOutput"));
     m_outputThread.start();
-    const qint64 perfThreadStart = perfStep.restart();
 
     setupSink();
-    const qint64 perfSink = perfStep.restart();
     startThread();
-    const qint64 perfDecodeStart = perfStep.restart();
 
     m_saveTimer = new QTimer(this);
     m_saveTimer->setSingleShot(true);
@@ -141,16 +127,6 @@ AudioEngine::AudioEngine(QObject *parent)
     m_pollTimer->setInterval(kPollIntervalMs);
     connect(m_pollTimer, &QTimer::timeout, this, &AudioEngine::pollState);
     m_pollTimer->start();
-
-    // ---- 临时性能诊断 ----
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ===== 构造函数耗时 %1 ms =====").arg(perfCtor.elapsed());
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   ring/dsp/stretch 准备      %1 ms").arg(perfRings);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   loadSettings              %1 ms").arg(perfSettings);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   启动输出线程              %1 ms").arg(perfThreadStart);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   setupSink（含设备枚举/打开） %1 ms  <== 启动卡顿来源").arg(perfSink);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   startThread（解码线程）     %1 ms").arg(perfDecodeStart);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ========================");
-    // ---------------------
 }
 
 AudioEngine::~AudioEngine()
@@ -206,26 +182,11 @@ int AudioEngine::decodeRateFor(int deviceRate) const
 
 bool AudioEngine::setupSink()
 {
-    // ---- 临时性能诊断：setupSink 耗时拆分（拿到结果后请删除本段）----
-    QElapsedTimer perfSetup;
-    perfSetup.start();
-    QElapsedTimer perfStep;
-    perfStep.start();
-    qint64 perfTeardown = 0, perfResolve = 0, perfFormat = 0, perfPark = 0;
-    qint64 perfOut1Outer = 0, perfOut1Inner = 0, perfOut2Outer = 0, perfOut2Inner = 0, perfEmit = 0;
-    // --------------------------------------------------------------
-
     teardownSink();
-    perfTeardown = perfStep.restart();
 
     const QAudioDevice device = resolveDevice();
-    perfResolve = perfStep.restart();
-    if (device.isNull()) {
-        qDebug().noquote()
-            << QStringLiteral("[AudioEngine][perf] setupSink 失败：无可用输出设备（已耗时 %1 ms，其中枚举 %2 ms）")
-                   .arg(perfSetup.elapsed()).arg(perfResolve);
+    if (device.isNull())
         return false;
-    }
 
     QAudioFormat format = device.preferredFormat();
     format.setChannelCount(2);
@@ -253,7 +214,6 @@ bool AudioEngine::setupSink()
     const int channels = format.channelCount();
     m_outSampleRate.store(rate, std::memory_order_relaxed);
     m_outChannels.store(channels, std::memory_order_relaxed);
-    perfFormat = perfStep.restart();
 
     // 重建缓冲必须与两个音频线程互斥：resize/configure 会释放旧内存，
     // 而音频线程手里还攥着旧指针，并发就是直接踩坏堆。
@@ -268,24 +228,15 @@ bool AudioEngine::setupSink()
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     m_decodeActive.store(false, std::memory_order_relaxed);
-    perfPark = perfStep.restart();
 
-    {
-        QElapsedTimer perfOut;
-        perfOut.start();
-        invokeOnOutput([this, rate, channels, &perfOut1Inner] {
-            QElapsedTimer perfInner;
-            perfInner.start();
-            m_dsp.prepare(double(rate));
-            m_stretch.prepare(channels, rate);
-            m_stretchIn.resize(size_t(kMaxStretchInputFrames) * size_t(qMax(1, channels)));
-            m_scratch.resize(size_t(kMaxChunkFrames) * size_t(qMax(1, channels)));
-            for (auto &ring : m_rings)
-                ring.configure(kRingSeconds * rate, channels);
-            perfOut1Inner = perfInner.elapsed();
-        });
-        perfOut1Outer = perfOut.elapsed();
-    }
+    invokeOnOutput([this, rate, channels] {
+        m_dsp.prepare(double(rate));
+        m_stretch.prepare(channels, rate);
+        m_stretchIn.resize(size_t(kMaxStretchInputFrames) * size_t(qMax(1, channels)));
+        m_scratch.resize(size_t(kMaxChunkFrames) * size_t(qMax(1, channels)));
+        for (auto &ring : m_rings)
+            ring.configure(kRingSeconds * rate, channels);
+    });
 
     m_audioFrozen.store(false, std::memory_order_release);
     m_ringGen.store(0, std::memory_order_relaxed);
@@ -299,11 +250,7 @@ bool AudioEngine::setupSink()
 
     // sink 必须在输出线程里创建：拉取定时器跟着 sink 所在线程走，
     // 否则 readData 会落在 GUI 线程上，窗口一卡音频就断
-    QElapsedTimer perfOut2;
-    perfOut2.start();
     invokeOnOutput([&] {
-        QElapsedTimer perfInner;
-        perfInner.start();
         m_sink = new QAudioSink(device, m_format);
         m_sink->setBufferSize(qMax<qsizetype>(
             m_format.bytesForDuration(qBound(kBufferMsMin, m_bufferMs, kBufferMsMax) * 1000),
@@ -324,34 +271,9 @@ bool AudioEngine::setupSink()
             if (state == QAudio::StoppedState && sink->error() != QAudio::NoError)
                 m_sinkErrorFlag.store(true, std::memory_order_relaxed);
         });
-        perfOut2Inner = perfInner.elapsed();
     });
-    perfOut2Outer = perfOut2.elapsed();
 
-    {
-        QElapsedTimer perfEmitTimer;
-        perfEmitTimer.start();
-        emit outputFormatChanged();
-        perfEmit = perfEmitTimer.elapsed();
-    }
-
-    // ---- 临时性能诊断输出 ----
-    qDebug().noquote()
-        << QStringLiteral("[AudioEngine][perf] ===== setupSink 明细（总计 %1 ms，设备=%2，格式=%3Hz/%4ch）=====")
-               .arg(perfSetup.elapsed()).arg(device.description())
-               .arg(m_format.sampleRate()).arg(m_format.channelCount());
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   1) teardownSink                    %1 ms").arg(perfTeardown);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   2) resolveDevice 枚举端点          %1 ms").arg(perfResolve);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   3) 格式协商 preferred/isSupported %1 ms").arg(perfFormat);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   4) 等解码线程停靠 park           %1 ms").arg(perfPark);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   5) invoke#1 dsp/ring  外 %1 / 内 %2 ms").arg(perfOut1Outer).arg(perfOut1Inner);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   6) invoke#2 new QAudioSink  外 %1 / 内 %2 ms").arg(perfOut2Outer).arg(perfOut2Inner);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   7) emit outputFormatChanged      %1 ms").arg(perfEmit);
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf]   参考：输出设备数=%1，默认设备=%2")
-                              .arg(QMediaDevices::audioOutputs().size())
-                              .arg(QMediaDevices::defaultAudioOutput().description());
-    qDebug().noquote() << QStringLiteral("[AudioEngine][perf] ========================");
-    // -------------------------
+    emit outputFormatChanged();
 
     return true;
 }

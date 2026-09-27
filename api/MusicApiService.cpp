@@ -510,11 +510,16 @@ void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QStrin
                     return;
 
                 const QVariantList lyrics = result.value(QStringLiteral("lyrics")).toList();
-                if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty())
+                if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty()) {
                     emit localLyricsReady(filePath, lyrics,
                                           result.value(QStringLiteral("translate")).toList());
-                else if (allowOnlineSearch)
+                    // 逐音节重建的内嵌 SYLT 没有翻译：顺手在线取一份（拿到会覆盖，失败保留这份）
+                    if (result.value(QStringLiteral("source")).toString()
+                        == QLatin1String("embedded-sylt"))
+                        findLocalLyrics(filePath, title, artist, duration);
+                } else if (allowOnlineSearch) {
                     findLocalLyrics(filePath, title, artist, duration);
+                }
                 // 其余情况保留当前歌词（如 .json 自带），不覆盖
             });
     watcher->setFuture(QtConcurrent::run(&LocalLyricsReader::read, filePath));

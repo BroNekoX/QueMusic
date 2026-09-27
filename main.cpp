@@ -132,8 +132,8 @@ int main(int argc, char *argv[])
 
     // Qt scene graph 调试
     //qputenv("QSG_RENDER_TIMING", "1");
-    qputenv("QSG_INFO", "1");
-    qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
+    //qputenv("QSG_INFO", "1");
+    //qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);

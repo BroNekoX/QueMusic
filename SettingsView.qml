@@ -1199,7 +1199,7 @@ Item {
 
                         SettingItemCard {
                             label: "高级动画效果"
-                            tip: "(暂时无效)启动更精细的动画效果"
+                            tip: "启动更精细的动画效果"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
@@ -2442,7 +2442,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    height: 288
+                    height: 238
                     color: Style.themes.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {

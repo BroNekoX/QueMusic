@@ -39,7 +39,7 @@ Settings {
     property bool noControlRadius: false
     property real borderDepth: 0.08 //边框透明度
     property bool layerEnabled: true
-    property bool premiumAnime: true //高级动画
+    property bool premiumAnime: false //高级动画
     property int animeSpeed: 1
     property int homeLayout: 0 //首页布局 0.默认 1.竖向 2.混合
     property int spotSpeed: 1 //桌面部件动画速度 0.快 1.默认 2.慢

@@ -543,11 +543,11 @@ Window {
         id: settingsView
         anchors.fill: parent
         active: false
-        // 设置页是单个大树（一次约 6800 个对象/173 ms），同步创建会卡掉一整帧
         asynchronous: true
         visible: false
         z: 6
-        source: "qrc:/QueMusic/SettingsView.qml"//"qrc:/QueMusic/SettingsView.qml"
+        //source: "qrc:/QueMusic/SettingsView.qml"
+        sourceComponent: SettingsView {}
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
         onLoaded: {
@@ -718,6 +718,8 @@ Window {
         }
         function onLocalLyricsFailed(filePath: string): void {
             if (filePath !== Playback.localLyricsRequestPath)
+                return;
+            if ((MusicApi.lyricsData || []).length > 1) // 已有歌词（如内嵌 SYLT）就保留，别退回占位
                 return;
             MusicApi.setLocalLyrics();
         }

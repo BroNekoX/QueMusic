@@ -115,6 +115,10 @@
   死代码**（PlayerOptions / PlayList / QOptionDialog / MainContent / PlayerControl / HomePage / Style）；
   `cpp/AppModels.h` 头说明 10 → 7 行（保留"为何用单例"与"构造函数陷阱"两个关键点）、
   `cpp/LocalLyricsReader.h` 中英混杂注释统一为中文
+- **内嵌歌词解析修正**：音频标签同时有逐音节 `SYLT` 与行级 `USLT/LYRICS` 时，原先命中 `SYLT` 就返回 ⇒
+  每行只有一个字、且丢掉 `USLT` 里的翻译。改为**行级歌词优先**（保留原行与翻译配对），再把 `SYLT` 音节
+  按时间贴回各行 ⇒ 逐字与翻译同时保留；仅当没有行级歌词时才用 `SYLT` 按"停顿"分组重建显示行
+  （间隔自适应、行内音节进 `info`）。同名歌词文件除 `.lrc` 外也接受 `.txt`
 
 ### ⚡ 优化
 - **音频回调内零分配**：`applyPendingParams()` 原在参数变化时构造 `QList<qreal>`（拖 EQ 滑块即每次回调都分配
