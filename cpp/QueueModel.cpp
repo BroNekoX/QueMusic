@@ -101,10 +101,11 @@ void QueueModel::insert(int index, const QVariantMap &item)
     index = qBound(0, index, int(m_items.size()));
     beginInsertRows(QModelIndex(), index, index);
     m_items.insert(index, toTrack(item));
-    const Track &t = m_items.at(index);
-    if (!t.path.isEmpty() && !m_indexOfPath.contains(t.path))
-        m_indexOfPath.insert(t.path, index);
     endInsertRows();
+    // 缓存永远与 m_items 行号一致：插入会让 index 及其后每一行的行号整体 +1，
+    // 只记录新行会让后续行的缓存索引全部失效，所以统一在模型变更信号之后整体重建。
+    // （rebuildIndex() 对重复 path 取首次出现的行，与 indexOfName() 的首次匹配语义一致。）
+    rebuildIndex();
     emit countChanged();
 }
 
@@ -116,6 +117,7 @@ void QueueModel::remove(int index, int count)
     beginRemoveRows(QModelIndex(), index, index + count - 1);
     m_items.remove(index, count);
     endRemoveRows();
+    // 与 insert()/move() 同一套策略：删除后 index 之后的行号整体前移，统一整体重建。
     rebuildIndex();
     emit countChanged();
 }
@@ -135,6 +137,9 @@ void QueueModel::move(int from, int to, int count)
     for (int i = 0; i < block.size(); ++i)
         m_items.insert(to + i, block.at(i));
     endMoveRows();
+    // 缓存永远与 m_items 行号一致：前移与后移会改动 [from, ...] 到目标区间之间所有行的行号，
+    // 分段增量修正很容易漏改，这里同样统一整体重建，保证每种修改操作只走一套索引维护策略。
+    rebuildIndex();
 }
 
 void QueueModel::clear()
@@ -161,6 +166,10 @@ int QueueModel::indexOfName(const QString &name) const
     return -1;
 }
 
+// 唯一的不变量：缓存永远与 m_items 行号一致。
+// 即 indexOfPath(p) 必须等于「m_items 中 path == p 的第一行」的行号；重复 path 取首次出现
+// （与 indexOfName() 的首次匹配语义一致），空 path 不入缓存，查不到时返回 -1。
+// 所有修改操作（insert/remove/move）都在模型变更信号之后整体重建，不做增量维护。
 void QueueModel::rebuildIndex()
 {
     m_indexOfPath.clear();

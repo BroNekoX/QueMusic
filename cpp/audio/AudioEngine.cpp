@@ -150,6 +150,8 @@ AudioEngine::~AudioEngine()
     });
     m_outputThread.quit();
     m_outputThread.wait();
+    // 音频/输出线程都已退出，此时才释放订阅句柄：之后不会再有回调进入订阅者
+    publishSpectrumHandle(nullptr);
     delete m_outputContext;
     m_outputContext = nullptr;
 }
@@ -818,8 +820,9 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
         m_genFrames += got;
 
         m_dsp.process(buf, got, channels);
-        if (m_spectrumSink)
-            m_spectrumSink->pushSamples(buf, got, channels, rate);
+        // 句柄是共享所有权对象：订阅者析构与音频线程调用之间不存在悬空指针窗口
+        if (auto handle = acquireSpectrumHandle())
+            handle->push(buf, got, channels, rate);
 
         if (!direct) {
             if (floatFormat) {
@@ -1204,17 +1207,28 @@ void AudioEngine::publishParams(bool eqChangedFlag, bool dspChangedFlag, bool rg
 
 void AudioEngine::setSpectrumSink(QObject *sink)
 {
-    // 订阅者先于引擎销毁时，音频线程必须立刻停止引用它
-    if (m_spectrumObject)
-        disconnect(m_spectrumObject, nullptr, this, nullptr);
-    m_spectrumSink = dynamic_cast<AudioSpectrumSink *>(sink);
-    m_spectrumObject = sink;
-    if (m_spectrumObject) {
-        connect(m_spectrumObject, &QObject::destroyed, this, [this] {
-            m_spectrumSink = nullptr;
-            m_spectrumObject = nullptr;
-        });
-    }
+    // 只接受自报句柄的订阅者：裸指针无法跨线程安全持有，订阅者析构时机不受引擎控制
+    std::shared_ptr<AudioSpectrumSinkHandle> handle;
+    if (auto *source = dynamic_cast<AudioSpectrumSource *>(sink))
+        handle = source->spectrumSinkHandle();
+    else if (sink)
+        qWarning() << "[audio] 频谱订阅者未实现 AudioSpectrumSource，已忽略:" << sink;
+    publishSpectrumHandle(std::move(handle));
+}
+
+void AudioEngine::publishSpectrumHandle(std::shared_ptr<AudioSpectrumSinkHandle> handle)
+{
+    QMutexLocker lock(&m_spectrumMutex);
+    m_spectrumHandle = std::move(handle);
+}
+
+std::shared_ptr<AudioSpectrumSinkHandle> AudioEngine::acquireSpectrumHandle()
+{
+    // 音频线程绝不阻塞：只有在换订阅者的那一瞬间才抢不到锁，跳过本块即可
+    std::unique_lock<QMutex> lock(m_spectrumMutex, std::try_to_lock);
+    if (!lock.owns_lock())
+        return {};
+    return m_spectrumHandle;
 }
 
 // -------------------------------------------------------------------- 配置持久化

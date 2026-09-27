@@ -311,8 +311,11 @@ Window {
                 source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
                     if(musicCenter.active) {
-                        musicCenter.active = false;
-                        musicCenter.source = "";
+                        // 交给窗口自己走 exit()：它会先恢复主题、隐藏窗口，再发 closed() 回来同步状态
+                        if(musicCenter.item)
+                            musicCenter.item.exit();
+                        else
+                            musicCenter.active = false;
                     } else {
                         musicCenter.active = true;
                     }
@@ -918,7 +921,19 @@ Window {
         active: false
         asynchronous: true
         visible: status == Loader.Ready
+        // source 固定：清空 source 会连绑定一起丢掉，之后再设 active=true 也加载不出来
         source: "qrc:/QueMusic/FullCenterView.qml"
+        onLoaded: {
+            if (!item)
+                return;
+            // 窗口自己关掉（Esc / 标题栏 / 面板关闭按钮）后同步 Loader 与按钮高亮；
+            // 延迟一拍再销毁：closed() 是从窗口自己的 JS 里发出的，同步销毁会返回已释放对象
+            item.closed.connect(function() {
+                Qt.callLater(function() { musicCenter.active = false; });
+            });
+            if (active)
+                item.enter();
+        }
     }
     Loader {
         id: desktopPlayerLoader

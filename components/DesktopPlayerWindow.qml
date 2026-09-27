@@ -20,6 +20,9 @@ Window {
     property bool topWindow: true
     property int bw: 3
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
@@ -95,7 +98,7 @@ Window {
             y: 16
             width: 64
             height: 64
-            source: mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+            source: player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
             sourceSize: Qt.size(128, 128)
             asynchronous: true
             fillMode: Image.PreserveAspectCrop
@@ -138,10 +141,10 @@ Window {
             width: playerCard.width - 102 - 14
             height: 16
             from: 0
-            to: mainMedia.duration > 0 ? mainMedia.duration : 1
-            value: pressed ? null : mainMedia.position
+            to: player.duration > 0 ? player.duration : 1
+            value: pressed ? null : player.position
             live: true
-            onMoved: mainMedia.position = value
+            onMoved: player.position = value
             padding: 0
             background: Rectangle {
                 y: (seekSlider.height - 4) / 2
@@ -176,7 +179,7 @@ Window {
             y: 72
             width: playerCard.width - 102 - 14
             height: 16
-            text: desktopPlayerWindow.formatTime(mainMedia.position) + " / " + desktopPlayerWindow.formatTime(mainMedia.duration)
+            text: desktopPlayerWindow.formatTime(player.position) + " / " + desktopPlayerWindow.formatTime(player.duration)
             font.pixelSize: 11
             color: Style.themes.textColor
             horizontalAlignment: Text.AlignRight
@@ -224,14 +227,14 @@ Window {
                 width: 36
                 height: 36
                 radius: 18
-                iconCharacter: mainMedia.playing ? "\uf02f" : "\uf00e"
+                iconCharacter: player.playing ? "\uf02f" : "\uf00e"
                 iconSize: Style.settings.texticon + 2
                 buttonColor: Style.themes.secondaryBlurColor
                 hoverColor: Style.themes.hoverColor
                 iconColor: Style.themes.textColor
                 shadowEnabled: false
                 onClicked: Playback.togglePlay()
-                tipText: mainMedia.playing ? "暂停" : "播放"
+                tipText: player.playing ? "暂停" : "播放"
             }
             SButton {
                 id: nextButton

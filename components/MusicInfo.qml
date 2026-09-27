@@ -15,6 +15,9 @@ Popup {
     x: parent.width - 380
     y: 80
 
+    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
+    readonly property AudioEngine player: Playback.player
+
     background: QBlurCard {
         anchors.fill: parent
         borderRadius: Style.settings.cubeRadius
@@ -74,13 +77,13 @@ Popup {
                     width: parent.width
                     height: 114
                     QPicture {
-                        source: mainMedia.urlStr
+                        source: player.urlStr
                         radius: 12
                         width: 112
                         height: 112
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: picWatch.dialog(mainMedia.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",Playback.musicTitle);
+                            onClicked: picWatch.dialog(player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",Playback.musicTitle);
                         }
                     }
                     Text {
@@ -111,7 +114,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.noTitle
+                        text: player.noTitle
                         color: Style.themes.textColor
                         verticalAlignment: Text.AlignVCenter
                         readOnly: true
@@ -159,7 +162,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.album
+                        text: player.album
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true
@@ -175,7 +178,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.audioBit + " k"
+                        text: player.audioBit + " k"
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true
@@ -191,7 +194,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.duration.toString()
+                        text: player.duration.toString()
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true
@@ -207,7 +210,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.date
+                        text: player.date
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true
@@ -223,7 +226,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: mainMedia.type
+                        text: player.type
                         color: Style.themes.textColor
                         readOnly: true
                         selectByMouse: true

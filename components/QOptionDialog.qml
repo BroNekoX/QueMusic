@@ -17,6 +17,9 @@ Popup {
     property string confirmText: "完成"
     property bool isInput: false
     property bool dismissOnOverlay: true
+    // false 时 cancel 只发信号、不关闭：调用方把左下按钮当确认按钮用时
+    // （例如网易云手机号登录，失败提示要留在弹窗里）
+    property bool cancelCloses: true
     signal confirm()
     signal cancel()
     parent: Overlay.overlay
@@ -94,7 +97,7 @@ Popup {
                 borderColor: Style.themes.sideColor
                 borderWidth: 1
                 iconSize: Style.settings.texticon - 2
-                onClicked: { dialog.cancel(); dialog.close() }
+                onClicked: { dialog.cancel(); if (dialog.cancelCloses) dialog.close() }
             }
             QButton {
                 width: 108
