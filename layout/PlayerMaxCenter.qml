@@ -23,14 +23,8 @@ Rectangle {
     property int lyricMoveMs: 0              // 歌词位置校准
     property bool lyricTranslateOpen: true
 
-    // 歌词界面主题：换主题 = 换 Loader 加载的文件（后续插件在此列表注册）
-    property var lyricThemes: [
-        { name: "默认", source: "qrc:/QueMusic/layout/MainLyric.qml" },
-        { name: "自由", source: "qrc:/QueMusic/lyricsui/LyricsFree.qml" },
-        { name: "3d", source: "qrc:/QueMusic/lyricsui/Lyrics3D.qml" }
-    ]
-    property int lyricThemeIndex: 0
-    readonly property string lyricThemeSource: (lyricThemeIndex >= 0 && lyricThemeIndex < lyricThemes.length) ? lyricThemes[lyricThemeIndex].source : ""
+    // 歌词界面：内置界面 + 已安装插件由 LyricsPlugins 统一维护，换界面 = 换 Loader 加载的文件
+    readonly property string lyricThemeSource: LyricsPlugins.source
 
     // 当前歌词行索引
     property int lyricIndex: 0
@@ -244,38 +238,78 @@ Rectangle {
         }
     }
 
-    // 播放器主题：切换整个歌词界面（换 Loader 加载的文件，后续插件在此列表注册）
+    // 歌词界面切换：竖排列表（内置界面 + 插件，选中即换 Loader 加载的文件）
     QOptionDialog {
         id: maxLyricsThemeDialog
-        title: "播放器主题"
+        title: "歌词界面"
+        width: 460
         options: Column {
             width: parent.width
-            spacing: 16
-            // 主题数量不定 ⇒ Flow + Repeater 自动换行（不引入额外滚动容器，滚动交给弹窗自身）
-            Flow {
-                width: parent.width
-                spacing: 12
-                Repeater {
-                    model: musicControlMax.lyricThemes
-                    delegate: Rectangle {
-                        width: (parent.width - 12) / 2
-                        height: 92
-                        radius: 12
-                        color: index === musicControlMax.lyricThemeIndex ? Style.themes.themeColor : "#3affffff"
-                        border.width: 1
-                        border.color: index === musicControlMax.lyricThemeIndex ? Style.themes.themeColor : "#40ffffff"
+            spacing: 6
+            Repeater {
+                model: LyricsPlugins.plugins
+                delegate: Rectangle {
+                    id: themeRow
+                    width: parent.width
+                    height: 64
+                    radius: Style.settings.labelRadius
+                    color: themeRow.selected ? Style.themes.themeColor
+                           : (themeArea.containsMouse ? Style.themes.hoverColor : "transparent")
+                    readonly property bool selected: modelData.id === LyricsPlugins.selectedId
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    QPicture {
+                        x: 8
+                        y: 8
+                        width: 48
+                        height: 48
+                        radius1: 10
+                        radius2: 10
+                        radius3: 10
+                        radius4: 10
+                        source: modelData.preview ? modelData.preview
+                                                  : "qrc:/QueMusic/resources/app/musicpic.png"
+                    }
+
+                    Column {
+                        x: 68
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: themeRow.width - 110
+                        spacing: 2
                         Text {
-                            anchors.centerIn: parent
+                            width: parent.width
                             text: modelData.name
-                            color: index === musicControlMax.lyricThemeIndex ? "#ffffff" : "#333333"
-                            font.pixelSize: Style.settings.text
-                            font.weight: index === musicControlMax.lyricThemeIndex ? 600 : 400
+                            elide: Text.ElideRight
+                            color: themeRow.selected ? "#ffffff" : Style.themes.fontColor
+                            font.pixelSize: Style.settings.textmain
+                            font.bold: themeRow.selected
                         }
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: musicControlMax.lyricThemeIndex = index
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: (modelData.author ? modelData.author + " · " : "") + (modelData.version ? "v" + modelData.version : "内置")
+                            color: themeRow.selected ? "#b3ffffff" : Style.themes.textColor
+                            font.pixelSize: Style.settings.textTip
                         }
+                    }
+
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: themeRow.selected
+                        text: "\uf099"
+                        font.family: iconFont.name
+                        font.pixelSize: Style.settings.texticon
+                        color: "#ffffff"
+                    }
+
+                    MouseArea {
+                        id: themeArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: LyricsPlugins.selectedId = modelData.id
                     }
                 }
             }

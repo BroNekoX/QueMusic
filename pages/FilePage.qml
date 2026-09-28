@@ -260,10 +260,10 @@ Item {
             x: 24
             y: 80
             z: 5
-            model: ["我的文件夹","本地文件夹"]
+            model: ["我的文件夹","本地文件夹","WebDAV"]
             tabWidth: 110
-            width: 226
-            rectXy: Qt.rect(0, 12, 244, 40)
+            width: 336
+            rectXy: Qt.rect(0, 12, 358, 40)
             blurSource: fileChildPage
             onTabChange: (index) => {
                 fileChildPage.stack(index);
@@ -277,7 +277,14 @@ Item {
             width: fileMain.width - 32
             height: fileMain.height - 68
             id: fileChildPage
-            pageList: [myFile,localFile]
+            pageList: [myFile,localFile,webDav]
+            // WebDAV（云端网盘目录）
+            WebDavPage {
+                id: webDav
+                width: fileChildPage.width
+                height: fileChildPage.height
+                visible: false
+            }
             // 我的文件夹
             Item {
                 id: myFile

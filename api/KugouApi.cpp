@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "ApiCommon.h"
+#include "ApiHttp.h"
 
 // zlib 手动声明
 extern "C" {
@@ -251,19 +252,32 @@ QByteArray md5Hex(const QByteArray &data)
 {
     return QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex();
 }
+
+// 酷狗签名：salt + 按 key 排序的 k=v 拼接 + salt 的 MD5，各端只差 salt
+QByteArray kugouSignature(const QByteArray &salt, const QStringList &keyValues)
+{
+    QStringList sorted = keyValues;
+    sorted.sort();
+    return md5Hex(salt + sorted.join(QString()).toUtf8() + salt);
+}
 } // namespace
 
 QByteArray KugouApi::kugouWebSignature(const QJsonObject &params)
 {
-    const QByteArray salt = "NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt";
     QStringList keyValues;
-    for (const QString &k : params.keys()) {
-        const QString v = QJsonValue(params.value(k)).toVariant().toString();
-        keyValues << (k + QLatin1Char('=') + v);
-    }
-    keyValues.sort();
-    const QByteArray paramsStr = keyValues.join(QString()).toUtf8();
-    return md5Hex(salt + paramsStr + salt);
+    keyValues.reserve(params.size());
+    for (const QString &key : params.keys())
+        keyValues << (key + QLatin1Char('=') + QJsonValue(params.value(key)).toVariant().toString());
+    return kugouSignature("NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt", keyValues);
+}
+
+QByteArray KugouApi::kugouAndroidSignature(const QVariantMap &params)
+{
+    QStringList keyValues;
+    keyValues.reserve(params.size());
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        keyValues << (it.key() + QLatin1Char('=') + it.value().toString());
+    return kugouSignature("OIlwieks28dk2k092lksi2UIkp", keyValues);
 }
 
 QString KugouApi::randomGuid()
@@ -296,32 +310,80 @@ KugouApi::KugouApi(QObject *parent)
 }
 
 // 通用 GET 请求（带 UA / Cookie，清理 KG_TAG 包裹后解析 JSON）
+void KugouApi::getComments(const QString &hash, int page, int pageSize)
+{
+    // 评论网关要数字 mixsongid（播放信息接口返回的 album_audio_id），按安卓端规则签名
+    const auto requestComments = [this, page, pageSize](const QString &mixId) {
+        if (m_mid.isEmpty())
+            m_mid = kugouMidFromGuid(randomGuid());
+        QVariantMap p;
+        p.insert(QStringLiteral("mixsongid"), mixId);
+        p.insert(QStringLiteral("need_show_image"), QStringLiteral("1"));
+        p.insert(QStringLiteral("p"), QString::number(page));
+        p.insert(QStringLiteral("pagesize"), QString::number(pageSize));
+        p.insert(QStringLiteral("show_classify"), QStringLiteral("1"));
+        p.insert(QStringLiteral("show_hotword_list"), QStringLiteral("1"));
+        p.insert(QStringLiteral("extdata"), QStringLiteral("0"));
+        p.insert(QStringLiteral("code"), QStringLiteral("fc4be23b4e972707f36b8a828a93ba8a"));
+        p.insert(QStringLiteral("dfid"), QStringLiteral("-"));
+        p.insert(QStringLiteral("mid"), m_mid);
+        p.insert(QStringLiteral("uuid"), QStringLiteral("-"));
+        p.insert(QStringLiteral("appid"), QStringLiteral("1005"));
+        p.insert(QStringLiteral("clientver"), QStringLiteral("20489"));
+        p.insert(QStringLiteral("clienttime"), QString::number(QDateTime::currentSecsSinceEpoch()));
+        p.insert(QStringLiteral("signature"), QString::fromLatin1(kugouAndroidSignature(p)));
+
+        QUrlQuery query;
+        for (auto it = p.cbegin(); it != p.cend(); ++it)
+            query.addQueryItem(it.key(), it.value().toString());
+        QUrl url(QStringLiteral("https://gateway.kugou.com/mcomment/v1/cmtlist"));
+        url.setQuery(query);
+
+        get(url.toString(), [this](const QJsonObject &json) {
+            QVariantList info;
+            for (const QJsonValue &value : json.value(QStringLiteral("list")).toArray()) {
+                const QJsonObject c = value.toObject();
+                info << ApiCommon::comment(
+                    c.value(QStringLiteral("user_name")).toString(),
+                    c.value(QStringLiteral("user_pic")).toString(),
+                    c.value(QStringLiteral("content")).toString(),
+                    QDateTime::fromString(c.value(QStringLiteral("addtime")).toString(),
+                                          QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+                        .toSecsSinceEpoch(),
+                    c.value(QStringLiteral("like")).toObject().value(QStringLiteral("count")).toInt(),
+                    c.value(QStringLiteral("reply_num")).toInt());
+            }
+            emit resultReady(QStringLiteral("getComments"), ApiCommon::listResult(info), Source);
+        });
+    };
+
+    // 翻页时直接用缓存，省掉一次 getSongInfo 往返
+    const QString cached = m_mixIdCache.value(hash);
+    if (!cached.isEmpty()) {
+        requestComments(cached);
+        return;
+    }
+    get(QStringLiteral("https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=") + hash,
+        [this, hash, requestComments](const QJsonObject &meta) {
+            const QString mixId = meta.value(QStringLiteral("album_audio_id")).toVariant().toString();
+            if (mixId.isEmpty() || mixId == QLatin1String("0")) {
+                emit resultReady(QStringLiteral("getComments"), ApiCommon::listResult({}), Source);
+                return;
+            }
+            m_mixIdCache.insert(hash, mixId);
+            requestComments(mixId);
+        });
+}
+
 void KugouApi::get(const QString &url, const Callback &cb)
 {
-    QNetworkRequest req(url);
-    req.setRawHeader("User-Agent", kUa);
-    req.setRawHeader("Accept-Encoding", "identity");
-    req.setRawHeader("Referer", "https://www.kugou.com/");
-    if (!m_cookie.isEmpty())
-        req.setRawHeader("Cookie", m_cookie.toUtf8());
-
-    QNetworkReply *reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cb] {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "[kugou] 请求失败:" << reply->errorString()
-                       << reply->url().toString();
-            cb(QJsonObject()); // 错误也回调，保证 QML 侧 loadState 能复位
-            return;
-        }
-        QByteArray body = reply->readAll();
-        body.replace("<!--KG_TAG_RES_START-->", "").replace("<!--KG_TAG_RES_END-->", "");
-        const QJsonObject obj = QJsonDocument::fromJson(body).object();
-        if (obj.isEmpty())
-            qWarning() << "[kugou] JSON 解析为空, url:" << reply->url().toString()
-                       << "body:" << QString::fromUtf8(body).left(200);
-        cb(obj);
-    });
+    ApiHttp::get(m_nam, this, QUrl(url), kUa, "https://www.kugou.com/", m_cookie.toUtf8(),
+                 [cb](const QByteArray &body) {
+                     // 部分接口的 JSON 被 KG_TAG 注释包裹，先剥掉再解析
+                     QByteArray data = body;
+                     data.replace("<!--KG_TAG_RES_START-->", "").replace("<!--KG_TAG_RES_END-->", "");
+                     cb(QJsonDocument::fromJson(data).object());
+                 });
 }
 
 // KRC 歌词解码（替代 pako.mjs：Base64 → 跳4 → XOR → 跳2 → raw inflate）

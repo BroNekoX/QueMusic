@@ -37,7 +37,6 @@ QtObject {
             Options.lastSongs.cover = (p && p.urlStr) || "qrc:/QueMusic/resources/app/musicpic.png"
             Options.lastSongs.hash = item.path
             Options.lastSongs.source = item.source
-            Options.lastSongs.position = p ? p.position : 0
         }
         if (Options.settings.rememberWindow && targetWindow
                 && targetWindow.visibility !== Window.Maximized

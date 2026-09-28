@@ -653,9 +653,20 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         id: optionsEQ
         title: "音频工作台"
         width: 640
+        headerHeight: 60
+        header: QTapBar {
+            id: eqTab
+            y: 36
+            height: 32
+            model: ["音频处理", "声道", "增益与动态"]
+            onIndexChanged: optionsEQ.goTop();
+        }
+
         options: EqualizerPanel {
             width: parent.width
+            height: 870
             controlWidth: parent.width
+            display: eqTab.index + 1
             engine: player
         }
     }

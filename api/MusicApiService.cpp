@@ -496,6 +496,15 @@ void MusicApiService::getPersonalRadar(int page, int pageSize, int source)
     DISPATCH(source, getPersonalRadar(page, pageSize));
 }
 
+void MusicApiService::getComments(const QString &hash, int page, int pageSize, int source)
+{
+    if (hash.isEmpty())
+        return;
+    beginRequest();
+    m_comments.setItems(QVariantList()); // 先清空：切歌时不要残留上一首的评论
+    DISPATCH(source, getComments(hash, qMax(1, page), qBound(1, pageSize, 50)));
+}
+
 void MusicApiService::getLyricInfo(const QString &hash, int duration, int source)
 {
     // 歌词请求不单独改 loadState（由 getMusicInfo 链路管理）
@@ -954,6 +963,12 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     const QVariant info = d.contains(QStringLiteral("info"))
                               ? d.value(QStringLiteral("info"))
                               : data;
+
+    // 评论：直接灌评论模型，不参与歌曲 hash 等后续处理
+    if (action == QLatin1String("getComments")) {
+        m_comments.setItems(requestFailed ? QVariantList() : info.toList());
+        return;
+    }
 
     // 列表结果里带 hashhq/hashsq：记下来，播放时才能按音质设置升级 hash
     if (info.typeId() == QMetaType::QVariantList)

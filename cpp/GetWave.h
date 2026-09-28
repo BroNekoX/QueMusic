@@ -92,8 +92,6 @@ private:
     int                 m_fftSize = 4096;
     bool                m_enabled = true;
 
-    qreal               m_smoothFactor = 0.6;
-
     // 复用缓冲区，避免每次分配
     QVector<Complex>    m_fftData;
     QVector<float>      m_magnitudes;

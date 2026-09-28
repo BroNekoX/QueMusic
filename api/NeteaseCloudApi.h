@@ -46,6 +46,7 @@ public slots:
     void getSingerSongs(const QString &singerid, int page, int pageSize);
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
+    void getComments(const QString &hash, int page, int pageSize);
     void getPersonalFm(int page, int pageSize);     // 私人漫游 → personal_fm
     void getPersonalRadar(int page, int pageSize);  // 私人雷达 → recommend_songs
 

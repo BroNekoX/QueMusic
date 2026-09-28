@@ -49,6 +49,8 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT)
     Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT)
     Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT)
+    // 歌曲评论（在线音乐才有）
+    Q_PROPERTY(OnlineListModel* comments READ comments CONSTANT)
 
     // 非模型数据
     Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged)
@@ -97,6 +99,7 @@ public:
     OnlineListModel *singerList() { return &m_singerList; }
     OnlineListModel *personalFm() { return &m_personalFm; }
     OnlineListModel *personalRadar() { return &m_personalRadar; }
+    OnlineListModel *comments() { return &m_comments; }
 
     QVariant allPlaylistMenu() const { return m_allPlaylistMenu; }
     void setAllPlaylistMenu(const QVariant &v);
@@ -150,6 +153,9 @@ public:
     Q_INVOKABLE void getPersonalFm(int page = 1, int pageSize = 20, int source = -1);
     // 私人雷达（基于用户口味的推荐，网易云 recommend_songs / 酷狗新歌榜）
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
+    // 歌曲评论（分页）；结果进 comments 模型，失败/无评论时为空表
+    Q_INVOKABLE void getComments(const QString &hash, int page = 1, int pageSize = 30,
+                                 int source = -1);
     // 本地音乐（无歌词）时调用：清掉在线歌词残留，显示占位歌词 [{time:0, text:"纯音乐，请欣赏"}]
     Q_INVOKABLE void setLocalLyrics();
     // 工作线程读取本地元数据，经 localMetadataReady 回传（GUI 线程零文件 IO）
@@ -262,6 +268,7 @@ private:
     OnlineListModel m_singerList;
     OnlineListModel m_personalFm;
     OnlineListModel m_personalRadar;
+    OnlineListModel m_comments;
 
     QVariant m_allPlaylistMenu;
     QVariant m_lyricsData;

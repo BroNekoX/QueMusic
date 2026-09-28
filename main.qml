@@ -304,23 +304,25 @@ Window {
             y: 10 - musicControlMax.hideHeight
             height: 40
 
+            // 全屏开关
             QWKButton {
-                id: fullDesktopButton
+                id: fullScreenButton
                 largeicon: true
-                buttonColor: musicCenter.active ? Style.themes.containColor : "transparent"
+                property int prevVisibility: Window.Maximized
+                buttonColor: window.visibility === Window.FullScreen ? Style.themes.containColor : "transparent"
                 source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
-                    if(musicCenter.active) {
-                        // 交给窗口自己走 exit()：它会先恢复主题、隐藏窗口，再发 closed() 回来同步状态
-                        if(musicCenter.item)
-                            musicCenter.item.exit();
+                    if (window.visibility === Window.FullScreen) {
+                        if (prevVisibility === Window.Maximized)
+                            window.showMaximized();
                         else
-                            musicCenter.active = false;
+                            window.showNormal();
                     } else {
-                        musicCenter.active = true;
+                        prevVisibility = window.visibility;
+                        window.showFullScreen();
                     }
                 }
-                Component.onCompleted: windowAgent.setHitTestVisible(fullDesktopButton, true);
+                Component.onCompleted: windowAgent.setHitTestVisible(fullScreenButton, true);
             }
 
             QWKButton {
@@ -687,6 +689,17 @@ Window {
         }
     }
 
+    // WebDAV 缓存落地：按本地文件那套回填（标签/同名歌词/同目录封面）
+    Connections {
+        target: WebDavCache
+        function onCached(url: string, localPath: string): void {
+            if (mainMedia.source.toString() !== url)
+                return;
+            Playback.localLyricsRequestPath = localPath;
+            MusicApi.readLocalMetadataAsync(localPath);
+        }
+    }
+
     Connections {
         target: MusicApi
         function onUrlplay(playurl: string, title: string, artist: string, cover: string,
@@ -694,6 +707,8 @@ Window {
             mainMedia.noTitle = title;
             Playback.musicTitle = title;
             Playback.musicArtist = artist;
+            Playback.musicHash = hash;
+            Playback.musicSource = source;
             mainMedia.urlStr = cover;
             colorExtractor.extractColorsFromUrl(solve);
             // 淡出静音排空设备缓冲后再换源：上一首仍在播放，直接换 source 会截断波形产生爆音
@@ -835,13 +850,18 @@ Window {
             }
         }
 
-        onUrlStrChanged: {
-        }
-
         // 新音轨真正起播后再淡回，避免音频设备重开的瞬间已经有音量
         onPlayingChanged: {
             if (playing)
                 Playback.finishSwap();
+        }
+
+        onSourceChanged: {
+            Playback.clearAb();
+        }
+        onPlaybackStateChanged: {
+            if (mainMedia.playbackState === AudioEngine.PlayingState)
+                Playback.noteNowPlaying();
         }
     }
     SystemTrayManager {
@@ -863,28 +883,6 @@ Window {
             // 左键单击 / 双击托盘图标：恢复主界面
             if(reason === SystemTrayManager.Trigger || reason === SystemTrayManager.DoubleClick)
                 win.restoreWindow();
-        }
-    }
-
-    Connections {
-        target: mainMedia
-
-        function onSourceChanged(): void {
-            Playback.clearAb()
-        }
-        function onDurationChanged(): void {
-            // 断点续播：恢复的曲目首次拿到时长时跳转到上次位置
-            if (mainMedia.duration > 0 && Playback.pendingSeek > 0
-                && playListModel.playListIndex >= 0
-                && Playback.pendingSeekPath === playListModel.get(playListModel.playListIndex).path) {
-                mainMedia.position = Math.min(Playback.pendingSeek, mainMedia.duration - 1000)
-                Playback.pendingSeek = 0
-                Playback.pendingSeekPath = ""
-            }
-        }
-        function onPlaybackStateChanged(): void {
-            if (mainMedia.playbackState === AudioEngine.PlayingState)
-                Playback.noteNowPlaying()
         }
     }
 
@@ -916,25 +914,6 @@ Window {
         id: desktopPlayer
     }
 
-    Loader {
-        id: musicCenter
-        active: false
-        asynchronous: true
-        visible: status == Loader.Ready
-        // source 固定：清空 source 会连绑定一起丢掉，之后再设 active=true 也加载不出来
-        source: "qrc:/QueMusic/FullCenterView.qml"
-        onLoaded: {
-            if (!item)
-                return;
-            // 窗口自己关掉（Esc / 标题栏 / 面板关闭按钮）后同步 Loader 与按钮高亮；
-            // 延迟一拍再销毁：closed() 是从窗口自己的 JS 里发出的，同步销毁会返回已释放对象
-            item.closed.connect(function() {
-                Qt.callLater(function() { musicCenter.active = false; });
-            });
-            if (active)
-                item.enter();
-        }
-    }
     Loader {
         id: desktopPlayerLoader
         active: false

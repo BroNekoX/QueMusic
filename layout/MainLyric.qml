@@ -391,6 +391,8 @@ Item {
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
                 property real standY: 0.0
+                required property int index
+                required property var modelData
                 y: standY + lyricContent.scrollOffset
 
                 SequentialAnimation {
@@ -459,29 +461,29 @@ Item {
                     z: 0
                     id: lyricsText
                     width: lyricItem.width - lyricContent.lyricHeight / 4
-                    text: modelData.text || ""
+                    text: lyricItem.modelData.text || ""
                     font.weight: Style.settings.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
-                    transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
+                    color: lyricItem.modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
+                    transformOrigin: lyricItem.modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
-                    scale: lyricItem.isCurrent && !modelData.info ? 1.02 : 1.00
-                    opacity: modelData.info ? 0.5 : (0.5 + lyricItem.opacityAnime * 0.4)
-                    visible: modelData.info ? !lyricItem.isFlowActive : true
-                    horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
+                    scale: lyricItem.isCurrent && !lyricItem.modelData.info ? 1.02 : 1.00
+                    opacity: lyricItem.modelData.info ? 0.5 : (0.5 + lyricItem.opacityAnime * 0.4)
+                    visible: lyricItem.modelData.info ? !lyricItem.isFlowActive : true
+                    horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                 }
 
                 Text {
                     id: lyricTransText
                     anchors.top: lyricsText.bottom
-                    transformOrigin: modelData.isOther ? Item.TopRight : Item.TopLeft
+                    transformOrigin: lyricItem.modelData.isOther ? Item.TopRight : Item.TopLeft
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     visible: text !== ""
                     height: visible ? implicitHeight * 1.5 : 0
-                    text: mainLyrics.translateModel.length !== 0 && mainLyrics.openTranslate ? (mainLyrics.translateModel[index] || "") : ""
+                    text: mainLyrics.translateModel.length !== 0 && mainLyrics.openTranslate ? (mainLyrics.translateModel[lyricItem.index] || "") : ""
                     width: parent.width
-                    horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
+                    horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.settings.textWidth
                     color: "#ffe8e8e8"
@@ -494,9 +496,9 @@ Item {
                     id: lyricFlow
                     width: lyricItem.width
                     height: lyricItem.height
-                    alignment: modelData.isOther ? CustomFlow.AlignRight : CustomFlow.AlignLeft
+                    alignment: lyricItem.modelData.isOther ? CustomFlow.AlignRight : CustomFlow.AlignLeft
 
-                    transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
+                    transformOrigin: lyricItem.modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? 1.02 : 1.00
                     x: 0
                     visible: lyricItem.isFlowActive
@@ -504,10 +506,12 @@ Item {
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     Repeater {
                         id: linesText
-                        model: lyricItem.isFlowActive ? (modelData.info || 0) : 0
+                        model: lyricItem.isFlowActive ? (lyricItem.modelData.info || 0) : 0
                         delegate: Item {
                             width: lyricFlowText.width
                             height: lyricFlowText.height
+                            required property int index
+                            required property var modelData
                             readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent
                             onToTextAnimeValueChanged: {
                                 if(toTextAnimeValue) {

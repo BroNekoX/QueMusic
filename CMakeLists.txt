@@ -27,6 +27,7 @@ endif()
 # 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
 add_subdirectory(cmake)
 
+set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     $<$<PLATFORM_ID:Windows>:icon.rc>
@@ -35,6 +36,8 @@ qt_add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/webdav
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/plugins
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
@@ -57,6 +60,16 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
 if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+endif()
+
+# Linux 也要把 QWindowKit 动态库放到 exe 旁边
+if(NOT WIN32)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:QWindowKit::Core>
+            $<TARGET_FILE:QWindowKit::Quick>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMENT "Copying QWindowKit runtime libraries next to the executable...")
 endif()
 
 # LTO：合并本工程各翻译单元（Qt 动态库不参与）
@@ -102,7 +115,6 @@ set_source_files_properties(
 
 # QML 按目录递归收集：新增文件不必再改本文件
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
-file(GLOB_RECURSE CENTER_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "centers/*.qml")
 file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "layout/*.qml")
 file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
 # 歌词界面预设目录（可整体替换的歌词界面）
@@ -112,14 +124,12 @@ file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_D
 set(QUE_MUSIC_QML_FILES
     main.qml
     SettingsView.qml
-    FullCenterView.qml
     api/qrcode.js
     ${LAYOUT_QML}
     ${LYRICS_UI_QML}
     ${PAGE_QML}
     ${QML_COMPONENTS}
-    ${CENTER_COMPONENTS}
-)
+    )
 
 # qmltc 白名单 / 跳过清单（QUEMUSIC_ENABLE_QMLTC=ON 且布局满足条件时才真正启用）
 set(QUE_MUSIC_QMLTC_ACTIVE FALSE)
@@ -198,6 +208,16 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/QueueModel.h
         cpp/LocalMusicScanner.cpp
         cpp/LocalMusicScanner.h
+        cpp/webdav/WebDavCache.cpp
+        cpp/webdav/WebDavCache.h
+        cpp/webdav/WebDavClient.cpp
+        cpp/webdav/WebDavClient.h
+        cpp/webdav/WebDavModel.cpp
+        cpp/webdav/WebDavModel.h
+        cpp/webdav/WebDavStore.cpp
+        cpp/webdav/WebDavStore.h
+        cpp/plugins/LyricsPluginStore.cpp
+        cpp/plugins/LyricsPluginStore.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
         cpp/WindowsSmtcManager.cpp
@@ -288,7 +308,8 @@ target_link_libraries(${PROJECT_NAME}
 )
 # Windows：SMTC 互操作（runtimeobject）与应用身份注册（COM / 注册表）
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32)
+    # crypt32：WebDAV 密码用 DPAPI 加密存盘
+    target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32 crypt32)
 
     # QWindowKit 的 DLL 输出在 _deps 下，需拷到 exe 同目录，否则运行时找不到 QWKCore/QWKQuick
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

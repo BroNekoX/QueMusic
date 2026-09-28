@@ -4,6 +4,7 @@
 // FFmpeg 解码器：解封装 + 解码 + 重采样，统一输出 float32 交错 PCM
 #pragma once
 
+#include <QByteArray>
 #include <QString>
 
 #include <atomic>
@@ -41,7 +42,8 @@ public:
     FfmpegDecoder(const FfmpegDecoder &) = delete;
     FfmpegDecoder &operator=(const FfmpegDecoder &) = delete;
 
-    bool open(const QString &pathOrUrl, QString *error);
+    // httpHeaders：额外请求头（每行 "Key: Value\r\n"，如远端鉴权用的 Authorization）
+    bool open(const QString &pathOrUrl, QString *error, const QByteArray &httpHeaders = {});
     void close();
     bool isOpen() const { return m_fmt != nullptr; }
 

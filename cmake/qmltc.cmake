@@ -21,8 +21,7 @@
 #  4. 【关键】qmltc 无法处理位于模块"子目录"中的文档。
 #     实测：把引用方文件放进子目录后，连同模块的 QML 类型与 C++ QML_ELEMENT 类型都会
 #     解析失败（报 lives in ""），而放在模块根目录时一切正常。
-#     本工程可编译的那批组件全部位于 components/ 与 centers/ 下，因此当前布局下
-#     qmltc 无法生效。
+#     本工程可编译的那批组件全部位于 components/ 下，因此当前布局下 qmltc 无法生效。
 #
 #  5. 运行时收益只在 C++ 侧直接实例化生成的类时出现：
 #     QQmlComponent / engine.load() / Loader { source: ... } 加载文档时依然走 QML 源码。
@@ -65,9 +64,6 @@ set(QUE_MUSIC_QMLTC_ALLOWED
     components/QWideDrop.qml
     components/SettingItem.qml
     components/SettingItemCard.qml
-    centers/CenterList.qml
-    centers/CenterQueue.qml
-    centers/CenterTabs.qml
 )
 
 # 目前这些文件都在子目录中 —— qmltc 无法编译（见上文第 4 条）

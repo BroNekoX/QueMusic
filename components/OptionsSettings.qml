@@ -36,7 +36,6 @@ Settings {
     property int sleepMinutes: 30 //睡眠定时默认分钟
     property int historyLimit: 200 //播放历史上限
     property int shuffleAvoid: 2 //随机播放避免最近N首
-    property bool resumePosition: true //断点续播
     property bool autoRestoreQueue: true //启动时恢复上次播放列表
     property string playHistory: "[]" //播放历史(JSON)
     property string lastQueue: "[]" //上次播放列表(JSON)

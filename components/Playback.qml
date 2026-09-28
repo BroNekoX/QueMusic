@@ -15,9 +15,10 @@ QtObject {
     // 当前曲目的标题/歌手与待读歌词路径：原先散在 main.qml，靠 window.xxx 跨文件来回传
     property string musicTitle: "QueMusic"
     property string musicArtist: ""
+    // 当前曲目的身份标识（评论等功能按它反查平台）：hash 用未升级品质的原始值
+    property string musicHash: ""
+    property int musicSource: -1
     property string localLyricsRequestPath: ""
-    property int pendingSeek: 0
-    property string pendingSeekPath: ""
     property int autoSkipCount: 0
 
     readonly property int count: queue ? queue.count : 0
@@ -71,11 +72,37 @@ QtObject {
         goTo(i)
     }
 
+    // WebDAV：已缓存则直接播本地；否则带鉴权头直连，同时后台缓存（落地后回填元数据/封面/歌词）
+    function playWebDav(url: string, name: string): void {
+        const cached = WebDavCache.localPathFor(url)
+        if (cached !== "") {
+            playLocalSong(cached, name)
+            return
+        }
+        localLyricsRequestPath = ""
+        player.noTitle = name
+        musicTitle = name
+        musicArtist = ""
+        MusicApi.lyricsData = []
+        MusicApi.lyricsTranslate = []
+        const auth = WebDav.authHeaderOfUrl(url)
+        player.sourceHeaders = auth !== "" ? { "Authorization": auth } : {}
+        const sidecars = WebDav.sidecarsOf(url)
+        WebDavCache.cache(url, auth, sidecars.lyricsUrl || "", sidecars.coverUrl || "")
+        swap(function() {
+            player.source = url
+            player.play()
+        })
+    }
+
+
+
     function startTrack(index: int): void {
         const e = queue.get(index)
         // 用 == 而非 ===，且不要对 e 取反：AOT 下这两种写法会导致切歌闪退
         if (e.path == undefined) return
-        if (e.source < 0) playLocalSong(e.path, e.name)
+        if (e.source == 3) playWebDav(e.path, e.name)
+        else if (e.source < 0) playLocalSong(e.path, e.name)
         else MusicApi.getMusicInfo(e.path, 0, e.source)
     }
 
@@ -322,10 +349,6 @@ cover: player.urlStr || "",
             const idx = Options.settings.lastQueueIndex
             if (idx < 0 || idx >= count) return
             queue.playListIndex = idx
-            if (Options.settings.resumePosition && Options.lastSongs.position > 0) {
-                pendingSeekPath = queue.get(idx).path
-                pendingSeek = Options.lastSongs.position
-            }
         } catch (err) {}
     }
     function clearHistory(): void { history.clear(); queueSave() }

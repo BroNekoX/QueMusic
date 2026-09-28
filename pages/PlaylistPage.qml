@@ -92,66 +92,33 @@ Item {
             }
         }
 
-        QCard {
-            x: parent.width - 148
-            y: 12
-            z: 11
-            padding: 2
-            width: 148
-            height: 40
-            cardColor: Style.themes.primaryBlurColor
-            radius: 20
-
-            Row {
-                anchors.fill: parent
-                //  刷新
-                SButton {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    iconCharacter: "\uf11b"
-                    buttonColor: "transparent"
-                    hoverColor: Style.themes.hoverColor
-                    onClicked: {
-                        MusicApi.recommendSongs.clear()
-                        MusicApi.getRecommendSongs(1,24)
-                    }
+        // 右侧操作区
+        Row {
+            x: parent.width - width
+            y: 13
+            z: 10
+            spacing: 8
+            QButton {
+                height: 38
+                text: ""
+                iconCharacter: "\uf11e"
+                buttonColor: Style.themes.primaryColor
+                onClicked: {
+                    MusicApi.recommendSongs.clear();
+                    MusicApi.getRecommendSongs(1,24);
                 }
-                //  布局
-                SButton {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    iconCharacter: "\uf0d4"
-                    buttonColor: "transparent"
-                    hoverColor: Style.themes.hoverColor
-                    onClicked: {
-
-                    }
-                }
-                //  排序
-                SButton {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    iconCharacter: "\uf10b"
-                    buttonColor: "transparent"
-                    hoverColor: Style.themes.hoverColor
-                    onClicked: {
-
-                    }
-                }
-                // 筛选
-                SButton {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    iconCharacter: "\uf101"
-                    buttonColor: "transparent"
-                    hoverColor: Style.themes.hoverColor
-                    onClicked: {
-
-                    }
+            }
+            QButton {
+                height: 38
+                text: "排序"
+                iconCharacter: "\uf10b"
+            }
+            QButton {
+                height: 38
+                text: "筛选"
+                iconCharacter: "\uf101"
+                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.primaryColor
+                onClicked: {
                 }
             }
         }

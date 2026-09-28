@@ -38,6 +38,8 @@ class AudioEngine : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(QUrl source READ source WRITE setSource NOTIFY sourceChanged)
+    // 远端源的额外请求头（如 WebDAV 的 Authorization），在 setSource 之前写入
+    Q_PROPERTY(QVariantMap sourceHeaders READ sourceHeaders WRITE setSourceHeaders)
     Q_PROPERTY(qint64 position READ position WRITE setPosition NOTIFY positionChanged)
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
@@ -100,6 +102,9 @@ public:
 
     QUrl source() const { return m_source; }
     void setSource(const QUrl &url);
+
+    QVariantMap sourceHeaders() const { return m_sourceHeaders; }
+    void setSourceHeaders(const QVariantMap &headers) { m_sourceHeaders = headers; }
 
     qint64 position() const { return m_positionMs.load(std::memory_order_relaxed); }
     void setPosition(qint64 ms);
@@ -275,6 +280,8 @@ private:
     void stopSink();
 
     QUrl m_source;
+    QVariantMap m_sourceHeaders;    // 远端源附加请求头（setSourceHeaders 写入）
+    QVariantMap m_pendingHeaders;   // 与 m_pendingUrl 同锁保护
     qint64 m_durationMs = 0;
     PlaybackState m_playbackState = StoppedState;
     MediaStatus m_mediaStatus = NoMedia;

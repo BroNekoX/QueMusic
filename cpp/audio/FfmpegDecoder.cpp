@@ -67,7 +67,7 @@ int FfmpegDecoder::interruptCallback(void *opaque)
     return self->m_abort.load(std::memory_order_relaxed) ? 1 : 0;
 }
 
-bool FfmpegDecoder::open(const QString &pathOrUrl, QString *error)
+bool FfmpegDecoder::open(const QString &pathOrUrl, QString *error, const QByteArray &httpHeaders)
 {
     close();
     std::call_once(g_networkInit, [] { avformat_network_init(); });
@@ -98,6 +98,9 @@ bool FfmpegDecoder::open(const QString &pathOrUrl, QString *error)
     av_dict_set(&opts, "reconnect", "1", 0);
     av_dict_set(&opts, "reconnect_streamed", "1", 0);
     av_dict_set(&opts, "reconnect_delay_max", "5", 0);
+    // 远端鉴权等自定义头（WebDAV 用）
+    if (!httpHeaders.isEmpty())
+        av_dict_set(&opts, "headers", httpHeaders.constData(), 0);
 
     const QByteArray target = pathOrUrl.toUtf8();
     int ret = avformat_open_input(&m_fmt, target.constData(), nullptr, &opts);

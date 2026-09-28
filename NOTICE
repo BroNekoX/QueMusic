@@ -25,16 +25,33 @@ This software includes third-party components under their own licenses:
    Used as the framework basis for this project.
    No license was specified by the original author.
 
-4. AMLL Core (https://github.com/amll-dev/applemusic-like-lyrics)
-   Licensed under the AGPL License, Version 3.0.
-   More information watch 'THIRD_PARTY_NOTICES.md'
-   Copyright (C) 2021-2026 AMLL Project.
-
-6. Poppins font (https://github.com/itfoundry/Poppins)
+4. Poppins font (https://github.com/itfoundry/Poppins)
    Licensed under the SIL Open Font License 1.1.
 
-7. Feather Icons (https://feathericons.com/)
+5. Feather Icons (https://feathericons.com/)
    Licensed under the MIT License.
    Copyright (c) 2013-2017 Cole Bemis
+
+6. TagLib (https://taglib.org/)
+   Licensed under the GNU Lesser General Public License v2.1 (LGPL-2.1)
+   and the Mozilla Public License v1.1 (MPL-1.1), dual-licensed.
+   Copyright (C) Scott Wheeler, Lukas Lalinsky and TagLib contributors.
+   - 本项目以静态方式链接 TagLib（见 cmake/external/taglib.cmake）。
+   - LGPL-2.1 对静态链接的要求：使用者应能以修改后的 TagLib 重新链接本程序；
+     TagLib 源码随仓库分发于 ThirdParty/taglib/。如需重新链接所需的目标文件，
+     请通过 issue 与我们联系提供。
+   - 本项目未修改 TagLib 源码；如后续有修改，将在此说明改动内容。
+
+7. Crypto++ (https://www.cryptopp.com/)
+   Licensed under the Boost Software License 1.0 (BSL-1.0).
+   Copyright (C) Wei Dai, Leonard J. Niemeyer and Crypto++ contributors.
+   - 随 QCloudMusicApi 的 3rdparty 目录一并分发。
+
+8. FFmpeg (https://ffmpeg.org/)
+    Licensed under the GNU Lesser General Public License v2.1 or later (LGPL-2.1+),
+    built without GPL-only components.
+    Copyright (C) FFmpeg developers.
+    - 解码层动态链接 libavcodec / libavformat / libavutil / libswresample，
+      运行库随发行包提供；想换自己的 FFmpeg 构建，覆盖同名动态库即可。
 
 For the full license texts, please refer to the respective projects.

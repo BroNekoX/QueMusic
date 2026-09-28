@@ -370,6 +370,7 @@ void AudioEngine::setSource(const QUrl &url)
     {
         QMutexLocker lock(&m_pendingUrlMutex);
         m_pendingUrl = url;
+        m_pendingHeaders = m_sourceHeaders;
     }
     setMediaStatus(LoadingMedia);
     emit durationChanged();
@@ -905,9 +906,11 @@ void AudioEngine::decodeLoop()
 
         if (m_openRequest.exchange(false, std::memory_order_relaxed)) {
             QUrl url;
+            QVariantMap headers;
             {
                 QMutexLocker lock(&m_pendingUrlMutex);
                 url = m_pendingUrl;
+                headers = m_pendingHeaders;
             }
             const int channels = qMax(1, m_outChannels.load(std::memory_order_relaxed));
             const int rate = qMax(8000, m_outSampleRate.load(std::memory_order_relaxed));
@@ -916,7 +919,11 @@ void AudioEngine::decodeLoop()
             m_decodeRate.store(targetRate, std::memory_order_relaxed);
 
             QString error;
-            const bool ok = !url.isEmpty() && m_decoder.open(toSourceUrl(url), &error);
+            QByteArray headerText;
+            for (auto it = headers.cbegin(); it != headers.cend(); ++it)
+                headerText += it.key().toUtf8() + ": " + it.value().toString().toUtf8() + "\r\n";
+            const bool ok = !url.isEmpty()
+                            && m_decoder.open(toSourceUrl(url), &error, headerText);
             if (!ok) {
                 m_decodeActive.store(false, std::memory_order_relaxed);
                 const QString message = error.isEmpty() ? tr("无法打开音频源") : error;

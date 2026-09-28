@@ -51,6 +51,20 @@ inline QVariantMap listResult(const QVariantList &items)
     return m;
 }
 
+// 统一评论字段：各平台解析后都归一到这一套，QML 侧不做平台分支
+inline QVariantMap comment(QString user, QString avatar, QString content,
+                           qint64 time = 0, int liked = 0, int replies = 0)
+{
+    return {
+        {QStringLiteral("user"),    user},
+        {QStringLiteral("avatar"),  avatar},
+        {QStringLiteral("content"), content},
+        {QStringLiteral("time"),    time}, // 秒
+        {QStringLiteral("liked"),   liked},
+        {QStringLiteral("replies"), replies},
+    };
+}
+
 } // namespace ApiCommon
 
 #endif // APICOMMON_H

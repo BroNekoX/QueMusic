@@ -12,8 +12,8 @@ endif()
 set(QUEMUSIC_FFMPEG_ROOT "${CMAKE_SOURCE_DIR}/ffmpeg"
     CACHE PATH "FFmpeg 根目录（包含 include 与 lib）")
 
-set(_qm_ffmpeg_modules avcodec avformat avutil swresample)
-set(_qm_ffmpeg_libs "")
+set(_qm_ffmpeg_modules avcodec avformat avutil swresample)                        # find_library 用（保持不变）
+set(_qm_ffmpeg_pc_modules libavcodec libavformat libavutil libswresample)         # ← 新增
 
 # 随仓库附带的那套是 Windows 共享库与导入库，仅在 Windows 上使用；
 # 其他平台走系统开发包（pkg-config），否则会拿 .dll.a 去链接而失败
@@ -41,7 +41,7 @@ endif()
 
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
-    pkg_check_modules(PC_FFMPEG QUIET IMPORTED_TARGET ${_qm_ffmpeg_modules})
+    pkg_check_modules(PC_FFMPEG QUIET IMPORTED_TARGET ${_qm_ffmpeg_pc_modules})
     if(TARGET PkgConfig::PC_FFMPEG)
         add_library(quemusic::ffmpeg INTERFACE IMPORTED GLOBAL)
         set_target_properties(quemusic::ffmpeg PROPERTIES

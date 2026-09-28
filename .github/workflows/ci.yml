@@ -1,0 +1,106 @@
+name: CI（PR 门禁）
+
+# 目标：任何 PR / push 都要先证明「能构建 + QML 无问题 + 启动不炸」，不让坏提交进 main。
+# 发布流程（AppImage / exe / dmg）见 build-*.yml。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.10.3'
+  QT_DIR: ${{ github.workspace }}/Qt
+
+jobs:
+  build-and-smoke:
+    name: 构建 + QML 检查 + 启动冒烟
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout（含子模块 QWindowKit / TagLib）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev libxcb-image0-dev \
+            libxcb-shm0-dev libxcb-util-dev libxcb-cursor0 libxcb-cursor-dev \
+            libxcb-randr0-dev libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev libegl1-mesa-dev \
+            libpulse-dev libx11-dev extra-cmake-modules ninja-build wget file \
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+
+      - name: 安装 Qt
+        run: |
+          python3 -m pip install --break-system-packages aqtinstall
+          python3 -m aqt install-qt linux desktop "${QT_VERSION}" linux_gcc_64 \
+            -O "${QT_DIR}" -m qtmultimedia qtshadertools qt5compat
+          echo "${QT_DIR}/${QT_VERSION}/gcc_64/bin" >> "$GITHUB_PATH"
+
+      - name: 配置
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${QT_DIR}/${QT_VERSION}/gcc_64"
+
+      - name: 构建
+        run: cmake --build build -j"$(nproc)"
+
+      # ── QML 静态检查 ────────────────────────────────────────────────────
+      # 只拦两类「真问题」：
+      #   1) qmllint 报的语法/类型错误；
+      #   2) 我们自己的 C++ 类型（按 Store/Model/Service/... 命名约定识别）上写错的属性名。
+      # 放过 Qt 自身类型上的既有误报（styleHints / hovered / count 之类），
+      # 以及插件契约里有意的可选成员访问（timerFunction / styleOptions / onMedia / urlStr）。
+      - name: QML 静态检查（qmllint）
+        run: |
+          set -euo pipefail
+          QMLLINT="${QT_DIR}/${QT_VERSION}/gcc_64/bin/qmllint"
+          mapfile -t FILES < <(find . -name '*.qml' \
+            -not -path './build/*' -not -path './ThirdParty/*' -not -path './api/QCloudMusicApi/*')
+          echo "检查 ${#FILES[@]} 个 QML 文件…"
+          "$QMLLINT" -I build "${FILES[@]}" > /tmp/lint.log 2>&1 || true
+
+          ERRS=$(grep -cE '^Error:|: .*Error: ' /tmp/lint.log || true)
+          OURS='on type "[A-Za-z]*(Store|Model|Service|Manager|Scanner|Engine|Extractor|Reader|Writer|Helper|Database|Cache)"'
+          grep -E 'missing-property' /tmp/lint.log | grep -E "$OURS" \
+            | grep -Ev 'on type "Q|timerFunction|styleOptions|onMedia|urlStr' > /tmp/lint_crit.log || true
+          CRIT=$(wc -l < /tmp/lint_crit.log)
+
+          echo "qmllint 输出 $(wc -l < /tmp/lint.log) 行；类型错误 $ERRS；自己类型上的属性名错误 $CRIT"
+          if [ "$ERRS" -gt 0 ]; then
+            echo "::error::qmllint 报出类型/语法错误"
+            grep -E '^Error:|: .*Error: ' /tmp/lint.log | head -20
+            exit 1
+          fi
+          if [ "$CRIT" -gt 0 ]; then
+            echo "::error::以下属性名写错了（或类型少声明了属性）："
+            cat /tmp/lint_crit.log
+            exit 1
+          fi
+          echo "✅ qmllint 通过：无类型错误、无自己类型上的属性名错误"
+
+      # ── 启动冒烟 ────────────────────────────────────────────────────────
+      # 离屏真跑一次应用：QML 加载失败 / 绑定报错 / 着色器失败 / 崩溃退出都会让这一步红。
+      - name: 启动冒烟（离屏）
+        env:
+          LD_LIBRARY_PATH: ${{ env.QT_DIR }}/${{ env.QT_VERSION }}/gcc_64/lib
+        run: |
+          chmod +x tests/smoke-stderr.sh
+          tests/smoke-stderr.sh build/bin/QueMusic 12
+
+      - name: 失败时输出日志（方便定位）
+        if: failure()
+        run: |
+          echo "--- qmllint ---"; [ -f /tmp/lint.log ] && tail -40 /tmp/lint.log || true

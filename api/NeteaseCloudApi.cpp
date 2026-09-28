@@ -90,6 +90,25 @@ QVariantList parseLyrics(const QString &text)
     return result;
 }
 
+// 评论对象 → 统一评论字段（热门与普通评论同构）
+QVariantList parseComments(const QVariantList &items)
+{
+    QVariantList info;
+    info.reserve(items.size());
+    for (const QVariant &value : items) {
+        const QVariantMap c = value.toMap();
+        const QVariantMap user = c.value(QStringLiteral("user")).toMap();
+        info << ApiCommon::comment(
+            user.value(QStringLiteral("nickname")).toString(),
+            user.value(QStringLiteral("avatarUrl")).toString(),
+            c.value(QStringLiteral("content")).toString(),
+            c.value(QStringLiteral("time")).toLongLong() / 1000,
+            c.value(QStringLiteral("likedCount")).toInt(),
+            int(c.value(QStringLiteral("beReplied")).toList().size()));
+    }
+    return info;
+}
+
 // 把 QCloudMusicApi 的歌单对象数组（playlists[]）转换成统一歌单字段
 QVariantList parsePlaylists(const QVariantList &playlists)
 {
@@ -175,7 +194,11 @@ private:
         const QVariantMap &data = body.isEmpty() ? raw : body;
         QVariantList info;
 
-        if (action == QLatin1String("searchSongs")) {
+        if (action == QLatin1String("getComments")) {
+            // 首屏会有 hotComments，翻页后只有 comments
+            info = parseComments(data.value(QStringLiteral("hotComments")).toList());
+            info += parseComments(data.value(QStringLiteral("comments")).toList());
+        } else if (action == QLatin1String("searchSongs")) {
             const QVariantMap result = data.value(QStringLiteral("result")).toMap();
             const int ntype = call.value(QStringLiteral("ntype")).toInt();
             if (ntype == 1 || ntype == 1006) {
@@ -647,6 +670,18 @@ void NeteaseCloudApi::getLyricInfo(const QString &hash, int duration)
     call.insert(QStringLiteral("member"), QStringLiteral("lyric"));
     call.insert(QStringLiteral("arg"), arg);
     enqueue(QStringLiteral("getLyricInfo"), call);
+}
+
+void NeteaseCloudApi::getComments(const QString &hash, int page, int pageSize)
+{
+    QVariantMap arg;
+    arg.insert(QStringLiteral("id"), hash);
+    arg.insert(QStringLiteral("limit"), pageSize);
+    arg.insert(QStringLiteral("offset"), qMax(0, (page - 1) * pageSize));
+    QVariantMap call;
+    call.insert(QStringLiteral("member"), QStringLiteral("comment_music"));
+    call.insert(QStringLiteral("arg"), arg);
+    enqueue(QStringLiteral("getComments"), call);
 }
 
 void NeteaseCloudApi::getPersonalFm(int page, int pageSize)

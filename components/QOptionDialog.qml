@@ -10,7 +10,8 @@ Popup {
     property Item blurSource: mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
-    default property alias options: content.children
+    property alias options: content.children
+    property alias header: titleText.children
     //property Component options
     property string cancelText: ""
     property string cancelIcon: "\uf10f"
@@ -20,6 +21,7 @@ Popup {
     // false 时 cancel 只发信号、不关闭：调用方把左下按钮当确认按钮用时
     // （例如网易云手机号登录，失败提示要留在弹窗里）
     property bool cancelCloses: true
+    property int headerHeight: 20
     signal confirm()
     signal cancel()
     parent: Overlay.overlay
@@ -28,6 +30,10 @@ Popup {
     focus: true
     width: 480
     height: contentCol.implicitHeight + 40
+    function goTop(): void {
+        dialogContent.contentY = 0;
+    }
+
     Connections {
         target: window
         enabled: dialog.visible
@@ -53,8 +59,9 @@ Popup {
         Text {
             id: titleText
             text: "Title"
+            z: 2
             font.pixelSize: 20
-            height: 20
+            height: dialog.headerHeight
             font.bold: true
             color: Style.themes.fontColor
             wrapMode: Text.WordWrap
@@ -78,7 +85,8 @@ Popup {
             Item {
                 id: content
                 width: dialogContent.contentWidth
-                height: children[0].height
+                // 弹窗销毁时 children 会先被清空，直接取 [0] 会抛 TypeError
+                height: children.length > 0 ? children[0].height : 0
             }
         }
 

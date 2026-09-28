@@ -49,6 +49,7 @@ public:
     void getSingerSongs(const QString &singerid, int page, int pageSize);
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
+    void getComments(const QString &hash, int page, int pageSize);
     void getPersonalFm(int page, int pageSize);
     void getPersonalRadar(int page, int pageSize);
 
@@ -68,8 +69,10 @@ private:
         QSet<QString> seen;
     };
 
-    void get(const QString &url, const Callback &cb);
-    void getSigned(const QString &path, QVariantMap params, const Callback &cb);
+    // withCookie=false 时不带 buvid 指纹：B 站对「有指纹、无登录票据」的请求会降级结果
+    void get(const QString &url, const Callback &cb, bool withCookie = true);
+    void getSigned(const QString &path, QVariantMap params, const Callback &cb,
+                   bool withCookie = true);
     void ensureKeys(const Task &then);
     void searchVideos(const QString &keyword, int tid, int page, const QString &action,
                       const QString &order = QString());
@@ -94,6 +97,9 @@ private:
     QString m_buvid4;
     QString m_loginCookie;
     int m_quality = 1;
+    // 评论翻页游标按稿件分开存：多首歌并发取评论时不会互相串页
+    QHash<QString, qint64> m_commentCursors;
+    QHash<QString, qint64> m_aidCache;      // bvid → aid，省一次 view 请求
     bool m_keyRequesting = false;
     QList<Task> m_keyWaiters;
     QHash<QString, QString> m_upNames; // UP 主 mid → 昵称

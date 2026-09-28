@@ -58,6 +58,7 @@ public:
     void getSingerSongs(const QString &singerid, int page, int pageSize); // 歌手歌曲
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
+    void getComments(const QString &hash, int page, int pageSize);
     void getPersonalFm(int page, int pageSize);     // 私人漫游 → TOP500 热门榜（分页）
     void getPersonalRadar(int page, int pageSize);  // 私人雷达 → 飙升榜（分页）
 
@@ -69,6 +70,8 @@ private:
     using Callback = std::function<void(const QJsonObject &)>;
     void get(const QString &url, const Callback &cb); // GET 请求 + JSON 回调
     QString cookieValue(const QString &key) const;
+    // 评论网关的安卓端签名：算法与 kugouWebSignature 相同，盐不同
+    static QByteArray kugouAndroidSignature(const QVariantMap &params);
     // 登录态取 VIP 播放地址；reason 为无地址原因（"vip" 需要会员/购买，供上层提示）
     void requestSignedPlayInfo(const QString &hash, int type, const QString &reason = QString());
 
@@ -100,6 +103,7 @@ private:
     QString m_cookie;
     QString m_mid;
     QString m_dfid;
+    QHash<QString, QString> m_mixIdCache;   // hash → 评论接口所需的数字 mixsongid
 };
 
 #endif // KUGOUAPI_H

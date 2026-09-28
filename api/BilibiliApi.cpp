@@ -4,6 +4,7 @@
 #include "BilibiliApi.h"
 
 #include "ApiCommon.h"
+#include "ApiHttp.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -117,27 +118,74 @@ QString BilibiliApi::mixinKey(const QString &imgKey, const QString &subKey)
     return out;
 }
 
-void BilibiliApi::get(const QString &url, const Callback &cb)
+void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
 {
-    QNetworkRequest req{QUrl(url)};
-    req.setRawHeader("User-Agent", kUa);
-    req.setRawHeader("Referer", "https://www.bilibili.com");
-    req.setRawHeader("Accept-Encoding", "identity");
-    if (!m_buvid3.isEmpty()) {
-        QString cookie = QStringLiteral("buvid3=%1; buvid4=%2").arg(m_buvid3, m_buvid4);
-        if (!m_loginCookie.isEmpty())
-            cookie += QLatin1Char(';') + m_loginCookie;
-        req.setRawHeader("Cookie", cookie.toUtf8());
-    }
+    // 评论接口要的是 aid，而 hash 是 bvid；翻页时用缓存的 aid，省一次 view 请求
+    const auto requestComments = [this, hash, page, pageSize](qint64 aid) {
+        // 走签名版：旧的 /x/v2/reply 对未登录只给 3 条热门，wbi/main 能取满一页
+        QVariantMap params;
+        params.insert(QStringLiteral("type"), QStringLiteral("1")); // 1 = 视频稿件
+        params.insert(QStringLiteral("oid"), QString::number(aid));
+        params.insert(QStringLiteral("mode"), QStringLiteral("3")); // 3 = 按热度
+        params.insert(QStringLiteral("next"),
+                      QString::number(page <= 1 ? 0 : m_commentCursors.value(hash)));
+        params.insert(QStringLiteral("ps"), QString::number(qBound(1, pageSize, 30)));
+        params.insert(QStringLiteral("web_location"), QStringLiteral("1315875"));
 
-    QNetworkReply *reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [reply, cb] {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError)
-            qWarning() << "[bilibili] 请求失败:" << reply->errorString()
-                       << reply->url().toString();
-        cb(QJsonDocument::fromJson(reply->readAll()).object()); // 失败也回调，保证 loadState 复位
-    });
+        // 只带登录态：纯 buvid 指纹会被风控把结果砍到 3 条
+        getSigned(QStringLiteral("/x/v2/reply/wbi/main"), params,
+                  [this, hash](const QJsonObject &obj) {
+                      const QJsonObject data = obj.value(QStringLiteral("data")).toObject();
+                      m_commentCursors.insert(hash, data.value(QStringLiteral("cursor")).toObject()
+                                                        .value(QStringLiteral("next"))
+                                                        .toVariant().toLongLong());
+                      QVariantList info;
+                      for (const QJsonValue &value : data.value(QStringLiteral("replies")).toArray()) {
+                          const QJsonObject c = value.toObject();
+                          const QJsonObject member = c.value(QStringLiteral("member")).toObject();
+                          info << ApiCommon::comment(
+                              member.value(QStringLiteral("uname")).toString(),
+                              member.value(QStringLiteral("avatar")).toString(),
+                              c.value(QStringLiteral("content")).toObject()
+                                  .value(QStringLiteral("message")).toString(),
+                              c.value(QStringLiteral("ctime")).toVariant().toLongLong(),
+                              c.value(QStringLiteral("like")).toInt(),
+                              c.value(QStringLiteral("rcount")).toInt());
+                      }
+                      emitList(QStringLiteral("getComments"), info);
+                  },
+                  !m_loginCookie.isEmpty());
+    };
+
+    const qint64 cachedAid = m_aidCache.value(hash);
+    if (cachedAid > 0) {
+        requestComments(cachedAid);
+        return;
+    }
+    get(QStringLiteral("https://api.bilibili.com/x/web-interface/view?bvid=") + hash,
+        [this, hash, requestComments](const QJsonObject &json) {
+            const qint64 aid = json.value(QStringLiteral("data")).toObject()
+                                   .value(QStringLiteral("aid")).toVariant().toLongLong();
+            if (aid <= 0) {                      // 稿件不存在或接口失败
+                emitList(QStringLiteral("getComments"), {});
+                return;
+            }
+            m_aidCache.insert(hash, aid);
+            requestComments(aid);
+        });
+}
+
+void BilibiliApi::get(const QString &url, const Callback &cb, bool withCookie)
+{
+    QByteArray cookie;
+    if (withCookie && !m_buvid3.isEmpty()) {
+        cookie = QStringLiteral("buvid3=%1; buvid4=%2").arg(m_buvid3, m_buvid4).toUtf8();
+        if (!m_loginCookie.isEmpty()) {
+            cookie += ';';
+            cookie += m_loginCookie.toUtf8();
+        }
+    }
+    ApiHttp::getJson(m_nam, this, QUrl(url), kUa, "https://www.bilibili.com", cookie, cb);
 }
 
 // WBI 密钥与 buvid 指纹只取一次，并发调用排队等待
@@ -153,7 +201,7 @@ void BilibiliApi::ensureKeys(const Task &then)
     }
     m_keyRequesting = true;
     get(QStringLiteral("https://api.bilibili.com/x/web-interface/nav"),
-        [this](const QJsonObject &j) {
+        [this, then](const QJsonObject &j) {
             const QJsonObject img = j.value(QStringLiteral("data")).toObject()
                                         .value(QStringLiteral("wbi_img")).toObject();
             const auto baseName = [](const QString &u) {
@@ -162,11 +210,13 @@ void BilibiliApi::ensureKeys(const Task &then)
             m_mixinKey = mixinKey(baseName(img.value(QStringLiteral("img_url")).toString()),
                                   baseName(img.value(QStringLiteral("sub_url")).toString()));
             get(QStringLiteral("https://api.bilibili.com/x/frontend/finger/spi"),
-                [this](const QJsonObject &j2) {
+                [this, then](const QJsonObject &j2) {
                     const QJsonObject d = j2.value(QStringLiteral("data")).toObject();
                     m_buvid3 = d.value(QStringLiteral("b_3")).toString();
                     m_buvid4 = d.value(QStringLiteral("b_4")).toString();
                     m_keyRequesting = false;
+                    // 发起这次取密钥的调用方也在等，漏掉它会让「启动后第一次签名请求」被静默丢弃
+                    then();
                     const QList<Task> waiters = m_keyWaiters;
                     m_keyWaiters.clear();
                     for (const Task &t : waiters)
@@ -175,9 +225,10 @@ void BilibiliApi::ensureKeys(const Task &then)
         });
 }
 
-void BilibiliApi::getSigned(const QString &path, QVariantMap params, const Callback &cb)
+void BilibiliApi::getSigned(const QString &path, QVariantMap params, const Callback &cb,
+                            bool withCookie)
 {
-    ensureKeys([this, path, params, cb]() mutable {
+    ensureKeys([this, path, params, cb, withCookie]() mutable {
         if (m_mixinKey.isEmpty()) {
             cb(QJsonObject());
             return;
@@ -201,7 +252,7 @@ void BilibiliApi::getSigned(const QString &path, QVariantMap params, const Callb
                                                          QCryptographicHash::Md5).toHex();
         get(kApi + path + QLatin1Char('?') + query + QStringLiteral("&w_rid=")
                 + QString::fromLatin1(sign),
-            cb);
+            cb, withCookie);
     });
 }
 

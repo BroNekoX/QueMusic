@@ -12,5 +12,4 @@ Settings {
     property string cover: ""
     property string hash: ""
     property int source: -1
-    property int position: 0
 }

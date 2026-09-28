@@ -3,7 +3,6 @@
 
 import QtQuick
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 
 Rectangle {
     id: root
@@ -13,9 +12,9 @@ Rectangle {
     color: Style.themes.fullColor
     border.width: input.focus ? 2 : 1
     border.color: input.focus ? Style.themes.themeColor : Style.themes.sideColor
-    Behavior on border.color { ColorAnimation { duration: 160 } }
     signal entered()
     property alias inputText: input.text
+    property alias echoMode: input.echoMode
     TextInput {
         id: input
         anchors.fill: parent

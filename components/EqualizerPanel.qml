@@ -18,15 +18,17 @@ Column {
     readonly property int trackTop: 6
     readonly property int trackHeight: faderHeight - 40
     readonly property var sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
+    property int display: 0
     property int controlWidth: settingStack.standWidth
 
-    QHead { width: panel.width; text: "均衡器与音频处理" }
+    QHead { visible: panel.display === 0; width: panel.width; text: "均衡器与音频处理" }
 
     Rectangle {
         width: panel.width
         height: statusRow.height + 20
         color: Style.themes.primaryColor
         radius: Style.settings.cubeRadius
+        visible: panel.display == 0 || panel.display == 1
 
         Row {
             id: statusRow
@@ -72,6 +74,7 @@ Column {
         color: Style.themes.primaryColor
         radius: Style.settings.cubeRadius
         height: eqColumn.height
+        visible: panel.display == 0 || panel.display == 1
 
         Column {
             id: eqColumn
@@ -367,13 +370,14 @@ Column {
         }
     }
 
-    QHead { width: panel.width; text: "声道" }
+    QHead { visible: panel.display === 0; width: panel.width; text: "声道" }
 
     Rectangle {
         width: panel.width
         color: Style.themes.primaryColor
         radius: Style.settings.cubeRadius
         height: soundRoadColumn.height
+        visible: panel.display == 0 || panel.display == 2
         Column {
             id: soundRoadColumn
             width: parent.width
@@ -488,13 +492,14 @@ Column {
         }
     }
 
-    QHead { width: panel.width; text: "增益与动态" }
+    QHead { visible: panel.display === 0; width: panel.width; text: "增益与动态" }
 
     Rectangle {
         width: panel.width
         height: premiumSoundColumn.height
         color: Style.themes.primaryColor
         radius: Style.settings.cubeRadius
+        visible: panel.display == 0 || panel.display == 3
         Column {
             id: premiumSoundColumn
             width: parent.width

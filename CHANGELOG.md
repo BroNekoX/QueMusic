@@ -7,6 +7,22 @@
 
 ## [Unreleased]
 
+### 🗑️ 移除
+- **沉浸中心（QueMusic Center）**：删除 `FullCenterView.qml` 与 `centers/`（13 个组件）；右上角最左按钮由
+  「打开沉浸中心」改为**全屏开关**（进出 `Window.FullScreen`，退出时回到进入前的最大化/普通状态），
+  资源同步换成 `fullscreen(d).svg`，CMake 的 `centers` 收集与 qmltc 白名单一并清理
+- **断点续播**：删除设置项 `Options.settings.resumePosition`、`Playback.pendingSeek/pendingSeekPath` 与
+  `main.qml` 的 `onDurationChanged` 续播逻辑，以及 `Options.lastSongs.position` 字段及写入
+
+### ✨ 新增
+- **歌词界面插件系统**：新增 `LyricsPlugins` 单例（`cpp/plugins/LyricsPluginStore.*`）管理内置界面与外置插件，
+  `layout/PlayerMaxCenter.qml` 的 `Loader.source` 直接绑 `LyricsPlugins.source`；播放页左上角第二个按钮改为
+  **竖排列表**切换界面（预览图 / 作者 / 版本），选中项写 QSettings 跨启动保留，卸载当前插件自动回落到内置默认。
+  插件 = 一个目录（`info.json` + 入口 QML + 预览图 + 可选着色器），目录名即 id；契约与示例见 QuePlugins 仓库
+  （`docs/lyrics-plugin.md`，apiVersion 1）
+- **设置 → 插件 → 歌词界面**：插件列表（预览图、内置/作者/版本、启用状态），支持安装（选文件夹后复制到插件目录）、
+  启用、打开插件目录、重新扫描、删除（内置不可删）；「功能 / 音乐源」两个子页签保留未完成提示
+
 ### 🧩 重构
 - **歌词界面模块化**：`layout/PlayerMaxCenter.qml`（873 行）拆为宿主框架（269 行：沉浸偏移、控件自动隐藏、
   控制按钮、主题色动画）+ 歌词界面模块 `layout/MainLyric.qml`（649 行：流体背景 / 封面 / 歌曲文本 / 歌词内容）。
@@ -120,7 +136,40 @@
   按时间贴回各行 ⇒ 逐字与翻译同时保留；仅当没有行级歌词时才用 `SYLT` 按"停顿"分组重建显示行
   （间隔自适应、行内音节进 `info`）。同名歌词文件除 `.lrc` 外也接受 `.txt`
 
+### ✨ 新增
+- **WebDAV 支持（一期）**：新增 `cpp/webdav/`（`WebDavClient` × PROPFIND Depth:1 + Basic 鉴权 + 命名空间无关 XML 解析
+  + 路径解码；`WebDavModel` × 目录列表，角色与 `LocalMusicScanner` 对齐并加 `isDir`；`WebDavStore` × 服务器配置存
+  QSettings、密码在 Windows 用 DPAPI 加密后落盘、凭据不下发 QML）。「文件」页新增与之并列的 WebDAV 分页：服务器
+  增删改 + 目录浏览（返回/上一级/刷新），远端音频按 `source = 3` 入队并由**引擎带鉴权头直连播放**
+  （`AudioEngine::sourceHeaders` → FfmpegDecoder 的 `headers` 选项，拖动进度走 HTTP Range），一期不落地缓存；
+  封面/歌词与缓存留二期
+
+- **WebDAV 二期（缓存 + 封面/歌词）**：新增 `cpp/webdav/WebDavCache` —— 播放时后台把「音频 + 远端同名
+  `.lrc`/`.txt` + 同目录封面」落到同一缓存目录（`<cache>/webdav/<hash>/`，1GB 上限 + LRU，最近 5 分钟用过的
+  不清理）。落地后标签/歌词/封面**直接复用 `CoverHelper` + `LocalLyricsReader`**（解析器零改动）；已缓存
+  曲目走本地播放（秒开、离线可播），未缓存则带鉴权头流播并同时缓存；列目录时顺带识别同名歌词/封面
+  （`rememberSidecars`），加入播放列表后再播也能拿到
+- **修复**：`playWebDav` 给引擎传的是字符串而非 `QVariantMap`（`sourceHeaders` 类型不符）；`Connections`
+  不能放在 `Playback.qml` 的 `QtObject` 根节点内（`QtObject` 无默认属性 ⇒ 整个 QML 加载失败），已移到 `main.qml`
+
+- **WebDAV 页面统一到宿主组件**：`pages/WebDavPage.qml` 去掉自绘 FlatButton，改用 `QButton`（右上操作区）、
+  `QLocalView`（表头 / 右键菜单 / 行内 `SButton` 图标操作）、`QPicture` + 图标字体、`QOptionDialog` + `QInput`
+  表单，布局与 `pages/FilePage.qml` 的「我的文件夹 / 本地文件夹」两个并列页一致；`components/QInput.qml` 补
+  `echoMode` 别名（密码框用）。顺带修：同地址不再重复添加服务器、未填名称时用主机名占位避免与地址列重复
+
 ### ⚡ 优化
+- **在线 API 收敛**：新增 `api/ApiHttp.h` 统一平台自建请求（UA/Referer/Cookie + **15s 传输超时** + 失败也回调
+  + reply 释放），酷狗与 B 站的 `get()` 各改为一行转发，消掉两份复制的网络封装；酷狗两个签名函数合并为
+  `kugouSignature(salt, kv)`；评论接口缓存一级查询（酷狗 hash→mixsongid、B 站 bvid→aid），翻页少一次往返；
+  B 站评论游标从全局单值改为按稿件存放，多首歌并发取评论不再串页
+- **WebDAV**：目录列表加 30s 短期缓存（最多 12 个目录），同一目录请求进行中忽略重复点击 ⇒「上一级 / 返回目录」
+  不再重复 PROPFIND（`refresh()` 仍强制走网络）；鉴权头按服务器缓存（配置变更即失效），播放/列目录不再每次
+  DPAPI 解密；缓存清理 `prune()` 限频到每分钟一次（原先每下载一首就全量扫盘）
+- **歌词界面插件**：`LyricsPlugins.plugins` 改为返回常量引用，`source` 从每次 O(n) 扫描改为加载/切换时算好缓存
+- **插件着色器必须预编译 `.qsb`**：Qt 6 的 `ShaderEffect` 不编译运行时 `.frag`（实测报
+  `Failed to deserialize QShader ... not a valid .qsb file`，且效果静默消失）；QuePlugins 的 example 插件补上
+  `shaders/wave.frag.qsb`，规范里写明编译命令。顺带修 `components/QOptionDialog.qml`：弹窗销毁时
+  `children[0].height` 会抛 TypeError（所有带 options 的弹窗都会打这条日志）
 - **音频回调内零分配**：`applyPendingParams()` 原在参数变化时构造 `QList<qreal>`（拖 EQ 滑块即每次回调都分配
   内存）。新增 `AudioDsp::setEqGains(const double *, int)` 直读快照数组，音频线程不再触碰容器分配
 - **部署精简（−113MB）**：解码层改用 Qt 自带的 FFmpeg 7.1.3（`avcodec-61`/`avformat-61`/`avutil-59`/
