@@ -5,6 +5,17 @@ on:
   push:
     tags:
       - "v*"
+  # 给「一键发布」流程（release.yml）复用；证书相关的 Secret 由调用方 inherit 传入
+  workflow_call:
+    secrets:
+      APPLE_SIGN_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
 
 jobs:
   build-macos:

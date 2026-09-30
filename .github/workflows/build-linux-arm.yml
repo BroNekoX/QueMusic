@@ -16,6 +16,8 @@ on:
   push:
     tags:
       - "v*"
+  # 给「一键发布」流程（release.yml）复用
+  workflow_call:
 
 jobs:
   build-linux-arm:
@@ -322,6 +324,16 @@ jobs:
             done
             cd -
           fi
+
+          # 删掉 Qt 的 GStreamer 媒体后端（#4 就是这么挂的）：
+          # 本项目音频走自带的 FFmpeg 解码层 + QAudioSink，不用 Qt Multimedia 的媒体插件，
+          # 而 libgstreamermediaplugin.so 依赖 libgst* 一串库，runner 上没装 gstreamer 时
+          # linuxdeploy-plugin-qt 直接
+          #   ERROR: Could not find dependency: libgstpbutils-1.0.so.0（exit 1）
+          # 把打包搞挂。ffmpeg 媒体后端保留（它依赖 Qt 自带的 libav*，能正常解析）。
+          MULTI_DIR="$HOME/Qt/6.10.3/gcc_arm64/plugins/multimedia"
+          rm -f "$MULTI_DIR/libgstreamermediaplugin.so"
+          echo "multimedia 插件: $(ls -1 "$MULTI_DIR" 2>/dev/null | tr '\n' ' ')"
 
           # 运行 linuxdeploy，它会自动部署所有依赖（包括 Qt 库和插件依赖）
           # --exclude-library：补 linuxdeploy 内置排除表没覆盖到的宿主库。

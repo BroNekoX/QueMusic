@@ -1,0 +1,124 @@
+name: Release（一键打包并发 Release）
+
+# 一次点击：Linux x86_64 + Linux arm64 + macOS 三个包全部构建，
+# 跑完后统一挂到指定 tag 的 Release 上。
+#
+# 用法：
+#   Actions → 左侧选 “Release（一键打包并发 Release）” → Run workflow
+#   填 tag（如 v0.6.0），draft 保持勾选 → 跑完去 Releases 编辑那个草稿：
+#   补 Windows 包、写描述，最后 Publish。
+#
+# 说明：
+#   * 三个平台是「复用」各自的 build-*.yml，构建逻辑只有一份，改一处三处生效；
+#   * Windows 不在本流程里（本地构建后手动传即可）；
+#   * 请在分支（main）上手动触发本流程，不要在 tag 上触发——否则三个子流程
+#     自身的「挂到 Release」步骤也会跑，和本流程抢同一个 Release。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布 tag（如 v0.6.0）。不存在会自动创建在本次提交上'
+        required: true
+      title:
+        description: 'Release 标题（留空则用 tag）'
+        required: false
+        default: ''
+      notes:
+        description: 'Release 说明（留空则自动生成）'
+        required: false
+        default: ''
+      draft:
+        description: '建为草稿（推荐：先补 Windows 包与描述，再手动发布）'
+        type: boolean
+        default: true
+      prerelease:
+        description: '标记为预发布'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 三个平台，各自复用现有打包流程 ────────────────────────────────
+  linux-x86:
+    name: Linux x86_64 AppImage
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      # 明确留空：子流程不要自己建 Release，统一交给下面的 publish
+      release_tag: ''
+    secrets: inherit
+
+  linux-arm64:
+    name: Linux arm64 AppImage
+    uses: ./.github/workflows/build-linux-arm.yml
+    secrets: inherit
+
+  macos:
+    name: macOS DMG (arm64 + x86_64)
+    uses: ./.github/workflows/build-macos.yml
+    secrets: inherit
+
+  # ── 汇总产物，建/更新 Release ─────────────────────────────────────
+  publish:
+    name: 汇总产物挂到 Release
+    needs: [linux-x86, linux-arm64, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 下载三个平台的产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: 列出拿到的文件
+        run: find dist -type f | sort
+
+      - name: 创建（或更新）Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title }}
+          NOTES: ${{ inputs.notes }}
+          IS_DRAFT: ${{ inputs.draft }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          : "${TAG:?必须给 tag}"
+
+          # 只挑真正要发布的文件（AppImage / dmg），避免把中间产物也传上去
+          mapfile -t FILES < <(find dist -type f \( -name '*.AppImage' -o -name '*.dmg' \) | sort)
+          [ "${#FILES[@]}" -gt 0 ] || { echo "::error::没拿到任何产物，检查三个平台是否都构建成功"; exit 1; }
+          echo "将上传以下文件："
+          printf '  %s\n' "${FILES[@]}"
+
+          ARGS=(--title "${TITLE:-$TAG}")
+          if [ -n "$NOTES" ]; then
+            ARGS+=(--notes "$NOTES")
+          else
+            ARGS+=(--generate-notes)
+          fi
+          if [ "$IS_DRAFT" = "true" ]; then ARGS+=(--draft); fi
+          if [ "$IS_PRERELEASE" = "true" ]; then ARGS+=(--prerelease); fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在 → 追加/覆盖产物"
+            gh release upload "$TAG" "${FILES[@]}" --clobber
+          else
+            # tag 不存在时：建在本次提交上；已存在（比如你先推了 tag）就别再指定 target
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$TAG" >/dev/null 2>&1; then
+              TARGET_ARGS=()
+            else
+              TARGET_ARGS=(--target "$GITHUB_SHA")
+            fi
+            echo "创建 Release $TAG"
+            gh release create "$TAG" "${FILES[@]}" "${TARGET_ARGS[@]}" "${ARGS[@]}"
+          fi
+
+          echo "完成："
+          gh release view "$TAG" --json url,isDraft,assets \
+            -q '"  \(.url)  draft=\(.isDraft)  附件=\(.assets | map(.name) | join(", "))"'

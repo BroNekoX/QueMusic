@@ -10,6 +10,14 @@ on:
   push:
     tags:
       - 'v*'
+  # 给「一键发布」流程（release.yml）复用：它调完三个平台后统一建 Release
+  workflow_call:
+    inputs:
+      release_tag:
+        description: '由调用方决定 tag；留空则由调用方统一发布'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -158,10 +166,29 @@ jobs:
           done
           echo "✅ linuxdeploy + linuxdeploy-plugin-qt 就绪"
 
-      - name: 只保留 sqlite 驱动（从 Qt 安装目录删，避免被 linuxdeploy 带进包）
+      - name: 裁剪用不到的 Qt 插件（SQL 驱动只留 sqlite、去掉 gstreamer 媒体后端）
         run: |
-          find "${QT_DIR}/${QT_VERSION}/gcc_64/plugins/sqldrivers" \
-            -name 'libqsql*.so' ! -name 'libqsqlite.so' -delete
+          set -euo pipefail
+          QTDIR="${QT_DIR}/${QT_VERSION}/gcc_64"
+
+          # 1) SQL 驱动只留 sqlite（其余驱动会链接宿主库、白占体积）
+          SQ="$QTDIR/plugins/sqldrivers"
+          if [ -d "$SQ" ]; then
+            find "$SQ" -name 'libqsql*.so' ! -name 'libqsqlite.so' -delete
+            echo "sqldrivers: $(ls -1 "$SQ" | tr '\n' ' ')"
+          else
+            echo "⚠️  $SQ 不存在"
+          fi
+
+          # 2) 去掉 GStreamer 媒体后端。
+          #    本项目音频走自带的 FFmpeg 解码层 + Qt 的 QAudioSink，不用 Qt Multimedia 的
+          #    媒体插件；而 libgstreamermediaplugin.so 会拖着 libgst* 一串依赖，
+          #    runner 上没装 gstreamer 时 linuxdeploy-plugin-qt 会直接
+          #      ERROR: Could not find dependency: libgstpbutils-1.0.so.0（exit 1）
+          #    把整个打包搞挂（arm 流水线就是这么挂的）。删掉它最干净。
+          #    ffmpeg 媒体后端保留：它依赖 Qt 自带的 libav*，能正常解析。
+          rm -f "$QTDIR/plugins/multimedia/libgstreamermediaplugin.so"
+          echo "multimedia 插件: $(ls -1 "$QTDIR/plugins/multimedia" 2>/dev/null | tr '\n' ' ')"
 
       - name: Prepare AppDir（显式部署 Wayland / fcitx5 / GL / Vulkan 相关插件）
         run: |
@@ -429,7 +456,16 @@ jobs:
             --exclude-library libvulkan.so.1 \
             --output appimage
 
-          mv QueMusic-*.AppImage "$APPIMAGE_NAME"
+          # 注意：linuxdeploy 产出的名字由 AppDir 推导，常常就已经是 QueMusic-x86_64.AppImage，
+          # 这时 `mv a a` 会报 "'a' and 'a' are the same file" 并以 1 退出，
+          # 在 set -e 下把整个步骤带崩（#31 就是这么挂的）。先比名字再搬。
+          for f in QueMusic-*.AppImage; do
+            [ -e "$f" ] || continue
+            if [ "$f" != "$APPIMAGE_NAME" ]; then
+              mv -f "$f" "$APPIMAGE_NAME"
+            fi
+          done
+          ls -lh "$APPIMAGE_NAME"
 
       - name: Verify AppImage contents（缺失即失败，不再只 warn）
         run: |
