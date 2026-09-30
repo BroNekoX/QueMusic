@@ -49,7 +49,7 @@ ListView {
     signal ended()
 
     onAtYEndChanged: {
-        if (atYEnd && !MusicApi.loadState) ended();
+        if (atYEnd && !MusicApi.loadState && count !== 0) ended();
     }
 
     // 行取值：在线模型用 hash/title/artist，收藏模型用 id/favId/…

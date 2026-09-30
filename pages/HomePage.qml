@@ -648,8 +648,7 @@ Item {
                     }
 
                     onAtYEndChanged: {
-                        if (atYEnd && !MusicApi.loadState) {
-                            // 整页返回说明还有下一页，继续追加；不足一页说明已到底，回到第一页重载
+                        if (atYEnd && !MusicApi.loadState && recommendView.count !== 0) {
                             if (MusicApi.hotPlayLists.count % 20 === 0) {
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                             } else {

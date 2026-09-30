@@ -2,7 +2,6 @@
 
 namespace {
 
-// Repeater 自身也是 QQuickItem，但它只负责生成 delegate，不参与流式排布
 bool isFlowItem(QQuickItem *item)
 {
     return !item->inherits("QQuickRepeater");
@@ -74,8 +73,7 @@ void CustomFlow::itemChange(ItemChange change, const ItemChangeData &data)
     }
 }
 
-// 子项宽高常常"先创建、后就绪"（逐字歌词的文本随字体与字号稍后落地），
-// 尺寸变化必须重排，否则首帧按 0 尺寸摊开的行会一直叠在一起
+
 void CustomFlow::trackItem(QQuickItem *item)
 {
     if (!item || m_tracked.contains(item))

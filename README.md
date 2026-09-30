@@ -21,7 +21,7 @@
 >
 > 🚧 项目处于 **开发 / 预览阶段**：功能在持续补齐，部分模块尚未完成，也有已知问题，会一直更新。
 > 欢迎 Star & Fork 一起参与 —— 动手前请读 [贡献指南](CONTRIBUTING.md)（含三平台构建方式与提交前自检），
-> 想做歌词界面可以直接玩 [QuePlugins](https://github.com/bronekox/queplugins) 插件仓库。
+> 想做插件（歌词界面 / 功能）可以直接玩 [QuePlugins](https://github.com/bronekox/queplugins) 插件仓库。
 
 ## 📋 必读
 
@@ -160,19 +160,23 @@ QueMusic 的界面观感来自 Qt RHI 与 QML Scene Graph，但真正决定"稳�
 - **配套模块** — `AccountManager` 管理登录态与二维码登录（内置二维码生成）、`DownloadManager` 负责多任务下载与重试、`CoverHelper` 负责封面抓取与磁盘缓存、`ColorExtractor` 从封面提取主色驱动自适应主题。
 - **线程模型** — 网络请求、解析与解码全部在工作线程完成，QML 只接收结果信号，主线程零阻塞。
 
-## 🧩 Que Plugins —— 可替换的歌词界面
+## 🧩 Que Plugins —— 界面里能换的、能加的，都是插件
 
-歌词界面已经**插件化**：一个文件夹就是一个插件，宿主进入沉浸播放页时按契约注入播放进度、歌词数据与配色，
-插件只负责呈现，不需要（也不应该）访问应用内部接口。内置「默认 / 自由 / 3D」三个界面同样跑在这套契约上。
+**一个文件夹就是一个插件**，放进插件目录即被扫描到，不用编译、不用改主程序；设置 → 插件里安装 / 启用 / 删除。
+插件只拿到宿主注入的契约，不需要（也不应该）访问应用内部接口。
 
-- **安装即用** — 设置 → 插件 → 歌词界面 →「安装插件」（选文件夹），或把插件目录放进插件目录后点「重新扫描」
-- **随手切换** — 播放页左上角第二个按钮，竖排列表里带预览图 / 作者 / 版本，选中项跨启动保留
-- **写得简单** — `import QtQuick` + 同名属性即可；没写的属性会被自动跳过，着色器用相对路径引用
-- **可组合** — 逐字（`info`）与翻译（`translateModel`）两条通道都在，示例插件同时演示了二者
+- **歌词界面插件** — 换掉沉浸播放页的歌词界面（内置「默认 / 自由 / 3D」也跑在同一套契约上）：
+  宿主按契约注入播放进度、歌词数据与配色，插件只负责呈现；同时只用一个，播放页左上角第二个按钮随时切换，
+  选中项跨启动保留
+- **功能插件** — 往界面里加东西：标题栏左右、底栏左右、侧栏底部、整窗覆盖层都是开放的扩展点，
+  插件用 `api.mount()` 挂自己的按钮、用 `api.loader()` 挂自己的面板，可以同时启用多个；
+  停用/卸载时宿主回收插件挂出来的一切，插件出错会被自动停用
+- **都写得简单** — `info.json` + 入口 QML 即可；`import QueMusic 1.0` 就能用 `Style` / `Playback` / `SButton`
+  这些公开单例与组件（歌词界面插件也支持逐字 `info` 与翻译 `translateModel` 两条数据通道）
 
-官方插件仓库与开发规范（含示例插件：着色器波浪背景 + 逐字高亮 + 双语翻译）：
+官方插件仓库与开发规范（含可直接安装的示例插件）：
 
-**[QuePlugins](https://github.com/bronekox/queplugins)** · [歌词界面插件规范](https://github.com/bronekox/queplugins/blob/main/docs/lyrics-plugin.md)
+**[QuePlugins](https://github.com/bronekox/queplugins)** · [歌词界面插件规范](https://github.com/bronekox/queplugins/blob/main/docs/lyrics-plugin.md) · [功能插件规范](https://github.com/bronekox/queplugins/blob/main/docs/function-plugin.md)
 
 ---
 

@@ -73,7 +73,6 @@ SearchResultModel::Row toSearchRow(const SongItem &item)
 
 } // namespace
 
-// ---------------------------------------------------------------- FolderModel
 
 FolderModel::FolderModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -243,8 +242,7 @@ void FolderModel::setFilterType(const QString &type)
     loadFromDatabase();
 }
 
-// ------------------------------------------------------------------ SongModel
-
+// SongModel
 SongModel::SongModel(QObject *parent)
     : QAbstractListModel(parent)
 {

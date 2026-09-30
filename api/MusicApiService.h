@@ -64,6 +64,10 @@ class MusicApiService : public QObject
     Q_PROPERTY(QVariant globalinfo READ globalinfo WRITE setGlobalinfo NOTIFY globalinfoChanged)
     Q_PROPERTY(int nowIndex READ nowIndex WRITE setNowIndex NOTIFY nowIndexChanged)
 
+    // 歌曲列表过滤（分类页「筛选」）：0 全部 / 1 仅免费 / 2 仅 VIP 付费
+    // 只作用于歌曲列表（新歌/歌单歌曲/歌手歌曲/榜单歌曲），歌单与歌手列表不受影响
+    Q_PROPERTY(int songFilter MEMBER m_songFilter NOTIFY songFilterChanged)
+
     // 下载管理器（DownloadPage 直接绑定 MusicApi.downloader）
     Q_PROPERTY(DownloadManager* downloader READ downloader CONSTANT)
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
@@ -196,6 +200,7 @@ signals:
     void globaltagidChanged();
     void globalinfoChanged();
     void nowIndexChanged();
+    void songFilterChanged();
     void downloadPathChanged();
     void localLyricsReady(const QString &filePath, const QVariantList &lyrics,
                           const QVariantList &translate);
@@ -205,6 +210,11 @@ signals:
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
+
+private:
+    // 歌曲列表专用入口：统一字段后再按 m_songFilter 过滤（歌单/歌手/榜单列表不走这里）
+    QVariantList songList(const QVariant &data);
+    int m_songFilter = 0;
 
 private:
     int resolve(int source) const; // source<0 → 默认源

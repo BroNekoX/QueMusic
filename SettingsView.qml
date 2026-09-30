@@ -2103,9 +2103,9 @@ Item {
                 }
             }
 
-            // 「功能 / 音乐源」尚未实现，仅在这两个子页签提示
+            // 「音乐源」尚未实现，仅在该子页签提示
             Rectangle {
-                visible: modset.tabIndex !== 0
+                visible: modset.tabIndex === 2
                 x: 24 + settingStack.containX
                 y: 124
                 width: settingStack.standWidth
@@ -2128,7 +2128,7 @@ Item {
                     x: 48
                     y: 24
                     width: parent.width - 64
-                    text: "插件功能还未开发完成，等待开发者更新喵"
+                    text: "音乐源插件还未开发完成，等待开发者更新喵"
                     wrapMode: Text.Wrap
                     color: Style.themes.textColor
                     font.bold: false
@@ -2149,168 +2149,15 @@ Item {
                     width: downloadChildPage.width
                     height: downloadChildPage.height
 
-                    Row {
-                        id: modToolbar
-                        x: settingStack.standWidth - width
-                        y: 12
-                        spacing: 8
-                        readonly property bool smallButton: settingStack.standWidth < 648
-                        QButton {
-                            height: 36
-                            text: modToolbar.smallButton ? "" : "重新扫描"
-                            iconCharacter: "\uf021"
-                            buttonColor: Style.themes.secondaryColor
-                            borderColor: Style.themes.sideColor
-                            borderWidth: 1
-                            onClicked: LyricsPlugins.rescan()
-                        }
-                        QButton {
-                            height: 36
-                            text: modToolbar.smallButton ? "" : "安装插件"
-                            iconCharacter: "\uf067"
-                            onClicked: pluginFolderDialog.open()
-                        }
-                        QButton {
-                            height: 36
-                            text: modToolbar.smallButton ? "" : "打开插件目录"
-                            iconCharacter: "\uf0f5"
-                            buttonColor: Style.themes.secondaryColor
-                            borderColor: Style.themes.sideColor
-                            borderWidth: 1
-                            onClicked: LyricsPlugins.reveal("")
-                        }
-                    }
-
-                    Text {
-                        id: modHint
-                        x: 24
-                        y: 62
-                        width: uiMod.width - 48
-                        wrapMode: Text.Wrap
-                        color: Style.themes.textColor
-                        font.pixelSize: Style.settings.textTip
-                        text: "插件目录：" + LyricsPlugins.dir + "（每个插件一个文件夹，文件夹名即插件 id，"
+                    // 歌词界面插件：同时只用一个，选中即换播放页加载的界面
+                    PluginManager {
+                        anchors.fill: parent
+                        store: LyricsPlugins
+                        compact: settingStack.standWidth < 648
+                        pluginKind: "歌词界面插件"
+                        installTitle: "选择歌词界面插件文件夹"
+                        hint: "插件目录：" + LyricsPlugins.dir + "（每个插件一个文件夹，文件夹名即插件 id，"
                               + "内含 info.json 与入口 QML）。安装后点「启用」生效，也可在播放页左上角第二个按钮切换。"
-                    }
-
-                    ListView {
-                        id: modList
-                        //x: 24
-                        y: modHint.y + modHint.height + 12
-                        width: parent.width
-                        height: uiMod.height - y - 24
-                        clip: true
-                        spacing: 8
-                        model: LyricsPlugins.plugins
-
-                        delegate: Rectangle {
-                            id: modRow
-                            width: modList.width
-                            height: 92
-                            radius: Style.settings.cubeRadius
-                            color: modRow.selected ? Style.themes.containColor : Style.themes.primaryColor
-                            border.width: 1
-                            border.color: modRow.selected ? Style.themes.themeColor : Style.themes.sideColor
-                            readonly property bool selected: modelData.id === LyricsPlugins.selectedId
-
-                            QPicture {
-                                x: 12
-                                y: 12
-                                width: 68
-                                height: 68
-                                radius: 10
-                                source: modelData.preview ? modelData.preview
-                                                          : "qrc:/QueMusic/resources/app/musicpic.png"
-                            }
-
-                            Text {
-                                x: 92
-                                y: 18
-                                width: modRow.width - 300
-                                text: modelData.name
-                                elide: Text.ElideRight
-                                color: Style.themes.fontColor
-                                font.pixelSize: Style.settings.textmain
-                                font.bold: true
-                            }
-                            Text {
-                                x: 92
-                                y: 40
-                                width: modRow.width - 300
-                                elide: Text.ElideRight
-                                color: Style.themes.textColor
-                                font.pixelSize: Style.settings.textTip
-                                text: (modelData.builtin ? "内置" : (modelData.author ? modelData.author : "未知作者"))
-                                      + (modelData.version ? "  v" + modelData.version : "")
-                                      + (modelData.id ? "  " + modelData.id : "")
-                            }
-                            Text {
-                                x: 92
-                                y: 62
-                                width: modRow.width - 300
-                                elide: Text.ElideRight
-                                color: Style.themes.textColor
-                                font.pixelSize: Style.settings.textTip
-                                opacity: 0.8
-                                text: modelData.description
-                            }
-
-                            Row {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 16
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 8
-                                QButton {
-                                    width: 96
-                                    height: 34
-                                    text: modRow.selected ? "使用中" : "启用"
-                                    enabled: !modRow.selected
-                                    iconCharacter: "\uf0e7"
-                                    onClicked: LyricsPlugins.selectedId = modelData.id
-                                }
-                                SButton {
-                                    iconCharacter: "\uf0f5"
-                                    width: 34
-                                    height: 34
-                                    radius: 10
-                                    buttonColor: "transparent"
-                                    shadowEnabled: false
-                                    tipText: "打开插件目录"
-                                    onClicked: LyricsPlugins.reveal(modelData.id)
-                                }
-                                SButton {
-                                    visible: !modelData.builtin
-                                    iconCharacter: "\uf08e"
-                                    width: 34
-                                    height: 34
-                                    radius: 10
-                                    buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
-                                    shadowEnabled: false
-                                    tipText: "删除插件"
-                                    onClicked: {
-                                        const pluginId = modelData.id;
-                                        const pluginName = modelData.name;
-                                        globalDialog.openSimpleDialog("删除插件",
-                                            "将删除歌词界面插件「" + pluginName + "」，是否继续？", function() {
-                                            const err = LyricsPlugins.remove(pluginId);
-                                            if (err) Style.warned(err, 0);
-                                            else Style.warned("已删除插件", 1);
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    FolderDialog {
-                        id: pluginFolderDialog
-                        title: "选择歌词界面插件文件夹"
-                        onAccepted: {
-                            const err = LyricsPlugins.install(selectedFolder);
-                            if (err) Style.warned(err, 0);
-                            else Style.warned("插件已安装，点「启用」即可使用", 1);
-                        }
                     }
                 }
                 Item {
@@ -2318,13 +2165,18 @@ Item {
                     visible: false
                     width: downloadChildPage.width
                     height: downloadChildPage.height
-                    Text {
+
+                    // 功能插件：可同时启用多个，插件自带的界面挂到宿主开放出来的扩展点上
+                    PluginManager {
                         anchors.fill: parent
-                        text: "功能类"
-                        verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: Text.AlignHCenter
-                        color: Style.themes.textColor
-                        font.pixelSize: 14
+                        store: FunctionPlugins
+                        multi: true
+                        compact: settingStack.standWidth < 648
+                        pluginKind: "功能插件"
+                        installTitle: "选择功能插件文件夹"
+                        hint: "插件目录：" + FunctionPlugins.dir + "（每个插件一个文件夹，文件夹名即插件 id，"
+                              + "内含 info.json 与入口 QML）。可同时启用多个，插件自带的界面会出现在标题栏、"
+                              + "底栏等扩展点上；插件出错会自动停用。"
                     }
                 }
                 Item {

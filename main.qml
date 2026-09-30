@@ -96,6 +96,16 @@ Window {
 
     readonly property bool isMacOS: Qt.platform.os === "osx"
 
+    // 标题栏整块是窗口拖拽区：插件挂进去的对象要标记为可命中，否则点击会被拖拽吞掉
+    function syncTitleBarHitTest(): void {
+        const rows = [barLeftWidgets, barRightWidgets];
+        for (let r = 0; r < rows.length; ++r) {
+            const kids = rows[r].children;
+            for (let i = 0; i < kids.length; ++i)
+                windowAgent.setHitTestVisible(kids[i], true);
+        }
+    }
+
     function doSearch(text: string): void {
         MusicApi.searchSongsResults.clear();
         mainContent.contentIndexed(6);
@@ -293,9 +303,13 @@ Window {
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
             }
+
+            // 功能插件扩展点：标题栏左侧（搜索框之后）
+            PluginSlot { slotName: "titlebar.left"; target: barLeftWidgets }
         }
 
         Row {
+            id: barRightWidgets
             anchors {
                 right: parent.right
                 rightMargin: 16
@@ -303,6 +317,9 @@ Window {
             spacing: 0
             y: 10 - musicControlMax.hideHeight
             height: 40
+
+            // 功能插件扩展点：标题栏右侧（窗口按钮之前）
+            PluginSlot { slotName: "titlebar.right"; target: barRightWidgets }
 
             // 全屏开关
             QWKButton {
@@ -1039,5 +1056,18 @@ Window {
         asynchronous: true
         visible: status == Loader.Ready
         source: "qrc:/QueMusic/components/QTextWindow.qml"
+    }
+
+    // 功能插件扩展点：整窗覆盖层（插件可自由摆放自己的 HUD，默认不吃鼠标事件）
+    Item {
+        id: pluginOverlay
+        anchors.fill: parent
+        z: 20
+        PluginSlot { slotName: "window.overlay"; target: pluginOverlay }
+    }
+
+    // 功能插件宿主：最后声明 ⇒ 宿主界面已建好、扩展点已登记，插件再去挂界面
+    PluginHost {
+        onPluginLoaded: window.syncTitleBarHitTest()
     }
 }

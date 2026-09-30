@@ -944,6 +944,23 @@ QVariantList MusicApiService::normalizeList(const QVariant &v)
     return out;
 }
 
+// 歌曲列表：归一 + 按「筛选」丢掉不符合的条目。
+// paytype 由各平台归一（0 视为免费，非 0 视为需要会员/付费），腾讯系以外的源取不到就按免费算。
+QVariantList MusicApiService::songList(const QVariant &data)
+{
+    const QVariantList items = normalizeList(data);
+    if (m_songFilter == 0)
+        return items;
+    QVariantList kept;
+    kept.reserve(items.size());
+    for (const QVariant &item : items) {
+        const bool free = item.toMap().value(QStringLiteral("paytype")).toInt() != 3;
+        if ((m_songFilter == 1 && free) || (m_songFilter == 2 && !free))
+            kept << item;
+    }
+    return kept;
+}
+
 // 平台结果统一处理（填模型 / 属性 / 发信号）
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
@@ -1037,7 +1054,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getCategoryPlaylists")) {
         m_musicPlaylists.append(normalizeList(info));
     } else if (action == QLatin1String("getPlaylistSongs")) {
-        m_playlistSong.append(normalizeList(info));
+        m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getRecommendSongs")) {
         m_recommendSongs.append(normalizeList(info));
     } else if (action == QLatin1String("getHotPlaylistMenu")) {
@@ -1046,10 +1063,10 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getHotPlaylists")) {
         m_hotPlayLists.append(normalizeList(info));
     } else if (action == QLatin1String("getNewSongs")) {
-        m_newSongs.append(normalizeList(info));
+        m_newSongs.append(songList(info));
     } else if (action == QLatin1String("getMusicToplist")) {
         // 榜单歌曲 → 填 playlistSong（供 playListSongsWindow 展示）
-        m_playlistSong.append(normalizeList(info));
+        m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getAllToplist")) {
         // 单平台榜单列表：保留旧模型 + 累积到双平台模型（注入 source 供点击强制指定平台）
         m_musicToplist.clear();
@@ -1067,7 +1084,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getSingerCategory")) {
         m_singerList.append(normalizeList(info));
     } else if (action == QLatin1String("getSingerSongs")) {
-        m_playlistSong.append(normalizeList(info));
+        m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getPersonalFm")) {
         // 分页累积：第一页由 UI 侧 clear，后续页直接 append
         const QVariantList items = info.toList();

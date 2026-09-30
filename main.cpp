@@ -144,6 +144,9 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
 
     qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型（QueMusic 模块）
+    // 模块的 qmldir 编译在 qrc:/QueMusic/ 下，但引擎默认不会在资源根找模块：
+    // 插件是外部 QML 文件，要靠 import QueMusic 才能用到 Style / SButton 这些 QML 类型
+    engine.addImportPath(QStringLiteral("qrc:/"));
 
     application.setOrganizationName("BroNekoX");
     application.setOrganizationDomain("com.bronekox.quemusic");

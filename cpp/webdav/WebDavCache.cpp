@@ -98,7 +98,6 @@ void WebDavCache::startNext()
     downloadNext(&task);
 }
 
-// 依次取 音频 → 同名歌词 → 封面；任一步失败都继续下一步
 void WebDavCache::downloadNext(Task *task)
 {
     while (task->step < 3) {

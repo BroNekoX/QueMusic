@@ -346,6 +346,16 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         }
     }
 
+    // 功能插件扩展点：底栏左侧（歌曲信息之后）
+    Row {
+        id: playerLeftSlot
+        x: 316
+        y: 19
+        height: 40
+        spacing: 4
+        PluginSlot { slotName: "player.left"; target: playerLeftSlot }
+    }
+
     //中间控制
     Row {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -429,6 +439,7 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
 
     //右侧栏
     Row {
+        id: playerRightSlot
         anchors.right: parent.right
         anchors.rightMargin: 24
         spacing: 2
@@ -436,6 +447,9 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         z: 2
         height: 40
         clip: false
+
+        // 功能插件扩展点：底栏右侧（时间之前）
+        PluginSlot { slotName: "player.right"; target: playerRightSlot }
 
         Text {
             height: 40

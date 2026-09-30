@@ -30,8 +30,8 @@ QtObject {
         themes.textColor = darkis ? "#bebec2" : "#5e5e61";
         themes.fullColor = darkis ? "#1c1c1e" : "#ffffff";
         themes.hoverColor = darkis ? "#10ffffff" : "#0a000000";
-        themes.sideColor = darkis ?  "#3a3a3e" : "#e9e9ee";
-        themes.sideBlurColor = darkis ? "#953a3a3e" : "#95e9e9ee";
+        themes.sideColor = darkis ?  "#4a4a4e" : "#e9e9ee";
+        themes.sideBlurColor = darkis ? "#954a4a4e" : "#95e9e9ee";
 
         themes.containColor = darkis ? Qt.hsva(hue,0.55,0.38,1.0) : Qt.hsva(hue,0.14,1.0,1.0);
         themes.containOutColor = darkis ? Qt.hsva(hue,0.2,1.0,1.0) : Qt.hsva(hue,0.9,0.4,1.0);

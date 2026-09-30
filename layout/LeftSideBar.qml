@@ -273,4 +273,15 @@ Rectangle {
             }
         }
     }
+
+    // 功能插件扩展点：侧边栏底部（插件放自己的入口按钮）
+    Column {
+        id: sidebarBottomSlot
+        x: 15
+        width: 180
+        spacing: 4
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 12
+        PluginSlot { slotName: "sidebar.bottom"; target: sidebarBottomSlot }
+    }
 }

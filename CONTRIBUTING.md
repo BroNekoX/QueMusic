@@ -79,8 +79,13 @@ tests/smoke-stderr.sh build/bin/QueMusic 12
 
 ## 6. 写插件（不改主仓库也能参与）
 
-- 歌词界面插件：一个文件夹 = 一个插件（`info.json` + 入口 QML + 预览图 + 可选着色器）。
-- 规范与示例：[QuePlugins 仓库](https://github.com/bronekox/queplugins)。
+- 两类插件都是一个文件夹 = 一个插件：**歌词界面插件**换掉沉浸播放页的界面，**功能插件**往界面里加东西。
+  每个插件一个 `info.json` + 入口 QML + 建议的预览图（歌词界面插件还可以带着色器）。
+- 规范、示例与提交方式都在插件仓库：[QuePlugins](https://github.com/bronekox/queplugins)
+  （[歌词界面插件规范](https://github.com/bronekox/queplugins/blob/main/docs/lyrics-plugin.md)、
+  [功能插件规范](https://github.com/bronekox/queplugins/blob/main/docs/function-plugin.md)）。
+- 宿主侧实现在 `cpp/plugins/`（插件目录扫描与两个单例）与 `components/Plugin*.qml`
+  （扩展点、插件接口、加载器、设置页列表）；改契约时插件仓库的规范要一起改。
 - 插件仓库的 PR 走同样的标准：能跑、有截图、有说明。
 
 ## 7. 行为准则

@@ -10,6 +10,67 @@ import 'qrc:/QueMusic/components'
 Item {
     id: playlistPage
     property real toolsWindow: 0
+
+    readonly property bool inSongWindow: playListSongsWindow.visible
+    readonly property int tabIndex: playlistChildPage.lastIndex
+    readonly property bool songListActive: inSongWindow || tabIndex === 0
+
+    readonly property var filterItems: ["全部", "仅免费", "仅 VIP（付费）"]
+
+    function reloadCurrent(): void {
+        if (inSongWindow) {
+            MusicApi.playlistSong.clear();
+            playListSongsWindow.reload(1);
+        } else {
+            switch (tabIndex) {
+            case 0:
+                MusicApi.newSongs.clear();
+                MusicApi.getNewSongs(musicsPage.musicMenuIndex + 1, 1, 20);
+                break;
+            case 1:
+                MusicApi.musicPlaylists.clear();
+                MusicApi.getCategoryPlaylists(playlistPage.tagIdAt(musicMenuPage.musicMenuIndex), 1, 20);
+                break;
+            case 2:
+                MusicApi.toplistList.clear();
+                MusicApi.getAllToplists();
+                break;
+            default:
+                album.loadSingers(album.singerTypeIndex);
+                break;
+            }
+        }
+    }
+
+    function refreshView(): void {
+        reloadCurrent();
+        mainWarn.tiped("已刷新", 1);
+    }
+
+    // 分类菜单是 OnlineListModel，只能按下标 get()，不能当数组用
+    function tagIdAt(index: int): string {
+        const menu = MusicApi.allPlaylistMenu;
+        if (index < 0 || index >= menu.count)
+            return menu.count > 0 ? menu.get(0).id : "";
+        return menu.get(index).id;
+    }
+
+    // 筛选：改付费类型过滤
+    function applyFilter(index: int): void {
+        if (!songListActive)
+            return;
+        MusicApi.songFilter = index;
+        reloadCurrent();
+        mainWarn.tiped("已筛选： " + filterItems[index], 1);
+    }
+
+    QMenu {
+        id: filterMenu
+        model: playlistPage.filterItems
+        current: MusicApi.songFilter
+        onClicked: (i) => playlistPage.applyFilter(i)
+    }
+
     Component.onCompleted: {
         if(!window.completedStart.playlistLoaded) {
             MusicApi.getPlaylistMenu(3);
@@ -98,28 +159,27 @@ Item {
             y: 13
             z: 10
             spacing: 8
+            // 刷新：重新拉取当前页签 / 当前歌曲列表
             QButton {
+                id: refreshBtn
                 height: 38
                 text: ""
                 iconCharacter: "\uf11e"
                 buttonColor: Style.themes.primaryColor
-                onClicked: {
-                    MusicApi.recommendSongs.clear();
-                    MusicApi.getRecommendSongs(1,24);
-                }
+                tipText: "重新获取当前列表"
+                onClicked: playlistPage.refreshView()
             }
+            // 筛选：按付费类型（全部 / 仅免费 / 仅 VIP），只对歌曲列表有效
             QButton {
-                height: 38
-                text: "排序"
-                iconCharacter: "\uf10b"
-            }
-            QButton {
+                id: filterBtn
                 height: 38
                 text: "筛选"
                 iconCharacter: "\uf101"
-                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.primaryColor
-                onClicked: {
-                }
+                enabled: playlistPage.songListActive
+                opacity: enabled ? 1 : 0.45
+                buttonColor: Style.themes.primaryColor
+                tipText: "筛选免费 / VIP 歌曲"
+                onClicked: filterMenu.popup(filterBtn, 0, filterBtn.height + 6)
             }
         }
 
@@ -553,6 +613,16 @@ Item {
         mainTarget: playlistChildPage
         winIndex: 2
         property string listType: "playlist"   // playlist 歌单 / singer 歌手 / toplist 榜单
+        // 歌单 / 歌手 / 榜单歌曲共用同一套取数：刷新与翻页都走这里
+        function reload(page: int): void {
+            const id = MusicApi.globalid;
+            if (listType === "singer")
+                MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);
+            else if (listType === "toplist")
+                MusicApi.getMusicToplist(page, 20, Number(id), MusicApi.songSource);
+            else
+                MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
+        }
         content: Item {
             QListView {
                 id: playListsView
@@ -574,25 +644,13 @@ Item {
                     }
                 }
                 onEnded: {
-                    if(MusicApi.loadState) return;
-                    const id = MusicApi.globalid;
-                    const page = MusicApi.playlistSong.count / 20 + 1;
-                    if(playListSongsWindow.listType === "singer") {
-                        if(MusicApi.playlistSong.count % 20 === 0)
-                            MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);
-                        else
-                            mainWarn.tiped("没有更多了",0);
-                    } else if(playListSongsWindow.listType === "toplist") {
-                        if(MusicApi.playlistSong.count % 20 === 0)
-                            MusicApi.getMusicToplist(page, 20, id, MusicApi.songSource);
-                        else
-                            mainWarn.tiped("没有更多了",0);
-                    } else {
-                        if(MusicApi.playlistSong.count % 20 === 0)
-                            MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
-                        else
-                            mainWarn.tiped("没有更多了",0);
+                    if (MusicApi.loadState)
+                        return;
+                    if (MusicApi.playlistSong.count % 20 !== 0) {
+                        mainWarn.tiped("没有更多了", 0);
+                        return;
                     }
+                    playListSongsWindow.reload(MusicApi.playlistSong.count / 20 + 1);
                 }
             }
         }

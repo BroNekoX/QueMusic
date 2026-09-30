@@ -22,6 +22,19 @@
   （`docs/lyrics-plugin.md`，apiVersion 1）
 - **设置 → 插件 → 歌词界面**：插件列表（预览图、内置/作者/版本、启用状态），支持安装（选文件夹后复制到插件目录）、
   启用、打开插件目录、重新扫描、删除（内置不可删）；「功能 / 音乐源」两个子页签保留未完成提示
+- **功能插件系统**：新增 `FunctionPlugins` 单例（`cpp/plugins/FunctionPluginStore.*`）与宿主框架
+  `components/PluginHost.qml`（按启用状态给每个插件起一个加载器）+ `PluginLoader.qml`（入口异步编译、
+  注入 `components/PluginApi.qml`、停用/删除时回收插件挂出的一切）。插件契约：入口根声明 `property QtObject api`，
+  自己经 `api.mount(扩展点, Component)` / `api.loader(url, props)` 往界面里加东西。宿主开放
+  `titlebar.left/right`、`player.left/right`、`sidebar.bottom`、`window.overlay` 六个扩展点
+  （`components/PluginSlot.qml` 登记、`PluginSlots` 单例查表）；插件可多个同时启用，加载失败的自动停用并提示。
+  契约与可安装示例见插件仓库 QuePlugins（`docs/function-plugin.md`、`Tools/example`）
+- **设置 → 插件 → 功能**：与歌词界面插件共用新的 `components/PluginManager.qml`（预览图 / 作者 / 版本 /
+  描述、安装 / 打开目录 / 重新扫描 / 删除），单选模式用「启用」按钮、多选模式用开关；「音乐源」子页签保留未完成提示
+- **插件能直接用宿主的 QML 类型**：`main.cpp` 增加 `engine.addImportPath("qrc:/")`。模块 qmldir 编译在
+  `qrc:/QueMusic/` 下，而引擎默认不会在资源根查找模块，导致插件目录里的外部 QML 文件 `import QueMusic 1.0`
+  只解析得到 C++ 单例（`FunctionPlugins` / `Playback`），`Style` / `SButton` 这些 **QML 定义**的类型会报
+  `ReferenceError: Style is not defined`。修好后插件可以正常用宿主主题、设置与组件（歌词界面插件同样受益）
 
 ### 🧩 重构
 - **歌词界面模块化**：`layout/PlayerMaxCenter.qml`（873 行）拆为宿主框架（269 行：沉浸偏移、控件自动隐藏、
@@ -135,6 +148,11 @@
   每行只有一个字、且丢掉 `USLT` 里的翻译。改为**行级歌词优先**（保留原行与翻译配对），再把 `SYLT` 音节
   按时间贴回各行 ⇒ 逐字与翻译同时保留；仅当没有行级歌词时才用 `SYLT` 按"停顿"分组重建显示行
   （间隔自适应、行内音节进 `info`）。同名歌词文件除 `.lrc` 外也接受 `.txt`
+- **插件公共部分抽基类**：歌词界面插件与功能插件的目录扫描 / info.json 校验 / 安装（复制目录）/ 删除 /
+  打开目录本来是同一份逻辑，抽到 `cpp/plugins/PluginStore.*`，两个单例各自只留自己的状态
+  （`LyricsPluginStore` 的选中项与入口缓存、`FunctionPluginStore` 的启用表），对外 API 与行为不变
+- **插件列表 UI 抽组件**：设置页里两份几乎相同的插件列表（预览图 / 作者 / 版本 / 描述 + 安装 / 打开目录 /
+  重新扫描 / 删除）合并为 `components/PluginManager.qml`，`store` 传插件单例、`multi` 区分单选与多选
 
 ### ✨ 新增
 - **WebDAV 支持（一期）**：新增 `cpp/webdav/`（`WebDavClient` × PROPFIND Depth:1 + Basic 鉴权 + 命名空间无关 XML 解析

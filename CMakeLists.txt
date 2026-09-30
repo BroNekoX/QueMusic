@@ -111,6 +111,7 @@ set_source_files_properties(
     components/Style.qml
     components/Options.qml
     components/Playback.qml
+    components/PluginSlots.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 # QML 按目录递归收集：新增文件不必再改本文件
@@ -216,8 +217,12 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/webdav/WebDavModel.h
         cpp/webdav/WebDavStore.cpp
         cpp/webdav/WebDavStore.h
+        cpp/plugins/PluginStore.cpp
+        cpp/plugins/PluginStore.h
         cpp/plugins/LyricsPluginStore.cpp
         cpp/plugins/LyricsPluginStore.h
+        cpp/plugins/FunctionPluginStore.cpp
+        cpp/plugins/FunctionPluginStore.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
         cpp/WindowsSmtcManager.cpp
