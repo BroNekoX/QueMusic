@@ -29,6 +29,10 @@ on:
         description: 'Release 说明（留空则自动生成）'
         required: false
         default: ''
+      download_proxy:
+        description: '国内加速下载代理前缀（用于在 Summary 里生成加速链接；换成其它代理或留空即可）'
+        required: false
+        default: 'https://gh-proxy.com'
       draft:
         description: '建为草稿（推荐：先补 Windows 包与描述，再手动发布）'
         type: boolean
@@ -92,6 +96,7 @@ jobs:
           NOTES: ${{ inputs.notes }}
           IS_DRAFT: ${{ inputs.draft }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
+          DOWNLOAD_PROXY: ${{ inputs.download_proxy }}
         run: |
           set -euo pipefail
           : "${TAG:?必须给 tag}"
@@ -129,3 +134,26 @@ jobs:
           echo "完成："
           gh release view "$TAG" --json url,isDraft,assets \
             -q '"  \(.url)  draft=\(.isDraft)  附件=\(.assets | map(.name) | join(", "))"'
+
+          # ---- 在 Run Summary 里列出「国内加速」下载链接 ----
+          # 为什么不给工作流 artifact 生成加速链接：
+          #   artifact 走 api.github.com 下载接口，且必须鉴权（匿名请求直接 401），
+          #   第三方代理拿不到你的签名直链 → 加速永远无效；
+          #   Release 附件是公开地址，代理可以直接拉（本机实测：直连 21 KB/s，代理 2 MB/s）。
+          if [ -n "${DOWNLOAD_PROXY:-}" ]; then
+            {
+              echo "## 下载（含国内加速）"
+              echo
+              echo "| 文件 | 加速链接 | 原始链接 |"
+              echo "|---|---|---|"
+              for f in "${FILES[@]}"; do
+                name="$(basename "$f")"
+                raw="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${name}"
+                echo "| \`${name}\` | [加速](${DOWNLOAD_PROXY}/${raw}) | [直连](${raw}) |"
+              done
+              echo
+              echo "> 同一份文件换链接即可，不用重新构建；代理可在触发时用 \`download_proxy\` 输入替换。"
+              echo "> 若本 Release 是草稿（draft），以上链接对外都不可用，Publish 之后才生效。"
+              echo "> 工作流 artifact 无法加速（下载需要登录鉴权），请用 Release 附件。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

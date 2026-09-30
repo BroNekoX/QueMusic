@@ -125,9 +125,17 @@ jobs:
 
       - name: Configure (CMake)
         run: |
+          # -DQUEMUSIC_FFMPEG_USE_QT=ON：让解码层也用 Qt 自带的那套 FFmpeg（libavcodec.so.61 = 7.1.3）。
+          # 不开的话会退回 pkg-config 拿构建机的系统 ffmpeg（Ubuntu 24.04 = 6.1 / libavcodec.so.60），
+          # linuxdeploy 就会顺着它把整套系统编解码栈也塞进 AppImage：
+          #   libcodec2 16MB / libx265 16MB / libSvtAv1Enc 7MB / libaom 5MB / libjxl / libvpx / librav1e …
+          #   还要加上 libgnutls → libxml2 → 系统 ICU（libicudata.so.74 29MB），
+          # 实测等于把 AppImage 从 62MB 撑到 116MB（解压 184MB → 334MB），而 Qt 那份本来就已经在包里了。
+          # 顺带修掉一个隐患：仓库 ffmpeg/include 是 7.1.3 的头文件，链 6.1 的库属于头/库不一致。
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${QT_DIR}/${QT_VERSION}/gcc_64"
+            -DCMAKE_PREFIX_PATH="${QT_DIR}/${QT_VERSION}/gcc_64" \
+            -DQUEMUSIC_FFMPEG_USE_QT=ON
 
       - name: Build
         run: cmake --build build -j"$(nproc)"
@@ -189,6 +197,36 @@ jobs:
           #    ffmpeg 媒体后端保留：它依赖 Qt 自带的 libav*，能正常解析。
           rm -f "$QTDIR/plugins/multimedia/libgstreamermediaplugin.so"
           echo "multimedia 插件: $(ls -1 "$QTDIR/plugins/multimedia" 2>/dev/null | tr '\n' ' ')"
+
+          # 3) Quick Controls 只留 Basic（连带 QML 资源一起删）。
+          #    本项目 QML 全是显式 import QtQuick.Controls.Basic，但 linuxdeploy-plugin-qt
+          #    会把 QtQuick/Controls 整个模块搬进 AppImage —— 于是 Material / Universal /
+          #    Imagine / Fusion / FluentWinUI3 五套风格连同它们的 QML 与 style 插件都进来了
+          #    （实测约 15~20MB 解压）。删的是 Qt 安装目录里的东西，所以后面部署阶段
+          #    根本看不到它们。
+          #    必须保留：Controls 本体、Controls/impl、Controls/Basic、QuickControls2Impl、
+          #              QuickTemplates2、QuickControls2 / Basic / BasicStyleImpl。
+          QC="$QTDIR/qml/QtQuick/Controls"
+          if [ -d "$QC" ]; then
+            # designer 是 QML Designer 的元数据，运行期完全用不到（实测 137 个文件）。
+            for style in Material Universal Imagine Fusion FluentWinUI3 Windows macOS iOS designer; do
+              if [ -d "$QC/$style" ]; then
+                rm -rf "$QC/$style"
+                echo "  已删除 QML 风格: $style"
+              fi
+            done
+            for lib in QuickControls2Material QuickControls2MaterialStyleImpl \
+                       QuickControls2Universal QuickControls2UniversalStyleImpl \
+                       QuickControls2Imagine QuickControls2ImagineStyleImpl \
+                       QuickControls2Fusion QuickControls2FusionStyleImpl \
+                       QuickControls2FluentWinUI3 QuickControls2FluentWinUI3StyleImpl; do
+              rm -f "$QTDIR/lib/libQt6${lib}.so"* 2>/dev/null || true
+            done
+            echo "Quick Controls 保留: $(ls -1 "$QC" | tr '\n' ' ')"
+            echo "剩余 QuickControls2 库: $(ls -1 "$QTDIR/lib" | grep -E '^libQt6Quick(Controls2|Templates)' | tr '\n' ' ')"
+          else
+            echo "⚠️  $QC 不存在，跳过 Quick Controls 裁剪"
+          fi
 
       - name: Prepare AppDir（显式部署 Wayland / fcitx5 / GL / Vulkan 相关插件）
         run: |
@@ -376,6 +414,12 @@ jobs:
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
           export QML2_IMPORT_PATH="${HERE}/usr/qml${QML2_IMPORT_PATH:+:${QML2_IMPORT_PATH}}"
 
+          # ---- Quick Controls 风格 ----
+          # 包里只带 Basic（其余 5 套风格与它们的 QML 资源已在打包时裁掉）。
+          # 显式钉住，这样万一有模块用裸 import QtQuick.Controls，
+          # 也不会去加载包里不存在的风格而报错；用户想换风格可自行覆盖这个变量。
+          export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-Basic}"
+
           # ---- 平台：优先原生 Wayland，连不上再回落 xcb（不再静默失败）----
           export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
           export QT_WAYLAND_RECONNECT="${QT_WAYLAND_RECONNECT:-1}"
@@ -512,6 +556,30 @@ jobs:
             "$R/usr/lib/libGLX.so*" "$R/usr/lib/libOpenGL.so*" \
             "$R/usr/lib/libgbm.so*" "$R/usr/lib/libwayland-egl.so*"
 
+          # Quick Controls 只该有 Basic 一套风格（其余在裁剪步骤已从 Qt 目录删除）。
+          # 这些 QML 资源或 style 插件一旦又进包，说明裁剪步骤失效了。
+          check  "Quick Controls 基础模块"                 "$R/usr/qml/QtQuick/Controls/qmldir"
+          check  "Quick Controls Basic 风格"               "$R/usr/qml/QtQuick/Controls/Basic/qmldir"
+          absent "非 Basic 的 Quick Controls 风格" \
+            "$R/usr/qml/QtQuick/Controls/Material"      "$R/usr/qml/QtQuick/Controls/Universal" \
+            "$R/usr/qml/QtQuick/Controls/Imagine"       "$R/usr/qml/QtQuick/Controls/Fusion" \
+            "$R/usr/qml/QtQuick/Controls/FluentWinUI3"  "$R/usr/qml/QtQuick/Controls/Windows" \
+            "$R/usr/lib/libQt6QuickControls2Material.so*"  "$R/usr/lib/libQt6QuickControls2Universal.so*" \
+            "$R/usr/lib/libQt6QuickControls2Imagine.so*"   "$R/usr/lib/libQt6QuickControls2Fusion.so*" \
+            "$R/usr/lib/libQt6QuickControls2FluentWinUI3.so*"
+
+          # 只应有一套 ffmpeg（Qt 自带的 7.1.3 = libavcodec.so.61）。
+          # 冒出第二套（系统 ffmpeg 6.1 的 .60）说明 Configure 没带 -DQUEMUSIC_FFMPEG_USE_QT=ON，
+          # 实测会把整套系统编解码栈（x265/aom/vpx/rav1e/codec2…）连同它拖来的系统 ICU
+          # 一起打进包，AppImage 由 62MB 涨到 116MB，所以这里直接判失败。
+          AV_VERS="$(ls -1 "$R/usr/lib" 2>/dev/null | grep -oE '^libavcodec\.so\.[0-9]+' | sort -u | tr '\n' ' ')"
+          if [ "$(echo $AV_VERS | wc -w)" -le 1 ]; then
+            echo "✅ 只有一套 ffmpeg：${AV_VERS:-（无）}"
+          else
+            echo "❌ 包里出现多套 ffmpeg（$AV_VERS）：确认 Configure 带了 -DQUEMUSIC_FFMPEG_USE_QT=ON"
+            MISSING=1
+          fi
+
           # Vulkan：QtGui 自带 RHI，只需确认 libvulkan 没被塞进包（必须由宿主提供）
           if strings "$R/usr/lib/libQt6Gui.so.6" 2>/dev/null | grep -qi vulkan; then
             echo "✅ QtGui 具备 Vulkan RHI"
@@ -543,6 +611,97 @@ jobs:
 
           [ "$MISSING" -eq 0 ] || { echo "::error::AppImage 校验未通过，终止发布"; exit 1; }
           echo "🎉 全部校验通过"
+
+      # 只做统计、不拦构建：AppImage 到底被什么撑大了，一条条列出来。
+      # 之前只能靠猜（"是不是 QML 模块太多"“是不是 Qt 变大了"），这个报告直接把答案写进日志与 Run Summary。
+      - name: 体积构成报告（AppImage 里什么最占地方）
+        run: |
+          set -uo pipefail
+          R="squashfs-root"
+          [ -d "$R" ] || ./"$APPIMAGE_NAME" --appimage-extract > /dev/null
+
+          report() {
+            echo "===== 与 v0.5.1 实测基线对比（拆包得到）====="
+            echo "  基线：65,686,008 字节 / 1791 个文件 / 解压 184.6 MB / SquashFS ZSTD 块 128K"
+            echo "        压缩后占比：Qt 库 24.6 / ICU 13.1 / Qt 自带 ffmpeg 7.5 / 主程序 5.0 / QML 2.1 (MB)"
+            echo "  本次：$(stat -c %s "$APPIMAGE_NAME") 字节 / $(find "$R" -type f | wc -l) 个文件 / 解压 $(du -sh "$R" | cut -f1)"
+            # SquashFS 超级块：'hsqs' 魔数 +12 是块大小、+20 是压缩算法 id
+            # （1 gzip / 2 lzma / 3 lzo / 4 xz / 5 lz4 / 6 zstd）、+22 是块大小的 log2、+28 是主版本。
+            # ELF 运行时段里也可能碰巧出现 'hsqs'，所以逐个人选校验后再采用。
+            squashfs_info() {
+              local f="$1" off blk cid blog maj
+              while IFS= read -r off; do
+                [ -n "$off" ] || continue
+                maj="$(od -An -tu2 -j $((off + 28)) -N2 "$f" | tr -d ' ')"
+                [ "$maj" = "4" ] || continue
+                blk="$(od -An -tu4 -j $((off + 12)) -N4 "$f" | tr -d ' ')"
+                blog="$(od -An -tu2 -j $((off + 22)) -N2 "$f" | tr -d ' ')"
+                cid="$(od -An -tu2 -j $((off + 20)) -N2 "$f" | tr -d ' ')"
+                case "$blk" in 4096|8192|16384|32768|65536|131072|262144|524288|1048576) ;; *) continue ;; esac
+                [ "$((1 << blog))" = "$blk" ] || continue
+                case "$cid" in 1|2|3|4|5|6) ;; *) continue ;; esac
+                printf '%s %s %s\n' "$off" "$blk" "$cid"; return 0
+              done < <(grep -abo hsqs "$f" 2>/dev/null | cut -d: -f1)
+              return 1
+            }
+            if SQINFO="$(squashfs_info "$APPIMAGE_NAME")"; then
+              SQ_OFF="$(echo "$SQINFO" | cut -d' ' -f1)"
+              BLK="$(echo "$SQINFO" | cut -d' ' -f2)"
+              CID="$(echo "$SQINFO" | cut -d' ' -f3)"
+              case "$CID" in
+                1) CNAME=gzip ;; 2) CNAME=lzma ;; 3) CNAME=lzo ;;
+                4) CNAME=xz ;; 5) CNAME=lz4 ;; 6) CNAME=zstd ;;
+                *) CNAME="其它(id=$CID)" ;;
+              esac
+              echo "        SquashFS：偏移 $SQ_OFF / 块大小 $BLK / 压缩 $CNAME"
+              echo "        （基线是 131072 / zstd：这两项只要变了，体积就会差很多）"
+            fi
+            echo
+            echo "===== AppImage 实测大小：$(du -h "$APPIMAGE_NAME" | cut -f1)（$(stat -c %s "$APPIMAGE_NAME") 字节）====="
+            echo
+            echo "--- 顶层目录（解压后，未压缩）---"
+            du -sh "$R"/usr/* 2>/dev/null | sort -hr | head -12
+            echo
+            echo "--- 库的归类（usr/lib，未压缩）---"
+            for pat in 'libQt6*.so*' 'libicu*' 'libav*' 'libsw*' 'libxkbcommon*' 'libwayland*' 'libFcitx5*' 'libfcitx5*' 'libQWK*' 'libtag*'; do
+              mb="$(find "$R/usr/lib" -maxdepth 1 -name "$pat" -type f -printf '%s\n' 2>/dev/null |
+                    awk '{s+=$1} END {printf "%.1f", s/1048576}')"
+              n="$(find "$R/usr/lib" -maxdepth 1 -name "$pat" -type f 2>/dev/null | wc -l | tr -d ' ')"
+              printf '  %-16s %8s MB  (%s 个文件)\n' "$pat" "${mb:-0}" "${n:-0}"
+            done
+            echo
+            echo "--- QML 模块（usr/qml，未压缩，top 15）---"
+            du -sh "$R"/usr/qml/* 2>/dev/null | sort -hr | head -15
+            echo
+            echo "--- 插件目录（usr/plugins，未压缩，top 12）---"
+            du -sh "$R"/usr/plugins/* 2>/dev/null | sort -hr | head -12
+            echo
+            echo "--- 单个文件 top 20（未压缩）---"
+            find "$R" -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -20 |
+              awk '{printf "  %8.1f MB  %s\n", $1/1048576, $2}'
+            echo
+            echo "--- 针对性检查 ---"
+            echo -n "  FFmpeg 各主版本: "
+            ls -1 "$R/usr/lib" 2>/dev/null | grep -oE '^lib(avcodec|avformat|avutil|swresample)\.so\.[0-9]+' |
+              sort -u | tr '\n' ' '; echo
+            echo -n "  QtQuick.Controls 各风格: "
+            ls -1d "$R"/usr/qml/QtQuick/Controls/*/ 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' '; echo
+            echo -n "  是否带 QtQuick.VirtualKeyboard: "
+            ls -d "$R"/usr/qml/QtQuick/VirtualKeyboard 2>/dev/null && echo || echo "无"
+            echo -n "  是否带 QtQuick3D / WebEngine: "
+            for m in QtQuick3D QtWebEngine; do ls -d "$R/usr/qml/$m" 2>/dev/null; done
+            echo "（以上无输出即未打包）"
+          }
+
+          report > size-report.txt 2>&1 || true
+          cat size-report.txt
+          {
+            echo "### AppImage 体积构成（未压缩口径）"
+            echo
+            echo '```'
+            cat size-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

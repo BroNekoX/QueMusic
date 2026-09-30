@@ -97,13 +97,6 @@ Item {
         }
     }
 
-    Connections {
-        target: window
-        function onExit(): void {
-            browser.goUp();
-        }
-    }
-
     // 服务器列表
     QLocalView {
         id: serverView

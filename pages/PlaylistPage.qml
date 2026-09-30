@@ -518,88 +518,67 @@ Item {
                     }
                 }
             }
-            // 歌手网格（可滚动 + 分页）
-            Flickable {
+            QGridView {
                 id: singerFlick
                 y: 104
-                width: parent.width
-                height: parent.height - 152
+                width: parent.width + 16
+                height: parent.height - 104
                 clip: true
-                contentWidth: width
-                contentHeight: singerColumn.implicitHeight + 24
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar {}
-                Column {
-                    id: singerColumn
-                    width: parent.width
-                    Flow {
-                        width: parent.width
-                        spacing: 20
-                        Repeater {
-                            model: MusicApi.singerList
-                            delegate: Item {
-                                width: 96
-                                height: 132
-                                scale: singerArea.containsMouse ? 1.06 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
-                                QPicture {
-                                    width: 96
-                                    height: 96
-                                    radius: 48
-                                    source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
-                                }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    y: 100
-                                    width: parent.width
-                                    text: model.title
-                                    elide: Text.ElideRight
-                                    horizontalAlignment: Text.AlignHCenter
-                                    font.pixelSize: Style.settings.text
-                                    color: Style.themes.textColor
-                                }
-                                MouseArea {
-                                    id: singerArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: {
-                                        MusicApi.playlistSong.clear();
-                                        MusicApi.globalid = model.hash;
-                                        playListSongsWindow.listType = "singer";
-                                        MusicApi.getSingerSongs(model.hash, 1, 20, MusicApi.songSource);
-                                        playListSongsWindow.opened(model);
-                                        window.exitIndex = 2;
-                                    }
-                                }
+                cellWidth: 120
+                cellHeight: 156
+                rightMargin: -12
+                leftMargin: 12
+                topMargin: 12
+
+                onAtYEndChanged: {
+                    if (atYEnd && !MusicApi.loadState && singerFlick.count !== 0) {
+                        if (MusicApi.singerList.count % 30 === 0) {
+                            album.singerPage += 1;
+                            const area = MusicApi.songSource === 0
+                                ? album.singerTypes[album.singerTypeIndex].kg
+                                : album.singerTypes[album.singerTypeIndex].ne;
+                            if(area === 0) {
+                                MusicApi.getHotSingers(album.singerPage, 30, MusicApi.songSource);
+                            } else {
+                                MusicApi.getSingerCategory(area, album.singerPage, 30, MusicApi.songSource);
                             }
+                        } else {
+                            mainWarn.tiped("没有更多了",0);
                         }
                     }
-                    Item {
+                }
+                model: MusicApi.singerList
+                delegate: Item {
+                    width: 96
+                    height: 132
+                    scale: singerArea.containsMouse ? 1.06 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
+                    QPicture {
+                        width: 96
+                        height: 96
+                        radius: 48
+                        source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: 100
                         width: parent.width
-                        height: 60
-                        QButton {
-                            anchors.centerIn: parent
-                            height: 40
-                            width: 120
-                            radius: 20
-                            iconCharacter: "\uf0f8"
-                            text: "更多"
-                            onClicked: {
-                                if(MusicApi.loadState) return;
-                                if(MusicApi.singerList.count % 30 !== 0) {
-                                    mainWarn.tiped("没有更多了",0);
-                                    return;
-                                }
-                                album.singerPage += 1;
-                                const area = MusicApi.songSource === 0
-                                    ? album.singerTypes[album.singerTypeIndex].kg
-                                    : album.singerTypes[album.singerTypeIndex].ne;
-                                if(area === 0) {
-                                    MusicApi.getHotSingers(album.singerPage, 30, MusicApi.songSource);
-                                } else {
-                                    MusicApi.getSingerCategory(area, album.singerPage, 30, MusicApi.songSource);
-                                }
-                            }
+                        text: model.title
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: Style.settings.text
+                        color: Style.themes.textColor
+                    }
+                    MouseArea {
+                        id: singerArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            MusicApi.playlistSong.clear();
+                            MusicApi.globalid = model.hash;
+                            MusicApi.getSingerSongs(model.hash, 1, 20, MusicApi.songSource);
+                            singerSongsWindow.opened(model.title,model.cover.replace("{size}","256"));
+                            window.exitIndex = 2;
                         }
                     }
                 }
@@ -612,13 +591,10 @@ Item {
         id: playListSongsWindow
         mainTarget: playlistChildPage
         winIndex: 2
-        property string listType: "playlist"   // playlist 歌单 / singer 歌手 / toplist 榜单
-        // 歌单 / 歌手 / 榜单歌曲共用同一套取数：刷新与翻页都走这里
+        property string listType: "playlist"   // playlist 歌单 / toplist 榜单
         function reload(page: int): void {
             const id = MusicApi.globalid;
-            if (listType === "singer")
-                MusicApi.getSingerSongs(id, page, 20, MusicApi.songSource);
-            else if (listType === "toplist")
+            if (listType === "toplist")
                 MusicApi.getMusicToplist(page, 20, Number(id), MusicApi.songSource);
             else
                 MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
@@ -651,6 +627,43 @@ Item {
                         return;
                     }
                     playListSongsWindow.reload(MusicApi.playlistSong.count / 20 + 1);
+                }
+            }
+        }
+    }
+    AnimatorWindow {
+        id: singerSongsWindow
+        mainTarget: playlistChildPage
+        winIndex: 2
+        content: Item {
+            anchors.fill: parent
+            QListView {
+                id: singerSongsView
+                x: 24
+                y: 128
+                width: singerSongsWindow.width - 32
+                height: singerSongsWindow.height - 128
+                model: MusicApi.playlistSong
+                clip: true
+                topMargin: 8
+                bottomMargin: 24
+                onClicked: (index) => {
+                    if(Options.settings.soundQuality === 0) {
+                        MusicApi.getMusicInfo(model.get(index).hash);
+                    } else if(Options.settings.soundQuality === 1) {
+                        MusicApi.getMusicInfo(model.get(index).hashhq);
+                    } else {
+                        MusicApi.getMusicInfo(model.get(index).hashsq);
+                    }
+                }
+                onEnded: {
+                    if (MusicApi.loadState)
+                        return;
+                    if (MusicApi.playlistSong.count % 20 !== 0) {
+                        mainWarn.tiped("没有更多了", 0);
+                        return;
+                    }
+                    MusicApi.getSingerSongs(MusicApi.globalid, MusicApi.playlistSong.count / 20 + 1, 20, MusicApi.songSource);
                 }
             }
         }

@@ -97,9 +97,4 @@ Button {
             }
         }
     }
-
-    QTip {
-        visible: root.tipText !== "" && root.hovered
-        text: root.tipText
-    }
 }

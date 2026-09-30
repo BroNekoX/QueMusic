@@ -128,9 +128,13 @@ jobs:
 
       - name: Configure (CMake)
         run: |
+          # 同 x86：解码层也用 Qt 自带的 FFmpeg（7.1.3），否则会连带把系统 ffmpeg 6.1
+          # 的整套编解码栈（x265/aom/vpx/rav1e/codec2… 以及它拖来的系统 ICU）打进 AppImage，
+          # 体积直接翻倍。
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.10.3/gcc_arm64"
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.10.3/gcc_arm64" \
+            -DQUEMUSIC_FFMPEG_USE_QT=ON
 
       - name: Build
         run: |
@@ -283,6 +287,9 @@ jobs:
           export PATH="${HERE}/usr/bin/:${HERE}/bin/:${PATH:+:$PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           export QT_PLUGIN_PATH="${HERE}/usr/plugins"
+          # Quick Controls 只带 Basic（其余风格与 QML 资源已在打包时裁掉）：
+          # 显式钉住，避免裸 import QtQuick.Controls 去加载包里不存在的风格。
+          export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-Basic}"
           # 平台插件交给 Qt 自动判断：有 Wayland 就用 Wayland，否则回退 X11
           # （如需强制 X11：QT_QPA_PLATFORM=xcb ./QueMusic-aarch64.AppImage）
           # 图形后端：Linux 上 Qt 默认走 OpenGL；包内已带 xcbglintegrations。
@@ -344,6 +351,29 @@ jobs:
           MULTI_DIR="$HOME/Qt/6.10.3/gcc_arm64/plugins/multimedia"
           rm -f "$MULTI_DIR/libgstreamermediaplugin.so"
           echo "multimedia 插件: $(ls -1 "$MULTI_DIR" 2>/dev/null | tr '\n' ' ')"
+
+          # Quick Controls 只留 Basic（连带 QML 资源一起删，和 x86 流程同一策略）：
+          # 本项目 QML 全是显式 import QtQuick.Controls.Basic，但 linuxdeploy-plugin-qt
+          # 会把 QtQuick/Controls 整个模块（含 5 套风格）搬进 AppImage，约 15~20MB 解压。
+          ARM_QT="$HOME/Qt/6.10.3/gcc_arm64"
+          QC="$ARM_QT/qml/QtQuick/Controls"
+          if [ -d "$QC" ]; then
+            # designer 是 QML Designer 的元数据，运行期用不到。
+            for style in Material Universal Imagine Fusion FluentWinUI3 Windows macOS iOS designer; do
+              if [ -d "$QC/$style" ]; then
+                rm -rf "$QC/$style"
+                echo "  已删除 QML 风格: $style"
+              fi
+            done
+            for lib in QuickControls2Material QuickControls2MaterialStyleImpl \
+                       QuickControls2Universal QuickControls2UniversalStyleImpl \
+                       QuickControls2Imagine QuickControls2ImagineStyleImpl \
+                       QuickControls2Fusion QuickControls2FusionStyleImpl \
+                       QuickControls2FluentWinUI3 QuickControls2FluentWinUI3StyleImpl; do
+              rm -f "$ARM_QT/lib/libQt6${lib}.so"* 2>/dev/null || true
+            done
+            echo "Quick Controls 保留: $(ls -1 "$QC" | tr '\n' ' ')"
+          fi
 
           # 运行 linuxdeploy，它会自动部署所有依赖（包括 Qt 库和插件依赖）
           # --exclude-library：补 linuxdeploy 内置排除表没覆盖到的宿主库。
@@ -408,6 +438,32 @@ jobs:
               echo "⚠️  包内含宿主驱动库 $bad（可能导致部分发行版上 OpenGL/Wayland 失效）"
             fi
           done
+
+          # Quick Controls 只该有 Basic 一套（其余风格在裁剪步骤已从 Qt 目录删除）
+          check "Quick Controls 基础模块"   "squashfs-root/usr/qml/QtQuick/Controls/qmldir"
+          check "Quick Controls Basic 风格" "squashfs-root/usr/qml/QtQuick/Controls/Basic/qmldir"
+          BAD_STYLE=0
+          for style in Material Universal Imagine Fusion FluentWinUI3; do
+            if [ -e "squashfs-root/usr/qml/QtQuick/Controls/$style" ] \
+               || ls squashfs-root/usr/lib/libQt6QuickControls2${style}.so* > /dev/null 2>&1; then
+              echo "❌ 包里不该有 Quick Controls 风格 $style（裁剪步骤失效？）"
+              BAD_STYLE=1; MISSING=1
+            fi
+          done
+          if [ "$BAD_STYLE" -eq 0 ]; then
+            echo "✅ 非 Basic 的 Quick Controls 风格已裁掉"
+          fi
+
+          # 只应有一套 ffmpeg（Qt 自带的 7.1.3 = libavcodec.so.61）。
+          # 冒出第二套（系统 6.1 的 .so.60）说明 Configure 没带 -DQUEMUSIC_FFMPEG_USE_QT=ON，
+          # 会把整套系统编解码栈 + 系统 ICU 一起打进包，体积翻倍。
+          AV_VERS="$(ls -1 squashfs-root/usr/lib 2>/dev/null | grep -oE '^libavcodec\.so\.[0-9]+' | sort -u | tr '\n' ' ')"
+          if [ "$(echo $AV_VERS | wc -w)" -le 1 ]; then
+            echo "✅ 只有一套 ffmpeg：${AV_VERS:-（无）}"
+          else
+            echo "❌ 包里出现多套 ffmpeg（$AV_VERS）：确认 Configure 带了 -DQUEMUSIC_FFMPEG_USE_QT=ON"
+            MISSING=1
+          fi
           exit $MISSING
 
       - name: Upload AppImage artifact

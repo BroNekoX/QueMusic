@@ -652,9 +652,7 @@ Item {
                             if (MusicApi.hotPlayLists.count % 20 === 0) {
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                             } else {
-                                scrollTop();
-                                MusicApi.hotPlayLists.clear();
-                                MusicApi.getHotPlaylists(1);
+                                mainWarn.tiped("没有更多了",0);
                             }
                         }
                     }

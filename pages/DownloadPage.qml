@@ -58,7 +58,7 @@ Item {
         z: 5
         model: ["正在下载", "已下载"]
         tabWidth: 90
-        width: 276
+        width: 186
         rectXy: Qt.rect(0, 12, width, 40)
         blurSource: downloadChildPage
         onTabChange: (index) => {

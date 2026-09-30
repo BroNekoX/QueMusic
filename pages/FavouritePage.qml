@@ -73,7 +73,7 @@ Item {
         y: 68
         width: parent.width - 48
         height: parent.height - 68
-        pageList: [songsLoader,listsLoader,local,singer,historyLoader]
+        pageList: [songsLoader,listsLoader,singer,historyLoader]
 
         // 顶部常驻显示
         Item {
@@ -98,9 +98,9 @@ Item {
             x: 0
             y: 12
             z: 5
-            model: ["歌曲","歌单","本地","歌手","历史"]
+            model: ["歌曲","歌单","歌手","历史"]
             tabWidth: 75
-            width: 381
+            width: 306
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: favouriteChildPage.pageList[favouriteChildPage.lastIndex]
             onTabChange: (index) => {
@@ -237,19 +237,6 @@ Item {
                     color: Style.themes.textColor
                     font.pixelSize: 14
                 }
-            }
-        }
-
-        Item {
-            id: local
-            visible: false
-            width: favouriteChildPage.width
-            height: favouriteChildPage.height
-            Text {
-                anchors.centerIn: parent
-                text: "本地收藏"
-                color: Style.themes.textColor
-                font.pixelSize: 14
             }
         }
         Item {
