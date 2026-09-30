@@ -139,6 +139,25 @@ jobs:
           find fcitx5-qt/build -name 'libfcitx5platforminputcontextplugin*.so'
           find fcitx5-qt/build -name 'libFcitx5Qt6*.so*'
 
+      - name: Download linuxdeploy tools（x86_64）
+        run: |
+          set -euo pipefail
+          # runner 镜像里没有 linuxdeploy，必须自己下；少了这步后面 ./linuxdeploy-x86_64.AppImage
+          # 会直接 "No such file or directory"（exit 127）。
+          # --plugin qt 还要 linuxdeploy-plugin-qt，且必须放在 linuxdeploy 同一目录
+          #（linuxdeploy 会先在自己所在目录找插件，见其 plugin.cpp），这里就是仓库根目录。
+          # 插件名规则见 linuxdeploy 的 PLUGIN_EXPR：
+          #   ^linuxdeploy-plugin-([^\s.-]+)(?:-[^.]+)?(?:\..+)?$  → 名称=qt，"-x86_64.AppImage" 属可选后缀
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+          ls -l linuxdeploy*.AppImage
+          for f in linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage; do
+            file "$f" | grep -qi 'ELF 64-bit' \
+              || { echo "::error::$f 不是有效的 AppImage（下载失败或被截断）"; exit 1; }
+          done
+          echo "✅ linuxdeploy + linuxdeploy-plugin-qt 就绪"
+
       - name: 只保留 sqlite 驱动（从 Qt 安装目录删，避免被 linuxdeploy 带进包）
         run: |
           find "${QT_DIR}/${QT_VERSION}/gcc_64/plugins/sqldrivers" \
@@ -387,6 +406,11 @@ jobs:
           export EXTRA_PLATFORM_PLUGINS="$WP"
           echo "EXTRA_PLATFORM_PLUGINS=$WP"
           export QT_QPA_PLATFORM=minimal
+          # --plugin qt 时 linuxdeploy 会再去启动 linuxdeploy-plugin-qt（它自己也是个 AppImage）。
+          # 默认走 FUSE 挂载，runner/容器里 FUSE 不可用就会报 "Could not run plugin"；
+          # 设这个变量让子 AppImage 统一「解包再执行」，与上面给 linuxdeploy 的
+          # --appimage-extract-and-run 一个道理。
+          export APPIMAGE_EXTRACT_AND_RUN=1
           # 说明：--exclude-library 用来补 linuxdeploy 内置排除表没覆盖到的宿主库，
           # 否则它会顺着 wayland-egl 缓冲集成插件把宿主的 libwayland-egl / libvulkan
           # 也拷进包，最后会被下面的 absent 门禁判失败：

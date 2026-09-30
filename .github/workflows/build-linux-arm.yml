@@ -41,26 +41,78 @@ jobs:
             libxcb-cursor0 libxcb-cursor-dev libxcb-randr0-dev \
             libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
-            libgl1-mesa-dev libfuse2 ninja-build wget file \
+            libgl1-mesa-dev libegl1-mesa-dev libfuse2 ninja-build wget file \
             libpulse-dev libpulse0 \
             extra-cmake-modules libx11-dev \
-            libwayland-dev libwayland-bin wayland-protocols
+            libwayland-dev libwayland-bin wayland-protocols \
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
           # 说明（与 x86 版一致）：
           #   - 不装 qt6-wayland / fcitx5-frontend-qt6：那是「系统 Qt」的插件，与本项目
           #     aqt 安装的 Qt 6.10.3 ABI 不匹配，相应插件都用同一份 Qt 自行编译
           #   - extra-cmake-modules(ECM) / libx11-dev / libwayland-* 是编译 fcitx5-qt 所需：
           #     fcitx5-qt 默认开启 ENABLE_QT6_WAYLAND_WORKAROUND，会 find_package(Qt6 ... WaylandClient)，
           #     而 Qt6WaylandClient 在配置期又要 find_package(Wayland)（由 ECM 提供）
+          #   - libavcodec/libavformat/libavutil/libswresample 是音频后端的解码层：
+          #     Linux 上 CMake 用 pkg-config 找它们，缺了会在配置阶段直接 FATAL_ERROR
           #   - 以上依赖在 arm64 的 Ubuntu 仓库里都有对应包
 
       - name: Install Qt 6.10.3 (aqtinstall, arm64)
         run: |
           python3 -m pip install --break-system-packages aqtinstall
-          # linux_gcc_arm64 是「aarch64 主机」的官方桌面包，装到 $HOME/Qt/6.10.3/gcc_arm64
-          python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_arm64 \
+          # host 必须是 linux_arm64！aqt 的 host=linux 对应的是 linux_x64 仓库，
+          # 拿 linux_gcc_arm64 去那里找包只会报
+          #   "The packages ['qt5compat', 'qt_base', ...] were not found while parsing XML"。
+          # 官方对应关系：linux_arm64 + desktop → 架构 linux_gcc_arm64，
+          # 包落在 download.qt.io/online/qtsdkrepository/linux_arm64/desktop/qt6_6103/，
+          # 解压到 $HOME/Qt/6.10.3/gcc_arm64。
+          python3 -m aqt install-qt linux_arm64 desktop 6.10.3 linux_gcc_arm64 \
             -O "$HOME/Qt" \
             -m qtmultimedia qtshadertools qt5compat
           echo "$HOME/Qt/6.10.3/gcc_arm64/bin" >> "$GITHUB_PATH"
+
+      - name: Sanity check Qt installation（Wayland / OpenGL / FFmpeg）
+        run: |
+          set -euo pipefail
+          QTDIR="$HOME/Qt/6.10.3/gcc_arm64"
+          FAIL=0
+          has_glob() {
+            local hits desc mode
+            hits="$(ls -1d $1 2>/dev/null || true)"
+            desc="$2"; mode="${3:-required}"
+            if [ -n "$hits" ]; then
+              echo "✅ $desc"
+              echo "$hits" | sed 's/^/       /'
+            elif [ "$mode" = "optional" ]; then
+              echo "⚠️  $desc（可选，本版本未提供；无匹配: $1）"
+            else
+              echo "❌ $desc（无匹配: $1）"; FAIL=1
+            fi
+          }
+
+          has_glob "$QTDIR/plugins/platforms/libqwayland*.so"                      "Wayland QPA 平台插件"
+          has_glob "$QTDIR/plugins/wayland-shell-integration/libxdg-shell.so"       "Wayland shell 集成 (xdg-shell)"
+          has_glob "$QTDIR/plugins/wayland-graphics-integration-client/libqt-plugin-wayland-egl.so" "Wayland 客户端 EGL 缓冲集成"
+          has_glob "$QTDIR/lib/libQt6WaylandClient.so.6"                           "libQt6WaylandClient"
+          has_glob "$QTDIR/lib/libQt6OpenGL.so.6"                                  "libQt6OpenGL"
+          has_glob "$QTDIR/plugins/xcbglintegrations/libqxcb-glx-integration.so"   "X11/XWayland GLX 集成"
+
+          # 音频后端解码层：Linux 走 pkg-config，缺 dev 包这里就能立刻看出来
+          for m in libavcodec libavformat libavutil libswresample; do
+            if pkg-config --exists "$m"; then
+              echo "✅ pkg-config 找到 $m $(pkg-config --modversion "$m")"
+            else
+              echo "❌ pkg-config 找不到 $m（缺 libavcodec-dev/libavformat-dev/libavutil-dev/libswresample-dev）"
+              FAIL=1
+            fi
+          done
+
+          [ "$FAIL" -eq 0 ] || {
+            echo "::group::plugins/platforms 实际内容"
+            ls -l "$QTDIR/plugins/platforms" 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::error::Qt 安装或系统依赖不完整，见上面的 ❌。"
+            exit 1
+          }
 
       - name: Configure (CMake)
         run: |
@@ -246,6 +298,11 @@ jobs:
           export QML_SOURCES_PATHS="$(pwd)"
           export EXTRA_QT_MODULES="multimedia;sql;shadertools"
           export QT_QPA_PLATFORM=minimal
+          # --plugin qt 时 linuxdeploy 会再去启动 linuxdeploy-plugin-qt（它自己也是个 AppImage）。
+          # 默认走 FUSE 挂载，runner/容器里 FUSE 不可用就会报 "Could not run plugin"；
+          # 设这个变量让子 AppImage 统一「解包再执行」，与给 linuxdeploy 的
+          # --appimage-extract-and-run 一个道理。
+          export APPIMAGE_EXTRACT_AND_RUN=1
 
           # 删除 AppDir 中可能遗留的旧 Qt 库（避免版本冲突）。
           # 例外：libQt6Wayland* 是上一步显式部署的（libqwayland.so 运行时 dlopen，

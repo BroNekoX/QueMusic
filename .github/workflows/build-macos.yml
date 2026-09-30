@@ -102,6 +102,24 @@ jobs:
       - name: Build
         run: cmake --build build -j"$(sysctl -n hw.ncpu)"
 
+      # Qt 的 macOS 包里 sqlite 之外的 SQL 驱动（odbc / mimer / mysql / psql）会链接
+      # /opt/homebrew/opt/libiodbc/... 和 /usr/local/lib/libmimerapi.dylib 这类「构建机路径」，
+      # macdeployqt 会把它们原样拷进 bundle：在用户机器上既加载不了，又会让下面的依赖检查
+      # 判定「引用了构建机路径」。本项目只用 QSQLITE，删掉最干净（与 Linux 流程同一策略）。
+      - name: 只保留 sqlite 驱动（从 Qt 安装目录删）
+        run: |
+          set -euo pipefail
+          SQ="$QT_PREFIX/plugins/sqldrivers"
+          if [ ! -d "$SQ" ]; then
+            echo "⚠️  $SQ 不存在，跳过"
+            exit 0
+          fi
+          echo "删除前: $(ls -1 "$SQ" | tr '\n' ' ')"
+          find "$SQ" -maxdepth 1 -name 'libqsql*' ! -name 'libqsqlite.*' -delete
+          echo "删除后: $(ls -1 "$SQ" | tr '\n' ' ')"
+          ls "$SQ"/libqsqlite.* >/dev/null 2>&1 \
+            || { echo "::error::连 sqlite 驱动都不见了，检查 Qt 安装是否完整"; exit 1; }
+
       - name: Bundle with macdeployqt
         run: |
           set -euo pipefail
@@ -115,8 +133,11 @@ jobs:
           echo "APP=$APP_PATH"
 
           # -qmldir 必须给：QML 都编进 qrc 了，bundle 里没有自己的 qml 目录，
-          # 不告诉 macdeployqt 去哪扫 import，它就不会把 QtQuick/Controls 等 QML 插件
-          # 拷进 Contents/PlugIns/qml —— 用户打开会直接报 module "QtQuick" is not installed。
+          # 不告诉 macdeployqt 去哪扫 import，它就不会部署 QtQuick/Controls 等 QML 模块
+          # —— 用户打开会直接报 module "QtQuick" is not installed。
+          # （Qt 6.10 的 macdeployqt 把 QML 模块放在 Contents/Resources/qml/，
+          #   其中的 .dylib 实体放 Contents/PlugIns/quick/ 再软链回去，qt.conf 里
+          #   QmlImports = Resources/qml。）
           # 注意：macdeployqt 会顺手把非 Qt 的第三方 dylib（这里就是 Qt 自带的 libav*）
           # 一起拷进 Contents/Frameworks 并改写 install name，所以无需 brew 装 ffmpeg。
           "$QT_PREFIX/bin/macdeployqt" "$APP_PATH" -qmldir="$PWD" -always-overwrite
@@ -140,25 +161,39 @@ jobs:
           done
 
           echo "--- 构建机绝对路径检查 ---"
-          HOST_REFS="$(
-            { otool -L "$APP_PATH/Contents/MacOS/"* 2>/dev/null
-              find "$APP_PATH/Contents" -name '*.dylib' -o -name '*.so' 2>/dev/null |
-                while IFS= read -r f; do otool -L "$f" 2>/dev/null; done
-            } | awk '{print $1}' | grep -v "^$APP_PATH" |
-              grep -E '^/(opt/homebrew|usr/local|Users)/' | sort -u || true
-          )"
+          scan_host_refs() {
+            local f
+            for f in "$APP_PATH/Contents/MacOS/"*; do
+              [ -f "$f" ] || continue
+              otool -L "$f" 2>/dev/null | tail -n +2 |
+                awk -v F="$(basename "$f")" '$1 ~ /^\/(opt\/homebrew|usr\/local|Users)\// {print F " -> " $1}'
+            done
+            find "$APP_PATH/Contents" \( -name '*.dylib' -o -name '*.so' \) 2>/dev/null |
+              while IFS= read -r f; do
+                otool -L "$f" 2>/dev/null | tail -n +2 |
+                  awk -v F="$(basename "$f")" '$1 ~ /^\/(opt\/homebrew|usr\/local|Users)\// {print F " -> " $1}'
+              done
+          }
+          HOST_REFS="$(scan_host_refs | sort -u)"
           if [ -n "$HOST_REFS" ]; then
             while IFS= read -r l; do [ -n "$l" ] && echo "❌ 仍指向构建机路径：$l"; done <<< "$HOST_REFS"
+            echo "   （左边是引用它的文件；常见来源是 Qt 自带的 odbc/mimer/mysql 等 SQL 驱动插件，本流程只保留 sqlite）"
             MISSING=1
           else
             echo "✅ 没有指向构建机的绝对路径依赖"
           fi
 
-          echo "--- QML 插件 ---"
-          if ls "$APP_PATH"/Contents/PlugIns/qml/QtQuick >/dev/null 2>&1; then
-            echo "✅ QtQuick QML 插件已部署"
+          echo "--- QML 模块 ---"
+          # macdeployqt 把 QML 模块放 Contents/Resources/qml/；旧版/其他包装方式可能是 PlugIns/qml/
+          QML_ROOT=""
+          for d in "$APP_PATH/Contents/Resources/qml" "$APP_PATH/Contents/PlugIns/qml"; do
+            [ -d "$d" ] && QML_ROOT="$d" && break
+          done
+          if [ -n "$QML_ROOT" ]; then
+            echo "✅ QML 模块目录: $QML_ROOT"
+            ls -1 "$QML_ROOT" | head -20
           else
-            echo "⚠️  bundle 内没有 QtQuick QML 插件（若启动报 module \"QtQuick\" is not installed，就是这里）"
+            echo "⚠️  bundle 里没有 QML 模块目录（启动会报 module \"QtQuick\" is not installed）：-qmldir 没扫到 import？"
           fi
 
           [ "$MISSING" -eq 0 ] || { echo "::error::bundle 校验未通过，终止打包"; exit 1; }
