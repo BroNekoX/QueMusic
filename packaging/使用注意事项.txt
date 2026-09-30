@@ -1,0 +1,71 @@
+QueMusic Linux 便携包 —— 使用注意事项
+====================================================================
+
+一、运行环境要求
+--------------------------------------------------------------------
+1. Linux x86_64（glibc 2.35 及以上，也就是 Ubuntu 22.04+/Fedora 36+ 这类）
+2. Qt 6.10 或更高版本
+   官方在线安装器（aqt / Qt Maintenance Tool）装的 Qt 6.10+ 自带 FFmpeg 7.1.3，
+   装好 Qt 就等于满足第 3 条。
+3. FFmpeg 运行时库 7.1.3 或更高，即：
+   libavcodec.so.61 / libavformat.so.61 / libavutil.so.59 / libswresample.so.5
+   系统自带的 ffmpeg 也算，只要 libavcodec 的主版本号是 61。
+除以上两项外没有其它依赖：其它库（QWindowKit、TagLib、本程序自己的模块）都在包内。
+
+二、怎么运行
+--------------------------------------------------------------------
+    cd QueMusic-linux-x86_64
+    ./run.sh
+
+第一次如果提示没有执行权限，先：
+    chmod +x run.sh
+
+run.sh 就两件事：切到包目录、启动 bin/QueMusic。
+包内所有库（bin/ 与 _deps/）都写好了 $ORIGIN 相对路径，程序自己就能找到，
+不用你设环境变量，也不要求解压到固定位置（放哪都行）。
+run.sh 唯一多做的一点，是帮你找到 Qt 的库目录（发行版 Qt 在系统里，它不用管）。
+另外，传给 run.sh 的参数会原样转给 QueMusic。
+
+需要排查问题时，用环境变量（run.sh 不改这些值，你设了就生效）：
+    QSG_RHI_BACKEND=vulkan ./run.sh    用 Vulkan 渲染
+    QSG_RHI_BACKEND=opengl ./run.sh    用 OpenGL 渲染（默认一般就是它）
+    QSG_RHI_BACKEND=software ./run.sh  纯软件渲染（画面异常/闪退时试）
+    QT_QPA_PLATFORM=xcb ./run.sh       强制走 X11（XWayland）
+    QT_QPA_PLATFORM=wayland ./run.sh   强制走 Wayland
+    QT_DEBUG_PLUGINS=1 ./run.sh        打印 Qt 插件加载过程
+    QT_LIBDIR=/你的/Qt/6.10.x/gcc_64/lib ./run.sh   手动指定 Qt 库目录
+
+三、目录说明
+--------------------------------------------------------------------
+    bin/       QueMusic 主程序 + 本仓库编译出的动态库
+    _deps/     第三方依赖的构建产物（已剔除纯编译中间产物）
+    run.sh     启动脚本
+    使用注意事项.txt   本文件
+
+四、常见问题
+--------------------------------------------------------------------
+1) error while loading shared libraries: libQt6Core.so.6
+   → 没装 Qt 6.10+，或者 Qt 装在非标准目录且 run.sh 没认出来。
+     确认 `qmake6 -query QT_INSTALL_LIBS` 能输出路径；
+     或手动指定：QT_LIBDIR=/你的/Qt/6.10.x/gcc_64/lib ./run.sh
+
+2) error while loading shared libraries: libavcodec.so.61
+   → FFmpeg 太旧（比如发行版只有 libavcodec.so.60）。
+     装 Qt 6.10+（自带 7.1.3）或系统升级 ffmpeg 到 7.1.3+。
+
+3) 提示 module "QtQuick" is not installed / QML 起不来
+   → 多办是 Qt 版本太低；本包要求 Qt 6.10+。
+
+4) Wayland 下窗口异常、输入法不上屏
+   → 先试 QT_QPA_PLATFORM=xcb ./run.sh（走 XWayland）；
+     输入法需要在系统里正常配置好 fcitx5，并确保环境变量
+     QT_IM_MODULE=fcitx5 或系统默认已生效。
+
+5) 想换其它无损/更小的压缩包
+   → 同目录若有 .tar.gz 版本，解压方式完全一样：tar -xf xxx.tar.gz
+
+五、其它
+--------------------------------------------------------------------
+* 本包只做 x86_64 便携分发，不做安装、不写系统目录；
+  配置与数据库在用户目录（~/.config、~/.local/share）下。
+* 反馈问题请附上终端输出，那里面会直接写明缺哪个库。

@@ -47,19 +47,36 @@ if((WIN32 OR _qm_ffmpeg_root_explicit) AND EXISTS "${QUEMUSIC_FFMPEG_ROOT}/inclu
     return()
 endif()
 
-# ---- macOS：用官方 Qt 包里自带的那套 FFmpeg ----
-# Qt 的 macOS 包会随 QtMultimedia 一起装 libavcodec.61/libavformat.61/libavutil.59/libswresample.5
-# 的 .dylib（FFmpeg 7.1.3，universal），但只给动态库、不给公共头文件与 .pc，
-# 所以既走不了 pkg-config，也不能像 Windows 那样用 .dll.a 导入库。
+# ---- Linux / macOS：用官方 Qt 包里自带的那套 FFmpeg（FFmpeg 7.1.3）----
+# 官方 Qt 包会随 QtMultimedia 一起装 libavcodec/libavformat/libavutil/libswresample
+# 的动态库（Linux: libavcodec.so.61.*；macOS: libavcodec.61.dylib），但只给动态库、
+# 不给公共头文件与 .pc，所以既走不了 pkg-config，也不能像 Windows 那样用导入库。
 # 仓库里 ffmpeg/include 恰好是同一版本（libavcodec 61）的公共头文件，直接与之配对：
-#   * 版本严格一致（和 Windows 那份同源），不会有 ABI 漂移；
-#   * 这些 dylib 只依赖系统库与彼此（@rpath/@loader_path），随包只有几 MB。
-if(APPLE AND EXISTS "${CMAKE_SOURCE_DIR}/ffmpeg/include/libavcodec/avcodec.h")
-    get_filename_component(_qm_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)   # <Qt>/6.x.y/macos
+#   * 与 Windows 那份同源，不会有 ABI 漂移；
+#   * 「装了 Qt 6.10+」就等于有 FFmpeg 7.1.3，运行环境不必再单独装 ffmpeg。
+#
+# 启用条件（刻意分开，避免影响既有的 Linux 构建习惯）：
+#   * macOS：默认启用。那边没有可用的系统 ffmpeg 开发包，brew 装 ffmpeg 又会拖一堆
+#     依赖链，Qt 自带这套是唯一干净的选择。
+#   * Linux：**默认关闭**，维持原行为「系统 libav*-dev + pkg-config」。
+#     需要「只要求用户有 Qt 6.10+」这条约定时才显式打开：
+#         cmake -B build -DQUEMUSIC_FFMPEG_USE_QT=ON ..
+#     （tar 便携包流程就是这么打开的；AppImage 流程保持默认，不动。）
+option(QUEMUSIC_FFMPEG_USE_QT "优先用 Qt 自带的 FFmpeg（Linux；macOS 恒为启用）" OFF)
 
-    # 只有 Qt 前缀里确实带 libav*.dylib 才走这条路；自制/精简 Qt 可能没有，
-    # 那就原样落到下面的 pkg-config（brew 的 ffmpeg）分支。
-    if(EXISTS "${_qm_qt_prefix}/lib/libavcodec.dylib")
+if(NOT WIN32 AND (APPLE OR QUEMUSIC_FFMPEG_USE_QT)
+        AND EXISTS "${CMAKE_SOURCE_DIR}/ffmpeg/include/libavcodec/avcodec.h")
+    get_filename_component(_qm_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)   # <Qt>/6.x.y/<arch>
+
+    # 只有 Qt 前缀里确实带 FFmpeg 动态库才走这条路；自制/精简 Qt 可能没有，
+    # 那就原样落到下面的 pkg-config 分支（系统 ffmpeg / brew 的 ffmpeg）。
+    if(APPLE)
+        set(_qm_qt_ffmpeg_marker "${_qm_qt_prefix}/lib/libavcodec.dylib")
+    else()
+        set(_qm_qt_ffmpeg_marker "${_qm_qt_prefix}/lib/libavcodec.so")
+    endif()
+
+    if(EXISTS "${_qm_qt_ffmpeg_marker}")
         set(_qm_ffmpeg_libs "")
         foreach(_mod IN LISTS _qm_ffmpeg_modules)
             find_library(QUEMUSIC_FFMPEG_${_mod}_LIB
@@ -69,7 +86,7 @@ if(APPLE AND EXISTS "${CMAKE_SOURCE_DIR}/ffmpeg/include/libavcodec/avcodec.h")
             if(NOT QUEMUSIC_FFMPEG_${_mod}_LIB)
                 message(FATAL_ERROR
                     "QueMusic: 在 ${_qm_qt_prefix}/lib 里找不到 ${_mod} 动态库。\n"
-                    "  官方 Qt 包自带整套 FFmpeg 动态库，这里只找到一部分，安装包可能不完整。")
+                    "  官方 Qt 包自带整套 FFmpeg 动态库，这里只找到一部分，安装可能不完整。")
             endif()
             list(APPEND _qm_ffmpeg_libs "${QUEMUSIC_FFMPEG_${_mod}_LIB}")
         endforeach()
@@ -81,10 +98,11 @@ if(APPLE AND EXISTS "${CMAKE_SOURCE_DIR}/ffmpeg/include/libavcodec/avcodec.h")
         )
         message(STATUS "[QueMusic] Using FFmpeg: Qt 自带（${_qm_qt_prefix}/lib）")
         unset(_qm_qt_prefix)
+        unset(_qm_qt_ffmpeg_marker)
         return()
     endif()
 
-    message(STATUS "[QueMusic] Qt 安装里没有自带 libav*.dylib，改走系统 pkg-config")
+    message(STATUS "[QueMusic] Qt 安装里没有自带 libav* 动态库，改走系统 pkg-config")
     unset(_qm_qt_prefix)
 endif()
 

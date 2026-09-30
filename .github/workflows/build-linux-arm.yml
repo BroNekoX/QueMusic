@@ -98,15 +98,25 @@ jobs:
           has_glob "$QTDIR/lib/libQt6OpenGL.so.6"                                  "libQt6OpenGL"
           has_glob "$QTDIR/plugins/xcbglintegrations/libqxcb-glx-integration.so"   "X11/XWayland GLX 集成"
 
-          # 音频后端解码层：Linux 走 pkg-config，缺 dev 包这里就能立刻看出来
-          for m in libavcodec libavformat libavutil libswresample; do
-            if pkg-config --exists "$m"; then
-              echo "✅ pkg-config 找到 $m $(pkg-config --modversion "$m")"
-            else
-              echo "❌ pkg-config 找不到 $m（缺 libavcodec-dev/libavformat-dev/libavutil-dev/libswresample-dev）"
-              FAIL=1
-            fi
-          done
+          # 音频后端解码层。默认走系统开发包（pkg-config）——AppImage 流程不开
+          # QUEMUSIC_FFMPEG_USE_QT，所以这里以 pkg-config 为准；Qt 自带的那套 7.1.3
+          # 只在显式 -DQUEMUSIC_FFMPEG_USE_QT=ON 时才被采用（tar 便携包流程那样）。
+          if pkg-config --exists libavcodec; then
+            for m in libavcodec libavformat libavutil libswresample; do
+              if pkg-config --exists "$m"; then
+                echo "✅ pkg-config 找到 $m $(pkg-config --modversion "$m")"
+              else
+                echo "❌ pkg-config 找不到 $m（缺 libavcodec-dev/libavformat-dev/libavutil-dev/libswresample-dev）"
+                FAIL=1
+              fi
+            done
+          elif [ -e "$QTDIR/lib/libavcodec.so.61" ]; then
+            echo "⚠️  没有 libav* 开发包，但 Qt 自带 libavcodec.so.61；"
+            echo "    这种情况需要配置时加 -DQUEMUSIC_FFMPEG_USE_QT=ON 才会用它。"
+          else
+            echo "❌ 既没有 libav*-dev（pkg-config），Qt 也没带 libavcodec.so.61"
+            FAIL=1
+          fi
 
           [ "$FAIL" -eq 0 ] || {
             echo "::group::plugins/platforms 实际内容"

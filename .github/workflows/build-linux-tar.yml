@@ -1,0 +1,308 @@
+name: Build Linux tar 包（便携版）
+
+# 和 AppImage 的区别：这个包**不**把 Qt 打进去，而是依赖用户机器上的 Qt。
+# 包内容 = build/bin + build/_deps + packaging/run.sh + 使用注意事项.txt
+# 目标环境：Linux x86_64 + Qt 6.10+（官方 Qt 自带 FFmpeg 7.1.3），解压后 ./run.sh 即用。
+#
+# 目录结构：
+#   QueMusic-linux-x86_64/
+#     bin/                   主程序 + 本仓库编译出的动态库
+#     _deps/                 第三方依赖构建产物（已剔除纯编译中间产物）
+#     run.sh                 启动脚本（只负责启动程序 + 找到 Qt 库目录）
+#     使用注意事项.txt
+
+on:
+  # 手动触发只产出 artifact，不发 Release（与 build-linux-arm.yml / build-macos.yml 一致）
+  workflow_dispatch:
+  # 打 tag 时自动构建，并挂到对应 tag 的 Release 上
+  push:
+    tags:
+      - 'v*'
+  # 给「一键发布」流程（release.yml）复用
+  workflow_call:
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: '6.10.3'
+  QT_DIR: ${{ github.workspace }}/Qt
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout（务必带 QWindowKit 子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb1-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
+            libxcb-image0-dev libxcb-shm0-dev libxcb-util-dev \
+            libxcb-cursor0 libxcb-randr0-dev libxcb-shape0-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libx11-dev \
+            extra-cmake-modules ninja-build cmake wget file patchelf
+          # 说明：
+          #   - 不装 libav*-dev：FFmpeg 用 Qt 自带的那套（7.1.3），
+          #     装了反而可能让 CMake 落到系统旧版本上（包会要求 7.1.3+）
+          #   - 不装 libfuse2 / 不需要 linuxdeploy：这个包不打 AppImage
+          #   - extra-cmake-modules 是 QWindowKit 的 qmsetup 需要的
+          #   - patchelf 用来把构建机留下的绝对 RPATH 清成 $ORIGIN
+
+      - name: Install Qt 6.10.3 (aqtinstall)
+        run: |
+          python3 -m pip install --break-system-packages aqtinstall
+          # qtmultimedia 里带 FFmpeg 7.1.3 的 libav*.so.61（本包的关键依赖）
+          python3 -m aqt install-qt linux desktop "${QT_VERSION}" linux_gcc_64 \
+            -O "${QT_DIR}" \
+            -m qtmultimedia qtshadertools qt5compat
+          echo "${QT_DIR}/${QT_VERSION}/gcc_64/bin" >> "$GITHUB_PATH"
+
+      - name: Sanity check（Qt 6.10 + FFmpeg 7.1.3 是否齐了）
+        run: |
+          set -euo pipefail
+          QTDIR="${QT_DIR}/${QT_VERSION}/gcc_64"
+          FAIL=0
+          need() { if [ -e "$1" ]; then echo "✅ $2"; else echo "❌ 缺少 $2（$1）"; FAIL=1; fi; }
+
+          need "$QTDIR/lib/libQt6Core.so.6"                    "Qt6 Core"
+          need "$QTDIR/lib/cmake/Qt6ShaderTools/Qt6ShaderToolsConfig.cmake" "Qt6 ShaderTools（qt6_add_shaders 必需）"
+          # 本包要求「Qt 6.10+ 自带 FFmpeg 7.1.3」，这里直接卡住版本
+          need "$QTDIR/lib/libavcodec.so.61"                   "Qt 自带 FFmpeg：libavcodec.so.61（7.1.3）"
+          need "$QTDIR/lib/libavformat.so.61"                  "libavformat.so.61"
+          need "$QTDIR/lib/libavutil.so.59"                    "libavutil.so.59"
+          [ -e "$QTDIR/lib/libavcodec.so" ] \
+            && echo "✅ libavcodec.so（开发用链接名）" \
+            || { echo "❌ 缺少 libavcodec.so，CMake 无法链接"; FAIL=1; }
+
+          [ "$FAIL" -eq 0 ] || {
+            echo "::error::Qt 安装不完整。这个 tar 包要求 Qt 6.10+ 且自带 FFmpeg 7.1.3（aqt 的 qtmultimedia 模块）。"
+            exit 1
+          }
+
+      - name: Configure (CMake)
+        run: |
+          # -DQUEMUSIC_FFMPEG_USE_QT=ON 是本流程的关键：
+          # 让 CMake 用 Qt 自带的那套 FFmpeg（libavcodec.so.61 = 7.1.3），
+          # 而不是构建机上的系统 ffmpeg。这样产物只要求用户「有 Qt 6.10+」，
+          # 与「使用注意事项.txt」里写的 FFmpeg 7.1.3+ 完全对得上。
+          # （这个开关默认为 OFF，所以 AppImage / 本地 KDevelop 构建行为不受影响。）
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${QT_DIR}/${QT_VERSION}/gcc_64" \
+            -DQUEMUSIC_FFMPEG_USE_QT=ON
+
+      - name: Build（全部构建）
+        run: cmake --build build -j"$(nproc)"
+
+      - name: 组装 tar 包（bin + _deps + run.sh + 使用注意事项）
+        run: |
+          set -euo pipefail
+          ARCH="$(uname -m)"                       # x86_64 / aarch64
+          NAME="QueMusic-linux-${ARCH}"
+          STAGE="$NAME"
+          PACKAGE="${NAME}.tar.xz"
+
+          rm -rf "$STAGE" && mkdir -p "$STAGE"
+
+          # ---- 1) 构建产物：bin（主程序 + 本仓库动态库）与 _deps（第三方产物）----
+          cp -a build/bin   "$STAGE/bin"
+          cp -a build/_deps "$STAGE/_deps"
+
+          # ---- 2) 剔掉纯编译中间产物（运行期用不到，占体积）----
+          find "$STAGE/_deps" -type d -name CMakeFiles -prune -exec rm -rf {} + 2>/dev/null || true
+          find "$STAGE" -type f \( -name '*.o' -o -name '*.obj' -o -name '*.a' \
+                                   -o -name '*.o.d' -o -name '*.ii' \) -delete 2>/dev/null || true
+          find "$STAGE" -type d \( -name '.git' -o -name 'CMakeFiles' \) -prune -exec rm -rf {} + 2>/dev/null || true
+
+          # ---- 3) 启动脚本 + 注意事项 ----
+          cp packaging/run.sh "$STAGE/run.sh"
+          chmod +x "$STAGE/run.sh"
+          cp packaging/使用注意事项.txt "$STAGE/使用注意事项.txt"
+
+          # ---- 4) 把 RPATH 全部改成「包内相对路径」----
+          # CMake 会把 Qt 安装目录、构建目录写成绝对 RPATH（/home/runner/...），换台机器就是垃圾。
+          # 这里给每个 ELF 写上包内所有含 .so 目录的 $ORIGIN 相对路径，
+          # 于是 _deps 里那些兄弟库（QWindowKit 等）不靠 run.sh 拼 LD_LIBRARY_PATH 也能找到
+          # —— run.sh 才能简单到只剩一句 exec，跟你本地「复制 bin + _deps 就能跑」一致。
+          python3 - "$STAGE" <<'PY'
+          import os, subprocess, sys
+          stage = sys.argv[1]
+
+          libdirs, elfs = set(), []
+          for root, dirs, files in os.walk(stage):
+              if any(f.endswith('.so') or '.so.' in f for f in files):
+                  libdirs.add(os.path.relpath(root, stage))
+              for f in files:
+                  p = os.path.join(root, f)
+                  # 软链接不动（patchelf 会把链接变成实体文件），它的目标文件已经会被处理
+                  if not os.path.isfile(p) or os.path.islink(p):
+                      continue
+                  try:
+                      with open(p, 'rb') as fh:
+                          if fh.read(4) == b'\x7fELF':
+                              elfs.append(p)
+                  except OSError:
+                      pass
+
+          libdirs, patched = sorted(libdirs), 0
+          for p in elfs:
+              here = os.path.relpath(os.path.dirname(p), stage)
+              # $ORIGIN 放最前（先看自己目录），其余按字典序，保证每次打包结果一致
+              ents = ['$ORIGIN']
+              for ld in libdirs:
+                  if ld == here:
+                      continue
+                  ents.append('$ORIGIN/' + os.path.relpath(ld, here).replace(os.sep, '/'))
+              if len(ents) == 1 and not libdirs:
+                  continue
+              r = subprocess.run(['patchelf', '--set-rpath', ':'.join(ents), p],
+                                 capture_output=True)
+              if r.returncode == 0:
+                  patched += 1
+              else:
+                  print('  patchelf 失败: %s (%s)' % (p, r.stderr.decode().strip()))
+
+          print('已为 %d 个 ELF 写入 $ORIGIN 相对 RPATH（覆盖 %d 个含库目录）'
+                % (patched, len(libdirs)))
+          exe = os.path.join(stage, 'bin', 'QueMusic')
+          if os.path.exists(exe):
+              out = subprocess.run(['patchelf', '--print-rpath', exe],
+                                   capture_output=True, text=True)
+              print('bin/QueMusic RPATH = ' + out.stdout.strip())
+          PY
+
+          # ---- 5) 打包 ----
+          tar -cJf "$PACKAGE" "$STAGE"
+          ls -lh "$PACKAGE"
+          du -sh "$STAGE"
+          echo "PACKAGE=$PACKAGE" >> "$GITHUB_ENV"
+
+      - name: Verify tar 包（结构 / 无绝对路径 / 依赖可解析）
+        run: |
+          set -uo pipefail
+          MISSING=0
+          ok()  { echo "✅ $1"; }
+          bad() { echo "❌ $1"; MISSING=1; }
+
+          TMP="$(mktemp -d)"
+          tar -xf "$PACKAGE" -C "$TMP"
+          ROOT="$TMP/QueMusic-linux-$(uname -m)"
+          [ -d "$ROOT" ] || { echo "::error::解压后找不到 $ROOT"; exit 1; }
+
+          # 1) 结构
+          [ -x "$ROOT/run.sh" ]                && ok "run.sh 存在且可执行"     || bad "缺 run.sh（或没有执行权限）"
+          [ -f "$ROOT/使用注意事项.txt" ]       && ok "使用注意事项.txt 存在"     || bad "缺 使用注意事项.txt"
+          [ -x "$ROOT/bin/QueMusic" ]          && ok "bin/QueMusic 存在且可执行" || bad "bin/QueMusic 不存在或没有执行权限"
+          [ -d "$ROOT/_deps" ]                 && ok "_deps 已打包"             || bad "缺 _deps"
+          if file -b "$ROOT/bin/QueMusic" | grep -qi 'ELF 64-bit'; then
+            ok "bin/QueMusic 是 64 位 ELF"
+          else
+            bad "bin/QueMusic 不是 64 位 ELF：$(file -b "$ROOT/bin/QueMusic")"
+          fi
+          case "$(file -b "$ROOT/bin/QueMusic")" in
+            *aarch64*) echo "    架构: aarch64" ;;
+            *x86-64*|*x86_64*) echo "    架构: x86_64" ;;
+          esac
+
+          # 2) 不能残留构建机绝对路径（RPATH），并且必须绑在 FFmpeg 7.1.3 上
+          echo "--- RPATH / FFmpeg 版本检查 ---"
+          if command -v readelf >/dev/null 2>&1; then
+            # 每个 ELF 的 RPATH 项都必须是 $ORIGIN 相对形式：出现任何绝对路径
+            # （构建机 Qt 目录、构建目录）都算失败——那正是「换机器就跑不起来」的来源。
+            BAD_RPATH=""
+            while IFS= read -r f; do
+              rp="$(readelf -d "$f" 2>/dev/null | sed -n 's/.*\((RPATH\|RUNPATH)\).*\[\(.*\)\].*/\2/p')"
+              [ -n "$rp" ] || continue
+              IFS=: read -ra _ents <<< "$rp"
+              for e in "${_ents[@]}"; do
+                [ -n "$e" ] || continue
+                case "$e" in
+                  '$ORIGIN'*) ;;
+                  *) BAD_RPATH="$BAD_RPATH ${f#$ROOT/}→$e" ;;
+                esac
+              done
+            done < <(find "$ROOT" -type f \( -name '*.so' -o -name '*.so.*' -o -name 'QueMusic' \) 2>/dev/null)
+            if [ -n "$BAD_RPATH" ]; then
+              for x in $BAD_RPATH; do echo "❌ 非 \$ORIGIN 的 RPATH 项：$x"; done
+              MISSING=1
+            else
+              ok "所有 ELF 的 RPATH 都是包内相对路径（\$ORIGIN/...）"
+            fi
+
+            # 使用注意事项.txt 里承诺的是「FFmpeg 7.1.3+」，也就是 libavcodec.so.61；
+            # 如果这里绑到了 .so.60 之类的旧版本，用户在只有 7.1.3 的机器上就直接起不来。
+            if readelf -d "$ROOT/bin/QueMusic" 2>/dev/null | grep -q 'libavcodec\.so\.61'; then
+              ok "链接的是 libavcodec.so.61（FFmpeg 7.1.3，来自 Qt）"
+            else
+              echo "❌ bin/QueMusic 没有链接 libavcodec.so.61："
+              readelf -d "$ROOT/bin/QueMusic" 2>/dev/null | grep -i 'libav' || true
+              echo "   检查 Configure 是否带了 -DQUEMUSIC_FFMPEG_USE_QT=ON"
+              MISSING=1
+            fi
+          else
+            echo "⚠️  本机没有 readelf，跳过 RPATH / FFmpeg 版本检查"
+          fi
+
+          # 3) 依赖能否解析：模拟用户机器——只有系统 Qt，包内库必须靠 $ORIGIN 相对 RPATH 自己解析
+          #    （刻意不把 bin/ 与 _deps/ 加进 LD_LIBRARY_PATH：那样等于替 RPATH 兜底，
+          #      就测不出「解压到哪都能跑、run.sh 只要一句 exec」这个前提是否真的成立）
+          echo "--- 依赖解析检查（仅 包内 RPATH + Qt ${QT_VERSION}）---"
+          PKG_LIBS="$(find "$ROOT" -type f \( -name '*.so' -o -name '*.so.*' \) -printf '%f\n' 2>/dev/null | sort -u)"
+          export LD_LIBRARY_PATH="${QT_DIR}/${QT_VERSION}/gcc_64/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          MISS_LIBS="$(ldd "$ROOT/bin/QueMusic" 2>/dev/null | awk '/not found/{print $1}' | sort -u)"
+          if [ -n "$MISS_LIBS" ]; then
+            while IFS= read -r m; do
+              [ -n "$m" ] || continue
+              case "$m" in
+                libQt6*|libav*|libsw*)
+                  echo "❌ 缺失 $m：这个包要求 Qt 6.10+ 自带 FFmpeg 7.1.3，请检查是不是绑到了别的东西"
+                  MISSING=1 ;;
+                *)
+                  if printf '%s\n' "$PKG_LIBS" | grep -qx -- "$m"; then
+                    echo "❌ 缺失 $m：包内本来就有这个库，说明包内 \$ORIGIN 相对 RPATH 没写全"
+                    MISSING=1
+                  else
+                    echo "⚠️  缺失 $m（由宿主提供，正常）"
+                  fi ;;
+              esac
+            done <<< "$MISS_LIBS"
+          else
+            ok "bin/QueMusic 的依赖全靠包内 RPATH + Qt 解析通过"
+          fi
+
+          # 4) 包内不该带 Qt / FFmpeg 本体（否则就成了半个 AppImage，还容易版本冲突）
+          if ls "$ROOT"/bin/libQt6Core.so* >/dev/null 2>&1; then
+            echo "⚠️  包内含有 libQt6Core（本包设计是依赖系统 Qt，建议剔除）"
+          else
+            ok "包内不含 Qt 本体（依赖用户的 Qt 6.10+）"
+          fi
+
+          [ "$MISSING" -eq 0 ] || { echo "::error::tar 包校验未通过"; exit 1; }
+          echo "🎉 tar 包校验通过"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueMusic-Linux-tar
+          path: ${{ env.PACKAGE }}
+
+      # 与 build-linux-arm.yml / build-macos.yml 同款写法：只在「打 tag」时执行，
+      # 自动挂到该 tag 的 Release（不存在就创建、已存在就追加）。
+      # 一键发布流程（release.yml）请按它的说明在分支上触发，各子流程这时都不会自己发。
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PACKAGE }}
+          generate_release_notes: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

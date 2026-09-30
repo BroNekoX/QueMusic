@@ -1,6 +1,7 @@
 name: Release（一键打包并发 Release）
 
-# 一次点击：Linux x86_64 + Linux arm64 + macOS 三个包全部构建，
+# 一次点击：Linux x86_64 AppImage + Linux arm64 AppImage + macOS DMG
+# + Linux tar 便携包（依赖系统 Qt）四份产物全部构建，
 # 跑完后统一挂到指定 tag 的 Release 上。
 #
 # 用法：
@@ -64,10 +65,15 @@ jobs:
     uses: ./.github/workflows/build-macos.yml
     secrets: inherit
 
+  linux-tar:
+    name: Linux tar 包（依赖系统 Qt）
+    uses: ./.github/workflows/build-linux-tar.yml
+    secrets: inherit
+
   # ── 汇总产物，建/更新 Release ─────────────────────────────────────
   publish:
     name: 汇总产物挂到 Release
-    needs: [linux-x86, linux-arm64, macos]
+    needs: [linux-x86, linux-arm64, macos, linux-tar]
     runs-on: ubuntu-24.04
     steps:
       - name: 下载三个平台的产物
@@ -90,8 +96,9 @@ jobs:
           set -euo pipefail
           : "${TAG:?必须给 tag}"
 
-          # 只挑真正要发布的文件（AppImage / dmg），避免把中间产物也传上去
-          mapfile -t FILES < <(find dist -type f \( -name '*.AppImage' -o -name '*.dmg' \) | sort)
+          # 只挑真正要发布的文件（AppImage / dmg / tar 包），避免把中间产物也传上去
+          mapfile -t FILES < <(find dist -type f \
+            \( -name '*.AppImage' -o -name '*.dmg' -o -name '*.tar.xz' -o -name '*.tar.gz' \) | sort)
           [ "${#FILES[@]}" -gt 0 ] || { echo "::error::没拿到任何产物，检查三个平台是否都构建成功"; exit 1; }
           echo "将上传以下文件："
           printf '  %s\n' "${FILES[@]}"
