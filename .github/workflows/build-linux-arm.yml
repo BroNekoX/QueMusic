@@ -125,7 +125,8 @@ jobs:
             WAYLAND_COUNT=$((WAYLAND_COUNT + 1))
           done
           [ "$WAYLAND_COUNT" -gt 0 ] || {
-            echo "!! 找不到 Wayland 平台插件（aqt 的 linux arm64 基础包应含 qtwayland）"; exit 1; }
+            echo "!! 找不到 Wayland 平台插件（Qt6.10 起该插件随 base 包的 qtbase 归档发布，"
+            echo "   文件名是 libqwayland.so，Qt5 才叫 libqwayland-generic.so）"; exit 1; }
           echo "✅ 平台插件: xcb + ${WAYLAND_COUNT} 个 Wayland 插件"
 
           # ---- 2) xcbglintegrations：X11/XWayland 下创建 OpenGL 上下文的关键 ----
@@ -156,6 +157,52 @@ jobs:
           cp "$FOUND_FCITX" AppDir/usr/plugins/platforminputcontexts/
           echo "✅ fcitx5 输入法插件（源码编译）: $FOUND_FCITX"
 
+          # ---- 4.5) 顺带带上 Qt 官方的 ibus / compose 输入法插件（可选后端）----
+          # 用 ibus（GNOME 默认）的人，系统里那份 Qt6 ibus 插件是针对发行版 Qt 编译的，
+          # 与包内 Qt 6.10 ABI 不匹配；这里放一份同版本 Qt 的官方产物，
+          # 用户设 QT_IM_MODULE=ibus 才真的能用。依赖宿主 libibus-1.0.so.5（装了 ibus 就有）。
+          for p in libibusplatforminputcontextplugin.so libcomposeplatforminputcontextplugin.so; do
+            if [ -e "$QT_PLUGIN_DIR/platforminputcontexts/$p" ]; then
+              cp -a "$QT_PLUGIN_DIR/platforminputcontexts/$p" AppDir/usr/plugins/platforminputcontexts/
+              echo "✅ 已带上 $p（可选输入法后端）"
+            fi
+          done
+
+          # ---- 5) Wayland 客户端侧的 shell / 图形 / 装饰 子插件 ----
+          # 只有 platforms/libqwayland.so 是不够的：
+          #   wayland-shell-integration        → xdg-shell 协议（没有它窗口根本立不起来）
+          #   wayland-graphics-integration-client → EGL / dmabuf / Vulkan 客户端缓冲集成
+          #                                        （没有它 Wayland 下退回 shm 软渲染，等于没 GPU）
+          #   wayland-decoration-client        → 服务端窗口装饰兜底
+          for sub in wayland-shell-integration \
+                     wayland-decoration-client \
+                     wayland-graphics-integration-client; do
+            if [ -d "$QT_PLUGIN_DIR/$sub" ]; then
+              mkdir -p "AppDir/usr/plugins/$sub"
+              cp -a "$QT_PLUGIN_DIR/$sub"/. "AppDir/usr/plugins/$sub/"
+              echo "✅ $sub: $(ls -1 "AppDir/usr/plugins/$sub" | tr '\n' ' ')"
+            else
+              echo "⚠️  Qt 安装中无 $sub"
+            fi
+          done
+          ls AppDir/usr/plugins/wayland-graphics-integration-client/*.so > /dev/null 2>&1 || {
+            echo "!! 缺少 wayland-graphics-integration-client 插件，Wayland 下无法使用 OpenGL/EGL 渲染"
+            exit 1; }
+
+          # ---- 6) libQt6WaylandClient：被 libqwayland.so 运行时 dlopen，只靠 ldd 扫主程序抓不到 ----
+          WAYLAND_LIB="$HOME/Qt/6.10.3/gcc_arm64/lib/libQt6WaylandClient.so.6"
+          if [ -f "$WAYLAND_LIB" ]; then
+            cp -aL "$WAYLAND_LIB" AppDir/usr/lib/
+            echo "✅ libQt6WaylandClient 已拷入 AppDir"
+          else
+            echo "!! 找不到 $WAYLAND_LIB"; exit 1
+          fi
+          # Qt6 里已没有独立的 libQt6WaylandEglClientHwIntegration（Qt5 才有），存在就顺带带上
+          for f in "$HOME/Qt/6.10.3/gcc_arm64/lib"/libQt6Wayland*.so.6; do
+            [ -f "$f" ] || continue
+            cp -aL "$f" AppDir/usr/lib/
+          done
+
           # 注意 1：不要手动把宿主系统的 libxcb*/libwayland*/libxkbcommon* 拷进 AppDir。
           #   这些库必须与用户机器上的 X 服务/compositor 协议版本一致，打进 AppImage 反而会让
           #   Wayland/X11 在新系统上直接不可用（linuxdeploy 有内置排除表，会自动跳过这类库）。
@@ -177,9 +224,13 @@ jobs:
           # 图形后端：Linux 上 Qt 默认走 OpenGL；包内已带 xcbglintegrations。
           # 若你的显卡/驱动不支持 OpenGL，可改用 Vulkan：
           #   QSG_RHI_BACKEND=vulkan ./QueMusic-aarch64.AppImage
-          # 输入法：尊重用户已有设置，缺省 fcitx5（包内已带对应 Qt6 插件）
-          export QT_IM_MODULE="${QT_IM_MODULE:-fcitx}"
+          # 输入法：包里的 fcitx5 插件是 ENABLE_QT4=OFF 编出来的，注册 key 只有 "fcitx5"，
+          # 所以缺省值必须是 fcitx5（写 fcitx 会匹配不到插件 → 无法输入中文）。
+          # 用 ibus 的话自己 QT_IM_MODULE=ibus（包内已带官方 ibus 插件）。
+          export QT_IM_MODULE="${QT_IM_MODULE:-fcitx5}"
           export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
+          export GTK_IM_MODULE="${GTK_IM_MODULE:-fcitx5}"
+          export SDL_IM_MODULE="${SDL_IM_MODULE:-fcitx5}"
           # 分数缩放（125%/150%）：Qt6 默认把缩放系数取整，会导致窗口忽大忽小
           export QT_SCALE_FACTOR_ROUNDING_POLICY="${QT_SCALE_FACTOR_ROUNDING_POLICY:-PassThrough}"
           exec "${HERE}/usr/bin/QueMusic" "$@"
@@ -196,8 +247,11 @@ jobs:
           export EXTRA_QT_MODULES="multimedia;sql;shadertools"
           export QT_QPA_PLATFORM=minimal
 
-          # 删除 AppDir 中可能遗留的旧 Qt 库（避免版本冲突）
-          rm -f AppDir/usr/lib/libQt6*.so* 2>/dev/null || true
+          # 删除 AppDir 中可能遗留的旧 Qt 库（避免版本冲突）。
+          # 例外：libQt6Wayland* 是上一步显式部署的（libqwayland.so 运行时 dlopen，
+          # 单纯扫主程序依赖抓不到），必须保留，否则 Wayland 下一启动就
+          # "Cannot load library libQt6WaylandClient.so.6"。
+          find AppDir/usr/lib -maxdepth 1 -name 'libQt6*.so*' ! -name 'libQt6Wayland*' -delete 2>/dev/null || true
 
           # 在 Qt 插件目录中删除不需要的 SQL 驱动，只保留 sqlite
           QT_PLUGIN_DIR="$HOME/Qt/6.10.3/gcc_arm64/plugins/sqldrivers"
@@ -213,6 +267,10 @@ jobs:
           fi
 
           # 运行 linuxdeploy，它会自动部署所有依赖（包括 Qt 库和插件依赖）
+          # --exclude-library：补 linuxdeploy 内置排除表没覆盖到的宿主库。
+          # 它会顺着 wayland-egl 缓冲集成插件把宿主图形栈也拷进包：
+          #   libwayland-egl.so.1 必须与宿主 Mesa/EGL 匹配，
+          #   libvulkan.so.1 是宿主的 loader+ICD，打进包反而会让 Vulkan 失效。
           ./linuxdeploy-aarch64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
             --executable build/bin/QueMusic \
@@ -220,6 +278,8 @@ jobs:
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
             --plugin qt \
             --custom-apprun AppRun.sh \
+            --exclude-library libwayland-egl.so.1 \
+            --exclude-library libvulkan.so.1 \
             --output appimage
 
           mv QueMusic-*.AppImage QueMusic-aarch64.AppImage 2>/dev/null || true
@@ -257,6 +317,7 @@ jobs:
           check "Wayland 平台插件"         "squashfs-root/usr/plugins/platforms/libqwayland*.so"
           check "X11 OpenGL 集成 (GLX)"    "squashfs-root/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so"
           check "fcitx5 输入法插件"        "squashfs-root/usr/plugins/platforminputcontexts/*fcitx5*.so"
+          warn  "ibus 输入法插件（可选）"   "squashfs-root/usr/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so"
           check "SQLite 驱动"              "squashfs-root/usr/plugins/sqldrivers/libqsqlite.so"
           warn  "X11 EGL 集成"             "squashfs-root/usr/plugins/xcbglintegrations/libqxcb-egl-integration.so"
           warn  "Wayland 客户端库"         "squashfs-root/usr/lib/libQt6WaylandClient.so*"

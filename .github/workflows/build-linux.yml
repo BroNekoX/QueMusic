@@ -53,6 +53,11 @@ jobs:
 
       - name: Install Qt (aqtinstall)
         run: |
+          # 注意：Qt 6.10 的 Wayland 客户端（libqwayland.so 平台插件 / libQt6WaylandClient /
+          # wayland-shell-integration / wayland-graphics-integration-client）都在 base 包的
+          # qtbase 归档里，qtmultimedia/qtshadertools/qt5compat 这些「附加模块」跟 Wayland 无关。
+          # aqt 没有名为 qtwayland 的模块（qtwayland 只是 base 包内的归档名），
+          # 所以 -m 里写 qtwayland 会直接报错、且没必要。
           python3 -m pip install --break-system-packages aqtinstall
           python3 -m aqt install-qt linux desktop "${QT_VERSION}" linux_gcc_64 \
             -O "${QT_DIR}" \
@@ -65,22 +70,50 @@ jobs:
           QTDIR="${QT_DIR}/${QT_VERSION}/gcc_64"
           echo "QTDIR=$QTDIR"
           FAIL=0
-          has() { if ls "$1" > /dev/null 2>&1; then echo "✅ $2"; else echo "❌ $2（无匹配: $1）"; FAIL=1; fi; }
-          has "$QTDIR/plugins/platforms/libqwayland-generic.so" "Wayland 平台插件"
-          has "$QTDIR/plugins/wayland-shell-integration/libxdg-shell.so" "Wayland shell 集成 (xdg-shell)"
-          has "$QTDIR/lib/libQt6WaylandClient.so.6"            "libQt6WaylandClient"
-          has "$QTDIR/lib/libQt6WaylandEglClientHwIntegration.so.6" "libQt6WaylandEglClientHwIntegration"
-          has "$QTDIR/lib/libQt6OpenGL.so.6"                   "libQt6OpenGL"
-          # Vulkan RHI 由 libQt6Gui 内置，不额外装模块，只确认存在
+
+          # 一律用 glob 匹配，不要绑定某个 Qt 小版本的产物名（Qt5 的 libqwayland-generic.so
+          # 在 Qt6 已改名 libqwayland.so；Qt5 的 libQt6WaylandEglClientHwIntegration 在 Qt6
+          # 已被并入 QtWaylandClient）。$3=optional 时缺失只告警。
+          has_glob() {
+            local hits desc mode
+            hits="$(ls -1d $1 2>/dev/null || true)"
+            desc="$2"; mode="${3:-required}"
+            if [ -n "$hits" ]; then
+              echo "✅ $desc"
+              echo "$hits" | sed 's/^/       /'
+            elif [ "$mode" = "optional" ]; then
+              echo "⚠️  $desc（可选，本版本未提供；无匹配: $1）"
+            else
+              echo "❌ $desc（无匹配: $1）"; FAIL=1
+            fi
+          }
+
+          # ---- Wayland ----
+          has_glob "$QTDIR/plugins/platforms/libqwayland*.so"            "Wayland QPA 平台插件"
+          has_glob "$QTDIR/plugins/wayland-shell-integration/libxdg-shell.so" "Wayland shell 集成 (xdg-shell)"
+          has_glob "$QTDIR/plugins/wayland-graphics-integration-client/libqt-plugin-wayland-egl.so" "Wayland 客户端 EGL 缓冲集成（Wayland 下 OpenGL 必需）"
+          has_glob "$QTDIR/lib/libQt6WaylandClient.so.6"                 "libQt6WaylandClient"
+          # Qt5 时代是独立的 QtWaylandEglClientHwIntegration，Qt6 起已不存在，不该当失败项
+          has_glob "$QTDIR/lib/libQt6WaylandEglClientHwIntegration.so.6" "libQt6WaylandEglClientHwIntegration" optional
+
+          # ---- OpenGL ----
+          has_glob "$QTDIR/lib/libQt6OpenGL.so.6"                         "libQt6OpenGL"
+          has_glob "$QTDIR/plugins/xcbglintegrations/libqxcb-glx-integration.so" "X11/XWayland GLX 集成（X11 下建 OpenGL 上下文）"
+
+          # ---- Vulkan：RHI 后端编进 libQt6Gui，不额外装模块，只确认存在 ----
           if strings "$QTDIR/lib/libQt6Gui.so.6" 2>/dev/null | grep -qi vulkan; then
-            echo "✅ QtGui 具备 Vulkan RHI"
+            echo "✅ QtGui 具备 Vulkan RHI（运行时用宿主 libvulkan.so.1 + ICD）"
           else
             echo "❌ QtGui 未检出 Vulkan 支持"; FAIL=1
           fi
-          [ "$FAIL" -eq 0 ] || {
-            echo "::error::Qt 安装缺少 Wayland 组件。请在 install-qt 的 -m 中补上 qtwayland 后重试。"
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo "::group::plugins/platforms 实际内容"
+            ls -l "$QTDIR/plugins/platforms" 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::error::Qt 安装缺少 Wayland/OpenGL 组件。Qt 6.10 的 Wayland 客户端插件随 base 包的 qtbase 归档发布（不是 aqt 的附加模块，也无需 -m qtwayland）；请确认 aqt install-qt 完整安装了 qtbase 归档。"
             exit 1
-          }
+          fi
 
       - name: Configure (CMake)
         run: |
@@ -125,24 +158,43 @@ jobs:
           cp resources/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
 
           # ---- 平台插件：xcb + 全部 wayland ----
+          # Qt 6.10 的 Wayland 平台插件叫 libqwayland.so（Qt5 才叫 libqwayland-generic.so），
+          # 所以这里只按前缀匹配，不写死具体文件名。
           mkdir -p AppDir/usr/plugins/platforms
           cp -a "$QT_PLUGIN_DIR/platforms/libqxcb.so" AppDir/usr/plugins/platforms/
+          WAYLAND_QPA=0
           for p in "$QT_PLUGIN_DIR"/platforms/libqwayland*.so; do
             [ -e "$p" ] || continue
             cp -a "$p" AppDir/usr/plugins/platforms/
+            WAYLAND_QPA=$((WAYLAND_QPA + 1))
           done
+          if [ "$WAYLAND_QPA" -eq 0 ]; then
+            echo "::error::$QT_PLUGIN_DIR/plugins/platforms 下没有任何 libqwayland*.so，Wayland 会话无法启动"
+            ls -l "$QT_PLUGIN_DIR/plugins/platforms" || true
+            exit 1
+          fi
+          echo "✅ 平台插件：libqxcb.so + ${WAYLAND_QPA} 个 Wayland 插件"
 
           # ---- Wayland 子插件（缺了这些 wayland 窗口根本立不起来）----
+          # wayland-shell-integration：xdg-shell 等协议（没有它窗口起不来）
+          # wayland-graphics-integration-client：EGL / dmabuf / Vulkan 客户端缓冲集成
+          #                                    （没有它 Wayland 下拿不到 GPU 渲染，退回 shm 软渲染）
+          # wayland-decoration-client：服务端窗口装饰（无边框/无标题栏时的兜底）
           for sub in wayland-shell-integration \
                      wayland-decoration-client \
                      wayland-graphics-integration-client; do
             if [ -d "$QT_PLUGIN_DIR/$sub" ]; then
               mkdir -p "AppDir/usr/plugins/$sub"
               cp -a "$QT_PLUGIN_DIR/$sub/." "AppDir/usr/plugins/$sub/"
+              echo "✅ $sub: $(ls -1 "AppDir/usr/plugins/$sub" | tr '\n' ' ')"
             else
               echo "⚠️ Qt 安装中无 $sub"
             fi
           done
+          if ! ls AppDir/usr/plugins/wayland-graphics-integration-client/*.so > /dev/null 2>&1; then
+            echo "::error::缺少 wayland-graphics-integration-client 插件，Wayland 下将无法使用 OpenGL/EGL 渲染"
+            exit 1
+          fi
 
           # ---- X11 上的 GLX / EGL 集成（OpenGL 后端必需）----
           if [ -d "$QT_PLUGIN_DIR/xcbglintegrations" ]; then
@@ -163,21 +215,54 @@ jobs:
             cp -aL "$f" AppDir/usr/lib/
           done < <(find fcitx5-qt/build \( -name 'libFcitx5Qt6*.so*' -o -name 'libfcitx5-qt*.so*' \))
 
-          # ---- Wayland 客户端库本体（上一版就是漏了这两个）----
-          for lib in libQt6WaylandClient.so.6 libQt6WaylandEglClientHwIntegration.so.6; do
+          # ---- 顺带带上 Qt 官方的 ibus / compose 输入法插件 ----
+          # 用 ibus（GNOME 默认）的人：系统里那份 Qt6 ibus 插件是针对发行版 Qt 编译的，
+          # 与包内 Qt 6.10 ABI 不匹配 → 这里放一份同版本 Qt 的官方产物，
+          # 用户设 QT_IM_MODULE=ibus 才真的能用。它依赖宿主的 libibus-1.0.so.5
+          # （装了 ibus 就有），缺了只是这个插件不加载，不影响 fcitx5。
+          for p in libibusplatforminputcontextplugin.so libcomposeplatforminputcontextplugin.so; do
+            if [ -e "$QT_PLUGIN_DIR/platforminputcontexts/$p" ]; then
+              cp -a "$QT_PLUGIN_DIR/platforminputcontexts/$p" AppDir/usr/plugins/platforminputcontexts/
+              echo "✅ 已带上 $p（可选输入法后端）"
+            fi
+          done
+
+          # ---- Wayland 客户端库本体 ----
+          # Qt6 只有 libQt6WaylandClient.so.6（Qt5 的 libQt6WaylandEglClientHwIntegration 已被
+          # 并入其中），所以只强制要求前者，其余 libQt6Wayland*.so.6 存在就一并带走。
+          for lib in libQt6WaylandClient.so.6; do
             if [ -e "$QT_LIB_DIR/$lib" ]; then
               cp -aL "$QT_LIB_DIR/$lib" AppDir/usr/lib/
             else
               echo "❌ Qt 安装缺少 $lib"; exit 1
             fi
           done
+          for f in "$QT_LIB_DIR"/libQt6Wayland*.so.6; do
+            [ -e "$f" ] || continue
+            cp -aL "$f" AppDir/usr/lib/
+          done
 
           # ---- 协议类宿主库：ABI 稳定，随包带走更保险 ----
           # 绝不打包：libGL / libEGL / libGLX / libOpenGL / libwayland-egl / libgbm / libvulkan
           # 这些必须由目标系统提供，否则图形栈被锁死在构建机的 Mesa/驱动上。
+          #
+          # 注意：不要写 f="$(ls /usr/lib/.../$lib | head -n1)"。
+          # set -o pipefail 下 ls 找不到文件会让整步「无声地」退出 1，极难排查；
+          # 这里用显式查找 + if 判断，找不到只告警。
+          find_host_lib() {
+            local name="$1" cand
+            for cand in "/usr/lib/x86_64-linux-gnu/$name" "/usr/lib/$name" "/lib/x86_64-linux-gnu/$name"; do
+              if [ -e "$cand" ]; then printf '%s\n' "$cand"; return 0; fi
+            done
+            return 1
+          }
           for lib in libwayland-client.so.0 libwayland-cursor.so.0; do
-            f="$(ls /usr/lib/x86_64-linux-gnu/$lib 2>/dev/null | head -n1)"
-            [ -n "$f" ] && cp -aL "$f" AppDir/usr/lib/ || echo "⚠️ 未找到系统库 $lib"
+            if f="$(find_host_lib "$lib")"; then
+              cp -aL "$f" AppDir/usr/lib/
+              echo "✅ 已带上宿主 $lib"
+            else
+              echo "⚠️ 未找到宿主 $lib（构建机缺 libwayland-client0/libwayland-cursor0？）"
+            fi
           done
 
           # ---- Qt 自身的 qt.conf，保证即使 QT_PLUGIN_PATH 被覆盖也能找到插件 ----
@@ -249,16 +334,15 @@ jobs:
           export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
           export QT_WAYLAND_RECONNECT="${QT_WAYLAND_RECONNECT:-1}"
 
-          # ---- 输入法：fcitx5 插件的 key 是 fcitx5，不是 fcitx ----
-          if [ -z "${QT_IM_MODULE:-}" ]; then
-            if command -v fcitx5-remote >/dev/null 2>&1 || pgrep -x fcitx5 >/dev/null 2>&1; then
-              export QT_IM_MODULE=fcitx5
-            else
-              export QT_IM_MODULE=fcitx
-            fi
-          fi
+          # ---- 输入法 ----
+          # 包里的 fcitx5 插件是 ENABLE_QT4=OFF + BUILD_ONLY_PLUGIN=ON 编出来的，
+          # 它的注册 key 只有 "fcitx5"（Qt4 兼容的 "fcitx" key 不会生成），
+          # 所以这里默认必须是 fcitx5：写成 fcitx 会匹配不到插件 → 直接无法输入中文。
+          # 用户用 ibus 就自己 QT_IM_MODULE=ibus（包里已带官方 ibus 插件）。
+          export QT_IM_MODULE="${QT_IM_MODULE:-fcitx5}"
           export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
           export GTK_IM_MODULE="${GTK_IM_MODULE:-fcitx5}"
+          export SDL_IM_MODULE="${SDL_IM_MODULE:-fcitx5}"
 
           # ---- 图形后端 ----
           # 默认交给 Qt 自动选择（桌面通常 OpenGL / GLES）。
@@ -303,6 +387,12 @@ jobs:
           export EXTRA_PLATFORM_PLUGINS="$WP"
           echo "EXTRA_PLATFORM_PLUGINS=$WP"
           export QT_QPA_PLATFORM=minimal
+          # 说明：--exclude-library 用来补 linuxdeploy 内置排除表没覆盖到的宿主库，
+          # 否则它会顺着 wayland-egl 缓冲集成插件把宿主的 libwayland-egl / libvulkan
+          # 也拷进包，最后会被下面的 absent 门禁判失败：
+          #   libwayland-egl.so.1 → 必须与宿主的 Mesa/EGL 匹配，改由用户机器提供
+          #   libvulkan.so.1      → 宿主 loader + ICD，打进包会让 Vulkan 失效
+          # （libGL/libEGL/libGLX/libOpenGL/libgbm/libwayland-client 已在内置排除表里）
 
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run \
             --appdir AppDir \
@@ -311,6 +401,8 @@ jobs:
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
             --plugin qt \
             --custom-apprun AppRun.sh \
+            --exclude-library libwayland-egl.so.1 \
+            --exclude-library libvulkan.so.1 \
             --output appimage
 
           mv QueMusic-*.AppImage "$APPIMAGE_NAME"
@@ -322,6 +414,7 @@ jobs:
           R="squashfs-root"
 
           check() { if ls $2 > /dev/null 2>&1; then echo "✅ $1"; else echo "❌ 缺少 $1（无匹配: $2）"; MISSING=1; fi; }
+          warn()  { if ls $2 > /dev/null 2>&1; then echo "✅ $1"; else echo "⚠️  缺少 $1（无匹配: $2）"; fi; }
           absent() {
             local label="$1" hit=0 pat
             shift
@@ -338,15 +431,21 @@ jobs:
           check "Wayland 平台插件"                        "$R/usr/plugins/platforms/libqwayland*.so"
           check "Wayland shell 集成 (xdg-shell)"          "$R/usr/plugins/wayland-shell-integration/libxdg-shell.so"
           check "Wayland 图形集成客户端"                   "$R/usr/plugins/wayland-graphics-integration-client/*.so"
+          check "Wayland EGL 缓冲集成"                    "$R/usr/plugins/wayland-graphics-integration-client/libqt-plugin-wayland-egl.so"
+          warn  "Wayland 窗口装饰"                        "$R/usr/plugins/wayland-decoration-client/*.so"
           check "X11 GLX 集成 (OpenGL)"                  "$R/usr/plugins/xcbglintegrations/libqxcb-glx-integration.so"
           check "X11 EGL 集成 (OpenGL ES)"               "$R/usr/plugins/xcbglintegrations/libqxcb-egl-integration.so"
           check "fcitx5 输入法插件"                       "$R/usr/plugins/platforminputcontexts/*fcitx5*.so"
+          warn  "ibus 输入法插件（可选）"                  "$R/usr/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so"
           check "SQLite 驱动"                            "$R/usr/plugins/sqldrivers/libqsqlite.so"
           check "Wayland 客户端库"                        "$R/usr/lib/libQt6WaylandClient.so*"
-          check "Wayland EGL 客户端集成"                   "$R/usr/lib/libQt6WaylandEglClientHwIntegration.so*"
-          check "fcitx5 addons 库"                       "$R/usr/lib/libFcitx5Qt6DBusAddons.so*"
           check "Wayland 协议库"                          "$R/usr/lib/libwayland-client.so*"
           check "Qt OpenGL 模块"                         "$R/usr/lib/libQt6OpenGL.so*"
+          # 说明：Qt5 时代的 libQt6WaylandEglClientHwIntegration.so.6 在 Qt6 已并入
+          # libQt6WaylandClient，不再作为校验项（EGL 能力由上面的 wayland-egl 缓冲集成插件提供）。
+          # fcitx5-qt 以 BUILD_ONLY_PLUGIN=ON 构建时，DBusAddons 等公共代码是静态链进插件的，
+          # 因此 libFcitx5Qt6*.so 可能根本不存在，这里只告警、不判失败。
+          warn  "fcitx5 addons 动态库（静态链接时可缺）"     "$R/usr/lib/libFcitx5Qt6*.so*"
 
           absent "宿主图形驱动库" \
             "$R/usr/lib/libGL.so*"  "$R/usr/lib/libEGL.so*" \

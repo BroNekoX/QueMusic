@@ -10,8 +10,12 @@ jobs:
   build-macos:
     strategy:
       fail-fast: false
+      # macos-13（Intel）已被 GitHub 下线：用它会一直排队拿不到 runner，
+      # 约 24h 后被取消（见历史运行 20/21/23/24，runner_id 一直是 0）。
+      # Intel 包改用当前的 x64 标签 macos-15-intel；macos-14 是 arm64。
+      # 两个 runner 都按「原生架构」构建，DMG 名用 uname -m 区分（arm64 / x86_64）。
       matrix:
-        os: [macos-14, macos-13]
+        os: [macos-14, macos-15-intel]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write   # <--- 新增：赋予写入 Release 的权限
@@ -50,6 +54,27 @@ jobs:
           fi
           echo "Qt6Multimedia found at $QT_PREFIX/lib/cmake/Qt6Multimedia"
 
+      # 音频后端的解码层直接链接 libavcodec/libavformat/libavutil/libswresample。
+      # 官方 Qt 的 macOS 包自带这 4 个 dylib（FFmpeg 7.1.3），CMake 会直接用它 + 仓库里的
+      # ffmpeg/include 头文件（同版本 61.x），所以通常什么都不用装。
+      # 只有换成自制/精简 Qt 时才需要兜底装 brew 版 ffmpeg（并让 pkg-config 找得到）。
+      - name: Ensure FFmpeg libraries
+        run: |
+          set -euo pipefail
+          if [ -e "$QT_PREFIX/lib/libavcodec.dylib" ]; then
+            echo "✅ 使用 Qt 自带 FFmpeg：$(ls -1 "$QT_PREFIX"/lib/libav*.dylib | xargs -n1 basename | tr '\n' ' ')"
+            exit 0
+          fi
+          echo "⚠️  $QT_PREFIX/lib 里没有 libav*.dylib，退回 brew 版 ffmpeg"
+          command -v pkg-config >/dev/null 2>&1 || brew install pkgconf
+          brew list --formula ffmpeg >/dev/null 2>&1 || brew install ffmpeg
+          BP="$(brew --prefix)"
+          echo "PKG_CONFIG_PATH=${BP}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+          export PKG_CONFIG_PATH="${BP}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          for m in libavcodec libavformat libavutil libswresample; do
+            printf '  %s: %s\n' "$m" "$(pkg-config --modversion "$m")"
+          done
+
       - name: Generate .icns app icon
         run: |
           mkdir -p icon.iconset
@@ -79,9 +104,65 @@ jobs:
 
       - name: Bundle with macdeployqt
         run: |
-          APP_PATH=$(find build -maxdepth 2 -name "*.app" -type d | head -n1)
+          set -euo pipefail
+          APP_PATH="$(find build -maxdepth 2 -name "*.app" -type d | head -n1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "!! 没找到 .app，构建产物不完整"
+            find build -maxdepth 3 -type d | head -30
+            exit 1
+          fi
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
-          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH"
+          echo "APP=$APP_PATH"
+
+          # -qmldir 必须给：QML 都编进 qrc 了，bundle 里没有自己的 qml 目录，
+          # 不告诉 macdeployqt 去哪扫 import，它就不会把 QtQuick/Controls 等 QML 插件
+          # 拷进 Contents/PlugIns/qml —— 用户打开会直接报 module "QtQuick" is not installed。
+          # 注意：macdeployqt 会顺手把非 Qt 的第三方 dylib（这里就是 Qt 自带的 libav*）
+          # 一起拷进 Contents/Frameworks 并改写 install name，所以无需 brew 装 ffmpeg。
+          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH" -qmldir="$PWD" -always-overwrite
+
+      # 校验门禁：bundle 必须自带 FFmpeg 动态库（音频解码层直接链接），
+      # 且不能残留构建机上的绝对路径，否则用户换台 Mac 打开就是「已损坏」或直接闪退。
+      - name: Verify bundle（FFmpeg 动态库 + 依赖路径）
+        run: |
+          set -uo pipefail
+          MISSING=0
+
+          echo "--- Contents/Frameworks 里的 FFmpeg ---"
+          ls -l "$APP_PATH/Contents/Frameworks" | grep -Ei 'libav|libsw' || true
+          for m in libavcodec libavformat libavutil libswresample; do
+            if ls "$APP_PATH"/Contents/Frameworks/${m}*.dylib >/dev/null 2>&1; then
+              echo "✅ $m 已打进 bundle"
+            else
+              echo "❌ bundle 内缺少 $m：音频解码层直接链接它，用户侧启动即崩"
+              MISSING=1
+            fi
+          done
+
+          echo "--- 构建机绝对路径检查 ---"
+          HOST_REFS="$(
+            { otool -L "$APP_PATH/Contents/MacOS/"* 2>/dev/null
+              find "$APP_PATH/Contents" -name '*.dylib' -o -name '*.so' 2>/dev/null |
+                while IFS= read -r f; do otool -L "$f" 2>/dev/null; done
+            } | awk '{print $1}' | grep -v "^$APP_PATH" |
+              grep -E '^/(opt/homebrew|usr/local|Users)/' | sort -u || true
+          )"
+          if [ -n "$HOST_REFS" ]; then
+            while IFS= read -r l; do [ -n "$l" ] && echo "❌ 仍指向构建机路径：$l"; done <<< "$HOST_REFS"
+            MISSING=1
+          else
+            echo "✅ 没有指向构建机的绝对路径依赖"
+          fi
+
+          echo "--- QML 插件 ---"
+          if ls "$APP_PATH"/Contents/PlugIns/qml/QtQuick >/dev/null 2>&1; then
+            echo "✅ QtQuick QML 插件已部署"
+          else
+            echo "⚠️  bundle 内没有 QtQuick QML 插件（若启动报 module \"QtQuick\" is not installed，就是这里）"
+          fi
+
+          [ "$MISSING" -eq 0 ] || { echo "::error::bundle 校验未通过，终止打包"; exit 1; }
+          echo "🎉 bundle 校验通过"
 
       # 代码签名：由内向外逐层签，不用已废弃的 --deep。
       # Qt 应用有大量嵌套 framework/plugin，--deep 常留下无法验证的签名，
