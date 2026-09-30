@@ -2605,10 +2605,10 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "QueMusic Web（X）"
+                        text: "QueMusic Web"
                         iconCharacter: "\uf0d7"
                         onClicked: {
-                            Qt.openUrlExternally("example.com");
+                            Qt.openUrlExternally("https://8.133.18.144");
                         }
                     }
 

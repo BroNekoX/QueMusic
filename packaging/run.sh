@@ -29,6 +29,11 @@ if [ -z "$QT_LIB" ]; then
 fi
 if [ -n "$QT_LIB" ] && [ -d "$QT_LIB" ]; then
     export LD_LIBRARY_PATH="$QT_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+else
+    # 找不到 Qt 时先说一句人话：否则动态加载器只会丢一句
+    # "libQt6Core.so.6: cannot open shared object file"，很难看出是 Qt 没找到。
+    echo "提示：没找到 Qt 的库目录。本包不含 Qt，需要系统里已经装了 Qt 6.10+。" >&2
+    echo "      也可以手动指定：QT_LIBDIR=/你的/Qt/6.10.x/gcc_64/lib ./run.sh" >&2
 fi
 
 exec "./bin/QueMusic" "$@"

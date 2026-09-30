@@ -1,12 +1,13 @@
 name: Build Linux tar 包（便携版）
 
 # 和 AppImage 的区别：这个包**不**把 Qt 打进去，而是依赖用户机器上的 Qt。
-# 包内容 = build/bin + build/_deps + packaging/run.sh + 使用注意事项.txt
-# 目标环境：Linux x86_64 + Qt 6.10+（官方 Qt 自带 FFmpeg 7.1.3），解压后 ./run.sh 即用。
+# 包内容 = build/bin + build/_deps + Qt 自带的 FFmpeg 运行库 + run.sh + 使用注意事项.txt
+# 目标环境：Linux x86_64 + Qt 6.10+，解压后 ./run.sh 即用（FFmpeg 运行库已随包自带，
+#           用户不需要再装任何 ffmpeg）。
 #
 # 目录结构：
 #   QueMusic-linux-x86_64/
-#     bin/                   主程序 + 本仓库编译出的动态库
+#     bin/                   主程序 + 本仓库编译出的动态库 + Qt 自带的 FFmpeg 运行库
 #     _deps/                 第三方依赖构建产物（已剔除纯编译中间产物）
 #     run.sh                 启动脚本（只负责启动程序 + 找到 Qt 库目录）
 #     使用注意事项.txt
@@ -120,6 +121,29 @@ jobs:
           cp -a build/bin   "$STAGE/bin"
           cp -a build/_deps "$STAGE/_deps"
 
+          # ---- 1.5) Qt 自带的 FFmpeg 运行库：必须随包带 ----
+          # 本流程 Configure 用的是 -DQUEMUSIC_FFMPEG_USE_QT=ON，主程序链的是 Qt 自带那份
+          # libavcodec.so.61（FFmpeg 7.1.3，官方 Qt 包随 QtMultimedia 一起装），
+          # 而本包按设计不带 Qt —— 所以这一小撮运行库必须在包内自带，否则用户机器上只要
+          # 不是「官方 Qt + libavcodec.so.61」就会报：
+          #   error while loading shared libraries: libavcodec.so.61: cannot open shared object file
+          # 放 bin/ 是因为主程序的 RPATH 第一条就是 $ORIGIN（自己所在目录），加载器直接能找到，
+          # 不需要 run.sh 额外拼路径。
+          QTLIB="${QT_DIR}/${QT_VERSION}/gcc_64/lib"
+          FF_N=0
+          for f in "$QTLIB"/libav*.so.* "$QTLIB"/libsw*.so.*; do
+            [ -e "$f" ] || continue
+            cp -a "$f" "$STAGE/bin/"
+            FF_N=$((FF_N + 1))
+          done
+          if [ "$FF_N" -eq 0 ]; then
+            echo "::error::在 $QTLIB 下找不到 Qt 自带的 FFmpeg 运行库（libavcodec.so.61 等），无法产出可用包"
+            exit 1
+          fi
+          echo "✅ 已随包带上 Qt 自带 FFmpeg 运行库 $FF_N 个文件: $(ls -1 "$STAGE/bin" | grep -E '^lib(av|sw)' | tr '\n' ' ')"
+          ls -1 "$STAGE/bin" | grep -qE '^libavcodec\.so\.' || {
+            echo "::error::包里没有 libavcodec.so.* （主程序直接依赖它，缺了必然起不来）"; exit 1; }
+
           # ---- 2) 剔掉纯编译中间产物（运行期用不到，占体积）----
           find "$STAGE/_deps" -type d -name CMakeFiles -prune -exec rm -rf {} + 2>/dev/null || true
           find "$STAGE" -type f \( -name '*.o' -o -name '*.obj' -o -name '*.a' \
@@ -215,6 +239,27 @@ jobs:
             *aarch64*) echo "    架构: aarch64" ;;
             *x86-64*|*x86_64*) echo "    架构: x86_64" ;;
           esac
+
+          # 1.5) 主程序直接链 libavcodec/libavformat/libavutil/libswresample，
+          #      这些由 Qt 自带（7.1.3），必须已经随包带在 bin/ 里 —— 上一版就是漏了这步，
+          #      用户机器上直接报 "libavcodec.so.61: cannot open shared object file"。
+          for lib in libavcodec.so libavformat.so libavutil.so libswresample.so; do
+            if ls "$ROOT/bin/$lib".* > /dev/null 2>&1; then
+              ok "包内自带 $lib（$(basename "$(ls "$ROOT/bin/$lib".* | head -n1)")）"
+            else
+              bad "包内缺 $lib（用户机器上会出现 libav* 找不到）"
+            fi
+          done
+
+          # 1.6) 模拟「用户机器上只有 Qt、没有系统 ffmpeg」：不给任何 LD_LIBRARY_PATH，
+          #      只靠包内 $ORIGIN 相对 RPATH。此时 Qt 库缺失是正常的（用户自备），
+          #      但 libav*/libsw* 必须已经由包内解析，否则打包就是漏了。
+          MISS_NO_LP="$(ldd "$ROOT/bin/QueMusic" 2>/dev/null | awk '/not found/{print $1}' | sort -u)"
+          if printf '%s\n' "$MISS_NO_LP" | grep -qE '^lib(av|sw)'; then
+            bad "不给 LD_LIBRARY_PATH 时仍缺：$(printf '%s' "$MISS_NO_LP" | grep -E '^lib(av|sw)' | tr '\n' ' ')"
+          else
+            ok "FFmpeg 运行库已随包自带（不依赖宿主 ffmpeg）"
+          fi
 
           # 2) 不能残留构建机绝对路径（RPATH），并且必须绑在 FFmpeg 7.1.3 上
           echo "--- RPATH / FFmpeg 版本检查 ---"
