@@ -228,16 +228,36 @@ jobs:
 
           sign_item() {
             codesign --force $TS $OPTIONS --sign "$IDENTITY" "$1" \
-              || { echo "!! 签名失败: $1"; exit 1; }
+              || { echo "::group::codesign 详细输出: $1"
+                   codesign --force $TS $OPTIONS --verbose=4 --sign "$IDENTITY" "$1" 2>&1 | tail -20 || true
+                   echo "::endgroup::"
+                   echo "!! 签名失败: $1"; exit 1; }
           }
 
-          # find -depth：先签最深层的 dylib，再签其所在的 framework，最后签 .app 本体
-          for dir in "$APP_PATH/Contents/Frameworks" "$APP_PATH/Contents/PlugIns"; do
-            [ -d "$dir" ] || continue
-            find "$dir" -depth ! -type l \
-              \( -name "*.framework" -o -name "*.dylib" -o -name "*.so" \) -print0 |
-              while IFS= read -r -d '' item; do sign_item "$item"; done
-          done
+          # 顺序：framework → 其它 dylib → 其余 Mach-O（主程序/辅助工具）→ .app 本体
+          #
+          # 1) framework 按「bundle」签，codesign 会连带处理它内部的版本目录与二进制
+          while IFS= read -r -d '' fw; do sign_item "$fw"; done \
+            < <(find "$APP_PATH" -depth -type d -name "*.framework" -print0)
+
+          # 2) 其余 .dylib / .so；framework 内部的跳过（上一步已按 bundle 签过）
+          #    注意这里必须扫整个 .app，不能只扫 Frameworks 和 PlugIns：
+          #    QWindowKit 把 libQWKCore.dylib 放在 Contents/MacOS/ 下，漏掉它签 .app 本体时就会报
+          #    "code object is not signed at all / In subcomponent: .../MacOS/libQWKCore.dylib"。
+          while IFS= read -r -d '' lib; do
+            case "$lib" in *".framework/"*) continue ;; esac
+            sign_item "$lib"
+          done < <(find "$APP_PATH" ! -type l -type f \( -name "*.dylib" -o -name "*.so" \) -print0)
+
+          # 3) 其它可执行的 Mach-O：主可执行文件、可能存在的 helper
+          #    （entitlements / hardened runtime 就落在主可执行文件上）
+          while IFS= read -r -d '' exe; do
+            case "$exe" in *".framework/"*) continue ;; esac
+            if file -b "$exe" | grep -q 'Mach-O'; then sign_item "$exe"; fi
+          done < <(find "$APP_PATH" ! -type l -type f -perm -u+x \
+                     ! -name "*.dylib" ! -name "*.so" -print0)
+
+          # 4) 最后签 .app 本体
           sign_item "$APP_PATH"
 
       # 校验门禁：签名必须能验证通过，否则用户会看到"已损坏"，这里直接让 CI 失败

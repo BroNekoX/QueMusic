@@ -97,6 +97,13 @@ Item {
         }
     }
 
+    Connections {
+        target: window
+        function onExit(): void {
+            browser.goUp();
+        }
+    }
+
     // 服务器列表
     QLocalView {
         id: serverView
@@ -411,7 +418,7 @@ Item {
         confirmText: "保存"
         onConfirm: root.submitForm()
 
-        Column {
+        options: Column {
             width: parent.width
             spacing: 10
 
@@ -462,6 +469,21 @@ Item {
                 width: parent.width
                 height: 36
                 echoMode: TextInput.Password
+                SButton {
+                    width: 36
+                    height: 36
+                    radius: parent.radius
+                    anchors.right: parent.right
+                    buttonColor: "transparent"
+                    iconCharacter: parent.echoMode === TextInput.Password ? "\uf001" : "\uf11f"
+                    onClicked: {
+                        if(parent.echoMode === TextInput.Password) {
+                            parent.echoMode = TextInput.Normal;
+                        } else {
+                            parent.echoMode = TextInput.Password;
+                        }
+                    }
+                }
             }
         }
     }

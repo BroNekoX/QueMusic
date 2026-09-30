@@ -149,7 +149,7 @@ Item {
                 }
                 QSwitch {
                     visible: manager.multi
-                    width: 64
+                    width: 96
                     height: 32
                     switchTrue: row.isOn
                     onToggled: manager.store.setEnabled(modelData.id, !row.isOn)

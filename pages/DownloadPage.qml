@@ -56,7 +56,7 @@ Item {
         x: 24
         y: 80
         z: 5
-        model: ["正在下载", "已下载", "云端"]
+        model: ["正在下载", "已下载"]
         tabWidth: 90
         width: 276
         rectXy: Qt.rect(0, 12, width, 40)
@@ -92,7 +92,7 @@ Item {
         width: parent.width - 32
         height: parent.height - 68
         id: downloadChildPage
-        pageList: [downloadingPage, downloadedPage, cloudPage]
+        pageList: [downloadingPage, downloadedPage]
 
         Item {
             id: downloadingPage
@@ -377,22 +377,6 @@ Item {
                     }
                 }
 
-            }
-        }
-
-        // 云端
-        Item {
-            id: cloudPage
-            visible: false
-            width: downloadChildPage.width
-            height: downloadChildPage.height
-            Text {
-                anchors.centerIn: parent
-                text: "云端"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Style.themes.textColor
-                font.pixelSize: 14
             }
         }
     }
