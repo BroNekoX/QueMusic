@@ -6,7 +6,6 @@
 // 用法：openColor(当前色) 打开，onAccepted 里读 selectedColor。
 // 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 mainLayout，跨文件使用需调用方显式设置。
 import QtQuick
-import QtQuick.Controls.Basic
 import QueMusic 1.0
 
 QOptionDialog {

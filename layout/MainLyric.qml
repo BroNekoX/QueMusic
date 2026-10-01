@@ -190,7 +190,7 @@ Item {
             radius: 12.0
             samples: 16
             fast: true
-            color: "#32000000"
+            color: "#30000000"
             source: titleMax // 阴影绑定到主内容区域
         }
     }

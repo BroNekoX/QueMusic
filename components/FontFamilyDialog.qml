@@ -54,7 +54,6 @@ QOptionDialog {
             clip: true
             model: root.filteredFamilies
             property int scrollToY: familyList.contentY
-            //boundsBehavior: Flickable.StopAtBounds
             onDraggingChanged: familyList.scrollToY = familyList.contentY
 
             ScrollBar.vertical: ScrollBar {

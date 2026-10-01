@@ -1935,7 +1935,6 @@ Item {
             TextArea {
                 id: lyricsArea
                 width: parent.width
-                //height: 180
                 color: Style.themes.fontColor
                 font.pixelSize: Style.settings.textmain
                 wrapMode: TextEdit.Wrap

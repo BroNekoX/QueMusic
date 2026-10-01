@@ -12,7 +12,6 @@ Popup {
     property alias title: titleText.text
     property alias options: content.children
     property alias header: titleText.children
-    //property Component options
     property string cancelText: ""
     property string cancelIcon: "\uf10f"
     property string confirmText: "完成"
@@ -78,7 +77,6 @@ Popup {
             synchronousDrag: true
             ScrollBar.vertical: ScrollBar {
                 anchors.right: dialogContent.right
-                //anchors.rightMargin: 10
                 anchors.top: dialogContent.top
                 anchors.bottom: dialogContent.bottom
             }

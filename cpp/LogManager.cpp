@@ -304,6 +304,9 @@ void LogManager::messageHandler(QtMsgType type, const QMessageLogContext &contex
         self->writeLine(level, cat, msg);
     } else {
         QMetaObject::invokeMethod(self, [self, level, cat, msg]() {
+            // 排到这条时单例可能已析构（析构里清了 s_instance），不能再解引用
+            if (s_instance.load() != self)
+                return;
             self->writeLine(level, cat, msg);
         }, Qt::QueuedConnection);
     }

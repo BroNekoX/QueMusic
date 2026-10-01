@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 import QtQuick.Effects
 
 Item {
@@ -11,7 +10,7 @@ Item {
     width: 80
     height: 80
 
-    property url source//: "qrc:/QueMusic/resources/app/musicpic.png"
+    property url source
     property int radius: width / 2
     property bool cache: Options.settings.picCache ? true : false
     property alias radius1: mask.topLeftRadius

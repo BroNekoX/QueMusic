@@ -73,7 +73,6 @@ public:
                                  const QVariantMap &meta);
     Q_INVOKABLE void retryTask(int taskId);
     Q_INVOKABLE void removeTask(int taskId);
-    Q_INVOKABLE void cancelCurrent();
     Q_INVOKABLE QString effectiveDownloadDir() const;
 
     int currentTaskId() const { return m_currentTaskId; }

@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Controls.Basic
 import QueMusic 1.0
 import 'qrc:/QueMusic/components'
 
@@ -325,6 +324,7 @@ Item {
                 model: MusicApi.musicPlaylists
                 property int artistX: width / 2 - 50
                 bottomMargin: 24
+                isList: true
 
                 onEnded: {
                     if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {
@@ -388,7 +388,7 @@ Item {
                     QPicture {
                         width: 156
                         height: 156
-                        source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: (model.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
                         radius: Style.settings.labelRadius
                         radius3: 0
                         radius4: 0
@@ -557,7 +557,7 @@ Item {
                         width: 96
                         height: 96
                         radius: 48
-                        source: model.cover.replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: (model.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -577,7 +577,7 @@ Item {
                             MusicApi.playlistSong.clear();
                             MusicApi.globalid = model.hash;
                             MusicApi.getSingerSongs(model.hash, 1, 20, MusicApi.songSource);
-                            singerSongsWindow.opened(model.title,model.cover.replace("{size}","256"));
+                            singerSongsWindow.opened(model.title, (model.cover || "").replace("{size}","256"));
                             window.exitIndex = 2;
                         }
                     }

@@ -12,18 +12,22 @@ Rectangle {
     id: musicControlMin
     y: parent.height - 78 + musicControlMax.hideHeight
     height: 78
-    color: Style.themes.primaryBlurColor
+    color: Style.settings.noOpacityControl ? Style.themes.primaryColor : Style.themes.primaryBlurColor
     clip: false
     property int musicInfoX: 100
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
-    readonly property string mediaTime: Playback.fmt(player.position)
+    //readonly property string mediaTime: Playback.fmt(player.position)
+    readonly property string mediaTime: {
+        const seconds = Math.floor(player.position / 1000) % 60;
+        return Math.floor(player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
+      }
+
     Connections {
         target: playListModel
         function onPlayListIndexChanged(): void {
-            // 空队列时 playListIndex 为 -1，get 会返回 undefined
             if(playListModel.playListIndex < 0)
                 return;
             likeButton.iconColor = FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
@@ -37,7 +41,6 @@ Rectangle {
         color: Style.themes.sideColor
     }
 
-    // 拆分多歌手，覆盖常见分隔符：/ 、 ， , & ; ；(不含空格，避免拆坏英文歌手名)
     function parseArtists(raw: string): var {
         const parts = raw.split(/\s*[\/、,，&;&；]\s*/);
         const list = [];
@@ -132,7 +135,6 @@ Rectangle {
                 border.color: Style.themes.themeColor
                 border.width: 2.5
                 ToolTip {
-                    //visible: progressSlider.hovered || progressSlider.pressed
                     visible: parent.visible
                     text: musicControlMin.mediaTime
                     horizontalPadding: 10
@@ -364,7 +366,7 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         height: 46
         spacing: 4
         SButton {
-            iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][Options.settings.cycleIndex]
+            iconCharacter: Playback.cycleIcon
             width: 46
             height: 46
             radius: 46
@@ -380,7 +382,7 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
                     Options.settings.cycleIndex = 0;
                 }
             }
-            tipText: ["列表循环","单曲循环","随机播放","暂停操作"][Options.settings.cycleIndex]
+            tipText: Playback.cycleTip
         }
         SButton {
             iconCharacter: "\uf0dc"
@@ -591,21 +593,6 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
     }
 
     function openPlayerOptions(): void { playerOptions.open() }
-
-    // 上一首
-    function lastMedia(): void { Playback.previous() }
-    // 下一首
-    function enterMedia(): void { Playback.next(false) }
-    // 随机播放（洗牌牌堆，避免最近播放）
-    function randomMedia(): void { Playback.next(true) }
-    // 切换播放列表显示
-    function togglePlayList(): void {
-        if(playList.visible) {
-            playList.close();
-        } else {
-            playList.open();
-        }
-    }
 
     ToolTip {
         id: volumeControl

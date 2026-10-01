@@ -42,7 +42,7 @@ Settings {
     property bool premiumAnime: false //高级动画
     property int animeSpeed: 1
     property int homeLayout: 0 //首页布局 0.默认 1.竖向 2.混合
-    property int spotSpeed: 1 //桌面部件动画速度 0.快 1.默认 2.慢
+    property bool noOpacityControl: false //透明底部播放栏
 
     // UI设置
     property bool sidebarColor: false

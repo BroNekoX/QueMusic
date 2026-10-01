@@ -276,8 +276,6 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
     QUrl url(baseUrl + path);
     url.setQuery(query);
 
-    qDebug() << "[kugou] GET" << url.toString().left(300);
-
     QNetworkRequest req(url);
     req.setRawHeader("User-Agent", kUa);
     req.setRawHeader("Accept-Encoding", "identity"); // 避免 gzip，方便直接解析 JSON

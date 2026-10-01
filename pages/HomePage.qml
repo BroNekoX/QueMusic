@@ -439,7 +439,6 @@ Item {
                                 width: 96
                                 height: 96
                                 property int radius: Style.settings.cubeRadius
-                                //Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
                                 QPicture {
                                     id: card
@@ -692,7 +691,7 @@ Item {
                         QPicture {
                             width: 148
                             height: 148
-                            source: model.cover.replace("{size}", "128")
+                            source: (model.cover || "").replace("{size}", "128")
                             radius: Style.settings.labelRadius
                             sourceSize: Qt.size(128,128)
                             radius3: 0

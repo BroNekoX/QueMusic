@@ -27,15 +27,6 @@ Window {
     property int currentIndex: 0
     property int nextIndex: 1
 
-    // 时间格式化（复用）
-    function formatTime(ms: real): string {
-        if (isNaN(ms) || ms < 0) return "00:00";
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
-    }
-
     // 更新歌词索引
     function updateCurrentIndex(): void {
         const pos = player.position || 0;
@@ -243,7 +234,7 @@ Window {
                 x: desktopLyricsWindow.width - 68 - width
                 y: 6
                 height: 36
-                text: desktopLyricsWindow.formatTime(player.position) + " / " + desktopLyricsWindow.formatTime(player.duration)
+                text: Playback.fmt(player.position) + " / " + Playback.fmt(player.duration)
                 font.pixelSize: 13
                 verticalAlignment: Text.AlignVCenter
                 color: "#fffdfdfd"

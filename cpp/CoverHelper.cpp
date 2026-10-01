@@ -4,7 +4,6 @@
 #include "CoverHelper.h"
 
 #include <QtConcurrent/QtConcurrentRun>
-#include <QVariantList>
 
 #include <QDebug>
 #include <QDir>
@@ -88,11 +87,6 @@ CoverHelper::CoverHelper(QObject *parent)
     m_cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                + QStringLiteral("/cache");
     QDir().mkpath(m_cacheDir);
-}
-
-QString CoverHelper::currentCoverUrl() const
-{
-    return m_currentCoverUrl;
 }
 
 QString CoverHelper::findLocalCover(const QString &sourcePath)
@@ -219,16 +213,9 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
 QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
 {
     const QString localPath = localPathFromSource(sourcePath);
-    const QFileInfo fi(localPath);
-    if (!fi.isFile())
+    if (!QFileInfo(localPath).isFile())
         return QString();
-
-    Metadata meta;
-    const QString coverUrl = readCoverFromTag(localPath, m_cacheDir, &meta);
-    const QString key = metadataCacheKey(fi);
-    if (!m_metadataCache.contains(key))
-        m_metadataCache.insert(key, meta);
-    return coverUrl;
+    return readCoverFromTag(localPath, m_cacheDir);
 }
 
 void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
@@ -236,77 +223,15 @@ void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
     const QString localPath = localPathFromSource(sourcePath);
     const QString cacheDir = m_cacheDir;
 
-    auto *watcher = new QFutureWatcher<QVariantList>(this);
-    connect(watcher, &QFutureWatcher<QVariantList>::finished, this, [this, watcher, sourcePath]() {
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, sourcePath]() {
+        const QString coverUrl = watcher->result();
         watcher->deleteLater();
-        const QVariantList result = watcher->result();
-        const QString coverUrl = result.value(0).toString();
-        const QString title = result.value(1).toString();
-        const QString artist = result.value(2).toString();
-
-        const QString localPath = localPathFromSource(sourcePath);
-        const QString key = metadataCacheKey(QFileInfo(localPath));
-        if (!m_metadataCache.contains(key) && (!title.isEmpty() || !artist.isEmpty()))
-            m_metadataCache.insert(key, { title, artist });
-
         emit localCoverReady(sourcePath, coverUrl);
     });
     watcher->setFuture(QtConcurrent::run([localPath, cacheDir]() {
-        Metadata meta;
-        const QString coverUrl = readCoverFromTag(localPath, cacheDir, &meta);
-        return QVariantList{ coverUrl, meta.title, meta.artist };
+        return readCoverFromTag(localPath, cacheDir);
     }));
-}
-
-QString CoverHelper::findTitle(const QString &sourcePath)
-{
-    return metadataOf(sourcePath).title;
-}
-
-QString CoverHelper::findArtist(const QString &sourcePath)
-{
-    return metadataOf(sourcePath).artist;
-}
-
-QVariantMap CoverHelper::loadFullMetadata(const QString &sourcePath)
-{
-    QVariantMap result;
-    if (sourcePath.isEmpty()) {
-        result.insert(QStringLiteral("title"), QString());
-        result.insert(QStringLiteral("artist"), QString());
-        result.insert(QStringLiteral("coverUrl"), QString());
-        return result;
-    }
-    // findEmbeddedCover 内部用同一次 TagLib 打开并把 title/artist 写入 m_metadataCache
-    const QString embedded = findEmbeddedCover(sourcePath);
-    result.insert(QStringLiteral("title"), findTitle(sourcePath));
-    result.insert(QStringLiteral("artist"), findArtist(sourcePath));
-    QString coverUrl = embedded;
-    if (coverUrl.isEmpty())
-        coverUrl = findLocalCover(sourcePath);
-    result.insert(QStringLiteral("coverUrl"), coverUrl);
-    return result;
-}
-
-CoverHelper::Metadata CoverHelper::metadataOf(const QString &sourcePath)
-{
-    if (sourcePath.isEmpty())
-        return {};
-
-    const QString localPath = localPathFromSource(sourcePath);
-
-    const QFileInfo fi(localPath);
-    if (!fi.isFile())
-        return {};
-
-    const QString key = metadataCacheKey(fi);
-    const auto cached = m_metadataCache.constFind(key);
-    if (cached != m_metadataCache.constEnd())
-        return cached.value();
-
-    const Metadata meta = readMetadata(fi);
-    m_metadataCache.insert(key, meta);
-    return meta;
 }
 
 CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLib::FileRef *openRef)
@@ -365,15 +290,11 @@ CoverHelper::Metadata CoverHelper::metadataFromTag(TagLib::FileRef &ref)
 
 void CoverHelper::clearCache()
 {
-    m_metadataCache.clear();
-
     QDir dir(m_cacheDir);
     if (dir.exists())
         dir.removeRecursively();
     if (!dir.mkpath(m_cacheDir))
         qWarning() << "Failed to recreate cache directory:" << m_cacheDir;
-
-    setCoverUrl(QString());
 }
 
 void CoverHelper::setCacheDir(const QString &path)
@@ -383,7 +304,6 @@ void CoverHelper::setCacheDir(const QString &path)
     m_cacheDir = path;
     if (!QDir().mkpath(m_cacheDir))
         qWarning() << "Failed to create cache directory:" << m_cacheDir;
-    setCoverUrl(QString());
 }
 
 // 放到线程池：启动时会调用一次，不能占着 UI 线程。
@@ -415,14 +335,6 @@ void CoverHelper::pruneCache(int maxMB)
             QFile::remove(fi.absoluteFilePath());
         }
     });
-}
-
-void CoverHelper::setCoverUrl(const QString &url)
-{
-    if (m_currentCoverUrl == url)
-        return;
-    m_currentCoverUrl = url;
-    emit currentCoverUrlChanged();
 }
 
 QImage CoverHelper::toImage(const QVariant &value)

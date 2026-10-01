@@ -67,7 +67,9 @@ qint64 playCount(const QJsonObject &o)
     return v >= 4294967295 ? 0 : v;
 }
 
-// 歌单列表 → 统一字段（imgurl 的 {size} 占位符换成小图）
+// 歌单列表 → 统一字段（imgurl 的 {size} 占位符换成小图）。
+// 歌单卡片的 duration 槽位存的是「曲目数」：网易云用 trackCount、B 站用 total，酷狗用 songcount。
+// 接口不带这个字段时为 0，卡片会隐藏曲目数而不是显示「0 首」
 QVariantList parsePlaylists(const QJsonArray &arr)
 {
     QVariantList info;
@@ -81,7 +83,7 @@ QVariantList parsePlaylists(const QJsonArray &arr)
             s.value(QStringLiteral("username")).toString(),
             cover,
             QString::number(s.value(QStringLiteral("specialid")).toVariant().toLongLong()),
-            0,   // 这两个接口都不返回歌曲数，交给卡片隐藏
+            s.value(QStringLiteral("songcount")).toInt(),
             s.value(QStringLiteral("intro")).toString(),
             QString(), QString(), 0,
             playCount(s));
@@ -616,7 +618,6 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
 }
 
 // 歌单分类：category/list 给出 21 个真实分类
-// （tag/list、tag/info 那套拿不到可用的歌单 id，全为 0，故不使用）
 void KugouApi::getPlaylistMenu(int type)
 {
     Q_UNUSED(type);
@@ -645,12 +646,13 @@ void KugouApi::getPlaylistMenu(int type)
     });
 }
 
-// 分类歌单：sort=1 为热度排序，返回真实播放量；每个分类各自一套歌单、可持续翻页
+// 分类歌单：sort=1 为热度排序，返回真实播放量；每个分类各自一套歌单、可持续翻页。
+// withsong=1 才会带 songcount（曲目数），代价是每个歌单多回一小段歌曲预览（实测约 4 倍体积）
 void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/special"));
     QUrlQuery q;
-    q.addQueryItem(QStringLiteral("withsong"), QStringLiteral("0"));
+    q.addQueryItem(QStringLiteral("withsong"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("sort"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
     q.addQueryItem(QStringLiteral("ugc"), QStringLiteral("1"));

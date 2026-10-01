@@ -20,6 +20,9 @@ DownloadManager::DownloadManager(QObject *parent)
 
 DownloadManager::~DownloadManager()
 {
+    // 析构时先断开回调：abort() 会同步回调 onFinished()，在销毁过程中又去起下一个下载
+    if (m_reply)
+        m_reply->disconnect(this);
     abortCurrentDownload();
 }
 
@@ -172,18 +175,6 @@ void DownloadManager::removeTask(int taskId)
         emit currentTaskIdChanged();
         emit hasActiveTasksChanged();
         startNextTask();
-    }
-}
-
-void DownloadManager::cancelCurrent()
-{
-    if (m_currentTaskId >= 0) {
-        int idx = findTaskById(m_currentTaskId);
-        if (idx >= 0) {
-            // 直接移除任务
-            removeTask(m_currentTaskId);
-            return;
-        }
     }
 }
 

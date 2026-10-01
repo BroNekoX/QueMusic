@@ -197,9 +197,6 @@ Item {
                 id: lists
                 width: favouriteChildPage.width + 16
                 height: favouriteChildPage.height
-                //property bool built: visible
-                //onVisibleChanged: if (visible) built = true
-                //model: built ? listSort : null
                 model: listSort
                 clip: true
                 isList: true
@@ -259,12 +256,8 @@ Item {
             visible: false
             sourceComponent: QListView {
                 id: history
-                //visible: false
                 width: favouriteChildPage.width + 16
                 height: favouriteChildPage.height
-                //property bool built: visible
-                //onVisibleChanged: if (visible) built = true
-                //model: built ? Playback.history : null
                 model: Playback.history
                 clip: true
                 topMargin: 72
@@ -371,7 +364,8 @@ Item {
                                     // 先记下数量：下面清空 chooseIndex 后就读不到了
                                     const total = favouritePage.chooseIndex.length;
                                     for(var i = 0; i < total; i++) {
-                                        FavoriteSongs.removeFavorite(songSort.at(favouritePage.chooseIndex[i]).id, "song");
+                                        const r = songSort.at(favouritePage.chooseIndex[i]);
+                                        if (r) FavoriteSongs.removeFavorite(r.id, "song");
                                     }
                                     favouritePage.chooseIndex = [];
                                     Style.warned("已取消收藏 " + total + " 首歌曲", 1);
@@ -384,7 +378,8 @@ Item {
                                 function() {
                                     const total = favouritePage.chooseIndex.length;
                                     for(var i = 0; i < total; i++) {
-                                        FavoritePlaylists.removeFavorite(listSort.at(favouritePage.chooseIndex[i]).id, "playlist");
+                                        const r = listSort.at(favouritePage.chooseIndex[i]);
+                                        if (r) FavoritePlaylists.removeFavorite(r.id, "playlist");
                                     }
                                     favouritePage.chooseIndex = [];
                                     Style.warned("已取消收藏 " + total + " 个歌单", 1);
@@ -407,6 +402,8 @@ Item {
                         case 1:
                             for(let a = 0;a < favouritePage.chooseIndex.length;a++) {
                                 const fav = songSort.at(favouritePage.chooseIndex[a]);
+                                if (!fav)
+                                    continue;
                                 if (playListModel.indexOfPath(fav.id) === -1) {
                                     playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
                                     mainWarn.tiped("已加入播放列表", 1);

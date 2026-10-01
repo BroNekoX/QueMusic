@@ -96,13 +96,16 @@ Popup {
             onClicked: {
                 globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
                     function(): void {
-                        const title = playListModel.get(playListModel.playListIndex).name;
-                        const hash = playListModel.get(playListModel.playListIndex).path;
-                        const artist = playListModel.get(playListModel.playListIndex).songer;
-                        const source = playListModel.get(playListModel.playListIndex).source;
+                        // 空队列 / 无当前曲时下标为 -1：那就只清空，不留一条空条目
+                        const i = playListModel.playListIndex;
+                        const cur = (i >= 0 && i < playListModel.count) ? playListModel.get(i) : null;
                         playListModel.remove( 0, playListModel.count );
-                        playListModel.append({ name: title, path: hash, songer: artist, source: source });
-                        playListModel.playListIndex = 0;
+                        if (cur) {
+                            playListModel.append({ name: cur.name, path: cur.path, songer: cur.songer, source: cur.source });
+                            playListModel.playListIndex = 0;
+                        } else {
+                            playListModel.playListIndex = -1;
+                        }
                         Style.warned("已清空播放列表",1);
                     }
                 );

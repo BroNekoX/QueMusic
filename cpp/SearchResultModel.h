@@ -62,7 +62,6 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    Q_INVOKABLE QVariant get(int index, const QString &role) const;
     Q_INVOKABLE QVariantMap getRow(int index) const;
 
     void appendBatch(const QList<Row> &rows);

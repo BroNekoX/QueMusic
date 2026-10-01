@@ -23,6 +23,11 @@ QtObject {
 
     readonly property int count: queue ? queue.count : 0
 
+    // 循环模式（列表循环/单曲循环/随机播放/暂停操作）：持久化的值可能越界，统一钳到 0..3
+    readonly property int cycleIndex: Math.max(0, Math.min(3, Options.settings.cycleIndex))
+    readonly property string cycleIcon: ["\uf118", "\uf115", "\uf0e2", "\uf03b"][root.cycleIndex]
+    readonly property string cycleTip: ["列表循环", "单曲循环", "随机播放", "暂停操作"][root.cycleIndex]
+
     property bool muted: false
     readonly property real outVolume: muted ? 0 : Options.settings.musicVolume
 
@@ -380,9 +385,12 @@ cover: player.urlStr || "",
         onTriggered: root.writeHistory()
     }
 
-    // 工具
+    // 工具：时长格式化（mm:ss）。全应用只此一份，桌面部件的本地副本已删
     function fmt(ms: real): string {
-        const s = Math.max(0, Math.floor(ms / 1000))
-        return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2)
+        if (isNaN(ms) || ms < 0)
+            return "00:00"
+        const s = Math.floor(ms / 1000)
+        const m = Math.floor(s / 60)
+        return (m < 10 ? "0" : "") + m + ":" + ("0" + (s % 60)).slice(-2)
     }
 }

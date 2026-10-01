@@ -36,10 +36,12 @@ Item {
 
 
     function opened(info: var): void {
+        if (!info)
+            return;
         root.id = info.hash || info.id;
         root.title = info.title || "";
         root.artist = info.artist || "";
-        root.cover = info.cover.replace("{size}", "128") || "qrc:/QueMusic/resources/app/musicpic.png";
+        root.cover = (info.cover || "").replace("{size}", "128") || "qrc:/QueMusic/resources/app/musicpic.png";
         root.descript = info.album || "Not have Description";
         root.duration = info.duration || 0;
         root.playcount = info.playcount || 0;
@@ -350,12 +352,15 @@ Item {
                 textColor: Style.themes.fullColor
                 iconColor: Style.themes.fullColor
                 onClicked: {
+                    const song = MusicApi.playlistSong.get(0);
+                    if (!song || !song.hash)
+                        return;   // 曲目还没加载出来：别拿 undefined 去请求
                     if(Options.settings.soundQuality === 0) {
-                        MusicApi.getMusicInfo(MusicApi.playlistSong.get(0).hash);
+                        MusicApi.getMusicInfo(song.hash);
                     } else if(Options.settings.soundQuality === 1) {
-                        MusicApi.getMusicInfo(MusicApi.playlistSong.get(0).hashhq);
+                        MusicApi.getMusicInfo(song.hashhq);
                     } else {
-                        MusicApi.getMusicInfo(MusicApi.playlistSong.get(0).hashsq);
+                        MusicApi.getMusicInfo(song.hashsq);
                     }
                 }
             }

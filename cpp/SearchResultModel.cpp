@@ -73,18 +73,6 @@ QHash<int, QByteArray> SearchResultModel::roleNames() const
     return names;
 }
 
-QVariant SearchResultModel::get(int index, const QString &role) const
-{
-    if (index < 0 || index >= m_rows.size())
-        return {};
-    const QByteArray wanted = role.toUtf8();
-    for (int r : m_roles) {
-        if (roleName(r) == wanted)
-            return data(this->index(index), r);
-    }
-    return {};
-}
-
 QVariantMap SearchResultModel::getRow(int index) const
 {
     QVariantMap map;

@@ -3,7 +3,6 @@
 //
 pragma Singleton
 import QtQuick
-import QtCore
 
 QtObject {
     property bool recordingShortCut: false

@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QtQuick.Controls.Basic
-import QueMusic 1.0
 
 GridView {
     id: view

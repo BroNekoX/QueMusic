@@ -223,7 +223,7 @@ void MusicApiService::setSoundQuality(int q)
     emit soundQualityChanged();
 }
 
-// 记录「同一首歌的不同音质 hash」（酷狗把普通/高清/无损做成三个不同 hash，
+// 记录「同一首歌的不同音质 hash」
 // 搜索、歌单、榜单结果里都带：hash / hashhq / hashsq）
 void MusicApiService::rememberHashes(const QVariantList &items)
 {
@@ -965,8 +965,10 @@ QVariantList MusicApiService::songList(const QVariant &data)
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
     // 响应已到达就先销账：本函数中间有提前 return 的分支，
-    // 放在出口处会漏减，导致加载动画永远不结束
-    endRequest();
+    // 放在出口处会漏减，导致加载动画永远不结束。
+    // 歌词请求不计数（见 getLyricInfo），跟着减会让别的请求的加载态提前收尾
+    if (action != QLatin1String("getLyricInfo"))
+        endRequest();
 
     const QVariantMap d = data.toMap();
     // 平台失败与「接口成功的合法空数据」必须区分：B 站失败时会回

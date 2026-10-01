@@ -12,13 +12,10 @@
 #include <QtQuick/QQuickWindow>
 #include <QSettings>
 #include <QLibraryInfo>
-#include <QFileInfo>
 #include "cpp/AccountManager.h"
 #include "cpp/LogManager.h"
 #include "api/MusicApiService.h"
 #include <QWKQuick/qwkquickglobal.h>
-
-#include <QtQml/QQmlExtensionPlugin>
 
 extern void qml_register_types_QueMusic();
 
@@ -129,11 +126,6 @@ int main(int argc, char *argv[])
         qputenv("QSG_NO_VSYNC", "1");
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
-
-    // Qt scene graph 调试
-    //qputenv("QSG_RENDER_TIMING", "1");
-    //qputenv("QSG_INFO", "1");
-    //qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);

@@ -7,6 +7,38 @@
 
 ## [Unreleased]
 
+### 🧹 清理（第一轮：死代码 / 注释 / 重复实现）
+- **删除死文件**：`components/QCard.qml`（全仓库无引用）与 `cmake/qmltc.cmake` 白名单里 4 个已不存在的文件名
+- **删除死代码**：`CoverHelper` 的 `loadFullMetadata/findTitle/findArtist/currentCoverUrl`（连带只写不读的元数据
+  缓存 `m_metadataCache`，内嵌封面提取因此少开一次 TagLib）、`SearchResultModel::get(index, role)`、
+  `DownloadManager::cancelCurrent()`、`Style.animeDuration`、`PlayerControl` 里 4 个无人调用的转发函数
+  （`lastMedia/enterMedia/randomMedia/togglePlayList`）、`AccountManager` 每次请求打印含签名 URL 的调试输出、
+  `main.cpp` 两个未使用的 include 与三行注释掉的 scene graph 调试开关
+- **注释清理**：删掉 17 处被注释掉的死代码/残留（`SettingsView` 里 14 行的注释组件、`QTextWindow` 里 13 行的
+  XHR 逻辑、`FavouritePage` 的懒加载实验、`MainContent` 四处 `//asynchronous`、`QPicture` 里注释掉的默认值等）
+- **未使用 import**：10 个文件清干净，构建期 qmllint 的 `unused-imports` 由 10 条归零
+- **重复实现收口**：`DesktopPlayerWindow` / `DesktopLyrics` 各一份的 `formatTime()` 合并为 `Playback.fmt()`
+  （顺带修 NaN 显示成 `NaN:NaN`）；循环模式的图标与提示从两处内联数组收进 `Playback.cycleIcon/cycleTip`
+
+### 🐞 修复（在线音乐）
+- **酷狗分类页歌单全部显示「0 首」**：歌单卡片的曲目数走在 `duration` 槽位（网易云用 `trackCount`、B 站用 `total`），
+  但酷狗 `parsePlaylists()` 硬编码传了 0。两个原因叠在一起：字段名是 `songcount`，且它**只在 `withsong=1`
+  时才会返回**（接口原本传的是 `withsong=0`）。改为读 `songcount` 并把 `withsong` 置 1 —— 实测该参数会让
+  响应体积涨约 4 倍（每个歌单多回一小段歌曲预览），换来卡片能显示「28 首」，这是当前拿曲目数的唯一途径
+- **`QListView` 歌单曲目数兜底**：曲目数为 0（接口没给）时留空，不再显示「0 首」；歌曲时长改用 `Playback.fmt()`，
+  原先 `Math.floor(d/60) + ":" + (d % 60)` 在秒数小于 10 时会显示成 `3:5`
+
+### 🐞 修复（稳定性，第一轮）
+- **越界/空值访问**：`PlayList.qml` 清空列表时不再对 `playListIndex === -1` 取曲目（原先会插入空条目）、
+  `PlayListWindow` 播放按钮先取 `playlistSong.get(0)` 判空再请求、`FavouritePage` 三处 `sort.at()` 结果判空、
+  `HomePage`/`PlaylistPage`/`PlayListWindow` 的 `cover.replace()` 全部补 `|| ""`（缺封面字段不再抛 TypeError）
+- **状态判定**：`DesktopPlayer` 小窗异步加载完成后判断的是「歌词栏」模式（`=== 2`），导致首次启用小窗播放器
+  不会自动显示 ⇒ 改为 `=== 1`；`QBigDrop`/`QWideDrop` 的宽度计算除零（模型为空时得 NaN）
+- **请求计数**：`MusicApiService::handleResult` 对不参与计数的 `getLyricInfo` 也执行 `endRequest()`，
+  会让并发的其它请求加载态提前收尾 ⇒ 歌词结果不再销账
+- **析构期重入**：`DownloadManager` 析构里 `abort()` 会同步回调 `onFinished()` 并在销毁过程中又去起下一个下载
+  ⇒ 先断开回调再中止；`LogManager` 排队的主线程日志 lambda 增加单例存活校验，避免解引用已析构的单例
+
 ### 🗑️ 移除
 - **沉浸中心（QueMusic Center）**：删除 `FullCenterView.qml` 与 `centers/`（13 个组件）；右上角最左按钮由
   「打开沉浸中心」改为**全屏开关**（进出 `Window.FullScreen`，退出时回到进入前的最大化/普通状态），

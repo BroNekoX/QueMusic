@@ -20,23 +20,6 @@ Window {
         id: markdownViewer
         width: root.width - 24
 
-        // 从资源文件中读取 Markdown 内容
-        /*Component.onCompleted: {
-            var file = new XMLHttpRequest();
-            file.open("GET", "qrc:/QueMusic/README.md", true); // 同步加载资源文件
-            file.onreadystatechange = function() {
-                if (file.readyState === XMLHttpRequest.DONE) {
-                    if (file.status === 200) {
-                        text = file.responseText;
-                    } else {
-                        console.error("Error:", file.statusText);
-                    }
-                }
-            };
-            file.send();
-        }*/
-
-        // 设置为只读，更像一个阅读器
         readOnly: true
         wrapMode: TextEdit.Wrap
 

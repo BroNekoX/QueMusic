@@ -225,7 +225,7 @@ ListView {
             const src = view.sourceNames[it.source] || "未知来源"
             if (view.isList)
                 return [["名称", view.titleOf(it)], ["创建者", view.artistOf(it)],
-                        ["曲目", (it.duration || 0) + " 首"], ["来源", src]]
+                        ["曲目", it.duration > 0 ? it.duration + " 首" : "—"], ["来源", src]]
             const sec = it.duration || 0
             return [["歌手", view.artistOf(it)], ["专辑", it.album || "—"],
                     ["时长", Math.floor(sec / 60) + ":" + ("0" + Math.floor(sec % 60)).slice(-2)],
@@ -479,7 +479,9 @@ ListView {
             y: 16
             width: 60
             height: 28
-            text: view.isList ? model.duration + "首" : Math.floor(model.duration / 60) + ":" + (model.duration % 60)
+            // 歌单：duration 存的是曲目数（没拿到就留空，别显示「0 首」）；歌曲：duration 是秒
+            text: view.isList ? (model.duration > 0 ? model.duration + "首" : "")
+                              : Playback.fmt(model.duration * 1000)
             color: Style.themes.textColor
             font.bold: false
             elide: Text.ElideRight

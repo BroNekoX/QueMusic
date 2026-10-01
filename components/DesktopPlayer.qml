@@ -147,7 +147,7 @@ Popup {
     Connections {
         target: desktopPlayerLoader
         function onStatusChanged(): void {
-            if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 2) {
+            if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 1) {
                 desktopPlayerLoader.item.show();
             }
         }

@@ -134,7 +134,7 @@ Item {
     Image {
         anchors.fill: parent
         visible: cfg.bgStyle === 1
-        source: cfg.bgImage
+        source: cfg.bgImage || mainLyrics.coverUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
     }
@@ -259,7 +259,7 @@ Item {
             radius: 12.0
             samples: 16
             fast: true
-            color: "#32000000"
+            color: "#30000000"
             source: titleMax // 阴影绑定到主内容区域
         }
     }

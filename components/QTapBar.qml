@@ -16,7 +16,6 @@ Item {
         id: tabsBar
         anchors.bottom: parent.bottom
         x: 0
-        //width: tabsRepeat.itemAt(0).width
         height: 2
         radius: 1
         color: Style.themes.themeColor

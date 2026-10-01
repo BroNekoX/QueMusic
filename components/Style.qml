@@ -3,17 +3,12 @@
 //
 pragma Singleton
 import QtQuick
-import QtCore
 import QueMusic 1.0
 
 QtObject {
     // Style.settings.name
     // Style.themes.name
     readonly property bool darkis: settings.theme === 0 ? false : settings.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
-    //全局过渡动画时长：关闭高级动画时统一降为轻量时长
-    readonly property int animeDuration: settings.premiumAnime
-        ? (settings.animeSpeed === 0 ? 480 : settings.animeSpeed === 2 ? 180 : 320)
-        : 120
     onDarkisChanged: {
         Style.changeTheme();
     }

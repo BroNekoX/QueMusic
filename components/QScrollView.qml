@@ -2,7 +2,6 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QueMusic 1.0
 import QtQuick.Controls.Basic
 
 Flickable {
@@ -18,7 +17,6 @@ Flickable {
 
     ScrollBar.vertical: ScrollBar {
         id: viewBar
-        //parent: view
         anchors.right: view.right
         anchors.rightMargin: 10
         anchors.top: view.top

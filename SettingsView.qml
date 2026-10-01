@@ -911,20 +911,6 @@ Item {
                                 idleText: "无需登录"
                                 onClicked: MusicApi.songSource = 2;
                             }
-                            /*PlatformCard {
-                                text: "QQ音乐"
-                                chooseColor: "#3AD630"
-                                chooseColor1: Style.darkis ? "#195319" : "#CDFFCD"
-                                width: settingStack.standWidth / 3 - 20
-                                height: 128
-                                choose: MusicApi.songSource === 3
-                                isLogin: false
-                                name: "暂不支持"
-                                onClicked: MusicApi.songSource = 3;
-                                onLogined: {
-                                    mainWarn.tiped("目前无法使用", 0);
-                                }
-                            }*/
                         }
                     }
                 }
@@ -1125,19 +1111,30 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "组件圆角大小"
-                            tip: "设置全局组件的圆角大小"
+                            label: "卡片圆角大小"
+                            tip: "设置全局大型卡片的圆角大小"
                             controlItem: QSlider {
                                 anchors.fill: parent
                                 from: 0
-                                to: 20
+                                to: 24
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.labelRadius
+                                value: Style.settings.cubeRadius
                                 onMoved: {
-                                    Style.settings.labelRadius = value
+                                    Style.settings.cubeRadius = value
                                 }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "不透明底栏"
+                            tip: "播放器控制底栏将不再透明"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Style.settings.noOpacityControl
+                                onToggled: Style.settings.noOpacityControl = !Style.settings.noOpacityControl
                             }
                         }
 

@@ -4,7 +4,6 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 
 Window {
     id: desktopPlayerWindow
@@ -72,15 +71,6 @@ Window {
                 desktopPlayerWindow.y = desktopPlayerWindow.y + (mouse.y - dragOffsetY);
             }
         }
-    }
-
-    // 时间格式化
-    function formatTime(ms: real): string {
-        if (isNaN(ms) || ms < 0) return "00:00";
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 
     // 卡片主体
@@ -179,7 +169,7 @@ Window {
             y: 72
             width: playerCard.width - 102 - 14
             height: 16
-            text: desktopPlayerWindow.formatTime(player.position) + " / " + desktopPlayerWindow.formatTime(player.duration)
+            text: Playback.fmt(player.position) + " / " + Playback.fmt(player.duration)
             font.pixelSize: 11
             color: Style.themes.textColor
             horizontalAlignment: Text.AlignRight
@@ -189,7 +179,7 @@ Window {
             y: parent.height - 52
             anchors.horizontalCenter: parent.horizontalCenter
             SButton {
-                iconCharacter: ["\uf118","\uf115","\uf0e2","\uf03b"][Options.settings.cycleIndex]
+                iconCharacter: Playback.cycleIcon
                 width: 36
                 height: 36
                 radius: 18

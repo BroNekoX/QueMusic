@@ -9,7 +9,7 @@ Item {
     width: 360
     height: 40
     property list<string> model: ["Click1","Click2","Click3"]
-    property int singleWidth: width / model.length - 16
+    property int singleWidth: model.length > 0 ? width / model.length - 16 : 0
     property int choice: 0
     signal transformed(int choiced)
     Row {

@@ -568,7 +568,6 @@ Window {
         asynchronous: true
         visible: false
         z: 6
-        //source: "qrc:/QueMusic/SettingsView.qml"
         sourceComponent: SettingsView {}
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }

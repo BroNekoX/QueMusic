@@ -4,10 +4,13 @@ QueMusic Linux 便携包 —— 使用注意事项
 一、运行环境要求
 --------------------------------------------------------------------
 1. Linux x86_64（glibc 2.35 及以上，也就是 Ubuntu 22.04+/Fedora 36+ 这类）
-2. Qt 6.10 或更高版本
-   官方在线安装器（aqt / Qt Maintenance Tool）装的，或者发行版里带的 Qt 6.10+ 都行。
-   系统里不装 ffmpeg 也没关系 —— 本包已经自带 FFmpeg 7.1.3 运行库
-   （libavcodec.so.61 / libavformat.so.61 / libavutil.so.59 / libswresample.so.5）。
+2. Qt 6.10 或更高版本，而且要是**完整**的 Qt：
+   发行版经常把 Qt 多媒体的 ffmpeg 后端拆成单独包，缺了它启动会报
+       libQt6FFmpegStub-va.so.2: cannot open shared object file
+   （Arch/Manjaro 装 qt6-multimedia-ffmpeg；也可用 pacman -F <库名> 查是哪个包提供）
+   用官方在线安装器（aqt / Qt Maintenance Tool）装的 Qt 是完整的，不用管这条。
+   本包已自带 FFmpeg 7.1.3 运行库（libavcodec.so.61 等），宿主机不需要另装 ffmpeg；
+   如果你系统或你的 Qt 里本来就有 ffmpeg 7.x，会优先用你那份。
 除 Qt 之外没有其它依赖：其它库（FFmpeg、QWindowKit、TagLib、本程序自己的模块）都在包内。
 
 二、怎么运行
@@ -15,13 +18,18 @@ QueMusic Linux 便携包 —— 使用注意事项
     cd QueMusic-linux-x86_64
     ./run.sh
 
+    （请用 ./run.sh 启动。直接点 bin/QueMusic 也行，但那样 run.sh 帮你找 Qt 目录的那步
+      就跳过了，Qt 不在系统标准位置时会报 libQt6Core.so.6 找不到。）
+
 第一次如果提示没有执行权限，先：
     chmod +x run.sh
 
 run.sh 就两件事：切到包目录、启动 bin/QueMusic。
 包内所有库（bin/ 与 _deps/）都写好了 $ORIGIN 相对路径，程序自己就能找到，
 其中 FFmpeg 也是包内自带的（就在 bin/ 里），所以宿主机不需要装任何 ffmpeg。
-不用你设环境变量，也不要求解压到固定位置（放哪都行）。
+如果你系统里（或你的 Qt 里）本来就有 ffmpeg 7.x，会优先用你那份；
+没有的话自动用包内自带的，两种情况都能跑，不用你设任何环境变量，
+也不要求解压到固定位置（放哪都行）。
 run.sh 唯一多做的一点，是帮你找到 Qt 的库目录（发行版 Qt 在系统里，它不用管）。
 另外，传给 run.sh 的参数会原样转给 QueMusic。
 
