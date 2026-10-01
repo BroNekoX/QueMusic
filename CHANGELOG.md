@@ -20,6 +20,19 @@
 - **重复实现收口**：`DesktopPlayerWindow` / `DesktopLyrics` 各一份的 `formatTime()` 合并为 `Playback.fmt()`
   （顺带修 NaN 显示成 `NaN:NaN`）；循环模式的图标与提示从两处内联数组收进 `Playback.cycleIcon/cycleTip`
 
+### 🐞 修复（WebDAV）
+- **点歌不入播放列表**：左键走的是 `WebDavPage.playRow()` → `Playback.playWebDav()`，而 `playWebDav` 从不碰队列，
+  右键菜单那条路（`playItem`/`playNext`/`enqueue`）才入队 ⇒ 左右键行为不一致。改为与本地列表一致：
+  `playItem({name, path, songer, source: 3})`，先入队再起播
+- **列表按本地字段显示**：`WebDavModel` 的 `artist`/`coverUrl` 原来是恒为空串，第二列显示的是文件大小。
+  现在按「**歌名 - 歌手**」拆出标题与歌手（实测网盘命名习惯与酷狗接口返回的「歌手 - 歌名」相反，只按第一个
+  `-` 分割、两侧保留多歌手），表头改为「标题 / 歌手」，第二列优先显示歌手、没有歌手才回落文件大小
+- **列表封面**：已落地到本地的文件在后台（工作线程）用 `CoverHelper::readCoverFromTag` 提取内嵌封面，
+  完成后 `dataChanged` 刷新该行的 `localCover` 角色；未落地的行仍是占位图 —— 封面在音频标签里，
+  不下载文件就拿不到（该网盘目录实测没有 `cover.jpg` 这类同目录封面）
+- 顺带把落地路径规则收成静态实现 `WebDavCache::cachedDirFor/cachedAudioFor/cachedCoverFor`
+  与 `CoverHelper::defaultCacheDir()`，模型与缓存共用一套，避免两处各算一遍路径
+
 ### 🐞 修复（在线音乐）
 - **酷狗分类页歌单全部显示「0 首」**：歌单卡片的曲目数走在 `duration` 槽位（网易云用 `trackCount`、B 站用 `total`），
   但酷狗 `parsePlaylists()` 硬编码传了 0。两个原因叠在一起：字段名是 `songcount`，且它**只在 `withsong=1`

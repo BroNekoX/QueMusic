@@ -41,16 +41,32 @@ WebDavCache::WebDavCache(QObject *parent)
 {
 }
 
-QString WebDavCache::dirFor(const QString &url) const
+QString WebDavCache::cachedDirFor(const QString &url)
 {
     const QString key = QString::fromLatin1(
         QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha1).toHex());
     return DbService::cacheDir() + QStringLiteral("/webdav/") + key;
 }
 
-QString WebDavCache::localPathFor(const QString &url) const
+QString WebDavCache::cachedCoverFor(const QString &url)
 {
-    const QDir dir(dirFor(url));
+    const QDir dir(cachedDirFor(url));
+    if (!dir.exists())
+        return {};
+    static const QStringList suffixes = { QStringLiteral("jpg"), QStringLiteral("jpeg"),
+                                          QStringLiteral("png"), QStringLiteral("webp"),
+                                          QStringLiteral("bmp"), QStringLiteral("gif") };
+    for (const QString &suffix : suffixes) {
+        const QString path = dir.absoluteFilePath(QStringLiteral("cover.") + suffix);
+        if (QFileInfo::exists(path))
+            return path;
+    }
+    return {};
+}
+
+QString WebDavCache::cachedAudioFor(const QString &url)
+{
+    const QDir dir(cachedDirFor(url));
     if (!dir.exists())
         return {};
     for (const QFileInfo &file : dir.entryInfoList(QDir::Files, QDir::Time)) {
@@ -65,7 +81,7 @@ void WebDavCache::cache(const QString &url, const QString &authHeader, const QSt
 {
     if (url.isEmpty())
         return;
-    const QString existing = localPathFor(url);
+    const QString existing = cachedAudioFor(url);
     if (!existing.isEmpty()) {
         emit cached(url, existing);
         return;
@@ -78,7 +94,7 @@ void WebDavCache::cache(const QString &url, const QString &authHeader, const QSt
     Task task;
     task.url = url;
     task.authHeader = authHeader;
-    task.dir = dirFor(url);
+    task.dir = cachedDirFor(url);
     task.audioName = QUrl(url).fileName();
     if (task.audioName.isEmpty())
         task.audioName = QStringLiteral("audio");

@@ -25,6 +25,9 @@ class CoverHelper : public QObject
 public:
     explicit CoverHelper(QObject *parent = nullptr);
 
+    // 默认封面缓存目录（实例与「其它地方也要提取封面」的调用方共用同一处，避免两套路径）
+    static QString defaultCacheDir();
+
     // 音频同目录查找同名/常见命名封面（cover/folder/AlbumArt），未命中返回空
     Q_INVOKABLE QString findLocalCover(const QString &sourcePath);
 

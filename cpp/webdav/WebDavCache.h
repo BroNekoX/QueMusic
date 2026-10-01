@@ -24,7 +24,11 @@ public:
     static WebDavCache *create(QQmlEngine *, QJSEngine *) { return new WebDavCache(); }
 
     // 已落地则返回本地音频路径；未落地返回空（调用方直接流式播）
-    Q_INVOKABLE QString localPathFor(const QString &url) const;
+    Q_INVOKABLE QString localPathFor(const QString &url) const { return cachedAudioFor(url); }
+    // 落地目录 / 落地音频 / 落地封面：模型侧也要按同一规则查，统一放静态实现，避免两处算路径
+    static QString cachedDirFor(const QString &url);
+    static QString cachedAudioFor(const QString &url);
+    static QString cachedCoverFor(const QString &url);
     Q_INVOKABLE void cache(const QString &url, const QString &authHeader,
                            const QString &lyricsUrl = QString(),
                            const QString &coverUrl = QString());
@@ -48,7 +52,6 @@ private:
     void downloadNext(Task *task);
     void finish(const QString &url, const QString &localPath);
     void prune();
-    QString dirFor(const QString &url) const;
 
     QNetworkAccessManager *m_nam = nullptr;
     QList<Task> m_queue;

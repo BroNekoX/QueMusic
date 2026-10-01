@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QList>
+#include <QSet>
 #include <QString>
 #include <QtQml/qqml.h>
 
@@ -35,7 +36,8 @@ public:
         TitleRole,
         ArtistRole,
         CoverUrlRole,
-        IsDirRole
+        IsDirRole,
+        LocalCoverRole        // 已落地到本地的封面（file:// URL），未缓存为空
     };
 
     explicit WebDavModel(QObject *parent = nullptr);
@@ -59,7 +61,7 @@ public:
     Q_INVOKABLE void enter(int row);
     Q_INVOKABLE void goUp();
     Q_INVOKABLE void refresh();
-    // 行数据（播放/菜单用）：{title, url, isDir, lyricsUrl, coverUrl}
+    // 行数据（播放/菜单用）：{title, artist, url, isDir, lyricsUrl, coverUrl}
     Q_INVOKABLE QVariantMap at(int row) const;
 
 signals:
@@ -79,11 +81,15 @@ private:
     void list(const QString &url, bool force);
     void remember(const QString &url, const QList<WebDavClient::Entry> &entries);
     void apply(const QList<WebDavClient::Entry> &entries, const QString &error);
+    // 已落地的文件在工作线程提取内嵌封面，完成后刷新对应行的 localCover
+    void warmCovers();
 
     WebDavClient m_client;
     QHash<QString, Cached> m_cache;
     QList<WebDavClient::Entry> m_entries;
     QHash<QString, QPair<QString, QString>> m_sidecars;   // 音频 URL → (歌词, 封面)
+    QHash<QString, QString> m_coverCache;                 // 音频 URL → 已提取的封面 URL
+    QSet<QString> m_coverPending;                         // 提取过（含没提取到）的，不再重试
     QString m_serverId;
     QString m_authHeader;
     QString m_rootUrl;

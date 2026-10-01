@@ -112,7 +112,7 @@ Item {
             // ---- 备用登录方式（扫码提示"环境异常"时用）----
             Text {
                 width: parent.width
-                text: "手机扫码提示「环境异常」是被网易云风控拦截，可改用下面的登录方式"
+                text: "手机号登录被网易云风控拦截时，可改用：粘贴浏览器里的 Cookie（最稳）"
                 color: Style.themes.fontColor
                 opacity: 0.7
                 font.pixelSize: Style.settings.textmain - 3
@@ -122,8 +122,8 @@ Item {
 
             QButton {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: settingsView.neteaseAltVisible ? "收起其他登录方式" : "其他登录方式"
-                width: 170
+                text: settingsView.neteaseAltVisible ? "收起其他登录方式" : "其他登录方式（手机号 / 粘贴 Cookie）"
+                width: 250
                 height: 34
                 radius: 17
                 shadowEnabled: false

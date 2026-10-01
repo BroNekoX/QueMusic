@@ -60,7 +60,8 @@ Item {
         if (!row.url || row.isDir)
             return
         WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-        Playback.playWebDav(row.url, row.title)
+        // 与本地列表一致：先入播放列表再起播（直接 playWebDav 的话队列里没有它，上一首/下一首会丢）
+        Playback.playItem({ name: row.title, path: row.url, songer: row.artist || "", source: 3 })
     }
 
     // 右侧操作区
@@ -253,14 +254,14 @@ Item {
         visible: root.browsing
         reuseItems: false
         model: browser
-        headerModel: ["名称","路径","","菜单"]
+        headerModel: ["标题","歌手","","菜单"]
         menuModel: ["立即播放","下一首播放","添加到播放列表"]
 
         onMenuClicked: (index, choice) => {
             const row = browser.at(index)
             if (!row.url || row.isDir) return
             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-            const item = { name: row.title, path: row.url, songer: "", source: 3 }
+            const item = { name: row.title, path: row.url, songer: row.artist || "", source: 3 }
             if (choice === 0) {
                 Playback.playItem(item)
             } else if (choice === 1) {
@@ -287,7 +288,9 @@ Item {
                 width: 44
                 height: 44
                 visible: !model.isDir
-                source: "qrc:/QueMusic/resources/app/musicpic.png"
+                // 落地过就有同目录封面可用；没落地先用占位图（远端封面要带鉴权头，QML 加载不了）
+                source: model.localCover !== "" ? model.localCover
+                                                : "qrc:/QueMusic/resources/app/musicpic.png"
                 radius1: 10
                 radius2: 10
                 radius3: 10
@@ -340,7 +343,9 @@ Item {
                 height: 60
                 z: 2
                 width: parent.width / 2 - 120
-                text: model.isDir ? "文件夹" : (model.fileSize > 0 ? (model.fileSize / 1048576).toFixed(1) + " MB" : "")
+                text: model.isDir ? "文件夹"
+                                  : (model.artist !== "" ? model.artist
+                                                         : (model.fileSize > 0 ? (model.fileSize / 1048576).toFixed(1) + " MB" : ""))
                 color: Style.themes.textColor
                 font.pixelSize: Style.settings.textTip
                 elide: Text.ElideRight

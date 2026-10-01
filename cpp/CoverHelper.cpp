@@ -81,11 +81,16 @@ QString localPathFromSource(const QString &sourcePath)
 
 } // namespace
 
+QString CoverHelper::defaultCacheDir()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+           + QStringLiteral("/cache");
+}
+
 CoverHelper::CoverHelper(QObject *parent)
     : QObject(parent)
+    , m_cacheDir(defaultCacheDir())
 {
-    m_cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-               + QStringLiteral("/cache");
     QDir().mkpath(m_cacheDir);
 }
 
