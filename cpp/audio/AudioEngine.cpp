@@ -54,7 +54,10 @@ QString toSourceUrl(const QUrl &url)
     QStringList candidates;
     if (url.isLocalFile())
         candidates.append(url.toLocalFile());
-    const QString raw = url.toString(QUrl::FullyDecoded);
+    // 不能用 url.toString(QUrl::FullyDecoded)：Qt 重建完整 URL 时会警告
+    // 「QUrl::FullyDecoded is not permitted when reconstructing the full URL」，
+    // 且该模式下百分号转义无法可靠还原。fromPercentEncoding(toEncoded()) 是等价且安全的写法。
+    const QString raw = QUrl::fromPercentEncoding(url.toEncoded());
     candidates.append(raw);
     if (url.scheme().size() == 1)
         candidates.append(url.scheme() + QLatin1Char(':') + url.path());
