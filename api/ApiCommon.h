@@ -19,6 +19,15 @@ inline const QString kHash      = QStringLiteral("hash");    // 通用 ID
 inline const QString kHashHq    = QStringLiteral("hashhq");  // 高品质 ID
 inline const QString kHashSq    = QStringLiteral("hashsq");  // 无损 ID
 inline const QString kPaytype   = QStringLiteral("paytype");
+
+// paytype 取值约定（唯一权威，各平台必须把自家枚举归一到这两个值之一）：
+//   0 = 免费可播放；3 = 需要会员/付费
+// 消费端只认 3：VIP 角标（components/QListView.qml）、「仅免费 / 仅 VIP」筛选
+// （MusicApiService::songList）。所以平台侧绝不能把自家枚举原样透传 ——
+// 网易云 fee=1（VIP专享）被映射成 1、酷狗 pay_type=1（会员）被直传成 1，
+// 两边都落进没有消费端认的槽位，会员曲目反而不显示 VIP 角标。
+inline constexpr int kPaytypeFree = 0;
+inline constexpr int kPaytypePaid = 3;
 inline const QString kDuration  = QStringLiteral("duration"); // 秒
 inline const QString kAlbum     = QStringLiteral("album");
 inline const QString kPlaycount = QStringLiteral("playcount");

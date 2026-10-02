@@ -31,7 +31,7 @@ QString songId(const QVariant &v)
 // 消费端认 1，于是《Everywhere We Go》这类 VIP 曲目反而不显示 VIP 角标。
 int paytypeFromFee(qint64 fee)
 {
-    return (fee == 1 || fee == 4) ? 3 : 0;
+    return (fee == 1 || fee == 4) ? ApiCommon::kPaytypePaid : ApiCommon::kPaytypeFree;
 }
 
 // 取歌曲的付费类型：优先 privilege.fee，回退 song.fee

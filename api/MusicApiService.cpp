@@ -20,6 +20,8 @@
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
 
+#include "ApiCommon.h"   // paytype 取值约定（kPaytypeFree / kPaytypePaid）
+
 #include <attachedpictureframe.h>
 #include <audioproperties.h>
 #include <fileref.h>
@@ -916,7 +918,7 @@ QVariantMap MusicApiService::normalizeItem(const QVariantMap &raw)
     if (!has("playcount"))
         item.insert(QStringLiteral("playcount"), 0);
     if (!has("paytype"))
-        item.insert(QStringLiteral("paytype"), 0);
+        item.insert(QStringLiteral("paytype"), ApiCommon::kPaytypeFree);
     if (!has("hashhq"))
         item.insert(QStringLiteral("hashhq"), val("hash"));
     if (!has("hashsq"))
@@ -945,7 +947,8 @@ QVariantList MusicApiService::normalizeList(const QVariant &v)
 }
 
 // 歌曲列表：归一 + 按「筛选」丢掉不符合的条目。
-// paytype 由各平台归一（0 视为免费，非 0 视为需要会员/付费），腾讯系以外的源取不到就按免费算。
+// paytype 由各平台归一到 ApiCommon::kPaytypeFree / kPaytypePaid（约定见 ApiCommon.h），
+// 取不到就按免费算。**消费端只认 kPaytypePaid**，平台侧别把自家枚举原样透传。
 QVariantList MusicApiService::songList(const QVariant &data)
 {
     const QVariantList items = normalizeList(data);
@@ -954,7 +957,8 @@ QVariantList MusicApiService::songList(const QVariant &data)
     QVariantList kept;
     kept.reserve(items.size());
     for (const QVariant &item : items) {
-        const bool free = item.toMap().value(QStringLiteral("paytype")).toInt() != 3;
+        const bool free =
+            item.toMap().value(QStringLiteral("paytype")).toInt() != ApiCommon::kPaytypePaid;
         if ((m_songFilter == 1 && free) || (m_songFilter == 2 && !free))
             kept << item;
     }

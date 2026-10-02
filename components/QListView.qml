@@ -453,6 +453,8 @@ ListView {
             width: 32
             height: 18
             radius: 9
+            // VIP 角标：paytype === 3 是 ApiCommon::kPaytypePaid（见 api/ApiCommon.h 的约定）。
+            // 各平台必须把自家枚举归一到这里，别原样透传。
             visible: model.paytype === 3
             Text {
                 text: "VIP"
