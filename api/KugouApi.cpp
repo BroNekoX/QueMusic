@@ -116,6 +116,33 @@ QString sqHashFrom(const QJsonObject &song, const QString &base)
     return sq.isEmpty() ? base : sq;
 }
 
+// 酷狗 pay_type → 统一 paytype（取值约定见 ApiCommon::kPaytypePaid）。
+// 实测 920 条搜索结果：pay_type 只会出现 0 / 1 / 3，其中 1 与 3 的 privilege 都是
+// 8 或 10（1 从不与 privilege=0 同现），即**非 0 一律是「需要会员/付费」**。
+// 旧实现把原始值直传，于是 pay_type=1 的会员曲目落进消费端不认的槽位、永不显示
+// VIP 角标（pay_type=3 只是恰好等于约定值才碰巧正常）。
+// 字段缺失时按免费算：宁可漏标，也不要把拿不到付费信息的曲目一律标成 VIP。
+int paytypeFromKugou(const QJsonObject &song)
+{
+    return song.value(QStringLiteral("pay_type")).toInt() == 0 ? ApiCommon::kPaytypeFree
+                                                              : ApiCommon::kPaytypePaid;
+}
+
+// 歌手名：优先 authors[0].author_name，取不到回退 singername。
+// 榜单/漫游接口偶发不带 authors，而 QJsonArray::at(0) 对空数组是越界访问
+// （release 下是未定义行为，Q_ASSERT 会被编译掉），必须先判空。
+QString artistOfSong(const QJsonObject &song)
+{
+    const QJsonArray authors = song.value(QStringLiteral("authors")).toArray();
+    if (!authors.isEmpty()) {
+        const QString name =
+            authors.at(0).toObject().value(QStringLiteral("author_name")).toString();
+        if (!name.isEmpty())
+            return name;
+    }
+    return song.value(QStringLiteral("singername")).toString();
+}
+
 // 裸 zlib 流解压（等价 Python 的 zlib.decompress）
 QByteArray zlibInflate(const QByteArray &data)
 {
@@ -565,7 +592,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     s.value(QStringLiteral("duration")).toInt(),
                     s.value(QStringLiteral("album_name")).toString(),
                     hq, sq,
-                    s.value(QStringLiteral("pay_type")).toInt(1));
+                    paytypeFromKugou(s));
             }
         } else if (type == 1) { // 歌单
             for (const QJsonValue &v : arr) {
@@ -609,7 +636,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     s.value(QStringLiteral("duration")).toInt(),
                     s.value(QStringLiteral("album_name")).toString(),
                     hq, sq,
-                    s.value(QStringLiteral("pay_type")).toInt(1));
+                    paytypeFromKugou(s));
             }
         }
         emit resultReady(QStringLiteral("searchSongs"),
@@ -725,7 +752,7 @@ void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt());
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getPlaylistSongs"),
                          ApiCommon::listResult(info), Source);
@@ -765,7 +792,7 @@ void KugouApi::getRecommendSongs(int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt(1));
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getRecommendSongs"),
                          ApiCommon::listResult(info), Source);
@@ -881,7 +908,7 @@ void KugouApi::getNewSongs(int type, int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt(1));
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getNewSongs"),
                          ApiCommon::listResult(info), Source);
@@ -948,19 +975,19 @@ void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString filename = s.value(QStringLiteral("filename")).toString();
             const QString title = s.value(QStringLiteral("songname")).toString();
-            const QJsonObject author = s.value(QStringLiteral("authors")).toArray().at(0).toObject();
+            const QString artist = artistOfSong(s);
             const QString hash = s.value(QStringLiteral("hash")).toString();
             const QString hq = hqHashFrom(s, hash);
             const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
                 title,
-                author.value(QStringLiteral("author_name")).toString(),
+                artist,
                 tp.value(QStringLiteral("union_cover")).toString(),
                 s.value(QStringLiteral("hash")).toString(),
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt(1));
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getMusicToplist"),
                          ApiCommon::listResult(info), Source);
@@ -1070,7 +1097,7 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt());
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getSingerSongs"),
                          ApiCommon::listResult(info), Source);
@@ -1409,9 +1436,7 @@ void KugouApi::getPersonalFm(int page, int pageSize)
             const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QJsonArray artistList = s.value("authors").toArray();
-            const QJsonObject artistValue = artistList.at(0).toObject();
-            const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
+            const QString artist = artistOfSong(s);
             const QString hq = hqHashFrom(s, hash);
             const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
@@ -1422,7 +1447,7 @@ void KugouApi::getPersonalFm(int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt(1));
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getPersonalFm"),
                          ApiCommon::listResult(info), Source);
@@ -1453,9 +1478,7 @@ void KugouApi::getPersonalRadar(int page, int pageSize)
             const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QJsonArray artistList = s.value("authors").toArray();
-            const QJsonObject artistValue = artistList.at(0).toObject();
-            const QString artist = artistValue.value(QStringLiteral("author_name")).toString();
+            const QString artist = artistOfSong(s);
             const QString hq = hqHashFrom(s, hash);
             const QString sq = sqHashFrom(s, hash);
             info << ApiCommon::song(
@@ -1466,7 +1489,7 @@ void KugouApi::getPersonalRadar(int page, int pageSize)
                 s.value(QStringLiteral("duration")).toInt(),
                 s.value(QStringLiteral("album_name")).toString(),
                 hq, sq,
-                s.value(QStringLiteral("pay_type")).toInt(1));
+                paytypeFromKugou(s));
         }
         emit resultReady(QStringLiteral("getPersonalRadar"),
                          ApiCommon::listResult(info), Source);
