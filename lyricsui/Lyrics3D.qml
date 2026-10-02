@@ -7,7 +7,6 @@
 import QtQuick
 import QtCore
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: root
@@ -23,29 +22,7 @@ Item {
     readonly property real rowH: (lyricSize * 1.35 + 78) * 1.45      // 行距拉大
     readonly property real bigFont: Math.min(lyricSize * 2 + 30, width * 0.105)
 
-    // 模块自有设置（自动持久化）
-    Settings {
-        id: cfg
-        category: "Lyrics3D"
-        property int preset: 0
-        property real bright: 0.85
-        property real saturate: 1.45
-        property real audio: 1.0
-        property real density: 1.0
-        property real fieldScale: 1.0
-        property real camDist: 9.0
-        property real camSens: 1.0
-        property real tilt: 0.5
-        property real lyricScale: 1.0
-        property real lyricY: 0.0
-        property real lyricZ: 0.0
-        property real glow: 0.55
-        property real sweep: 0.7
-        property real beatGlow: 0.6
-        property real floatAmt: 0.4
-        property string textColorCustom: ""
-        property string glowColorCustom: ""
-    }
+    // 模块自有设置见 Lyrics3DConfig 单例（自动持久化）
 
     // 预设表：名称 / 背景着色器 / 点云舞台预设（-1 = 该预设不用点云）
     readonly property var presetTable: [
@@ -58,13 +35,13 @@ Item {
         { n: "星环", s: "bg_void", p: 2 },
         { n: "舞台", s: "bg_stage", p: 3 }     // 实体舞台（SDF 几何）+ 周围环绕星尘
     ]
-    readonly property int presetIndex: Math.max(0, Math.min(presetTable.length - 1, cfg.preset))
+    readonly property int presetIndex: Math.max(0, Math.min(presetTable.length - 1, Lyrics3DConfig.preset))
     readonly property var preset: presetTable[presetIndex]
 
-    readonly property color textColor: cfg.textColorCustom !== "" ? cfg.textColorCustom : "#ffffff"
-    readonly property color glowColor: cfg.glowColorCustom !== "" ? cfg.glowColorCustom : mainColor
+    readonly property color textColor: Lyrics3DConfig.textColorCustom !== "" ? Lyrics3DConfig.textColorCustom : "#ffffff"
+    readonly property color glowColor: Lyrics3DConfig.glowColorCustom !== "" ? Lyrics3DConfig.glowColorCustom : mainColor
 
-    // 滑杆表：[设置键, 名称, min, max, step, 显示倍数, 单位]（改动即时写入 cfg）
+    // 滑杆表：[设置键, 名称, min, max, step, 显示倍数, 单位]（改动即时写入 Lyrics3DConfig）
     readonly property var sliderTable: [
         ["bright", "背景亮度", 20, 200, 10, 100, "x"],
         ["saturate", "色彩饱和度", 100, 220, 10, 100, "x"],
@@ -162,12 +139,12 @@ Item {
         property real uHigh: root.uHigh
         property real uAir: root.uAir
         property real uLevel: root.uLevel
-        property real uBright: cfg.bright
-        property real uSaturate: cfg.saturate
-        property real uAudio: cfg.audio
-        property real uField: cfg.fieldScale
-        property real uCamDist: cfg.camDist
-        property real uCamSens: cfg.camSens
+        property real uBright: Lyrics3DConfig.bright
+        property real uSaturate: Lyrics3DConfig.saturate
+        property real uAudio: Lyrics3DConfig.audio
+        property real uField: Lyrics3DConfig.fieldScale
+        property real uCamDist: Lyrics3DConfig.camDist
+        property real uCamSens: Lyrics3DConfig.camSens
         fragmentShader: "qrc:/shaders/shaders/" + root.preset.s + ".frag.qsb"
     }
 
@@ -187,10 +164,10 @@ Item {
         audioLevel: root.uLevel
         color1: root.mainColor
         color2: root.secondColor
-        audioGain: cfg.audio
-        camDist: cfg.camDist
-        camSens: cfg.camSens
-        density: cfg.density * 0.85
+        audioGain: Lyrics3DConfig.audio
+        camDist: Lyrics3DConfig.camDist
+        camSens: Lyrics3DConfig.camSens
+        density: Lyrics3DConfig.density * 0.85
     }
 
     // ── 歌词平板（纹理源）──
@@ -267,18 +244,18 @@ Item {
         property vector2d uResolution: Qt.vector2d(width, height)
         property vector2d uMouse: Qt.vector2d(root.mouseX, root.mouseY)
         property real uTime: root.animTime
-        property real uGlow: cfg.glow
-        property real uTilt: cfg.tilt
+        property real uGlow: Lyrics3DConfig.glow
+        property real uTilt: Lyrics3DConfig.tilt
         property real uLineV: 0.5             // 当前行恒在纹理纵向中心（contentY 已对齐）
-        property real uSweep: cfg.sweep
-        property real uBeatGlow: cfg.beatGlow
+        property real uSweep: Lyrics3DConfig.sweep
+        property real uBeatGlow: Lyrics3DConfig.beatGlow
         property real uLevel: root.uLevel
-        property real uLyricScale: cfg.lyricScale
-        property real uLyricY: cfg.lyricY
-        property real uLyricZ: cfg.lyricZ
-        property real uCamDist: cfg.camDist
-        property real uCamSens: cfg.camSens
-        property real uFloat: cfg.floatAmt
+        property real uLyricScale: Lyrics3DConfig.lyricScale
+        property real uLyricY: Lyrics3DConfig.lyricY
+        property real uLyricZ: Lyrics3DConfig.lyricZ
+        property real uCamDist: Lyrics3DConfig.camDist
+        property real uCamSens: Lyrics3DConfig.camSens
+        property real uFloat: Lyrics3DConfig.floatAmt
         property ShaderEffectSource uLyrics: lyricTex
         fragmentShader: "qrc:/shaders/shaders/lyricplane.frag.qsb"
     }
@@ -297,8 +274,8 @@ Item {
             height: 36
             leftText: true
             valueText: (value / spec[5]).toFixed(2) + spec[6]
-            value: Math.round(cfg[spec[0]] * spec[5])
-            onMoved: cfg[spec[0]] = value / spec[5]
+            value: Math.round(Lyrics3DConfig[spec[0]] * spec[5])
+            onMoved: Lyrics3DConfig[spec[0]] = value / spec[5]
         }
     }
 
@@ -311,12 +288,12 @@ Item {
             width: 120
             height: 36
             radius: 10
-            color: cfg[spec[0]] !== "" ? cfg[spec[0]] : "#33ffffff"
+            color: Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]] : "#33ffffff"
             border.width: 1
             border.color: "#40ffffff"
             Text {
                 anchors.centerIn: parent
-                text: cfg[spec[0]] !== "" ? cfg[spec[0]].toUpperCase() : "跟随主题"
+                text: Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]].toUpperCase() : "跟随主题"
                 color: "#ffffff"
                 font.pixelSize: 11
             }
@@ -325,7 +302,7 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     colorPick.key = spec[0];
-                    colorPick.openColor(cfg[spec[0]] !== "" ? cfg[spec[0]]
+                    colorPick.openColor(Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]]
                                                             : (spec[0] === "textColorCustom" ? "#ffffff" : root.mainColor));
                 }
             }
@@ -409,7 +386,7 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: cfg.preset = index
+                                onClicked: Lyrics3DConfig.preset = index
                             }
                         }
                     }
@@ -427,7 +404,7 @@ Item {
                 ColorPickerDialog {
                     id: colorPick
                     property string key: ""
-                    onAccepted: cfg[colorPick.key] = selectedColor.toString()
+                    onAccepted: Lyrics3DConfig[colorPick.key] = selectedColor.toString()
                 }
             }
         }

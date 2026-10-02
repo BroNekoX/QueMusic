@@ -5,7 +5,6 @@
 // 原生 WinRT 调用会同步回调进 QML，故统一经 Qt.callLater 延后，避免重入切歌逻辑。
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 QtObject {
     id: root

@@ -9,7 +9,7 @@ Rectangle {
     id: root
     width: 160
     height: 36
-    color: isBack ? Style.themes.secondaryColor : "transparent"
+    color: isBack ? Style.secondaryColor : "transparent"
     radius: isBack ? Style.settings.labelRadius : 0
     signal toggled(bool switchTrue)
 
@@ -24,7 +24,7 @@ Rectangle {
         width: root.width / 2
         height: root.height
         text: root.text
-        color: Style.themes.textColor
+        color: Style.textColor
         font.pixelSize: Style.settings.text
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
@@ -37,7 +37,7 @@ Rectangle {
         width: 44
         height: 24
         radius: 12
-        color: root.switchTrue ? Style.themes.themeColor : Style.themes.sideColor
+        color: root.switchTrue ? Style.themeColor : Style.sideColor
         Behavior on color { ColorAnimation { duration: 220 } }
 
         Rectangle {

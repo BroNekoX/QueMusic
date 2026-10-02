@@ -21,7 +21,7 @@ Item {
         text: settingItem.label
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.settings.textmain
-        color: Style.themes.fontColor
+        color: Style.fontColor
     }
 
 }

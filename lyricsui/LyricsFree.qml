@@ -12,7 +12,6 @@ import QtMultimedia                  // 背景「视频」样式
 import QtQuick.Dialogs               // 背景图片/视频选择
 import QtCore
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: mainLyrics
@@ -34,22 +33,9 @@ Item {
     property int hideHeight: 0              // 宿主沉浸模式偏移
     property int lyricSize: 0               // 歌词大小设置
 
-    // 模块自有设置（自动持久化，不写宿主 StyleSettings、不走白名单）
-    Settings {
-        id: cfg
-        category: "LyricsFree"
-        property int bgStyle: 0            // 0 流体 / 1 图片 / 2 视频 / 3 平面星空
-        property string bgImage: ""
-        property string bgVideo: ""
-        property real lyricSpacingScale: 1.0
-        property int lyricCardAngle: 0
-        property real lyricCurrentScale: 1.02
-        property real lyricIdleOpacity: 0.5
-        property string lyricSungColor: ""
-        property string lyricLineColor: ""
-    }
+    // 模块自有设置见 LyricsFreeConfig 单例（不写宿主 StyleSettings、不走白名单）
 
-    // 受控写入口：只用于宿主自身状态（封面模式 / 主题模式），样式项由 cfg 自己持有
+    // 受控写入口：只用于宿主自身状态（封面模式 / 主题模式），样式项由 LyricsFreeConfig 自己持有
     property var requestStyle: null
     function request(key: string, value: var): void {
         if (requestStyle) requestStyle(key, value);
@@ -109,10 +95,10 @@ Item {
         visible: Style.settings.waveDisplay
     }
 
-    // ── 背景样式（cfg.bgStyle）：0 流体 / 1 图片 / 2 视频 / 3 平面星空 ──
+    // ── 背景样式（LyricsFreeConfig.bgStyle）：0 流体 / 1 图片 / 2 视频 / 3 平面星空 ──
     MeshGradientItem {
         anchors.fill: parent
-        visible: cfg.bgStyle === 0 && Style.settings.flowStyle !== 2
+        visible: LyricsFreeConfig.bgStyle === 0 && Style.settings.flowStyle !== 2
         coverUrl: mainLyrics.coverUrl || "qrc:/QueMusic/resources/app/musicpic.png"
         color1: mainLyrics.mainColor
         color2: mainLyrics.secondColor
@@ -124,7 +110,7 @@ Item {
     // 流体（关闭流动时的静态渐变）
     Rectangle {
         anchors.fill: parent
-        visible: cfg.bgStyle === 0 && Style.settings.flowStyle === 2
+        visible: LyricsFreeConfig.bgStyle === 0 && Style.settings.flowStyle === 2
         gradient: Gradient {
             GradientStop { position: 0.0; color: mainLyrics.mainColor }
             GradientStop { position: 1.0; color: mainLyrics.secondColor }
@@ -133,21 +119,21 @@ Item {
     // 图片
     Image {
         anchors.fill: parent
-        visible: cfg.bgStyle === 1
-        source: cfg.bgImage || mainLyrics.coverUrl
+        visible: LyricsFreeConfig.bgStyle === 1
+        source: LyricsFreeConfig.bgImage || mainLyrics.coverUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
     }
     Rectangle {
         anchors.fill: parent
-        visible: cfg.bgStyle === 1
+        visible: LyricsFreeConfig.bgStyle === 1
         color: "#66000000"
     }
     // 视频
     Video {
         anchors.fill: parent
-        visible: cfg.bgStyle === 2 && cfg.bgVideo !== ""
-        source: cfg.bgVideo
+        visible: LyricsFreeConfig.bgStyle === 2 && LyricsFreeConfig.bgVideo !== ""
+        source: LyricsFreeConfig.bgVideo
         fillMode: VideoOutput.PreserveAspectCrop
         loops: MediaPlayer.Infinite
         muted: true
@@ -155,13 +141,13 @@ Item {
     }
     Rectangle {
         anchors.fill: parent
-        visible: cfg.bgStyle === 2 && cfg.bgVideo !== ""
+        visible: LyricsFreeConfig.bgStyle === 2 && LyricsFreeConfig.bgVideo !== ""
         color: "#66000000"
     }
     // 平面星空（复用 3d 的 bg_stars）：不吃真实鼠标，改用循环动画合成的"假鼠标"驱动视差与漂移
     ShaderEffect {
         anchors.fill: parent
-        visible: cfg.bgStyle === 3
+        visible: LyricsFreeConfig.bgStyle === 3
         property color uColor: mainLyrics.mainColor
         property color uColor2: mainLyrics.secondColor
         property vector2d uResolution: Qt.vector2d(width, height)
@@ -317,14 +303,14 @@ Item {
             origin.x: lyricContent.width / 2
             origin.y: lyricContent.height / 2
             axis { x: 0; y: 1; z: 0 }
-            angle: -cfg.lyricCardAngle
+            angle: -LyricsFreeConfig.lyricCardAngle
             Behavior on angle { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
         }
 
         property int currentPlayTime: mainLyrics.position + mainLyrics.lyricMove
         readonly property int lyricHeight: mainLyrics.standHeight / 2
         property real alignPos: 0.32        // 当前行停在视口高度比例
-        property real lineSpacing: mainLyrics.standHeight / 1.6 * cfg.lyricSpacingScale
+        property real lineSpacing: mainLyrics.standHeight / 1.6 * LyricsFreeConfig.lyricSpacingScale
         property int currentLine: 0
         property real springValue: 0.0
         property bool isUserScrolling: false// 滚轮
@@ -545,8 +531,8 @@ Item {
                     color: modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
-                    scale: lyricItem.isCurrent && !modelData.info ? cfg.lyricCurrentScale : 1.00
-                    opacity: modelData.info ? cfg.lyricIdleOpacity : (cfg.lyricIdleOpacity + lyricItem.opacityAnime * 0.4)
+                    scale: lyricItem.isCurrent && !modelData.info ? LyricsFreeConfig.lyricCurrentScale : 1.00
+                    opacity: modelData.info ? LyricsFreeConfig.lyricIdleOpacity : (LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.4)
                     visible: modelData.info ? !lyricItem.isFlowActive : true
                     horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -556,7 +542,7 @@ Item {
                     id: lyricTransText
                     anchors.top: lyricsText.bottom
                     transformOrigin: modelData.isOther ? Item.TopRight : Item.TopLeft
-                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? cfg.lyricCurrentScale : 1.00
+                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? LyricsFreeConfig.lyricCurrentScale : 1.00
                     visible: text !== ""
                     height: visible ? implicitHeight * 1.5 : 0
                     text: mainLyrics.translateModel.length !== 0 && mainLyrics.openTranslate ? (mainLyrics.translateModel[index] || "") : ""
@@ -565,7 +551,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.settings.textWidth
                     color: "#ffe8e8e8"
-                    opacity: cfg.lyricIdleOpacity + lyricItem.opacityAnime * 0.2
+                    opacity: LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.2
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
@@ -577,7 +563,7 @@ Item {
                     alignment: modelData.isOther ? CustomFlow.AlignRight : CustomFlow.AlignLeft
 
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
-                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? cfg.lyricCurrentScale : 1.00
+                    scale: lyricItem.isCurrent && !waitAnimeSection.visible ? LyricsFreeConfig.lyricCurrentScale : 1.00
                     x: 0
                     visible: lyricItem.isFlowActive
                     z: 1
@@ -615,8 +601,8 @@ Item {
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
-                                color: cfg.lyricLineColor !== "" && lyricItem.isCurrent ? cfg.lyricLineColor : "#ffe8e8e8"
-                                opacity: cfg.lyricIdleOpacity
+                                color: LyricsFreeConfig.lyricLineColor !== "" && lyricItem.isCurrent ? LyricsFreeConfig.lyricLineColor : "#ffe8e8e8"
+                                opacity: LyricsFreeConfig.lyricIdleOpacity
                             }
                             LinearGradient {
                                 property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
@@ -629,7 +615,7 @@ Item {
                                 start: Qt.point(countToWidth - 16, 0)
                                 end: Qt.point(countToWidth, 0)
                                 gradient: Gradient {
-                                    GradientStop { position: 0.0; color: cfg.lyricSungColor !== "" ? cfg.lyricSungColor : "#ffffffff" }
+                                    GradientStop { position: 0.0; color: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffffff" }
                                     GradientStop { position: 1.0; color: "#66e8e8e8" }
                                 }
                             }
@@ -744,53 +730,53 @@ Item {
                     y: 36
                     width: parent.width
                     model: ["流体", "图片", "视频", "星空"]
-                    choice: cfg.bgStyle
+                    choice: LyricsFreeConfig.bgStyle
                     onTransformed: (choiced) => {
-                        cfg.bgStyle = choiced;
+                        LyricsFreeConfig.bgStyle = choiced;
                     }
                 }
             }
             SettingItem {
-                label: cfg.bgStyle === 2 ? "背景视频" : "背景图片"
+                label: LyricsFreeConfig.bgStyle === 2 ? "背景视频" : "背景图片"
                 width: parent.width
-                visible: cfg.bgStyle === 1 || cfg.bgStyle === 2
+                visible: LyricsFreeConfig.bgStyle === 1 || LyricsFreeConfig.bgStyle === 2
                 Row {
                     anchors.right: parent.right
                     spacing: 10
                     Rectangle {
                         width: 88; height: 36; radius: 10
-                        color: Style.themes.primaryBlurColor
+                        color: Style.primaryBlurColor
                         border.width: 1
-                        border.color: Style.themes.primaryColor
+                        border.color: Style.primaryColor
                         Text {
                             anchors.centerIn: parent
                             text: "选择"
-                            color: Style.themes.textColor
+                            color: Style.textColor
                             font.pixelSize: 13
                         }
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: cfg.bgStyle === 2 ? videoPick.open() : imagePick.open()
+                            onClicked: LyricsFreeConfig.bgStyle === 2 ? videoPick.open() : imagePick.open()
                         }
                     }
                     Rectangle {
                         width: 72; height: 36; radius: 10
-                        color: Style.themes.primaryBlurColor
+                        color: Style.primaryBlurColor
                         border.width: 1
-                        border.color: Style.themes.primaryColor
+                        border.color: Style.primaryColor
                         Text {
                             anchors.centerIn: parent
                             text: "清除"
-                            color: Style.themes.textColor
+                            color: Style.textColor
                             font.pixelSize: 13
                         }
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (cfg.bgStyle === 2) cfg.bgVideo = "";
-                                else cfg.bgImage = "";
+                                if (LyricsFreeConfig.bgStyle === 2) LyricsFreeConfig.bgVideo = "";
+                                else LyricsFreeConfig.bgImage = "";
                             }
                         }
                     }
@@ -801,14 +787,14 @@ Item {
                 title: "选择背景图片"
                 fileMode: FileDialog.OpenFile
                 nameFilters: ["图片 (*.jpg *.jpeg *.png *.bmp *.webp)", "所有文件 (*)"]
-                onAccepted: cfg.bgImage = selectedFile
+                onAccepted: LyricsFreeConfig.bgImage = selectedFile
             }
             FileDialog {
                 id: videoPick
                 title: "选择背景视频"
                 fileMode: FileDialog.OpenFile
                 nameFilters: ["视频 (*.mp4 *.mov *.m4v *.avi *.wmv *.webm *.mkv)", "所有文件 (*)"]
-                onAccepted: cfg.bgVideo = selectedFile
+                onAccepted: LyricsFreeConfig.bgVideo = selectedFile
             }
             SettingItem {
                 label: "封面模式"
@@ -872,8 +858,8 @@ Item {
                     width: 160; height: 36
                     leftText: true
                     valueText: (value / 10).toFixed(1) + "x"
-                    value: Math.round(cfg.lyricSpacingScale * 10)
-                    onMoved: cfg.lyricSpacingScale = value / 10
+                    value: Math.round(LyricsFreeConfig.lyricSpacingScale * 10)
+                    onMoved: LyricsFreeConfig.lyricSpacingScale = value / 10
                 }
             }
             SettingItem {
@@ -885,8 +871,8 @@ Item {
                     width: 160; height: 36
                     leftText: true
                     valueText: value + "°"
-                    value: cfg.lyricCardAngle
-                    onMoved: cfg.lyricCardAngle = value
+                    value: LyricsFreeConfig.lyricCardAngle
+                    onMoved: LyricsFreeConfig.lyricCardAngle = value
                 }
             }
             SettingItem {
@@ -898,8 +884,8 @@ Item {
                     width: 160; height: 36
                     leftText: true
                     valueText: (value / 100).toFixed(2)
-                    value: Math.round(cfg.lyricCurrentScale * 100)
-                    onMoved: cfg.lyricCurrentScale = value / 100
+                    value: Math.round(LyricsFreeConfig.lyricCurrentScale * 100)
+                    onMoved: LyricsFreeConfig.lyricCurrentScale = value / 100
                 }
             }
             SettingItem {
@@ -911,8 +897,8 @@ Item {
                     width: 160; height: 36
                     leftText: true
                     valueText: value + "%"
-                    value: Math.round(cfg.lyricIdleOpacity * 100)
-                    onMoved: cfg.lyricIdleOpacity = value / 100
+                    value: Math.round(LyricsFreeConfig.lyricIdleOpacity * 100)
+                    onMoved: LyricsFreeConfig.lyricIdleOpacity = value / 100
                 }
             }
             SettingItem {
@@ -921,19 +907,19 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     width: 120; height: 36; radius: 10
-                    color: cfg.lyricSungColor !== "" ? cfg.lyricSungColor : Style.themes.primaryBlurColor
+                    color: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : Style.primaryBlurColor
                     border.width: 1
-                    border.color: Style.themes.primaryColor
+                    border.color: Style.primaryColor
                     Text {
                         anchors.centerIn: parent
-                        text: cfg.lyricSungColor !== "" ? cfg.lyricSungColor.toUpperCase() : "默认"
-                        color: Style.themes.fontColor
+                        text: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor.toUpperCase() : "默认"
+                        color: Style.fontColor
                         font.pixelSize: 13
                     }
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: sungColorPick.openColor(cfg.lyricSungColor !== "" ? cfg.lyricSungColor : "#ffffffff")
+                        onClicked: sungColorPick.openColor(LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffffff")
                     }
                 }
             }
@@ -943,30 +929,30 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     width: 120; height: 36; radius: 10
-                    color: cfg.lyricLineColor !== "" ? cfg.lyricLineColor : Style.themes.primaryBlurColor
+                    color: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : Style.primaryBlurColor
                     border.width: 1
-                    border.color: Style.themes.primaryColor
+                    border.color: Style.primaryColor
                     Text {
                         anchors.centerIn: parent
-                        text: cfg.lyricLineColor !== "" ? cfg.lyricLineColor.toUpperCase() : "默认"
-                        color: Style.themes.fontColor
+                        text: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor.toUpperCase() : "默认"
+                        color: Style.fontColor
                         font.pixelSize: 13
                     }
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: lineColorPick.openColor(cfg.lyricLineColor !== "" ? cfg.lyricLineColor : "#ffffffff")
+                        onClicked: lineColorPick.openColor(LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : "#ffffffff")
                     }
                 }
             }
 
             ColorPickerDialog {
                 id: sungColorPick
-                onAccepted: cfg.lyricSungColor = selectedColor.toString()
+                onAccepted: LyricsFreeConfig.lyricSungColor = selectedColor.toString()
             }
             ColorPickerDialog {
                 id: lineColorPick
-                onAccepted: cfg.lyricLineColor = selectedColor.toString()
+                onAccepted: LyricsFreeConfig.lyricLineColor = selectedColor.toString()
             }
         }
     }

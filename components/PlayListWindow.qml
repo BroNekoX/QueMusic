@@ -47,9 +47,9 @@ Item {
         root.playcount = info.playcount || 0;
         loadWidget.active = true;
         if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
-            favoriteButton.iconColor = Style.themes.themeColor
+            favoriteButton.iconColor = Style.themeColor
         } else {
-            favoriteButton.iconColor = Style.themes.textColor
+            favoriteButton.iconColor = Style.textColor
         }
     }
     function closed(): void {
@@ -240,7 +240,7 @@ Item {
         height: 160
         z: 10
         radius: Style.settings.cubeRadius
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         RectangularShadow {
             anchors.fill: parent
             z: -1
@@ -250,7 +250,7 @@ Item {
             blur: 24
             spread: 0
             visible: true
-            color: Style.themes.shadowColor
+            color: Style.shadowColor
         }
         QPicture {
             y: 16
@@ -270,7 +270,7 @@ Item {
             width: 300
             height: 32
             elide: Text.ElideRight
-            color: Style.themes.fontColor
+            color: Style.fontColor
             font.bold: true
             text: root.title
             font.pixelSize: Style.settings.textH1
@@ -281,7 +281,7 @@ Item {
             x: root.width - width - 64
             y: 24
             height: 32
-            color: Style.themes.textColor
+            color: Style.textColor
             text: "创建者：" + root.artist
             font.pixelSize: Style.settings.textmain
             verticalAlignment: Text.AlignVCenter
@@ -293,7 +293,7 @@ Item {
             height: 44
             maximumLineCount: 3
             elide: Text.ElideRight
-            color: Style.themes.textColor
+            color: Style.textColor
             text: root.descript
             wrapMode: Text.Wrap
             font.pixelSize: Style.settings.textmain
@@ -305,7 +305,7 @@ Item {
             x: root.width - playCountRow.implicitWidth - 83
             y: 100
             radius: Style.settings.labelRadius
-            color: Style.themes.sideColor
+            color: Style.sideColor
             Row {
                 id: playCountRow
                 x: 10
@@ -316,22 +316,22 @@ Item {
                     height: 36
                     text: "\uf00e"
                     font.pixelSize: Style.settings.textmain
-                    font.family: iconFont.name
-                    color: Style.themes.textColor
+                    font.family: IconFont.name
+                    color: Style.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
                 Text {
                     height: 36
                     text: Math.floor(root.playcount / 10000) + "万  "
                     font.pixelSize: Style.settings.textmain
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
                 Text {
                     height: 36
                     text: String(root.duration) + "首"
                     font.pixelSize: Style.settings.textmain
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
             }
@@ -348,9 +348,9 @@ Item {
                 iconCharacter: "\uf00e"
                 text: "播放"
                 shadowEnabled: false
-                buttonColor: Style.themes.themeColor
-                textColor: Style.themes.fullColor
-                iconColor: Style.themes.fullColor
+                buttonColor: Style.themeColor
+                textColor: Style.fullColor
+                iconColor: Style.fullColor
                 onClicked: {
                     const song = MusicApi.playlistSong.get(0);
                     if (!song || !song.hash)
@@ -370,7 +370,7 @@ Item {
                 radius: Style.settings.labelRadius
                 iconCharacter: "\uf095"
                 shadowEnabled: false
-                buttonColor: Style.themes.sideColor
+                buttonColor: Style.sideColor
                 onClicked: {
                 }
             }
@@ -380,18 +380,18 @@ Item {
                 height: 36
                 radius: Style.settings.labelRadius
                 iconCharacter: "\uf0c8"
-                iconColor: Style.themes.textColor
+                iconColor: Style.textColor
                 shadowEnabled: false
-                buttonColor: Style.themes.sideColor
+                buttonColor: Style.sideColor
                 onClicked: {
                     if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
                         FavoritePlaylists.removeFavorite(root.id, "playlist");
                         mainWarn.tiped("已取消收藏", 0);
-                        iconColor = Style.themes.textColor
+                        iconColor = Style.textColor
                     } else {
                         FavoritePlaylists.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
                         mainWarn.tiped("已收藏", 1);
-                        iconColor = Style.themes.themeColor
+                        iconColor = Style.themeColor
                     }
                 }
             }

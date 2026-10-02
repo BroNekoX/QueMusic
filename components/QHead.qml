@@ -14,7 +14,7 @@ Item {
         y: 10
         width: 6
         height: 20
-        color: Style.themes.themeColor
+        color: Style.themeColor
         radius: 3
     }
     Text {
@@ -24,7 +24,7 @@ Item {
         font.pixelSize: Style.settings.textH2
         font.bold: true
         text: root.text
-        color: Style.themes.fontColor
+        color: Style.fontColor
         verticalAlignment: Text.AlignVCenter
     }
 }

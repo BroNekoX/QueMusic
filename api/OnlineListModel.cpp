@@ -5,9 +5,23 @@
 
 #include <algorithm>
 
+// 预注册字段：委托可声明 required property，某行缺该字段时取默认值，而不是整行不渲染
+static const char *const kKnownRoles[] = {
+    "title",      "artist",     "album",       "cover",      "hash",
+    "duration",   "source",     "playcount",   "paytype",    "category",
+    "id",         "tagid",      "url",         "fileName",   "hashhq",
+    "hashsq",     "lyric",      "mvid",        "singer",     "singername",
+    "songname",   "specialname", "specialid",  "album_name", "albumid",
+    "imgurl",     "intro",      "username",    "author_name",
+};
+
 OnlineListModel::OnlineListModel(QObject *parent)
     : QAbstractListModel(parent)
 {
+    QVariantMap seed;
+    for (const char *role : kKnownRoles)
+        seed.insert(QString::fromLatin1(role), QVariant());
+    collectRoles(seed);
 }
 
 int OnlineListModel::rowCount(const QModelIndex &parent) const

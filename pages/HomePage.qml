@@ -4,7 +4,6 @@
 import QtQuick
 import QtQuick.Effects
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: homePage
@@ -51,7 +50,7 @@ Item {
                 text: "推荐"
                 font.pixelSize: Style.settings.pageTitle
                 font.weight: Font.DemiBold
-                color: Style.themes.fontColor
+                color: Style.fontColor
             }
             QDrop {
                 x: parent.width - 96
@@ -88,17 +87,17 @@ Item {
                 Rectangle {
                     width: homeView.standWidth
                     height: warnText.implicitHeight + 40
-                    color: Style.themes.containColor
+                    color: Style.containColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.sideColor
+                    border.color: Style.sideColor
                     border.width: 1
                     Text {
                         x: 20
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themes.themeColor
+                        color: Style.themeColor
                         font.pixelSize: Style.settings.texticon
                     }
                     Text {
@@ -108,7 +107,7 @@ Item {
                         width: parent.width - 108
                         text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
                         wrapMode: Text.Wrap
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.bold: false
                         font.pixelSize: Style.settings.textmain
                     }
@@ -150,7 +149,7 @@ Item {
                             font.pixelSize: Style.settings.textmain
                             font.bold: true
                             elide: Text.ElideRight
-                            color: Style.themes.themeColor
+                            color: Style.themeColor
                         }
                         Text {
                             x: 16
@@ -160,7 +159,7 @@ Item {
                             elide: Text.ElideRight
                             font.pixelSize: 32
                             font.bold: true
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                         }
                         Text {
                             x: 16
@@ -169,7 +168,7 @@ Item {
                             width: parent.width
                             wrapMode: Text.Wrap
                             font.pixelSize: Style.settings.textmain
-                            color: Style.themes.textColor
+                            color: Style.textColor
                         }
                         Rectangle {
                             x: parent.width - 152
@@ -177,7 +176,7 @@ Item {
                             width: 128
                             height: 128
                             radius: Style.settings.cubeRadius
-                            color: Style.themes.secondaryColor
+                            color: Style.secondaryColor
                             QPicture {
                                 anchors.fill: parent
                                 anchors.margins: 8
@@ -193,7 +192,7 @@ Item {
                                 offset.y: 8
                                 radius: Style.settings.cubeRadius
                                 blur: 28
-                                color: Style.themes.shadowColor
+                                color: Style.shadowColor
                             }
                         }
 
@@ -213,9 +212,9 @@ Item {
                             iconCharacter: "\uf0e7"
                             text: "前往查看"
                             shadowEnabled: false
-                            buttonColor: Style.themes.themeColor
-                            textColor: Style.themes.fullColor
-                            iconColor: Style.themes.fullColor
+                            buttonColor: Style.themeColor
+                            textColor: Style.fullColor
+                            iconColor: Style.fullColor
                             onClicked: {
                                 MusicApi.recommendSongs.clear();
                                 MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
@@ -241,7 +240,7 @@ Item {
                             text: "上次听到"
                             font.bold: true
                             font.pixelSize: Style.settings.textH2
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                             verticalAlignment: Text.AlignVCenter
                         }
                         Text {
@@ -249,7 +248,7 @@ Item {
                             visible: Options.lastSongs.name === ""
                             text: "还没有播放记录"
                             font.pixelSize: Style.settings.text
-                            color: Style.themes.textColor
+                            color: Style.textColor
                         }
                         onClicked: {
                             if(Options.lastSongs.hash !== "") {
@@ -272,7 +271,7 @@ Item {
                                 text: Options.lastSongs.name
                                 font.bold: true
                                 font.pixelSize: Style.settings.textmain
-                                color: Style.themes.fontColor
+                                color: Style.fontColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             },
@@ -283,7 +282,7 @@ Item {
                                 height: 21
                                 text: Options.lastSongs.artist
                                 font.pixelSize: Style.settings.text
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
                             },
@@ -295,9 +294,9 @@ Item {
                                 iconCharacter: "\uf00e"
                                 text: "播放"
                                 shadowEnabled: false
-                                buttonColor: Style.themes.themeColor
-                                textColor: Style.themes.fullColor
-                                iconColor: Style.themes.fullColor
+                                buttonColor: Style.themeColor
+                                textColor: Style.fullColor
+                                iconColor: Style.fullColor
                                 onClicked: {
                                     if(Options.lastSongs.hash !== "") {
                                         MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
@@ -312,7 +311,7 @@ Item {
                                 radius: 16
                                 iconCharacter: "\uf075"
                                 shadowEnabled: false
-                                buttonColor: Style.themes.sideColor
+                                buttonColor: Style.sideColor
                                 onClicked: {
                                 }
                             },
@@ -325,7 +324,7 @@ Item {
                                 height: 36
                                 radius: 36
                                 buttonColor: "transparent"
-                                hoverColor: Style.themes.hoverColor
+                                hoverColor: Style.hoverColor
                                 shadowEnabled: false
                                 onClicked: {
                                     const indexHash = Options.lastSongs.hash;
@@ -347,16 +346,16 @@ Item {
                               : headerRow.layout === 1 ? headerRow.width
                               : headerRow.width * 0.5 - 8
                         height: 120
-                        color: Style.themes.containColor
+                        color: Style.containColor
 
                         Row {
                             anchors.centerIn: parent
                             spacing: 12
                             Text {
                                 text: "\uf0c1"
-                                font.family: iconFont.name
+                                font.family: IconFont.name
                                 font.pixelSize: 32
-                                color: Style.themes.themeColor
+                                color: Style.themeColor
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Column {
@@ -365,12 +364,12 @@ Item {
                                     text: "我的收藏歌单"
                                     font.bold: true
                                     font.pixelSize: Style.settings.textH1
-                                    color: Style.themes.fontColor
+                                    color: Style.fontColor
                                 }
                                 Text {
                                     text: FavoritePlaylists.count + " 个歌单"
                                     font.pixelSize: Style.settings.textmain
-                                    color: Style.themes.textColor
+                                    color: Style.textColor
                                 }
                             }
                         }
@@ -395,7 +394,7 @@ Item {
                         y: 0
                         width: privateRow.layout === 0 ? privateRow.leftWidth : privateRow.width
                         height: 180
-                        color: Style.themes.primaryColor
+                        color: Style.primaryColor
                         radius: Style.settings.cubeRadius
                         Text {
                             x: 12
@@ -404,7 +403,7 @@ Item {
                             text: "歌单分类"
                             font.pixelSize: Style.settings.textH2
                             font.bold: true
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                             verticalAlignment: Text.AlignVCenter
                         }
                         RectangularShadow {
@@ -415,7 +414,7 @@ Item {
                             radius: Style.settings.cubeRadius
                             blur: 18
                             spread: 0
-                            color: Style.themes.shadowColor
+                            color: Style.shadowColor
                         }
 
                         ListView {
@@ -436,6 +435,9 @@ Item {
 
                             delegate: Item {
                                 id: catDel
+                                required property string cover
+                                required property string title
+                                required property string tagid
                                 width: 96
                                 height: 96
                                 property int radius: Style.settings.cubeRadius
@@ -444,7 +446,7 @@ Item {
                                     id: card
                                     anchors.fill: parent
                                     radius: catDel.radius
-                                    source: (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png"
+                                    source: (catDel.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png"
                                     sourceSize: Qt.size(256,256)
 
                                     // 底部渐变遮罩 —— 保证标题永远可读
@@ -464,7 +466,7 @@ Item {
                                     Text {
                                         y: 60
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: model.title || ""
+                                        text: catDel.title || ""
                                         font.pixelSize: 16
                                         font.weight: Font.Bold
                                         color: "#FFFFFF"
@@ -478,7 +480,7 @@ Item {
                                         anchors.top: parent.top
                                         anchors.margins: 14
                                         text: "\uf0e7"
-                                        font.family: iconFont.name
+                                        font.family: IconFont.name
                                         font.pixelSize: 18
                                         color: "#FFFFFF"
                                         opacity: catMouse.containsMouse ? 1 : 0
@@ -497,10 +499,10 @@ Item {
 
                                     onClicked: {
                                         MusicApi.musicPlaylists.clear();
-                                        MusicApi.globaltagid = model.tagid;
-                                        MusicApi.getMusicPlaylists(model.tagid, 1, 20);
-                                        const image = (model.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
-                                        recommendWindow.opened(model.title, image);
+                                        MusicApi.globaltagid = catDel.tagid;
+                                        MusicApi.getMusicPlaylists(catDel.tagid, 1, 20);
+                                        const image = (catDel.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
+                                        recommendWindow.opened(catDel.title, image);
                                         window.exitIndex = 1;
                                     }
                                 }
@@ -520,9 +522,9 @@ Item {
                             width: 42
                             height: 42
                             text: "\uf104"
-                            font.family: iconFont.name
+                            font.family: IconFont.name
                             font.pixelSize: 32
-                            color: Style.themes.themeColor
+                            color: Style.themeColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -531,7 +533,7 @@ Item {
                             y: 20
                             height: 22
                             text: "私人漫游"
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                             font.pixelSize: Style.settings.textmain
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -540,7 +542,7 @@ Item {
                             y: 42
                             height: 20
                             text: "全网播放量最高的热门单曲合集"
-                            color: Style.themes.textColor
+                            color: Style.textColor
                             font.pixelSize: Style.settings.text
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -579,9 +581,9 @@ Item {
                             width: 42
                             height: 42
                             text: "\uf109"
-                            font.family: iconFont.name
+                            font.family: IconFont.name
                             font.pixelSize: 32
-                            color: Style.themes.themeColor
+                            color: Style.themeColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -590,7 +592,7 @@ Item {
                             y: 20
                             height: 22
                             text: "私人雷达"
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                             font.pixelSize: Style.settings.textmain
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -599,7 +601,7 @@ Item {
                             y: 42
                             height: 20
                             text: "最新发行高赞潮流流行歌曲"
-                            color: Style.themes.textColor
+                            color: Style.textColor
                             font.pixelSize: Style.settings.text
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -656,10 +658,17 @@ Item {
                         }
                     }
                     delegate: Rectangle {
+                        id: hotPlayRow
+                        required property string hash
+                        required property string cover
+                        required property string title
+                        required property string album
+                        required property real playcount
+                        required property real duration
                         width: 148
                         height: 256
                         radius: Style.settings.labelRadius
-                        color: Style.themes.primaryColor
+                        color: Style.primaryColor
                         scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
                         Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
                         RectangularShadow {
@@ -671,7 +680,7 @@ Item {
                             blur: hotPlayListsArea.containsMouse ? 32 : 14
                             spread: 0
                             visible: true
-                            color: Style.themes.shadowColor
+                            color: Style.shadowColor
                             Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
                             Behavior on offset.y { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
                         }
@@ -682,8 +691,8 @@ Item {
                             onClicked: {
                                 hotlistsWindow.mainTarget = homeMain;
                                 MusicApi.playlistSong.clear();
-                                MusicApi.globalid = model.hash;
-                                MusicApi.getPlaylistSongs(model.hash,1,20);
+                                MusicApi.globalid = hotPlayRow.hash;
+                                MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
                                 hotlistsWindow.opened(model);
                                 window.exitIndex = 1;
                             }
@@ -691,7 +700,7 @@ Item {
                         QPicture {
                             width: 148
                             height: 148
-                            source: (model.cover || "").replace("{size}", "128")
+                            source: (hotPlayRow.cover || "").replace("{size}", "128")
                             radius: Style.settings.labelRadius
                             sourceSize: Qt.size(128,128)
                             radius3: 0
@@ -701,9 +710,9 @@ Item {
                             x: 16
                             y: 160
                             width: 116
-                            text: model.title
+                            text: hotPlayRow.title
                             font.bold: true
-                            color: Style.themes.fontColor
+                            color: Style.fontColor
                             font.pixelSize: Style.settings.textmain
                             wrapMode: Text.Wrap
                             maximumLineCount: 2
@@ -714,8 +723,8 @@ Item {
                             y: 200
                             width: 116
                             height: 18
-                            text: model.album
-                            color: Style.themes.textColor
+                            text: hotPlayRow.album
+                            color: Style.textColor
                             font.pixelSize: Style.settings.text
                             elide: Text.ElideRight
                         }
@@ -724,7 +733,7 @@ Item {
                             y: 224
                             height: 32
                             width: 148
-                            color: Style.themes.sideColor
+                            color: Style.sideColor
                             bottomLeftRadius: Style.settings.labelRadius
                             bottomRightRadius: Style.settings.labelRadius
                             Text {
@@ -733,26 +742,26 @@ Item {
                                 height: 32
                                 text: "\uf00e"
                                 font.pixelSize: Style.settings.text
-                                font.family: iconFont.name
-                                color: Style.themes.textColor
+                                font.family: IconFont.name
+                                color: Style.textColor
                                 verticalAlignment: Text.AlignVCenter
                             }
                             Text {
                                 x: 20 + playIcon.width
                                 height: 32
-                                text: Math.floor(model.playcount / 10000) + "万"
-                                visible: model.playcount >= 10000
+                                text: Math.floor(hotPlayRow.playcount / 10000) + "万"
+                                visible: hotPlayRow.playcount >= 10000
                                 font.pixelSize: Style.settings.textTip
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 verticalAlignment: Text.AlignVCenter
                             }
                             Text {
                                 x: parent.width - width - 16
                                 height: 32
-                                text: model.duration + "首"
-                                visible: model.duration > 0
+                                text: hotPlayRow.duration + "首"
+                                visible: hotPlayRow.duration > 0
                                 font.pixelSize: Style.settings.textTip
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 verticalAlignment: Text.AlignVCenter
                             }
                         }

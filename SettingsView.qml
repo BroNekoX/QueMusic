@@ -6,7 +6,6 @@ import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 import QtCore
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: settingsView
@@ -76,8 +75,8 @@ Item {
                 height: 232
                 anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
-                color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
-                border.color: Style.themes.secondaryColor
+                color: Style.darkis ? Style.secondaryColor : "#ffffff"
+                border.color: Style.secondaryColor
                 border.width: 1
                 QRCodeView {
                     id: neteaseQrCode
@@ -90,7 +89,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: AccountManager.neteaseQrMessage
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: Style.settings.textmain
                 elide: Text.ElideRight
                 width: parent.width
@@ -104,8 +103,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.themes.themeColor
-                textColor: Style.themes.primaryColor
+                buttonColor: Style.themeColor
+                textColor: Style.primaryColor
                 onClicked: AccountManager.startNeteaseQrLogin()
             }
 
@@ -113,7 +112,7 @@ Item {
             Text {
                 width: parent.width
                 text: "手机号登录被网易云风控拦截时，可改用：粘贴浏览器里的 Cookie（最稳）"
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 opacity: 0.7
                 font.pixelSize: Style.settings.textmain - 3
                 wrapMode: Text.WordWrap
@@ -127,8 +126,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.themes.secondaryColor
-                textColor: Style.themes.fontColor
+                buttonColor: Style.secondaryColor
+                textColor: Style.fontColor
                 onClicked: settingsView.neteaseAltVisible = !settingsView.neteaseAltVisible
             }
 
@@ -156,13 +155,13 @@ Item {
                     height: 36
                     leftPadding: 12
                     placeholderText: "手机号"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: Style.settings.textmain
                     verticalAlignment: Text.AlignVCenter
                     background: Rectangle {
                         radius: 8
-                        color: Style.themes.primaryColor
-                        border.color: Style.themes.secondaryColor
+                        color: Style.primaryColor
+                        border.color: Style.secondaryColor
                         border.width: 1
                     }
                 }
@@ -177,13 +176,13 @@ Item {
                         height: 36
                         leftPadding: 12
                         placeholderText: "短信验证码"
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.textmain
                         verticalAlignment: Text.AlignVCenter
                         background: Rectangle {
                             radius: 8
-                            color: Style.themes.primaryColor
-                            border.color: Style.themes.secondaryColor
+                            color: Style.primaryColor
+                            border.color: Style.secondaryColor
                             border.width: 1
                         }
                     }
@@ -194,8 +193,8 @@ Item {
                         radius: Style.settings.labelRadius
                         shadowEnabled: false
                         text: "发送验证码"
-                        buttonColor: Style.themes.secondaryColor
-                        textColor: Style.themes.fontColor
+                        buttonColor: Style.secondaryColor
+                        textColor: Style.fontColor
                         onClicked: AccountManager.sendNeteaseCaptcha(neteasePhoneInput.text)
                     }
                 }
@@ -206,8 +205,8 @@ Item {
                     radius: Style.settings.labelRadius
                     shadowEnabled: false
                     text: "手机号登录"
-                    buttonColor: Style.themes.themeColor
-                    textColor: Style.themes.primaryColor
+                    buttonColor: Style.themeColor
+                    textColor: Style.primaryColor
                     onClicked: AccountManager.loginNeteaseWithCellphone(neteasePhoneInput.text,
                                                                       neteaseCaptchaInput.text)
                 }
@@ -216,7 +215,7 @@ Item {
                 Text {
                     width: parent.width
                     text: AccountManager.neteaseQrMessage
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     opacity: 0.7
                     font.pixelSize: Style.settings.textmain - 3
                     wrapMode: Text.WordWrap
@@ -236,13 +235,13 @@ Item {
                     height: 36
                     leftPadding: 12
                     placeholderText: "粘贴含 MUSIC_U 的 Cookie"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: Style.settings.textmain
                     verticalAlignment: Text.AlignVCenter
                     background: Rectangle {
                         radius: 8
-                        color: Style.themes.primaryColor
-                        border.color: Style.themes.secondaryColor
+                        color: Style.primaryColor
+                        border.color: Style.secondaryColor
                         border.width: 1
                     }
                 }
@@ -253,8 +252,8 @@ Item {
                     radius: Style.settings.labelRadius
                     shadowEnabled: false
                     text: "用 Cookie 登录"
-                    buttonColor: Style.themes.themeColor
-                    textColor: Style.themes.primaryColor
+                    buttonColor: Style.themeColor
+                    textColor: Style.primaryColor
                     onClicked: AccountManager.loginNeteaseWithCookie(neteaseCookieInput.text)
                 }
             }
@@ -280,8 +279,8 @@ Item {
                 height: 232
                 anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
-                color: Style.darkis ? Style.themes.secondaryColor : "#ffffff"
-                border.color: Style.themes.secondaryColor
+                color: Style.darkis ? Style.secondaryColor : "#ffffff"
+                border.color: Style.secondaryColor
                 border.width: 1
                 QRCodeView {
                     id: kugouQrCode
@@ -294,7 +293,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: AccountManager.kugouQrMessage
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: Style.settings.textmain
                 elide: Text.ElideRight
                 width: parent.width
@@ -308,8 +307,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.themes.themeColor
-                textColor: Style.themes.primaryColor
+                buttonColor: Style.themeColor
+                textColor: Style.primaryColor
                 onClicked: AccountManager.startKugouQrLogin()
             }
         }
@@ -336,20 +335,20 @@ Item {
         height: settingsView.height
         width: 210
         opacity: 1
-        property color choiceColor: Style.themes.hoverColor
-        property color choiceTextColor: Style.themes.fontColor
-        color: Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor
+        property color choiceColor: Style.hoverColor
+        property color choiceTextColor: Style.fontColor
+        color: Style.settings.sidebarColor ? Style.secondaryColor : Style.primaryColor
         Connections {
             target: Style
             function onChangeTheme(): void {
                 if(Style.settings.sidebarStyle === 0) {
-                    leftSidebarSettings.choiceColor = Style.themes.hoverColor;
-                    leftSidebarSettings.choiceTextColor = Style.themes.fontColor;
+                    leftSidebarSettings.choiceColor = Style.hoverColor;
+                    leftSidebarSettings.choiceTextColor = Style.fontColor;
                     choicebar1.x = 18;
                     choicebar1.radius = 2;
                 } else if(Style.settings.sidebarStyle === 1) {
-                    leftSidebarSettings.choiceColor = Style.themes.themeColor;
-                    leftSidebarSettings.choiceTextColor = Style.themes.primaryColor;
+                    leftSidebarSettings.choiceColor = Style.themeColor;
+                    leftSidebarSettings.choiceTextColor = Style.primaryColor;
                     choicebar1.x = 0;
                     choicebar1.radius = 0;
                 }
@@ -358,13 +357,13 @@ Item {
         Component.onCompleted: {
             index1ed(0);
             if(Style.settings.sidebarStyle === 0) {
-                leftSidebarSettings.choiceColor = Style.themes.hoverColor;
-                leftSidebarSettings.choiceTextColor = Style.themes.fontColor;
+                leftSidebarSettings.choiceColor = Style.hoverColor;
+                leftSidebarSettings.choiceTextColor = Style.fontColor;
                 choicebar1.x = 18;
                 choicebar1.radius = 2;
             } else if(Style.settings.sidebarStyle === 1) {
-                leftSidebarSettings.choiceColor = Style.themes.themeColor;
-                leftSidebarSettings.choiceTextColor = Style.themes.primaryColor;
+                leftSidebarSettings.choiceColor = Style.themeColor;
+                leftSidebarSettings.choiceTextColor = Style.primaryColor;
                 choicebar1.x = 0;
                 choicebar1.radius = 0;
             }
@@ -418,7 +417,7 @@ Item {
             topRightRadius: 2
             bottomRightRadius: 2
             radius: 2
-            color: Style.themes.themeColor
+            color: Style.themeColor
             opacity: 1
             property int barBottom: window.isMacOS ? 122 : 102
             property int willBarY: 80
@@ -473,7 +472,7 @@ Item {
                 height: 36
                 source: Style.darkis ? "qrc:/QueMusic/resources/window-bar/returnd.svg" : "qrc:/QueMusic/resources/window-bar/return.svg"
                 background: Rectangle {
-                    color: returnButton.hovered ? Style.themes.hoverColor : "transparent"
+                    color: returnButton.hovered ? Style.hoverColor : "transparent"
                     radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 8
                     Behavior on color { ColorAnimation { duration: 50 } }
                 }
@@ -490,7 +489,7 @@ Item {
                 font.pixelSize: 14
                 font.bold: false
                 verticalAlignment: Text.AlignVCenter
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
         }
@@ -537,7 +536,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: Style.settings.labelRadius
-                        color: Style.themes.hoverColor
+                        color: Style.hoverColor
                         opacity: barMouse.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
@@ -549,9 +548,9 @@ Item {
                         width: 42
                         height: 42
                         text: model.iconChar
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         font.pixelSize: Style.settings.texticon
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.themes.textColor
+                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.textColor
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         Behavior on color { ColorAnimation { duration: 120 } }
@@ -564,7 +563,7 @@ Item {
                         width: 140
                         height: 42
                         text: model.display
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.themes.textColor
+                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.textColor
                         font.bold: navDelegateSettings.isSelected
                         font.pixelSize: Style.settings.textmain
                         verticalAlignment: Text.AlignVCenter
@@ -595,7 +594,7 @@ Item {
         x: 210
         width: parent.width - 210
         height: parent.height
-        color: Style.themes.secondaryColor
+        color: Style.secondaryColor
         z: 2
         property list<Item> setPages: [
             themeset,
@@ -653,7 +652,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "通用"
                     font.pixelSize: Style.settings.pageTitle
@@ -666,7 +665,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: globalThemeCard.height
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         id: globalThemeCard
@@ -706,7 +705,7 @@ Item {
                                             height: 36
                                             radius: Style.settings.labelRadius
                                             borderWidth: Style.settings.color === index ? 2 : 0
-                                            borderColor: Style.themes.textColor
+                                            borderColor: Style.textColor
                                             iconCharacter: ""
                                             buttonColor: modelData
                                             onClicked: {
@@ -732,9 +731,9 @@ Item {
                                         radius: Style.settings.labelRadius
                                         iconCharacter: "\uf008"
                                         visible: Style.settings.colorList.length < 8
-                                        buttonColor: Style.themes.secondaryColor
+                                        buttonColor: Style.secondaryColor
                                         onClicked: {
-                                            themeColorChoose.openColor(Style.themes.themeColor);
+                                            themeColorChoose.openColor(Style.themeColor);
                                         }
                                     }
                                 }
@@ -808,7 +807,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -821,15 +820,15 @@ Item {
                             x: 16
                             width: parent.width - 32
                             height: 46
-                            color: Style.themes.hoverColor
+                            color: Style.hoverColor
                             radius: Style.settings.labelRadius
                             Text {
                                 x: 12
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 30
                                 text: "\uf0b6"
-                                font.family: iconFont.name
-                                color: Style.themes.textColor
+                                font.family: IconFont.name
+                                color: Style.textColor
                                 font.pixelSize: Style.settings.texticon
                             }
                             Text {
@@ -837,7 +836,7 @@ Item {
                                 width: parent.width - 56
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "扫码登录：用你自己的账号在应用内登录（账号即能力），登录后自动读取登录态，仅保存在本机，随时可退出。"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 12
                                 wrapMode: Text.WordWrap
                             }
@@ -919,7 +918,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1066,7 +1065,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "界面"
                     font.pixelSize: Style.settings.pageTitle
@@ -1077,7 +1076,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1173,7 +1172,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1257,7 +1256,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1283,7 +1282,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1410,7 +1409,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1452,7 +1451,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "播放器"
                     font.pixelSize: Style.settings.pageTitle
@@ -1464,7 +1463,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1522,7 +1521,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1590,7 +1589,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1732,7 +1731,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "音频"
                     font.pixelSize: Style.settings.pageTitle
@@ -1868,7 +1867,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "快捷键"
                     font.pixelSize: Style.settings.pageTitle
@@ -1880,7 +1879,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1906,9 +1905,9 @@ Item {
                     id: keyCapture
                     height: shortcutset.isRecording ? 60 : 0
                     width: settingStack.standWidth
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     border.width: 1
-                    border.color: Style.themes.sideColor
+                    border.color: Style.sideColor
                     radius: 16
                     focus: false
                     visible: true          // 必须可见才能获得焦点
@@ -1940,7 +1939,7 @@ Item {
                             width: 100
                             height: 34
                             text: "取消[Esc]"
-                            buttonColor: Style.themes.primaryColor
+                            buttonColor: Style.primaryColor
                             borderWidth: 1
                             onClicked: {
                                 shortcutset.stopRecording(false);
@@ -1951,7 +1950,7 @@ Item {
                             id: keyCaptureText
                             anchors.verticalCenter: parent.verticalCenter
                             font.pixelSize: Style.settings.textmain
-                            color: Style.themes.secondaryColor
+                            color: Style.secondaryColor
                             text: "正在键位录制状态，请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
                         }
                     }
@@ -1961,7 +1960,7 @@ Item {
                 QHead { text: "快捷键列表" }
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     height: shortCutColumn.height // 自适应高度
 
@@ -1985,7 +1984,7 @@ Item {
                                         text: model.desc
                                         width: 150
                                         font.pixelSize: Style.settings.textmain
-                                        color: Style.themes.fontColor
+                                        color: Style.fontColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
@@ -1994,7 +1993,7 @@ Item {
                                         text: Options.shortCuts[model.name] || model.defau
                                         width: 120
                                         font.pixelSize: Style.settings.textmain
-                                        color: Style.themes.fontColor
+                                        color: Style.fontColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
@@ -2003,7 +2002,7 @@ Item {
                                         text: "默认: " + model.defau
                                         width: 120
                                         font.pixelSize: Style.settings.textmain
-                                        color: Qt.rgba(Style.themes.fontColor.r, Style.themes.fontColor.g, Style.themes.fontColor.b, 0.6)
+                                        color: Qt.rgba(Style.fontColor.r, Style.fontColor.g, Style.fontColor.b, 0.6)
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
@@ -2057,7 +2056,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     text: "提示：点击「设置」后按下新的组合键（如 Ctrl+Shift+A），按 Esc 取消。"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: 12
                     wrapMode: Text.Wrap
                 }
@@ -2077,7 +2076,7 @@ Item {
                 y: 24
                 width: settingStack.standWidth
                 height: 36
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 verticalAlignment: Text.AlignVCenter
                 text: "插件"
                 font.pixelSize: Style.settings.pageTitle
@@ -2107,17 +2106,17 @@ Item {
                 y: 124
                 width: settingStack.standWidth
                 height: warnModText.implicitHeight + 48
-                color: Style.themes.containColor
+                color: Style.containColor
                 radius: Style.settings.cubeRadius
-                border.color: Style.themes.sideColor
+                border.color: Style.sideColor
                 border.width: 1
                 Text {
                     x: 24
                     y: 24
-                    font.family: iconFont.name
+                    font.family: IconFont.name
                     height: warnModText.implicitHeight
                     text: "\uf11a"
-                    color: Style.themes.themeColor
+                    color: Style.themeColor
                     font.pixelSize: Style.settings.texticon
                 }
                 Text {
@@ -2127,7 +2126,7 @@ Item {
                     width: parent.width - 64
                     text: "音乐源插件还未开发完成，等待开发者更新喵"
                     wrapMode: Text.Wrap
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.bold: false
                     font.pixelSize: Style.settings.textmain
                 }
@@ -2146,15 +2145,10 @@ Item {
                     width: downloadChildPage.width
                     height: downloadChildPage.height
 
-                    // 歌词界面插件：同时只用一个，选中即换播放页加载的界面
                     PluginManager {
                         anchors.fill: parent
                         store: LyricsPlugins
-                        compact: settingStack.standWidth < 648
                         pluginKind: "歌词界面插件"
-                        installTitle: "选择歌词界面插件文件夹"
-                        hint: "插件目录：" + LyricsPlugins.dir + "（每个插件一个文件夹，文件夹名即插件 id，"
-                              + "内含 info.json 与入口 QML）。安装后点「启用」生效，也可在播放页左上角第二个按钮切换。"
                     }
                 }
                 Item {
@@ -2163,17 +2157,11 @@ Item {
                     width: downloadChildPage.width
                     height: downloadChildPage.height
 
-                    // 功能插件：可同时启用多个，插件自带的界面挂到宿主开放出来的扩展点上
                     PluginManager {
                         anchors.fill: parent
                         store: FunctionPlugins
-                        multi: true
-                        compact: settingStack.standWidth < 648
                         pluginKind: "功能插件"
-                        installTitle: "选择功能插件文件夹"
-                        hint: "插件目录：" + FunctionPlugins.dir + "（每个插件一个文件夹，文件夹名即插件 id，"
-                              + "内含 info.json 与入口 QML）。可同时启用多个，插件自带的界面会出现在标题栏、"
-                              + "底栏等扩展点上；插件出错会自动停用。"
+                        multi: true
                     }
                 }
                 Item {
@@ -2186,7 +2174,7 @@ Item {
                         text: "音乐源"
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: 14
                     }
                 }
@@ -2210,7 +2198,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "关于应用"
                     font.pixelSize: Style.settings.pageTitle
@@ -2239,18 +2227,18 @@ Item {
                         height: 56
                         width: implicitWidth// + 96
                         text: "QueMusic"
-                        font.family: textFont.name
+                        font.family: TextFont.name
                         font.pixelSize: 56
                         font.bold: false
                         verticalAlignment: Text.AlignVCenter
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "一款基于 C++/Qt Quick 框架开发的高性能音乐播放器"
                         wrapMode: Text.Wrap
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.bold: false
                         font.pixelSize: Style.settings.textH2
                     }
@@ -2259,7 +2247,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 60
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     SettingItem {
                         width: settingStack.standWidth - 32
@@ -2275,7 +2263,7 @@ Item {
                             Text {
                                 height: 36
                                 text: Options.version + " (" + Options.versionCode + ")"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2283,9 +2271,9 @@ Item {
                                 height: 36
                                 width: 100
                                 text: "检查更新"
-                                buttonColor: Style.themes.themeColor
-                                textColor: Style.themes.primaryColor
-                                iconColor: Style.themes.primaryColor
+                                buttonColor: Style.themeColor
+                                textColor: Style.primaryColor
+                                iconColor: Style.primaryColor
                                 shadowEnabled: false
                                 onClicked: {
                                     updater.checkForUpdate();
@@ -2298,17 +2286,17 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: warnText.implicitHeight + 40
-                    color: Style.themes.containColor
+                    color: Style.containColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.sideColor
+                    border.color: Style.sideColor
                     border.width: 1
                     Text {
                         x: 20
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         height: warnText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themes.themeColor
+                        color: Style.themeColor
                         font.pixelSize: Style.settings.texticon
                     }
                     Text {
@@ -2318,7 +2306,7 @@ Item {
                         width: parent.width - 108
                         text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
                         wrapMode: Text.Wrap
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.bold: false
                         font.pixelSize: Style.settings.textmain
                     }
@@ -2341,17 +2329,17 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: warnMoneyText.implicitHeight + 40
-                    color: Style.themes.containColor
+                    color: Style.containColor
                     radius: Style.settings.cubeRadius
-                    border.color: Style.themes.sideColor
+                    border.color: Style.sideColor
                     border.width: 1
                     Text {
                         x: 20
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         height: warnMoneyText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themes.themeColor
+                        color: Style.themeColor
                         font.pixelSize: Style.settings.texticon
                     }
                     Text {
@@ -2361,7 +2349,7 @@ Item {
                         width: parent.width - 108
                         text: "QueMusic Beta（官方版）始终是完全免费且开源的软件，不存在付费，会员，捐献，充值，广告等入口，官方版本不存在Pro，Ultra，高级版等版本，如果你发现软件或软件内有需要付费的内容，请立即与开发者联系。"
                         wrapMode: Text.Wrap
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.bold: false
                         font.pixelSize: Style.settings.textmain
                     }
@@ -2386,7 +2374,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: description.implicitHeight + 48
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Text {
                         id: description
@@ -2394,7 +2382,7 @@ Item {
                         width: settingStack.standWidth - 48
                         text: "QueMusic是一个基于Qt QML开发的全能音乐播放器，旨在让听歌变得更简单，在Qt RHI * QML * C++强大组合下，性能卓越，UI美观丝滑，基于C++的在线音源使其拥有强大的稳定在线体验，并且由此实现美观强大的自定义功能，QueMusic希望做一个全能的音乐播放器。"
                         wrapMode: Text.Wrap
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: 13
                     }
                 }
@@ -2419,7 +2407,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 238
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
@@ -2432,7 +2420,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.version + " (" + Options.versionCode + ") (Beta)"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2445,7 +2433,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.pluginApi + " (Beta)"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2458,7 +2446,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "Qt-" + qtRuntimeVersion + "(Community)"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2471,7 +2459,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "QRHI/Qt Scene Graph"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2484,7 +2472,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "C++/JS/QtQuick"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2524,7 +2512,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 200
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
@@ -2537,7 +2525,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "241422517"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2550,7 +2538,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "uihugd@outlook.com"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2563,7 +2551,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "695207057"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2576,7 +2564,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "1105114511"
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2584,7 +2572,7 @@ Item {
                     }
                 }
 
-                Text { text: "期待您的贡献与反馈"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "期待您的贡献与反馈"; color: Style.fontColor; font.pixelSize: Style.settings.textmain }
 
                 Row {
                     spacing: 20
@@ -2634,7 +2622,7 @@ Item {
                     height: 36
                     Text {
                         anchors.centerIn: parent
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.pixelSize: Style.settings.textmain
                         text: "Copyright (c) 2025-2026 QueMusic Contributors\n   本项目基于 Apache License 2.0 协议获得许可"
                     }
@@ -2660,7 +2648,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "DeBug"
                     font.pixelSize: Style.settings.pageTitle
@@ -2668,13 +2656,13 @@ Item {
                     font.letterSpacing: -0.3
                 }
 
-                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请到软件配置目录删除"; color: Style.themes.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请到软件配置目录删除"; color: Style.fontColor; font.pixelSize: Style.settings.textmain }
 
                 QHead { text: "渲染" }
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -2745,7 +2733,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -2781,7 +2769,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -2830,7 +2818,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 320
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     radius: Style.settings.cubeRadius
                     Column {
                         anchors.fill: parent
@@ -2839,7 +2827,7 @@ Item {
                         Text {
                             width: parent.width
                             text: "实时日志预览（完整内容见日志文件）"
-                            color: Style.themes.textColor
+                            color: Style.textColor
                             font.pixelSize: Style.settings.text
                         }
                         Flickable {
@@ -2854,7 +2842,7 @@ Item {
                                 id: logPreviewText
                                 width: parent.width
                                 text: LogManager.logPreview
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 font.pixelSize: Style.settings.text
                                 wrapMode: Text.Wrap
                             }

@@ -4,7 +4,6 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
-import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
@@ -52,7 +51,7 @@ Popup {
             text: "Title"
             font.pixelSize: 20
             font.bold: true
-            color: Style.themes.fontColor
+            color: Style.fontColor
             wrapMode: Text.WordWrap
         }
 
@@ -60,7 +59,7 @@ Popup {
             id: messageText
             text: "Messages"
             font.pixelSize: 13
-            color: Style.themes.fontColor
+            color: Style.fontColor
             wrapMode: Text.WordWrap
             width: parent.width
         }
@@ -70,14 +69,14 @@ Popup {
             width: parent.width
             implicitHeight: 36
             radius: 12
-            color: Style.themes.primaryColor
+            color: Style.primaryColor
             border.width: 2
-            border.color: input.focus ? Style.themes.themeColor : Style.themes.secondaryColor
+            border.color: input.focus ? Style.themeColor : Style.secondaryColor
             TextInput {
                 id: input
                 anchors.fill: parent
                 anchors.margins: 4
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
@@ -98,8 +97,8 @@ Popup {
                 text: dialog.cancelText
                 iconCharacter: "\uf025" // X 图标
                 radius: Style.settings.labelRadius
-                buttonColor: Style.themes.secondaryColor
-                borderColor: Style.themes.sideColor
+                buttonColor: Style.secondaryColor
+                borderColor: Style.sideColor
                 borderWidth: 1
                 onClicked: { dialog.cancel(); dialog.close() }
             }
@@ -107,10 +106,10 @@ Popup {
                 width: 108
                 height: 36
                 text: dialog.confirmText
-                buttonColor: Style.themes.themeColor
-                textColor: Style.themes.primaryColor
-                iconColor: Style.themes.primaryColor
-                shadowColor: Style.themes.themeShadowColor
+                buttonColor: Style.themeColor
+                textColor: Style.primaryColor
+                iconColor: Style.primaryColor
+                shadowColor: Style.themeShadowColor
                 radius: Style.settings.labelRadius
                 iconCharacter: "\uf0e7" // 继续图标
                 onClicked: { dialog.confirm(); dialog.close() }

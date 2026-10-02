@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 // 左侧边栏
 Rectangle {
@@ -11,20 +10,20 @@ Rectangle {
     id: sidebar
     width: 210
     property color baseColor: "transparent"
-    property color choiceColor: Style.themes.hoverColor
-    property color choiceTextColor: Style.themes.fontColor
-    color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.themes.secondaryColor : Style.themes.primaryColor) : baseColor
+    property color choiceColor: Style.hoverColor
+    property color choiceTextColor: Style.fontColor
+    color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.secondaryColor : Style.primaryColor) : baseColor
     Connections {
         target: Style
         function onChangeTheme(): void {
             if(Style.settings.sidebarStyle === 0) {
-                sidebar.choiceColor = Style.themes.hoverColor;
-                sidebar.choiceTextColor = Style.themes.fontColor;
+                sidebar.choiceColor = Style.hoverColor;
+                sidebar.choiceTextColor = Style.fontColor;
                 choicebar.x = 18;
                 choicebar.radius = 2;
             } else if(Style.settings.sidebarStyle === 1) {
-                sidebar.choiceColor = Style.themes.themeColor;
-                sidebar.choiceTextColor = Style.themes.primaryColor;
+                sidebar.choiceColor = Style.themeColor;
+                sidebar.choiceTextColor = Style.primaryColor;
                 choicebar.x = 0;
                 choicebar.radius = 0;
             }
@@ -74,7 +73,7 @@ Rectangle {
         radius: 2 //Style.settings.labelRadius
         topRightRadius: 2
         bottomRightRadius: 2
-        color: Style.themes.themeColor
+        color: Style.themeColor
         y: 80
         property int barBottom: 102
         property int willBarY: 80
@@ -140,25 +139,25 @@ Rectangle {
             x: 51
             height: 18
             text: "QueMusic"
-            font.family: textFont.name
+            font.family: TextFont.name
             font.pixelSize: 16
             font.bold: true
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: Style.fontColor
         }
         Rectangle {
             x: 140
             y: 10
             width: 40
             height: 20
-            color: Style.themes.themeColor
+            color: Style.themeColor
             radius: 6
             Text {
                 anchors.centerIn: parent
                 text: "Beta"
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                color:  Style.themes.fullColor
+                color:  Style.fullColor
             }
         }
     }
@@ -168,7 +167,7 @@ Rectangle {
         x: 20
         width: 170
         height: 1
-        color: Style.themes.sideColor
+        color: Style.sideColor
         y: 173
     }
 
@@ -217,7 +216,7 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     radius: Style.settings.labelRadius
-                    color: Style.themes.hoverColor
+                    color: Style.hoverColor
                     opacity: barMouse.containsMouse ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                 }
@@ -229,9 +228,9 @@ Rectangle {
                     width: 42
                     height: 42
                     text: model.iconChar
-                    font.family: iconFont.name
+                    font.family: IconFont.name
                     font.pixelSize: Style.settings.texticon
-                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.themes.textColor
+                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     Component.onCompleted: if (index === 2) visible = false
@@ -245,7 +244,7 @@ Rectangle {
                     width: 140
                     height: 42
                     text: model.display
-                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.themes.textColor
+                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.textColor
                     font.bold: navDelegate.isSelected
                     font.pixelSize: Style.settings.textmain
                     verticalAlignment: Text.AlignVCenter
@@ -274,7 +273,7 @@ Rectangle {
         }
     }
 
-    // 功能插件扩展点：侧边栏底部（插件放自己的入口按钮）
+    // 扩展点：侧边栏底部
     Column {
         id: sidebarBottomSlot
         x: 15

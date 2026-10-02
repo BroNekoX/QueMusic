@@ -37,7 +37,7 @@ optionsEQ.open();
                 model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                 onTransformed: (choiced) => {
                     Options.settings.playerRateIndex = choiced
-                    if (choiced !== 6) player.playbackRate = options.rates[choiced]
+                    if (choiced !== 6) Playback.player.playbackRate = options.rates[choiced]
                 }
             }
         }
@@ -56,10 +56,10 @@ optionsEQ.open();
                 stepSize: 0.1
                 leftText: true
                 valueText: value.toFixed(1) + "x"
-                value: player.playbackRate
+                value: Playback.player.playbackRate
                 onMoved: {
                     if (Options.settings.playerRateIndex === 6)
-                        player.playbackRate = value
+                        Playback.player.playbackRate = value
                 }
             }
         }
@@ -73,8 +73,8 @@ optionsEQ.open();
                 width: 160
                 anchors.right: parent.right
                 letRight: true
-                switchTrue: player.pitchCompensation
-                onToggled: player.pitchCompensation = !player.pitchCompensation
+                switchTrue: Playback.player.pitchCompensation
+                onToggled: Playback.player.pitchCompensation = !Playback.player.pitchCompensation
             }
         }
 
@@ -135,8 +135,8 @@ optionsEQ.open();
                     fontSize: Style.settings.text
                     text: Playback.abA >= 0 ? Playback.fmt(Playback.abA) : "设 A"
                     tipText: "在当前位置设为起点"
-                    buttonColor: Playback.abA >= 0 ? Style.themes.themeColor : Style.themes.secondaryColor
-                    textColor: Playback.abA >= 0 ? Style.themes.primaryColor : Style.themes.fontColor
+                    buttonColor: Playback.abA >= 0 ? Style.themeColor : Style.secondaryColor
+                    textColor: Playback.abA >= 0 ? Style.primaryColor : Style.fontColor
                     onClicked: Playback.setAbPoint(0)
                 }
                 QButton {
@@ -144,8 +144,8 @@ optionsEQ.open();
                     fontSize: Style.settings.text
                     text: Playback.abArmed ? Playback.fmt(Playback.abB) : "设 B"
                     tipText: "在当前位置设为终点"
-                    buttonColor: Playback.abArmed ? Style.themes.themeColor : Style.themes.secondaryColor
-                    textColor: Playback.abArmed ? Style.themes.primaryColor : Style.themes.fontColor
+                    buttonColor: Playback.abArmed ? Style.themeColor : Style.secondaryColor
+                    textColor: Playback.abArmed ? Style.primaryColor : Style.fontColor
                     onClicked: Playback.setAbPoint(1)
                 }
                 QButton {

@@ -25,7 +25,7 @@ Item {
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.settings.textmain + 1
         //font.bold: true
-        color: Style.themes.fontColor
+        color: Style.fontColor
     }
     Text {
         id: tip
@@ -34,7 +34,7 @@ Item {
         text: settingItem.tip
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.settings.textTip
-        color: Style.themes.textColor
+        color: Style.textColor
     }
 
     Item {
@@ -52,7 +52,7 @@ Item {
         x: 18
         y: settingItem.height - 1
         height: 1
-        color: Style.themes.sideColor
+        color: Style.sideColor
     }
 
 }

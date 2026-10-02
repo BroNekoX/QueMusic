@@ -5,7 +5,6 @@ import QtQuick
 import QueMusic 1.0
 import QtQuick.Effects
 import QtQuick.Controls.Basic
-import 'qrc:/QueMusic/components'
 Menu {
     id: dialog
     property int current: -1
@@ -18,7 +17,7 @@ Menu {
     background: Rectangle {
         implicitWidth: 160
         implicitHeight: 40
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         radius: Style.settings.labelRadius
         RectangularShadow {
             anchors.fill: parent
@@ -28,7 +27,7 @@ Menu {
             radius: parent.radius
             blur: 20
             spread: 0
-            color: Style.themes.shadowColor
+            color: Style.shadowColor
         }
     }
 
@@ -44,15 +43,15 @@ Menu {
                 radius: Style.settings.labelRadius - 2
                 width: menuItem.width - 4
                 height: menuItem.height - 4
-                color: index === dialog.current ? Style.themes.containColor
-                     : (menuItem.down || menuItem.highlighted) ? Style.themes.hoverColor
+                color: index === dialog.current ? Style.containColor
+                     : (menuItem.down || menuItem.highlighted) ? Style.hoverColor
                      : "transparent"
             }
             text: modelData
             //显式指定contentItem，
             contentItem: Text {
                 text: menuItem.text
-                color: index === dialog.current ? Style.themes.themeColor : Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
+                color: index === dialog.current ? Style.themeColor : Style.fontColor//使用项目主题文字色，深浅色主题下都可读
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: 12

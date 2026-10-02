@@ -9,7 +9,6 @@ import QtQuick.Shapes
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects   // 仅逐字染色仍用 LinearGradient
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: mainLyrics

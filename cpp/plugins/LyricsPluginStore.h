@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 歌词界面插件：目录扫描 / 安装 / 删除见 PluginStore，这里只保留「同时只用其中一个」的单选状态。
-// 内置界面与已安装插件合并成同一列表交给宿主与设置页使用。
+// 歌词界面插件：目录逻辑见 PluginStore，这里只保留「同时只用其中一个」的单选状态。
 #pragma once
 
 #include "plugins/PluginStore.h"

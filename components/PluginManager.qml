@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
-//
-// 插件管理页：歌词界面插件（单选）与功能插件（可多选）共用一套列表 UI。
-// store 传插件单例，两者接口一致：plugins / dir / rescan() / install() / remove() / reveal()；
-// 单选模式额外用 selectedId，多选模式用 enabledIds + setEnabled()。
+
+// 插件管理页：歌词界面插件（单选）与功能插件（可多选）共用。
+// store 传插件单例：plugins / dir / selectedId / enabledIds / rescan() / install() / remove() / reveal()
 import QtQuick
 import QtQuick.Dialogs
 import QueMusic 1.0
@@ -12,13 +11,11 @@ Item {
     id: manager
 
     property var store: null
-    property bool multi: false            // false=同时只启用一个，true=可同时启用多个
-    property bool compact: false          // 窄宽度下按钮只留图标
-    property string hint: ""
-    property string installTitle: "选择插件文件夹"
-    property string pluginKind: "插件"    // 删除确认文案用
+    property bool multi: false              // false=同时只用一个，true=可同时启用多个
+    property string pluginKind: "插件"      // 删除确认与安装标题的文案
 
     readonly property var plugins: store ? store.plugins : []
+    readonly property bool compact: width < 648
 
     Row {
         id: toolbar
@@ -30,8 +27,8 @@ Item {
             height: 36
             text: manager.compact ? "" : "重新扫描"
             iconCharacter: "\uf021"
-            buttonColor: Style.themes.secondaryColor
-            borderColor: Style.themes.sideColor
+            buttonColor: Style.secondaryColor
+            borderColor: Style.sideColor
             borderWidth: 1
             onClicked: manager.store.rescan()
         }
@@ -45,8 +42,8 @@ Item {
             height: 36
             text: manager.compact ? "" : "打开插件目录"
             iconCharacter: "\uf0f5"
-            buttonColor: Style.themes.secondaryColor
-            borderColor: Style.themes.sideColor
+            buttonColor: Style.secondaryColor
+            borderColor: Style.sideColor
             borderWidth: 1
             onClicked: manager.store.reveal("")
         }
@@ -58,9 +55,13 @@ Item {
         y: 62
         width: manager.width - 48
         wrapMode: Text.Wrap
-        color: Style.themes.textColor
+        color: Style.textColor
         font.pixelSize: Style.settings.textTip
-        text: manager.hint
+        text: "插件目录：" + (manager.store ? manager.store.dir : "")
+              + "（每个插件一个文件夹，文件夹名即插件 id，内含 info.json 与入口 QML）。"
+              + (manager.multi
+                 ? "可同时启用多个，插件界面出现在标题栏、底栏等扩展点上；插件出错会自动停用。"
+                 : "安装后点「启用」生效，也可在播放页左上角第二个按钮切换。")
     }
 
     ListView {
@@ -80,11 +81,10 @@ Item {
             width: listView.width
             height: 92
             radius: Style.settings.cubeRadius
-            color: row.isOn ? Style.themes.containColor : Style.themes.primaryColor
+            color: row.isOn ? Style.containColor : Style.primaryColor
             border.width: 1
-            border.color: row.isOn ? Style.themes.themeColor : Style.themes.sideColor
+            border.color: row.isOn ? Style.themeColor : Style.sideColor
 
-            // 启用状态：多选看 enabledIds、单选看 selectedId（都是带通知的属性，状态变了会重新求值）
             readonly property bool isOn: manager.store === null ? false
                                         : manager.multi
                                           ? manager.store.enabledIds.indexOf(modelData.id) >= 0
@@ -106,7 +106,7 @@ Item {
                 width: row.width - 300
                 text: modelData.name
                 elide: Text.ElideRight
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: Style.settings.textmain
                 font.bold: true
             }
@@ -115,7 +115,7 @@ Item {
                 y: 40
                 width: row.width - 300
                 elide: Text.ElideRight
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textTip
                 text: (modelData.builtin ? "内置" : (modelData.author ? modelData.author : "未知作者"))
                       + (modelData.version ? "  v" + modelData.version : "")
@@ -126,7 +126,7 @@ Item {
                 y: 62
                 width: row.width - 300
                 elide: Text.ElideRight
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textTip
                 opacity: 0.8
                 text: modelData.description
@@ -190,7 +190,7 @@ Item {
 
     FolderDialog {
         id: pluginFolderDialog
-        title: manager.installTitle
+        title: "选择" + manager.pluginKind + "文件夹"
         onAccepted: {
             const err = manager.store.install(selectedFolder);
             if (err) Style.warned(err, 0);

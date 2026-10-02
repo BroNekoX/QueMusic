@@ -11,10 +11,10 @@ Rectangle {
     width: 160
     height: 36
     radius: Style.settings.labelRadius
-    property color buttonColor: Style.themes.primaryColor
-    color: Style.themes.primaryColor
+    property color buttonColor: Style.primaryColor
+    color: Style.primaryColor
     border.width: 2
-    border.color: Style.themes.borderColor
+    border.color: Style.borderColor
     // useId 模式下文本取自 model[choice].description；对象直接赋给 string 会产生 QML 类型警告
     // 越界下标取到的是 undefined，这里改成显式范围判断，避免和 undefined 做比较
     property string text: (!useId && model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
@@ -23,14 +23,14 @@ Rectangle {
     property var model: ["Click1","Click2"]
     property int choice: 0
     property bool enabled: true
-    property color textColor: Style.themes.textColor
-    property string iconFontFamily: iconFont.name    // 图标字体
+    property color textColor: Style.textColor
+    property string iconFontFamily: IconFont.name    // 图标字体
     property int cardRadius: radius
     signal transformed(int choiced)
     clip: false
     Rectangle {
         anchors.fill: parent
-        color: Style.themes.hoverColor
+        color: Style.hoverColor
         radius: root.radius
         opacity: mouseArea.containsMouse ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -104,7 +104,7 @@ Rectangle {
 
         background: Rectangle {
             id: menuCard
-            color: Style.themes.primaryColor
+            color: Style.primaryColor
             radius: root.cardRadius
             RectangularShadow {
                 anchors.fill: parent
@@ -114,7 +114,7 @@ Rectangle {
                 radius: root.cardRadius
                 blur: 24
                 spread: 0
-                color: Style.themes.shadowColor
+                color: Style.shadowColor
             }
         }
 
@@ -129,7 +129,7 @@ Rectangle {
                     id: dropDele
                     width: dropList.width
                     height: 36
-                    color: root.choice == index ? Style.themes.themeColor : "transparent"
+                    color: root.choice == index ? Style.themeColor : "transparent"
                     radius: root.cardRadius
                     Text {
                         anchors.fill: parent
@@ -139,7 +139,7 @@ Rectangle {
                             const item = root.model ? root.model[index] : null
                             return (item && item.description) ? String(item.description) : ""
                         }
-                        color: root.choice == index ? Style.themes.primaryColor : Style.themes.textColor
+                        color: root.choice == index ? Style.primaryColor : Style.textColor
                         font.pixelSize: Style.settings.textmain
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
@@ -147,7 +147,7 @@ Rectangle {
                 
                     Rectangle {
                         id: hover
-                        color: Style.themes.hoverColor
+                        color: Style.hoverColor
                         anchors.fill: parent
                         radius: root.cardRadius
                         opacity: 0

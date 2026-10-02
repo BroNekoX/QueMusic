@@ -4,7 +4,6 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
-import 'qrc:/QueMusic/components'
 Popup {
     id: dialog
     property Item blurSource: mainLayout // 使用父内容作为模糊源
@@ -62,7 +61,7 @@ Popup {
             font.pixelSize: 20
             height: dialog.headerHeight
             font.bold: true
-            color: Style.themes.fontColor
+            color: Style.fontColor
             wrapMode: Text.WordWrap
         }
 
@@ -99,8 +98,8 @@ Popup {
                 visible: dialog.cancelText !== ""
                 iconCharacter: dialog.cancelIcon // X 图标
                 radius: Style.settings.labelRadius
-                buttonColor: Style.themes.secondaryColor
-                borderColor: Style.themes.sideColor
+                buttonColor: Style.secondaryColor
+                borderColor: Style.sideColor
                 borderWidth: 1
                 iconSize: Style.settings.texticon - 2
                 onClicked: { dialog.cancel(); if (dialog.cancelCloses) dialog.close() }
@@ -109,10 +108,10 @@ Popup {
                 width: 108
                 height: 36
                 text: dialog.confirmText
-                buttonColor: Style.themes.themeColor
-                textColor: Style.themes.primaryColor
-                iconColor: Style.themes.primaryColor
-                shadowColor: Style.themes.themeShadowColor
+                buttonColor: Style.themeColor
+                textColor: Style.primaryColor
+                iconColor: Style.primaryColor
+                shadowColor: Style.themeShadowColor
                 iconCharacter: "\uf0e7" // 勾图标
                 radius: Style.settings.labelRadius
                 onClicked: { dialog.confirm(); dialog.close() }

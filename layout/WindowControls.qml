@@ -4,7 +4,6 @@
 // 主窗口生命周期：托盘隐藏/恢复、关闭前保存会话与窗口几何、退出流程。
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 QtObject {
     id: root

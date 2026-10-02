@@ -112,6 +112,10 @@ set_source_files_properties(
     components/Options.qml
     components/Playback.qml
     components/PluginSlots.qml
+    components/IconFont.qml
+    components/TextFont.qml
+    lyricsui/LyricsFreeConfig.qml
+    lyricsui/Lyrics3DConfig.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 # QML 按目录递归收集：新增文件不必再改本文件

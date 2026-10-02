@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: searchPage
@@ -35,7 +34,7 @@ Item {
                 text: "搜索结果"
                 font.pixelSize: Style.settings.pageTitle
                 font.weight: Font.DemiBold
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 QLoadSign {
                     id: searchLoad
                     x: parent.width

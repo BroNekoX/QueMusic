@@ -57,9 +57,9 @@ ListView {
         width: ListView.view.width
         height: 80
         radius: Style.settings.labelRadius
-        color: Style.themes.fontColor
+        color: Style.fontColor
         border.width: 1
-        border.color: Style.themes.textColor
+        border.color: Style.textColor
 
         Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
@@ -93,7 +93,7 @@ ListView {
             blur: 24
             spread: 0
             visible: true
-            color: Style.themes.shadowColor
+            color: Style.shadowColor
         }
 
 
@@ -103,17 +103,17 @@ ListView {
             height: 32
             width: 32
             radius: 8
-            color: Style.themes.textColor
+            color: Style.textColor
             z: 4
             clip: false
             Text {
                 anchors.fill: parent
                 text: model.icontype
-                font.family: iconFont.name
+                font.family: IconFont.name
                 font.pixelSize: Style.settings.texticon
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                color: Style.themes.sideColor
+                color: Style.sideColor
 
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -128,7 +128,7 @@ ListView {
             text: model.name
             font.pixelSize: 14
             font.bold: true
-            color: Style.themes.primaryColor
+            color: Style.primaryColor
             verticalAlignment: Text.AlignVCenter
         }
 
@@ -141,7 +141,7 @@ ListView {
             text: model.text
             font.pixelSize: 12
             font.bold: false
-            color: Style.themes.sideColor
+            color: Style.sideColor
             verticalAlignment: Text.AlignVCenter
         }
 

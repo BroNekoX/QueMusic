@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 功能插件：和歌词界面插件同一套目录结构（info.json + 入口 QML），但可以同时启用多个。
-// 宿主 components/PluginHost.qml 按 enabledIds 给每个启用的插件起一个加载器；
-// 插件拿到注入的 api 后自己挂到扩展点（PluginSlots）或另建 Loader。
+// 功能插件：与歌词界面插件同一套目录结构，但可以同时启用多个。
+// 宿主 components/PluginHost.qml 按 enabledIds 给每个启用的插件起一个加载器。
 #pragma once
 
 #include "plugins/PluginStore.h"

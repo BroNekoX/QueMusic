@@ -4,7 +4,6 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
-import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
@@ -34,7 +33,7 @@ Popup {
         Text {
             text: "搜索历史记录"
             font.pixelSize: Style.settings.textTip
-            color: Style.themes.textColor
+            color: Style.textColor
             x: 16
             y: 12
         }
@@ -49,7 +48,7 @@ Popup {
             text: "清空"
             visible: Options.settings.searchList.length > 0
             font.pixelSize: Style.settings.textTip
-            color: clearArea.containsMouse ? Style.themes.fontColor : Style.themes.textColor
+            color: clearArea.containsMouse ? Style.fontColor : Style.textColor
             MouseArea {
                 id: clearArea
                 anchors.fill: parent
@@ -71,14 +70,14 @@ Popup {
                     //短搜索记录自适应即可，超长时以父容器宽度为上限
                     width: Math.min(searchText.implicitWidth + 20, parent.width)
                     height: searchText.height + 16
-                    color: Style.themes.secondaryColor
+                    color: Style.secondaryColor
                     radius: Style.settings.labelRadius
-                    border.color: Style.themes.primaryColor
+                    border.color: Style.primaryColor
                     border.width: 1
                     Rectangle {
                         radius: parent.radius
                         anchors.fill: parent
-                        color: Style.themes.hoverColor
+                        color: Style.hoverColor
                         opacity: searchArea.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
@@ -94,7 +93,7 @@ Popup {
                         elide: Text.ElideRight
                         maximumLineCount: 1
                         text: modelData
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.pixelSize: Style.settings.text
                     }
                     MouseArea {

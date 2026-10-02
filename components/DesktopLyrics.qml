@@ -29,7 +29,7 @@ Window {
 
     // 更新歌词索引
     function updateCurrentIndex(): void {
-        const pos = player.position || 0;
+        const pos = Playback.player.position || 0;
         const data = lyricsData;
         if (!data || data.length === 0) {
             currentIndex = -1;
@@ -45,7 +45,7 @@ Window {
     // 定时更新
     Timer {
         interval: 240
-        running: player.onMedia && desktopLyricsWindow.visible
+        running: Playback.player.onMedia && desktopLyricsWindow.visible
         repeat: true
         onTriggered: updateCurrentIndex()
     }
@@ -77,7 +77,7 @@ Window {
             font.pixelSize: desktopLyricsWindow.lyricSize * 1.2
             font.bold: true
             font.weight: Font.Medium
-            color: Style.themes.themeColor
+            color: Style.themeColor
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
             layer.enabled: true
@@ -206,14 +206,14 @@ Window {
                 // 播放/暂停
                 SButton {
                     width: 36; height: 36; radius: Style.settings.labelRadius
-                    iconCharacter: player.playing ? "\uf02f" : "\uf00e"
+                    iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
                     iconSize: 16
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.togglePlay()
-                    QTip { visible: parent.hovered; text: player.playing ? "暂停" : "播放" }
+                    QTip { visible: parent.hovered; text: Playback.player.playing ? "暂停" : "播放" }
                 }
 
                 // 下一首
@@ -234,7 +234,7 @@ Window {
                 x: desktopLyricsWindow.width - 68 - width
                 y: 6
                 height: 36
-                text: Playback.fmt(player.position) + " / " + Playback.fmt(player.duration)
+                text: Playback.fmt(Playback.player.position) + " / " + Playback.fmt(Playback.player.duration)
                 font.pixelSize: 13
                 verticalAlignment: Text.AlignVCenter
                 color: "#fffdfdfd"

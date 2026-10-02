@@ -50,7 +50,7 @@ ListView {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             text: "没有更多了~"
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.text
         }
     }
@@ -63,7 +63,7 @@ ListView {
         background: Rectangle {
             implicitWidth: 160
             implicitHeight: 40
-            color: Style.themes.primaryColor
+            color: Style.primaryColor
             radius: Style.settings.labelRadius
             RectangularShadow {
                 anchors.fill: parent
@@ -73,7 +73,7 @@ ListView {
                 radius: parent.radius
                 blur: 20
                 spread: 0
-                color: Style.themes.shadowColor
+                color: Style.shadowColor
             }
         }
 
@@ -89,12 +89,12 @@ ListView {
                     radius: Style.settings.labelRadius - 2
                     width: menuItem.width - 4
                     height: menuItem.height - 4
-                    color: menuItem.down || menuItem.highlighted ? Style.themes.hoverColor : "transparent"
+                    color: menuItem.down || menuItem.highlighted ? Style.hoverColor : "transparent"
                 }
                 text: modelData
                 contentItem: Text {
                     text: menuItem.text
-                    color: Style.themes.fontColor//使用项目主题文字色，深浅色主题下都可读
+                    color: Style.fontColor//使用项目主题文字色，深浅色主题下都可读
                     font.pixelSize: Style.settings.textmain
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 12
@@ -155,7 +155,7 @@ ListView {
             x: 76
             height: 36
             text: view.headerModel[0]
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
@@ -164,7 +164,7 @@ ListView {
             x: view.artistX
             height: 36
             text: view.headerModel[1]
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
@@ -173,7 +173,7 @@ ListView {
             x: view.width - 76
             height: 36
             text: view.headerModel[2]
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
@@ -181,7 +181,7 @@ ListView {
         Rectangle {
             width: parent.width - 16
             height: 1
-            color: Style.themes.sideColor
+            color: Style.sideColor
             opacity: 0.5
             y: 35
         }

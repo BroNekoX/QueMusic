@@ -109,7 +109,7 @@ QOptionDialog {
 
             MouseArea {
                 anchors.fill: parent
-                function pick(px, py): void {
+                function pick(px: real, py: real): void {
                     root.sat = Math.max(0, Math.min(1, px / picker.width));
                     root.val = 1.0 - Math.max(0, Math.min(1, py / picker.height));
                     root.syncFromHsv();
@@ -218,7 +218,7 @@ QOptionDialog {
                 radius: Style.settings.labelRadius
                 color: root.selectedColor
                 border.width: 1
-                border.color: Style.themes.sideColor
+                border.color: Style.sideColor
             }
 
             QInput {

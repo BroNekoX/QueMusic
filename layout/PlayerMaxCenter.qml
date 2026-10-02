@@ -5,7 +5,6 @@
 // 歌词界面是 layout/MainLyric.qml 或 lyricsui/*（见 lyricThemes），只依赖下方注入契约，可整包替换。
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Rectangle {
     id: musicControlMax
@@ -53,16 +52,16 @@ Rectangle {
     function inject(it: Item): void {
         if (!it) return;
         const src = {
-            position: () => player.position,
-            playbackRate: () => player.playbackRate,
-            playing: () => player.playing,
-            mediaActive: () => player.onMedia,
+            position: () => Playback.player.position,
+            playbackRate: () => Playback.player.playbackRate,
+            playing: () => Playback.player.playing,
+            mediaActive: () => Playback.player.onMedia,
             lyricsModel: () => MusicApi.lyricsData || [],
             translateModel: () => MusicApi.lyricsTranslate || [],
             currentIndex: () => musicControlMax.lyricIndex,
             title: () => Playback.musicTitle,
             artist: () => Playback.musicArtist,
-            coverUrl: () => player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
+            coverUrl: () => Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
             mainColor: () => musicControlMax.mainColor,
             secondColor: () => musicControlMax.secondColor,
             thirdColor: () => musicControlMax.thirdColor,
@@ -142,11 +141,11 @@ Rectangle {
         id: lyricTimer
         interval: 320
         repeat: true
-        running: musicControlMax.visible && player.onMedia
+        running: musicControlMax.visible && Playback.player.onMedia
         onTriggered: {
             const data = MusicApi.lyricsData;
             if (data && data.length > 0) {
-                const pos = player.position + musicControlMax.lyricMoveMs + 320;
+                const pos = Playback.player.position + musicControlMax.lyricMoveMs + 320;
                 let idx = musicControlMax.lyricIndex;
                 while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
                 while (idx > 0 && pos < data[idx].time) idx--;
@@ -253,8 +252,8 @@ Rectangle {
                     width: parent.width
                     height: 64
                     radius: Style.settings.labelRadius
-                    color: themeRow.selected ? Style.themes.themeColor
-                           : (themeArea.containsMouse ? Style.themes.hoverColor : "transparent")
+                    color: themeRow.selected ? Style.themeColor
+                           : (themeArea.containsMouse ? Style.hoverColor : "transparent")
                     readonly property bool selected: modelData.id === LyricsPlugins.selectedId
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -280,7 +279,7 @@ Rectangle {
                             width: parent.width
                             text: modelData.name
                             elide: Text.ElideRight
-                            color: themeRow.selected ? "#ffffff" : Style.themes.fontColor
+                            color: themeRow.selected ? "#ffffff" : Style.fontColor
                             font.pixelSize: Style.settings.textmain
                             font.bold: themeRow.selected
                         }
@@ -288,7 +287,7 @@ Rectangle {
                             width: parent.width
                             elide: Text.ElideRight
                             text: (modelData.author ? modelData.author + " · " : "") + (modelData.version ? "v" + modelData.version : "内置")
-                            color: themeRow.selected ? "#b3ffffff" : Style.themes.textColor
+                            color: themeRow.selected ? "#b3ffffff" : Style.textColor
                             font.pixelSize: Style.settings.textTip
                         }
                     }
@@ -299,7 +298,7 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: themeRow.selected
                         text: "\uf099"
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         font.pixelSize: Style.settings.texticon
                         color: "#ffffff"
                     }

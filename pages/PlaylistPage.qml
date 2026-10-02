@@ -4,7 +4,6 @@
 import QtQuick
 import QtQuick.Effects
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: playlistPage
@@ -102,7 +101,7 @@ Item {
                 text: "分类"
                 font.weight: Font.DemiBold
                 font.pixelSize: Style.settings.pageTitle
-                color: Style.themes.fontColor
+                color: Style.fontColor
             }
             QDrop {
                 x: parent.width - 120
@@ -164,7 +163,7 @@ Item {
                 height: 38
                 text: ""
                 iconCharacter: "\uf11e"
-                buttonColor: Style.themes.primaryColor
+                buttonColor: Style.primaryColor
                 tipText: "重新获取当前列表"
                 onClicked: playlistPage.refreshView()
             }
@@ -176,7 +175,7 @@ Item {
                 iconCharacter: "\uf101"
                 enabled: playlistPage.songListActive
                 opacity: enabled ? 1 : 0.45
-                buttonColor: Style.themes.primaryColor
+                buttonColor: Style.primaryColor
                 tipText: "筛选免费 / VIP 歌曲"
                 onClicked: filterMenu.popup(filterBtn, 0, filterBtn.height + 6)
             }
@@ -196,13 +195,13 @@ Item {
                         width: 64
                         height: 32
                         radius: 16
-                        color: musicsPage.musicMenuIndex === index ? Style.themes.themeColor : Style.themes.primaryColor
-                        border.color: Style.themes.sideColor
+                        color: musicsPage.musicMenuIndex === index ? Style.themeColor : Style.primaryColor
+                        border.color: Style.sideColor
                         border.width: 1
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.themes.hoverColor
+                            color: Style.hoverColor
                             opacity: musicsMenuArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -214,7 +213,7 @@ Item {
                             elide: Text.ElideRight
                             z: 2
                             font.pixelSize: Style.settings.text
-                            color: musicsPage.musicMenuIndex === index ? Style.themes.fullColor : Style.themes.textColor
+                            color: musicsPage.musicMenuIndex === index ? Style.fullColor : Style.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -275,16 +274,19 @@ Item {
                 Repeater {
                     model: MusicApi.allPlaylistMenu
                     delegate: Rectangle {
+                        id: playlistMenuRow
+                        required property string title
+                        required property int index
                         width: 64
                         height: 32
                         radius: 16
-                        color: musicMenuPage.musicMenuIndex === index ? Style.themes.themeColor : Style.themes.primaryColor
-                        border.color: Style.themes.sideColor
+                        color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Style.themeColor : Style.primaryColor
+                        border.color: Style.sideColor
                         border.width: 1
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.themes.hoverColor
+                            color: Style.hoverColor
                             opacity: musiclistMenuArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -292,11 +294,11 @@ Item {
 
                         Text {
                             anchors.fill: parent
-                            text: modelData.title
+                            text: playlistMenuRow.title
                             elide: Text.ElideRight
                             z: 2
                             font.pixelSize: Style.settings.text
-                            color: musicMenuPage.musicMenuIndex === index ? Style.themes.fullColor : Style.themes.textColor
+                            color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Style.fullColor : Style.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -305,8 +307,8 @@ Item {
                             hoverEnabled: true
                             anchors.fill: parent
                             onClicked: {
-                                musicMenuPage.musicMenuIndex = index;
-                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[index].id;
+                                musicMenuPage.musicMenuIndex = playlistMenuRow.index;
+                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[playlistMenuRow.index].id;
                                 MusicApi.musicPlaylists.clear();
                                 MusicApi.getCategoryPlaylists(MusicApi.globaltagid, 1, 20);
                             }
@@ -368,10 +370,16 @@ Item {
                 rightMargin: -8
                 topMargin: 72
                 delegate: Rectangle {
+                    id: toplistCard
+                    required property string cover
+                    required property int source
+                    required property string title
+                    required property string artist
+                    required property string hash
                     width: 156
                     height: 216
                     radius: Style.settings.labelRadius
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                     scale: toplistCardArea.containsMouse ? 1.04 : 1.0
                     Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
                     RectangularShadow {
@@ -382,13 +390,13 @@ Item {
                         radius: Style.settings.labelRadius
                         blur: toplistCardArea.containsMouse ? 24 : 8
                         spread: 0
-                        color: Style.themes.shadowColor
+                        color: Style.shadowColor
                         Behavior on blur { NumberAnimation { duration: 200 } }
                     }
                     QPicture {
                         width: 156
                         height: 156
-                        source: (model.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: (toplistCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
                         radius: Style.settings.labelRadius
                         radius3: 0
                         radius4: 0
@@ -401,22 +409,22 @@ Item {
                         width: 50
                         height: 20
                         radius: 10
-                        color: model.source === 0 ? "#CDE8FF" : model.source === 1 ? "#FFCDCD" : "#FFD9E6"
+                        color: toplistCard.source === 0 ? "#CDE8FF" : toplistCard.source === 1 ? "#FFCDCD" : "#FFD9E6"
                         Text {
                             anchors.centerIn: parent
-                            text: model.source === 0 ? "酷狗" : model.source === 1 ? "网易云" : "B站"
+                            text: toplistCard.source === 0 ? "酷狗" : toplistCard.source === 1 ? "网易云" : "B站"
                             font.pixelSize: 11
                             font.weight: Font.DemiBold
-                            color: model.source === 0 ? "#0F3975" : model.source === 1 ? "#750F0F" : "#7A1C3C"
+                            color: toplistCard.source === 0 ? "#0F3975" : toplistCard.source === 1 ? "#750F0F" : "#7A1C3C"
                         }
                     }
                     Text {
                         x: 12
                         y: 166
                         width: 132
-                        text: model.title
+                        text: toplistCard.title
                         font.bold: true
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.pixelSize: Style.settings.textmain
                         elide: Text.ElideRight
                     }
@@ -424,8 +432,8 @@ Item {
                         x: 12
                         y: 190
                         width: 132
-                        text: model.artist || ""
-                        color: Style.themes.textColor
+                        text: toplistCard.artist || ""
+                        color: Style.textColor
                         font.pixelSize: Style.settings.text
                         elide: Text.ElideRight
                     }
@@ -435,9 +443,9 @@ Item {
                         hoverEnabled: true
                         onClicked: {
                             MusicApi.playlistSong.clear();
-                            MusicApi.globalid = model.hash;
+                            MusicApi.globalid = toplistCard.hash;
                             playListSongsWindow.listType = "toplist";
-                            MusicApi.getMusicToplist(1, 20, Number(model.hash), model.source);
+                            MusicApi.getMusicToplist(1, 20, Number(toplistCard.hash), toplistCard.source);
                             playListSongsWindow.opened(model);
                             window.exitIndex = 2;
                         }
@@ -485,27 +493,30 @@ Item {
                 Repeater {
                     model: album.singerTypes
                     delegate: Rectangle {
+                        id: singerTypeRow
+                        required property string title
+                        required property int index
                         width: 76
                         height: 32
                         radius: 16
-                        color: album.singerTypeIndex === index ? Style.themes.themeColor : Style.themes.primaryColor
-                        border.color: Style.themes.sideColor
+                        color: album.singerTypeIndex === singerTypeRow.index ? Style.themeColor : Style.primaryColor
+                        border.color: Style.sideColor
                         border.width: 1
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.themes.hoverColor
+                            color: Style.hoverColor
                             opacity: singerTypeArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
                         }
                         Text {
                             anchors.fill: parent
-                            text: modelData.title
+                            text: singerTypeRow.title
                             elide: Text.ElideRight
                             z: 2
                             font.pixelSize: Style.settings.text
-                            color: album.singerTypeIndex === index ? Style.themes.fullColor : Style.themes.textColor
+                            color: album.singerTypeIndex === singerTypeRow.index ? Style.fullColor : Style.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -513,7 +524,7 @@ Item {
                             id: singerTypeArea
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: album.loadSingers(index)
+                            onClicked: album.loadSingers(singerTypeRow.index)
                         }
                     }
                 }
@@ -549,6 +560,10 @@ Item {
                 }
                 model: MusicApi.singerList
                 delegate: Item {
+                    id: singerCard
+                    required property string cover
+                    required property string title
+                    required property string hash
                     width: 96
                     height: 132
                     scale: singerArea.containsMouse ? 1.06 : 1.0
@@ -557,17 +572,17 @@ Item {
                         width: 96
                         height: 96
                         radius: 48
-                        source: (model.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: (singerCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: 100
                         width: parent.width
-                        text: model.title
+                        text: singerCard.title
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: Style.settings.text
-                        color: Style.themes.textColor
+                        color: Style.textColor
                     }
                     MouseArea {
                         id: singerArea
@@ -575,9 +590,9 @@ Item {
                         hoverEnabled: true
                         onClicked: {
                             MusicApi.playlistSong.clear();
-                            MusicApi.globalid = model.hash;
-                            MusicApi.getSingerSongs(model.hash, 1, 20, MusicApi.songSource);
-                            singerSongsWindow.opened(model.title, (model.cover || "").replace("{size}","256"));
+                            MusicApi.globalid = singerCard.hash;
+                            MusicApi.getSingerSongs(singerCard.hash, 1, 20, MusicApi.songSource);
+                            singerSongsWindow.opened(singerCard.title, (singerCard.cover || "").replace("{size}","256"));
                             window.exitIndex = 2;
                         }
                     }

@@ -95,8 +95,8 @@ QOptionDialog {
                 height: 40
                 radius: Style.settings.labelRadius
                 color: root.selectedFamily === modelData
-                       ? Style.themes.containColor
-                       : (familyHover.containsMouse ? Style.themes.hoverColor : "transparent")
+                       ? Style.containColor
+                       : (familyHover.containsMouse ? Style.hoverColor : "transparent")
 
                 Text {
                     anchors.left: parent.left
@@ -108,8 +108,8 @@ QOptionDialog {
                     font.family: modelData
                     font.pixelSize: Style.settings.textmain
                     color: root.selectedFamily === modelData
-                           ? Style.themes.themeColor
-                           : Style.themes.fontColor
+                           ? Style.themeColor
+                           : Style.fontColor
                     elide: Text.ElideRight
                 }
 

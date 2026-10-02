@@ -16,7 +16,7 @@ Button {
     bottomInset: 0
     property alias source: image.source
     property bool largeicon: false
-    property color hoverColor: Style.themes.hoverColor
+    property color hoverColor: Style.hoverColor
     property color buttonColor: "transparent"
 
     contentItem: Image {

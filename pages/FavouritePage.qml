@@ -3,7 +3,6 @@
 //
 import QtQuick
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: favouritePage
@@ -90,7 +89,7 @@ Item {
                 text: "收藏内容"
                 font.weight: Font.DemiBold
                 font.pixelSize: Style.settings.pageTitle
-                color: Style.themes.fontColor
+                color: Style.fontColor
             }
         }
 
@@ -121,7 +120,7 @@ Item {
                 height: 38
                 text: "排序"
                 iconCharacter: "\uf10b"
-                buttonColor: Style.themes.primaryColor
+                buttonColor: Style.primaryColor
                 onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 6)
             }
             QButton {
@@ -139,7 +138,7 @@ Item {
                 height: 38
                 text: favouritePage.setMode === 1 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
-                buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.primaryColor
+                buttonColor: favouritePage.setMode === 1 ? Style.containColor : Style.primaryColor
                 onClicked: {
                     if(favouritePage.setMode === 1) {
                         favouritePage.setMode = 0;
@@ -182,7 +181,7 @@ Item {
                     anchors.centerIn: parent
                     visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
                     text: "没有收藏的内容？快去收藏一些歌曲吧"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: 14
                 }
             }
@@ -231,7 +230,7 @@ Item {
                     anchors.centerIn: parent
                     visible: !FavoritePlaylists.loading && FavoritePlaylists.count === 0
                     text: "没有收藏的内容？快去收藏一些歌单吧"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: 14
                 }
             }
@@ -244,7 +243,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "喜欢的歌手"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: 14
             }
         }
@@ -297,7 +296,7 @@ Item {
                     anchors.centerIn: parent
                     visible: Playback.history.count === 0
                     text: "还没有播放记录，去听点什么吧"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: 14
                 }
             }
@@ -314,7 +313,7 @@ Item {
             visible: favouritePage.setMode !== 0
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 1.0; color: Style.themes.sideColor }
+                GradientStop { position: 1.0; color: Style.sideColor }
             }
             Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
             QButton {
@@ -325,8 +324,8 @@ Item {
                 height: 36
                 radius: 20
                 borderWidth: 1
-                buttonColor: favouritePage.isAllChosen() ? Style.themes.themeColor : Style.themes.fullColor
-                textColor: favouritePage.isAllChosen() ? Style.themes.primaryColor : Style.themes.fontColor
+                buttonColor: favouritePage.isAllChosen() ? Style.themeColor : Style.fullColor
+                textColor: favouritePage.isAllChosen() ? Style.primaryColor : Style.fontColor
                 text: "全选"
                 onClicked: favouritePage.toggleAllChoose()
             }
@@ -336,11 +335,11 @@ Item {
                 width: 92
                 height: 36
                 radius: 20
-                color: "transparent"//Style.themes.fullColor
+                color: "transparent"//Style.fullColor
                 Text {
                     anchors.centerIn: parent
                     text: "已选择:" + favouritePage.chooseIndex.length + "项"
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     font.pixelSize: Style.settings.textmain
                 }
             }
@@ -421,8 +420,8 @@ Item {
                     height: 36
                     radius: 20
                     borderWidth: 1
-                    buttonColor: Style.themes.themeColor
-                    textColor: Style.themes.primaryColor
+                    buttonColor: Style.themeColor
+                    textColor: Style.primaryColor
                     text: "完成"
                     onClicked: {
                         favouritePage.setMode = 0;

@@ -24,12 +24,12 @@ Slider {
         height: 6
         width: slider.availableWidth
         radius: height / 2
-        color: Style.themes.sideColor
+        color: Style.sideColor
 
         Rectangle {
             width: slider.visualPosition * parent.width
             height: parent.height
-            color: Style.themes.themeColor
+            color: Style.themeColor
             radius: height / 2
             Behavior on color { ColorAnimation { duration: 160 } }
         }
@@ -61,7 +61,7 @@ Slider {
         x: slider.leftText ? 0 - width - 10 : slider.width + 10
         anchors.verticalCenter: slider.verticalCenter
         font.pixelSize: Style.settings.textmain
-        color: Style.themes.fontColor
+        color: Style.fontColor
         text: slider.valueText
     }
 }

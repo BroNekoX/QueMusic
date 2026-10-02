@@ -4,7 +4,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: downloadPage
@@ -47,7 +46,7 @@ Item {
             text: "下载管理"
             font.weight: Font.DemiBold
             font.pixelSize: Style.settings.pageTitle
-            color: Style.themes.fontColor
+            color: Style.fontColor
         }
     }
 
@@ -78,7 +77,7 @@ Item {
             height: 38
             text: "文件夹中显示"
             iconCharacter: "\uf0fb"
-            buttonColor: favouritePage.setMode === 1 ? Style.themes.containColor : Style.themes.fullColor
+            buttonColor: favouritePage.setMode === 1 ? Style.containColor : Style.fullColor
             onClicked: {
                 Qt.openUrlExternally(MusicApi.downloader.effectiveDownloadDir());
             }
@@ -104,7 +103,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "没有下载任务"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: 14
                 visible: MusicApi.downloader.taskCount === 0
             }
@@ -136,7 +135,7 @@ Item {
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "文件名"
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.text
                     }
                     Text {
@@ -144,7 +143,7 @@ Item {
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "进度"
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.text
                     }
                     Text {
@@ -152,28 +151,33 @@ Item {
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "操作"
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.text
                     }
                     Rectangle {
                         width: parent.width - 16
                         height: 1
-                        color: Style.themes.sideColor
+                        color: Style.sideColor
                         y: 31
                     }
                 }
 
                 delegate: Item {
                     id: activeDel
+                    required property int status
+                    required property real progress
+                    required property string fileName
+                    required property int taskId
+                    required property string errorString
                     height: 64
                     width: activeList.width - 16
-                    visible: model.status === 0 || model.status === 1
-                    opacity: model.status === 1 ? 1.0 : 0.6
+                    visible: activeDel.status === 0 || activeDel.status === 1
+                    opacity: activeDel.status === 1 ? 1.0 : 0.6
 
                     Rectangle {
                         anchors.fill: parent
                         radius: Style.settings.labelRadius
-                        color: Style.themes.hoverColor
+                        color: Style.hoverColor
                         opacity: area.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
@@ -185,19 +189,19 @@ Item {
                         width: 48
                         height: 48
                         radius: 10
-                        color: model.status === 0 ? Style.themes.sideColor
-                             : model.status === 1 ? Style.themes.containColor
-                             : Style.themes.sideColor
+                        color: activeDel.status === 0 ? Style.sideColor
+                             : activeDel.status === 1 ? Style.containColor
+                             : Style.sideColor
 
                         Text {
                             anchors.centerIn: parent
-                            text: model.status === 0 ? "\ue803"
-                                 : model.status === 1 ? "\ue80b"
+                            text: activeDel.status === 0 ? "\ue803"
+                                 : activeDel.status === 1 ? "\ue80b"
                                  : "\ue803"
-                            font.family: iconFont.name
+                            font.family: IconFont.name
                             font.pixelSize: 20
-                            color: model.status === 1 ? Style.themes.themeColor
-                                 : Style.themes.textColor
+                            color: activeDel.status === 1 ? Style.themeColor
+                                 : Style.textColor
                         }
                     }
 
@@ -207,8 +211,8 @@ Item {
                         y: 12
                         width: parent.width - 340
                         height: 24
-                        text: model.fileName
-                        color: Style.themes.fontColor
+                        text: activeDel.fileName
+                        color: Style.fontColor
                         font.pixelSize: Style.settings.textmain
                         font.bold: true
                         elide: Text.ElideRight
@@ -222,12 +226,12 @@ Item {
                         width: parent.width - 340
                         height: 20
                         text: {
-                            if (model.status === 0) return "排队中…"
-                            if (model.status === 1) return "正在下载…"
-                            if (model.status === 3) return "错误: " + model.errorString
+                            if (activeDel.status === 0) return "排队中…"
+                            if (activeDel.status === 1) return "正在下载…"
+                            if (activeDel.status === 3) return "错误: " + activeDel.errorString
                             return ""
                         }
-                        color: model.status === 3 ? "#ff4444" : Style.themes.textColor
+                        color: activeDel.status === 3 ? "#ff4444" : Style.textColor
                         font.pixelSize: Style.settings.text
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
@@ -239,7 +243,7 @@ Item {
                         y: 22
                         width: 120
                         height: 20
-                        visible: model.status === 1
+                        visible: activeDel.status === 1
 
                         Rectangle {
                             id: barBg
@@ -247,14 +251,14 @@ Item {
                             height: 6
                             y: 7
                             radius: 3
-                            color: Style.themes.sideColor
+                            color: Style.sideColor
                         }
                         Rectangle {
-                            width: barBg.width * model.progress
+                            width: barBg.width * activeDel.progress
                             height: 6
                             y: 7
                             radius: 3
-                            color: Style.themes.themeColor
+                            color: Style.themeColor
                             Behavior on width { NumberAnimation { duration: 120 } }
                         }
                         Text {
@@ -262,8 +266,8 @@ Item {
                             y: 0
                             height: 20
                             verticalAlignment: Text.AlignVCenter
-                            text: Math.floor(model.progress * 100) + "%"
-                            color: Style.themes.textColor
+                            text: Math.floor(activeDel.progress * 100) + "%"
+                            color: Style.textColor
                             font.pixelSize: Style.settings.text
                         }
                     }
@@ -274,9 +278,9 @@ Item {
                         y: 22
                         height: 20
                         verticalAlignment: Text.AlignVCenter
-                        visible: model.status === 0
+                        visible: activeDel.status === 0
                         text: "等待中"
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.text
                     }
 
@@ -286,7 +290,7 @@ Item {
                         y: 22
                         height: 20
                         verticalAlignment: Text.AlignVCenter
-                        visible: model.status === 3
+                        visible: activeDel.status === 3
                         text: "下载失败"
                         color: "#ff4444"
                         font.pixelSize: Style.settings.text
@@ -307,9 +311,9 @@ Item {
                             height: 36
                             radius: 36
                             buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
+                            hoverColor: Style.hoverColor
                             shadowEnabled: false
-                            onClicked: MusicApi.downloader.removeTask(model.taskId)
+                            onClicked: MusicApi.downloader.removeTask(activeDel.taskId)
                         }
 
                         // 重试
@@ -320,10 +324,10 @@ Item {
                             height: 36
                             radius: 36
                             buttonColor: "transparent"
-                            hoverColor: Style.themes.hoverColor
+                            hoverColor: Style.hoverColor
                             shadowEnabled: false
-                            visible: model.status === 3
-                            onClicked: MusicApi.downloader.retryTask(model.taskId)
+                            visible: activeDel.status === 3
+                            onClicked: MusicApi.downloader.retryTask(activeDel.taskId)
                         }
                     }
 
@@ -347,7 +351,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "没有已下载的文件,去下载几个音乐喵"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: 14
                 visible: downloadedModel.count === 0
             }

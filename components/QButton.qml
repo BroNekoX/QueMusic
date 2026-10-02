@@ -12,21 +12,21 @@ Button {
     // ==== 外部接口 ====
     text: "Button"              // 按钮文字
     property string iconCharacter: ""          // 图标字符
-    property string iconFontFamily: iconFont.name    // 图标字体
+    property string iconFontFamily: IconFont.name    // 图标字体
     property string tipText: ""                // 鼠标悬停提示文字（为空则不显示）
 
     // ==== 样式 ====
-    property color textColor: Style.themes.fontColor      // 文字颜色
-    property color iconColor: Style.themes.fontColor
+    property color textColor: Style.fontColor      // 文字颜色
+    property color iconColor: Style.fontColor
     property bool shadowEnabled: true              // 是否显示阴影
     property int textBetween: 6                   // 图标与文字间距
     property int borderWidth: 0   // 边框大小，0即无
-    property color borderColor: Style.themes.borderColor   // 边框颜色
+    property color borderColor: Style.borderColor   // 边框颜色
     property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
     property real pressedScale: 0.96                 // 按下缩放比例
-    property color shadowColor: Style.themes.shadowColor    // 阴影颜色
-    property color hoverColor: Style.themes.hoverColor
-    property color buttonColor: Style.themes.primaryColor
+    property color shadowColor: Style.shadowColor    // 阴影颜色
+    property color hoverColor: Style.hoverColor
+    property color buttonColor: Style.primaryColor
     property int iconSize: Style.settings.texticon
     property int fontSize: Style.settings.text
 
@@ -61,7 +61,7 @@ Button {
         }
         Rectangle {
             anchors.fill: parent
-            color: Style.themes.hoverColor
+            color: Style.hoverColor
             radius: root.radius
             opacity: root.hovered ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 80 } }

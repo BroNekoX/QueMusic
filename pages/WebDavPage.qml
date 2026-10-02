@@ -5,7 +5,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 Item {
     id: root
@@ -147,7 +146,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Style.settings.labelRadius
-                color: Style.themes.hoverColor
+                color: Style.hoverColor
                 opacity: serverArea.containsMouse ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -159,14 +158,14 @@ Item {
                 z: 4
                 width: 48
                 height: 48
-                color: Style.themes.containColor
+                color: Style.containColor
                 radius: 10
                 Text {
                     anchors.fill: parent
                     text: "\uf0c2"
-                    font.family: iconFont.name
+                    font.family: IconFont.name
                     font.pixelSize: Style.settings.texticon
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -178,7 +177,7 @@ Item {
                 width: parent.width / 2 - 108
                 height: 64
                 text: listServer.title
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.bold: true
                 elide: Text.ElideRight
                 font.pixelSize: Style.settings.textmain
@@ -190,7 +189,7 @@ Item {
                 width: parent.width / 2 - 120
                 height: 60
                 text: listServer.server.url
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textTip
                 elide: Text.ElideMiddle
                 verticalAlignment: Text.AlignVCenter
@@ -239,7 +238,7 @@ Item {
             anchors.centerIn: parent
             visible: WebDav.servers.length === 0
             text: "还没有 WebDAV 服务器，点右上角「新建服务器」接入网盘音乐目录"
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.textmain
             opacity: 0.65
         }
@@ -275,10 +274,18 @@ Item {
 
         delegate: Rectangle {
             id: listDir
+            required property bool isDir
+            required property string fileUrl
+            required property string localCover
+            required property string title
+            required property string fileName
+            required property string artist
+            required property real fileSize
+            required property int index
             height: 60
             width: dirView.width - 16
             radius: Style.settings.labelRadius
-            color: !model.isDir && player.source == model.fileUrl ? Style.themes.containColor : "transparent"
+            color: !listDir.isDir && Playback.player.source == listDir.fileUrl ? Style.containColor : "transparent"
             Behavior on color { ColorAnimation { duration: 120 } }
 
             QPicture {
@@ -287,9 +294,9 @@ Item {
                 z: 4
                 width: 44
                 height: 44
-                visible: !model.isDir
+                visible: !listDir.isDir
                 // 落地过就有同目录封面可用；没落地先用占位图（远端封面要带鉴权头，QML 加载不了）
-                source: model.localCover !== "" ? model.localCover
+                source: listDir.localCover !== "" ? listDir.localCover
                                                 : "qrc:/QueMusic/resources/app/musicpic.png"
                 radius1: 10
                 radius2: 10
@@ -303,15 +310,15 @@ Item {
                 z: 4
                 width: 44
                 height: 44
-                visible: model.isDir
-                color: Style.themes.containColor
+                visible: listDir.isDir
+                color: Style.containColor
                 radius: 10
                 Text {
                     anchors.fill: parent
                     text: "\uf0f5"
-                    font.family: iconFont.name
+                    font.family: IconFont.name
                     font.pixelSize: Style.settings.texticon
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -320,7 +327,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Style.settings.labelRadius
-                color: Style.themes.hoverColor
+                color: Style.hoverColor
                 opacity: dirArea.containsMouse ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -331,8 +338,8 @@ Item {
                 x: 80
                 z: 3
                 width: parent.width / 2 - 108
-                text: model.title || model.fileName
-                color: Style.themes.fontColor
+                text: listDir.title || listDir.fileName
+                color: Style.fontColor
                 font.bold: true
                 font.pixelSize: Style.settings.textmain
                 elide: Text.ElideRight
@@ -343,10 +350,10 @@ Item {
                 height: 60
                 z: 2
                 width: parent.width / 2 - 120
-                text: model.isDir ? "文件夹"
-                                  : (model.artist !== "" ? model.artist
-                                                         : (model.fileSize > 0 ? (model.fileSize / 1048576).toFixed(1) + " MB" : ""))
-                color: Style.themes.textColor
+                text: listDir.isDir ? "文件夹"
+                                  : (listDir.artist !== "" ? listDir.artist
+                                                         : (listDir.fileSize > 0 ? (listDir.fileSize / 1048576).toFixed(1) + " MB" : ""))
+                color: Style.textColor
                 font.pixelSize: Style.settings.textTip
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
@@ -359,12 +366,12 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.LeftButton) {
-                        if (model.isDir)
-                            browser.enter(index);
+                        if (listDir.isDir)
+                            browser.enter(listDir.index);
                         else
-                            root.playRow(index);
+                            root.playRow(listDir.index);
                     } else {
-                        dirView.menu.index = index;
+                        dirView.menu.index = listDir.index;
                         dirView.menu.popup();
                     }
                 }
@@ -381,13 +388,13 @@ Item {
                         width: 36
                         height: 36
                         radius: 18
-                        visible: !model.isDir
+                        visible: !listDir.isDir
                         buttonColor: "transparent"
                         hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                         shadowEnabled: false
                         tipText: "加入播放列表"
                         onClicked: {
-                            const row = browser.at(index)
+                            const row = browser.at(listDir.index)
                             if (!row.url) return
                             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
                             const added = Playback.enqueue({ name: row.title, path: row.url, songer: "", source: 3 })
@@ -402,7 +409,7 @@ Item {
             anchors.centerIn: parent
             visible: !browser.busy && browser.count === 0
             text: browser.error !== "" ? browser.error : "该目录下没有音频"
-            color: Style.themes.textColor
+            color: Style.textColor
             font.pixelSize: Style.settings.textmain
             opacity: 0.65
         }
@@ -422,7 +429,7 @@ Item {
 
             Text {
                 text: "名称（可留空）"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 opacity: 0.65
             }
@@ -434,7 +441,7 @@ Item {
 
             Text {
                 text: "服务器地址"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 opacity: 0.65
             }
@@ -446,7 +453,7 @@ Item {
 
             Text {
                 text: "账号"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 opacity: 0.65
             }
@@ -458,7 +465,7 @@ Item {
 
             Text {
                 text: root.editingId ? "密码（留空表示不改）" : "密码"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 opacity: 0.65
             }

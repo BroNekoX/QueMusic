@@ -7,7 +7,7 @@ import QueMusic 1.0
 
 QtObject {
     // Style.settings.name
-    // Style.themes.name
+    // Style.name
     readonly property bool darkis: settings.theme === 0 ? false : settings.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
     onDarkisChanged: {
         Style.changeTheme();
@@ -45,4 +45,25 @@ QtObject {
 
     // 主题色板同样抽成独立的 StyleThemes 类型（详见 StyleThemes.qml 说明）
     property StyleThemes themes: StyleThemes {}
+
+    // 扁平镜像：QML 编译器无法把「跨类型读 color 再写进 color」编译成 C++（Style.X 一律回退字节码），
+    // 但单例自身的 color 属性可以。这里镜像一份，外部统一用 Style.X，色值仍以 themes 为准。
+    readonly property color themeColor: themes.themeColor
+    readonly property color fontColor: themes.fontColor
+    readonly property color textColor: themes.textColor
+    readonly property color fullColor: themes.fullColor
+    readonly property color hoverColor: themes.hoverColor
+    readonly property color sideColor: themes.sideColor
+    readonly property color sideBlurColor: themes.sideBlurColor
+    readonly property color containColor: themes.containColor
+    readonly property color containOutColor: themes.containOutColor
+    readonly property color primaryColor: themes.primaryColor
+    readonly property color primaryBlurColor: themes.primaryBlurColor
+    readonly property color secondaryColor: themes.secondaryColor
+    readonly property color secondaryBlurColor: themes.secondaryBlurColor
+    readonly property color borderColor: themes.borderColor
+    readonly property color blurOverlayColor: themes.blurOverlayColor
+    readonly property color blurSecondaryColor: themes.blurSecondaryColor
+    readonly property color shadowColor: themes.shadowColor
+    readonly property color themeShadowColor: themes.themeShadowColor
 }

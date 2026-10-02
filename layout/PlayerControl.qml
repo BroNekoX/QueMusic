@@ -5,24 +5,23 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 import QueMusic 1.0
-import 'qrc:/QueMusic/components'
 
 //底部控制栏
 Rectangle {
     id: musicControlMin
     y: parent.height - 78 + musicControlMax.hideHeight
     height: 78
-    color: Style.settings.noOpacityControl ? Style.themes.primaryColor : Style.themes.primaryBlurColor
+    color: Style.settings.noOpacityControl ? Style.primaryColor : Style.primaryBlurColor
     clip: false
     property int musicInfoX: 100
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
-    //readonly property string mediaTime: Playback.fmt(player.position)
+    //readonly property string mediaTime: Playback.fmt(Playback.player.position)
     readonly property string mediaTime: {
-        const seconds = Math.floor(player.position / 1000) % 60;
-        return Math.floor(player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
+        const seconds = Math.floor(Playback.player.position / 1000) % 60;
+        return Math.floor(Playback.player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
       }
 
     Connections {
@@ -31,14 +30,14 @@ Rectangle {
             if(playListModel.playListIndex < 0)
                 return;
             likeButton.iconColor = FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
-                                   ? Style.themes.themeColor : Style.themes.textColor;
+                                   ? Style.themeColor : Style.textColor;
         }
     }
 
     Rectangle {
         width: musicControlMin.width
         height: 1
-        color: Style.themes.sideColor
+        color: Style.sideColor
     }
 
     function parseArtists(raw: string): var {
@@ -67,7 +66,7 @@ Rectangle {
     //控制条
     Item {
         id: sliderControl
-        visible: player.onMedia
+        visible: Playback.player.onMedia
         x: 0
         y: -10
         z: 6
@@ -85,7 +84,7 @@ Rectangle {
 
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 1.0; color: Style.themes.textColor }
+                GradientStop { position: 1.0; color: Style.textColor }
             }
 
         }
@@ -96,15 +95,15 @@ Rectangle {
             anchors.fill: parent
             width: musicControlMin.width
             from: 0
-            to: player.duration > 0 ? player.duration : 1 // 避免除零错误
-            value: pressed ? null : player.position
+            to: Playback.player.duration > 0 ? Playback.player.duration : 1 // 避免除零错误
+            value: pressed ? null : Playback.player.position
             live: true
             padding: 0
 
 
             // 关键：用户拖动时，跳转播放位置
             onMoved: {
-                player.position = value
+                Playback.player.position = value
             }
 
             // 背景轨道
@@ -113,13 +112,13 @@ Rectangle {
                 x: 0
                 width: musicControlMin.width
                 height: progressSlider.hovered ? 6 : 2
-                color: Style.themes.sideColor
+                color: Style.sideColor
 
                 // 已完成部分
                 Rectangle {
                     width: progressSlider.visualPosition * sliderControl.width
                     height: parent.height
-                    color: Style.themes.themeColor
+                    color: Style.themeColor
                 }
             }
 
@@ -132,7 +131,7 @@ Rectangle {
                 implicitHeight: 18
                 radius: 9
                 color: "#ffffff"
-                border.color: Style.themes.themeColor
+                border.color: Style.themeColor
                 border.width: 2.5
                 ToolTip {
                     visible: parent.visible
@@ -172,7 +171,7 @@ Rectangle {
                 anchors.fill: musicpic
                 fillMode: Image.PreserveAspectCrop
                 visible: false
-                source: player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+                source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
                 sourceSize: Qt.size(64, 64)
             }
             Rectangle {
@@ -205,7 +204,7 @@ Rectangle {
             font.bold: true
             font.pixelSize: 15
             verticalAlignment: Text.AlignVCenter
-            color: titleDisplayMouse.containsMouse ? Style.themes.themeColor : Style.themes.textColor
+            color: titleDisplayMouse.containsMouse ? Style.themeColor : Style.textColor
 
             MouseArea {
                 id: titleDisplayMouse
@@ -253,7 +252,7 @@ Rectangle {
             font.bold: false
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
-            color: artistDisplayMouse.containsMouse ? Style.themes.themeColor : Style.themes.textColor
+            color: artistDisplayMouse.containsMouse ? Style.themeColor : Style.textColor
 
             MouseArea {
                 id: artistDisplayMouse
@@ -305,8 +304,8 @@ Rectangle {
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             shadowEnabled: false
             onClicked: {
                 if(playListModel.get(playListModel.playListIndex).source !== -1) {
@@ -314,11 +313,11 @@ Rectangle {
                     if (FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
                         FavoriteSongs.removeFavorite(playListModel.get(playListModel.playListIndex).path, "song");
                         mainWarn.tiped("已取消收藏", 0);
-                        iconColor = Style.themes.textColor;
+                        iconColor = Style.textColor;
                     } else {
-FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, Playback.musicTitle, Playback.musicArtist, player.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(player.duration / 1000), "song");
+FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(Playback.player.duration / 1000), "song");
                         mainWarn.tiped("已收藏", 1);
-                        iconColor = Style.themes.themeColor;
+                        iconColor = Style.themeColor;
                     }
                 }
             }
@@ -332,8 +331,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             shadowEnabled: false
             visible: playListModel.count > 0 && playListModel.playListIndex >= 0
                      && playListModel.playListIndex < playListModel.count
@@ -346,16 +345,6 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             }
             tipText: "下载"
         }
-    }
-
-    // 功能插件扩展点：底栏左侧（歌曲信息之后）
-    Row {
-        id: playerLeftSlot
-        x: 316
-        y: 19
-        height: 40
-        spacing: 4
-        PluginSlot { slotName: "player.left"; target: playerLeftSlot }
     }
 
     //中间控制
@@ -371,8 +360,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             shadowEnabled: false
             iconSize: Style.settings.texticon + 1
             onClicked: {
@@ -390,25 +379,25 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticonH
             shadowEnabled: false
             onClicked: Playback.previous()
             tipText: "上一首"
         }
         SButton {
-            iconCharacter: player.playing ? "\uf02f" : "\uf00e"
+            iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
             width: 46
             height: 46
             radius: 46
-            buttonColor: Style.themes.secondaryBlurColor
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            buttonColor: Style.secondaryBlurColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticonH
             shadowEnabled: false
             onClicked: Playback.togglePlay()
-            tipText: player.playing ? "暂停" : "播放"
+            tipText: Playback.player.playing ? "暂停" : "播放"
         }
         SButton {
             iconCharacter: "\uf0d9"
@@ -416,8 +405,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticonH
             shadowEnabled: false
             onClicked: Playback.next(false)
@@ -429,8 +418,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticon + 1
             shadowEnabled: false
             onClicked: musicControlMin.openPlayerOptions()
@@ -441,7 +430,7 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
 
     //右侧栏
     Row {
-        id: playerRightSlot
+        id: playerRow
         anchors.right: parent.right
         anchors.rightMargin: 24
         spacing: 2
@@ -450,18 +439,18 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         height: 40
         clip: false
 
-        // 功能插件扩展点：底栏右侧（时间之前）
-        PluginSlot { slotName: "player.right"; target: playerRightSlot }
+        // 扩展点：底栏（时间之前）
+        PluginSlot { slotName: "player"; target: playerRow }
 
         Text {
             height: 40
             width: 80
-            text: musicControlMin.mediaTime + " / " + Playback.fmt(player.duration)
+            text: musicControlMin.mediaTime + " / " + Playback.fmt(Playback.player.duration)
             font.bold: false
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
-            color: Style.themes.textColor
+            color: Style.textColor
         }
         SButton {
             iconCharacter: "\uf0b6"
@@ -469,8 +458,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticon + 1
             shadowEnabled: false
             onClicked: {
@@ -488,8 +477,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticon + 2
             shadowEnabled: false
             onHoveredChanged: {
@@ -523,8 +512,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             shadowEnabled: false
             iconSize: Style.settings.texticon + 1
             onClicked: {
@@ -542,8 +531,8 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.themes.hoverColor
-            iconColor: Style.themes.textColor
+            hoverColor: Style.hoverColor
+            iconColor: Style.textColor
             iconSize: Style.settings.texticon + 2
             shadowEnabled: false
             onClicked: {
@@ -582,12 +571,12 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
         }
         if(FavoriteSongs.isFavorite(e.path, "song")) {
             FavoriteSongs.removeFavorite(e.path, "song");
-            likeButton.iconColor = Style.themes.textColor;
+            likeButton.iconColor = Style.textColor;
             mainWarn.tiped("已取消收藏", 0);
         } else {
-            FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, player.urlStr,
-                                      e.source, Math.floor(player.duration / 1000), "song");
-            likeButton.iconColor = Style.themes.themeColor;
+            FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr,
+                                      e.source, Math.floor(Playback.player.duration / 1000), "song");
+            likeButton.iconColor = Style.themeColor;
             mainWarn.tiped("已收藏", 1);
         }
     }

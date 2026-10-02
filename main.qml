@@ -14,7 +14,7 @@ Window {
     height: 720
     minimumWidth: 810
     minimumHeight: 540
-    color: Style.themes.primaryColor
+    color: Style.primaryColor
     title: "QueMusic"
     Component.onCompleted: {
         windowAgent.setup(window);
@@ -96,14 +96,11 @@ Window {
 
     readonly property bool isMacOS: Qt.platform.os === "osx"
 
-    // 标题栏整块是窗口拖拽区：插件挂进去的对象要标记为可命中，否则点击会被拖拽吞掉
+    // 标题栏是窗口拖拽区：插件挂进去的对象要标记可命中，否则点击会被拖拽吞掉
     function syncTitleBarHitTest(): void {
-        const rows = [barLeftWidgets, barRightWidgets];
-        for (let r = 0; r < rows.length; ++r) {
-            const kids = rows[r].children;
-            for (let i = 0; i < kids.length; ++i)
-                windowAgent.setHitTestVisible(kids[i], true);
-        }
+        const kids = barRightWidgets.children;
+        for (let i = 0; i < kids.length; ++i)
+            windowAgent.setHitTestVisible(kids[i], true);
     }
 
     function doSearch(text: string): void {
@@ -264,10 +261,10 @@ Window {
                 width: 160
                 leftPadding: 16
                 placeholderText: "搜索"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.textmain
                 verticalAlignment: Text.AlignVCenter
-                selectionColor: Style.themes.containColor
+                selectionColor: Style.containColor
                 focus: false
                 onReleased: searchCard.open();
                 onAccepted: {
@@ -283,7 +280,7 @@ Window {
                     height: 36
                     width: 201
                     radius: 18
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                 }
             }
             SButton {
@@ -303,9 +300,6 @@ Window {
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
             }
-
-            // 功能插件扩展点：标题栏左侧（搜索框之后）
-            PluginSlot { slotName: "titlebar.left"; target: barLeftWidgets }
         }
 
         Row {
@@ -318,15 +312,15 @@ Window {
             y: 10 - musicControlMax.hideHeight
             height: 40
 
-            // 功能插件扩展点：标题栏右侧（窗口按钮之前）
-            PluginSlot { slotName: "titlebar.right"; target: barRightWidgets }
+            // 扩展点：标题栏（窗口按钮之前）
+            PluginSlot { slotName: "titlebar"; target: barRightWidgets }
 
             // 全屏开关
             QWKButton {
                 id: fullScreenButton
                 largeicon: true
                 property int prevVisibility: Window.Maximized
-                buttonColor: window.visibility === Window.FullScreen ? Style.themes.containColor : "transparent"
+                buttonColor: window.visibility === Window.FullScreen ? Style.containColor : "transparent"
                 source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
                     if (window.visibility === Window.FullScreen) {
@@ -416,25 +410,25 @@ Window {
                 windowAgent.setWindowAttribute("dwm-blur", false);
                 if(Style.settings.backmode === 0) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.themes.primaryColor;
-                    window.color = Style.themes.primaryColor;
-                    mainContent.color = Style.themes.secondaryColor;
+                    sidebar.baseColor = Style.primaryColor;
+                    window.color = Style.primaryColor;
+                    mainContent.color = Style.secondaryColor;
                 } else if(Style.settings.backmode === 1) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.themes.primaryBlurColor;
-                    window.color = Style.themes.containColor;
-                    mainContent.color = Style.themes.blurOverlayColor;
+                    sidebar.baseColor = Style.primaryBlurColor;
+                    window.color = Style.containColor;
+                    mainContent.color = Style.blurOverlayColor;
                 } else if(Style.settings.backmode === 2) {
                     backGround.visible = true;
-                    sidebar.baseColor = Style.themes.blurOverlayColor;
-                    window.color = Style.themes.primaryColor;
-                    mainContent.color = Style.themes.blurOverlayColor;
+                    sidebar.baseColor = Style.blurOverlayColor;
+                    window.color = Style.primaryColor;
+                    mainContent.color = Style.blurOverlayColor;
                     backGround.source = "qrc:/QueMusic/resources/pic/cloudRainbow.png";
                 } else if(Style.settings.backmode === 3) {
                     backGround.visible = true;
-                    sidebar.baseColor = Style.themes.blurOverlayColor;
-                    window.color = Style.themes.primaryColor;
-                    mainContent.color = Style.themes.blurOverlayColor;
+                    sidebar.baseColor = Style.blurOverlayColor;
+                    window.color = Style.primaryColor;
+                    mainContent.color = Style.blurOverlayColor;
                     switch(Style.settings.backpic) {
                         case 0:
                             backGround.source = "qrc:/QueMusic/resources/pic/back1.jpg";
@@ -448,9 +442,9 @@ Window {
                     }
                 } else if(Style.settings.backmode === 4) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.themes.primaryBlurColor;
+                    sidebar.baseColor = Style.primaryBlurColor;
                     window.color = "transparent";
-                    mainContent.color = Style.themes.primaryBlurColor;
+                    mainContent.color = Style.primaryBlurColor;
                     windowAgent.setWindowAttribute("dwm-blur", true);
                 }
             }
@@ -595,13 +589,13 @@ Window {
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: Style.themes.shadowColor
+                color: Style.shadowColor
                 opacity: 0.75
             }
             Text {
                 anchors.centerIn: parent
                 text: fpsCounter.fps.toFixed(0) + " FPS"
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: 11
                 font.bold: true
             }
@@ -639,16 +633,16 @@ Window {
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: Style.themes.shadowColor
+                color: Style.shadowColor
                 opacity: 0.75
             }
             Text {
                 anchors.fill: parent
                 anchors.margins: 10
                 text: debugHud.info
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: 11
-                font.family: textFont.name
+                font.family: TextFont.name
             }
             Timer {
                 interval: 500
@@ -1042,7 +1036,7 @@ Window {
                         height: 40
                         text: picWatch.fileName
                         font.pixelSize: Style.settings.textH2
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                     }
@@ -1057,7 +1051,7 @@ Window {
         source: "qrc:/QueMusic/components/QTextWindow.qml"
     }
 
-    // 功能插件扩展点：整窗覆盖层（插件可自由摆放自己的 HUD，默认不吃鼠标事件）
+    // 扩展点：整窗覆盖层（插件自己定位，默认不吃鼠标事件）
     Item {
         id: pluginOverlay
         anchors.fill: parent
@@ -1065,8 +1059,24 @@ Window {
         PluginSlot { slotName: "window.overlay"; target: pluginOverlay }
     }
 
-    // 功能插件宿主：最后声明 ⇒ 宿主界面已建好、扩展点已登记，插件再去挂界面
     PluginHost {
         onPluginLoaded: window.syncTitleBarHitTest()
     }
+
+    // TEMP-AOT-VERIFY4-START
+    Timer {
+        interval: 12000
+        running: true
+        repeat: false
+        onTriggered: {
+            console.log("ONLINE-menu=" + MusicApi.getHotlistMenu.count
+                        + " hotPlayLists=" + MusicApi.hotPlayLists.count
+                        + " recommend=" + MusicApi.recommendSongs.count
+                        + " newSongs=" + MusicApi.newSongs.count
+                        + " toplist=" + MusicApi.toplistList.count
+                        + " singer=" + MusicApi.singerList.count);
+            Qt.quit();
+        }
+    }
+    // TEMP-AOT-VERIFY4-END
 }

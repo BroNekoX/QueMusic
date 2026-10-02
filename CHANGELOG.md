@@ -67,11 +67,11 @@
   （`docs/lyrics-plugin.md`，apiVersion 1）
 - **设置 → 插件 → 歌词界面**：插件列表（预览图、内置/作者/版本、启用状态），支持安装（选文件夹后复制到插件目录）、
   启用、打开插件目录、重新扫描、删除（内置不可删）；「功能 / 音乐源」两个子页签保留未完成提示
-- **功能插件系统**：新增 `FunctionPlugins` 单例（`cpp/plugins/FunctionPluginStore.*`）与宿主框架
-  `components/PluginHost.qml`（按启用状态给每个插件起一个加载器）+ `PluginLoader.qml`（入口异步编译、
-  注入 `components/PluginApi.qml`、停用/删除时回收插件挂出的一切）。插件契约：入口根声明 `property QtObject api`，
-  自己经 `api.mount(扩展点, Component)` / `api.loader(url, props)` 往界面里加东西。宿主开放
-  `titlebar.left/right`、`player.left/right`、`sidebar.bottom`、`window.overlay` 六个扩展点
+- **功能插件系统**：新增 `FunctionPlugins` 单例（`cpp/plugins/FunctionPluginStore.*`）与宿主
+  `components/PluginHost.qml`（按启用状态给每个插件起一个加载器：入口异步编译、注入 `components/PluginApi.qml`、
+  停用/删除时回收插件挂出的一切）。插件契约：入口根声明 `property QtObject api`，
+  自己经 `api.mount(扩展点, Component|url, props)` 往界面里加东西——传 url 时返回的是异步 `Loader`。
+  宿主开放 `titlebar`、`player`、`sidebar.bottom`、`window.overlay` 四个扩展点
   （`components/PluginSlot.qml` 登记、`PluginSlots` 单例查表）；插件可多个同时启用，加载失败的自动停用并提示。
   契约与可安装示例见插件仓库 QuePlugins（`docs/function-plugin.md`、`Tools/example`）
 - **设置 → 插件 → 功能**：与歌词界面插件共用新的 `components/PluginManager.qml`（预览图 / 作者 / 版本 /

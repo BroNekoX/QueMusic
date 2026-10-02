@@ -79,16 +79,16 @@ Window {
         anchors.fill: parent
         radius: 12
         z: 1
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         border.width: 2
-        border.color: Style.themes.sideColor
+        border.color: Style.sideColor
 
         Image {
             x: 16
             y: 16
             width: 64
             height: 64
-            source: player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+            source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
             sourceSize: Qt.size(128, 128)
             asynchronous: true
             fillMode: Image.PreserveAspectCrop
@@ -106,7 +106,7 @@ Window {
             font.bold: true
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: Style.fontColor
         }
 
         // 艺术家
@@ -120,7 +120,7 @@ Window {
             elide: Text.ElideRight
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.textColor
+            color: Style.textColor
         }
 
         // 进度条
@@ -131,22 +131,22 @@ Window {
             width: playerCard.width - 102 - 14
             height: 16
             from: 0
-            to: player.duration > 0 ? player.duration : 1
-            value: pressed ? null : player.position
+            to: Playback.player.duration > 0 ? Playback.player.duration : 1
+            value: pressed ? null : Playback.player.position
             live: true
-            onMoved: player.position = value
+            onMoved: Playback.player.position = value
             padding: 0
             background: Rectangle {
                 y: (seekSlider.height - 4) / 2
                 width: seekSlider.availableWidth
                 height: 4
                 radius: 2
-                color: Style.themes.secondaryColor
+                color: Style.secondaryColor
                 Rectangle {
                     width: seekSlider.visualPosition * parent.width
                     height: parent.height
                     radius: 2
-                    color: Style.themes.themeColor
+                    color: Style.themeColor
                 }
             }
             handle: Rectangle {
@@ -155,9 +155,9 @@ Window {
                 width: 12
                 height: 12
                 radius: 6
-                color: Style.themes.primaryColor
+                color: Style.primaryColor
                 border.width: 2
-                border.color: Style.themes.themeColor
+                border.color: Style.themeColor
                 visible: seekSlider.hovered || seekSlider.pressed
             }
         }
@@ -169,9 +169,9 @@ Window {
             y: 72
             width: playerCard.width - 102 - 14
             height: 16
-            text: Playback.fmt(player.position) + " / " + Playback.fmt(player.duration)
+            text: Playback.fmt(Playback.player.position) + " / " + Playback.fmt(Playback.player.duration)
             font.pixelSize: 11
-            color: Style.themes.textColor
+            color: Style.textColor
             horizontalAlignment: Text.AlignRight
         }
 
@@ -184,8 +184,8 @@ Window {
                 height: 36
                 radius: 18
                 buttonColor: "transparent"
-                hoverColor: Style.themes.hoverColor
-                iconColor: Style.themes.textColor
+                hoverColor: Style.hoverColor
+                iconColor: Style.textColor
                 shadowEnabled: false
                 iconSize: Style.settings.texticon
                 onClicked: {
@@ -206,8 +206,8 @@ Window {
                 iconCharacter: "\uf0dc"
                 iconSize: Style.settings.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.themes.hoverColor
-                iconColor: Style.themes.textColor
+                hoverColor: Style.hoverColor
+                iconColor: Style.textColor
                 shadowEnabled: false
                 onClicked: Playback.previous()
                 tipText: "上一首"
@@ -217,14 +217,14 @@ Window {
                 width: 36
                 height: 36
                 radius: 18
-                iconCharacter: player.playing ? "\uf02f" : "\uf00e"
+                iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
                 iconSize: Style.settings.texticon + 2
-                buttonColor: Style.themes.secondaryBlurColor
-                hoverColor: Style.themes.hoverColor
-                iconColor: Style.themes.textColor
+                buttonColor: Style.secondaryBlurColor
+                hoverColor: Style.hoverColor
+                iconColor: Style.textColor
                 shadowEnabled: false
                 onClicked: Playback.togglePlay()
-                tipText: player.playing ? "暂停" : "播放"
+                tipText: Playback.player.playing ? "暂停" : "播放"
             }
             SButton {
                 id: nextButton
@@ -234,8 +234,8 @@ Window {
                 iconCharacter: "\uf0d9"
                 iconSize: Style.settings.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.themes.hoverColor
-                iconColor: Style.themes.textColor
+                hoverColor: Style.hoverColor
+                iconColor: Style.textColor
                 shadowEnabled: false
                 onClicked: Playback.next(false)
                 tipText: "下一首"
@@ -248,8 +248,8 @@ Window {
                 iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
                 iconSize: Style.settings.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.themes.hoverColor
-                iconColor: Style.themes.textColor
+                hoverColor: Style.hoverColor
+                iconColor: Style.textColor
                 shadowEnabled: false
                 onClicked: {
                     if(desktopPlayerWindow.topWindow) {
@@ -276,7 +276,7 @@ Window {
             iconSize: Style.settings.texticon
             buttonColor: "transparent"
             hoverColor: Qt.rgba(1.0, 0.4, 0.4, 0.4)
-            iconColor: Style.themes.textColor
+            iconColor: Style.textColor
             shadowEnabled: false
             onClicked: {
                 desktopPlayer.desktopPlayerMode = 0;

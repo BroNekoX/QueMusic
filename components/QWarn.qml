@@ -5,7 +5,6 @@ import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
 import QtQuick.Effects
-import 'qrc:/QueMusic/components'
     // 毛玻璃对话框主体
 Popup {
     id: dialog
@@ -37,9 +36,9 @@ Popup {
     background: Rectangle {
         anchors.fill: parent
         radius: Style.settings.labelRadius
-        color: Style.themes.fullColor
+        color: Style.fullColor
         border.width: 1
-        border.color: Style.themes.sideColor
+        border.color: Style.sideColor
 
         RectangularShadow {
             anchors.fill: parent
@@ -49,7 +48,7 @@ Popup {
             radius: 18
             blur: 20
             spread: 0
-            color: Style.themes.shadowColor
+            color: Style.shadowColor
         }
     }
 
@@ -67,14 +66,14 @@ Popup {
                 text: "\uf11a"
                 color: dialog.type === 1 ? "#34c759" : dialog.type === 2 ? "#ff453a" : "#ff9f0a"
                 font.pixelSize: Style.settings.texticon
-                font.family: iconFont.name
+                font.family: IconFont.name
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
             }
             Text {
                 id: title
                 height: 20
-                color: Style.themes.fontColor
+                color: Style.fontColor
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
                 verticalAlignment: Text.AlignVCenter

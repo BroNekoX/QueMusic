@@ -19,7 +19,7 @@ Popup {
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
     // 本地音乐没有在线评论，直接不显示分页
-    readonly property bool isLocal: !String(player.source).startsWith("http")
+    readonly property bool isLocal: !String(Playback.player.source).startsWith("http")
     readonly property real bodyY: isLocal ? 176 : 216
 
     function loadComments(): void {
@@ -61,7 +61,7 @@ Popup {
             font.bold: true
             font.pixelSize: Style.settings.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: Style.fontColor
         }
         SButton {
             iconCharacter: "\uf025"
@@ -84,13 +84,13 @@ Popup {
             width: root.width - 32
             height: 114
             QPicture {
-                source: root.player.urlStr
+                source: Playback.player.urlStr
                 radius: 12
                 width: 112
                 height: 112
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: picWatch.dialog(root.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
+                    onClicked: picWatch.dialog(Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
                                                Playback.musicTitle)
                 }
             }
@@ -102,7 +102,7 @@ Popup {
                 font.pixelSize: 18
                 font.bold: true
                 elide: Text.ElideRight
-                color: Style.themes.fontColor
+                color: Style.fontColor
             }
             Text {
                 x: 128
@@ -111,7 +111,7 @@ Popup {
                 text: Playback.musicArtist
                 font.pixelSize: 16
                 elide: Text.ElideRight
-                color: Style.themes.textColor
+                color: Style.textColor
             }
         }
 
@@ -173,12 +173,12 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.noTitle
-                        color: Style.themes.textColor
+                        text: Playback.player.noTitle
+                        color: Style.textColor
                         verticalAlignment: Text.AlignVCenter
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                     }
                 }
                 SettingItem {
@@ -190,10 +190,10 @@ Popup {
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
                         text: Playback.musicTitle
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -206,10 +206,10 @@ Popup {
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
                         text: Playback.musicArtist
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -221,11 +221,11 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.album
-                        color: Style.themes.textColor
+                        text: Playback.player.album
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -237,11 +237,11 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.audioBit + " k"
-                        color: Style.themes.textColor
+                        text: Playback.player.audioBit + " k"
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -253,11 +253,11 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.duration.toString()
-                        color: Style.themes.textColor
+                        text: Playback.player.duration.toString()
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -269,11 +269,11 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.date
-                        color: Style.themes.textColor
+                        text: Playback.player.date
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -285,11 +285,11 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: root.player.type
-                        color: Style.themes.textColor
+                        text: Playback.player.type
+                        color: Style.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themes.themeColor
+                        selectionColor: Style.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -337,14 +337,14 @@ Popup {
                         width: parent.width
                         text: commentItem.user
                               + (commentItem.liked > 0 ? "  ·  " + commentItem.liked + " 赞" : "")
-                        color: Style.themes.textColor
+                        color: Style.textColor
                         font.pixelSize: Style.settings.textmain - 2
                         elide: Text.ElideRight
                     }
                     Text {
                         width: parent.width
                         text: commentItem.content
-                        color: Style.themes.fontColor
+                        color: Style.fontColor
                         font.pixelSize: Style.settings.textmain
                         wrapMode: Text.Wrap
                     }
@@ -358,7 +358,7 @@ Popup {
                 visible: commentView.count === 0
                 // B 站/酷狗要两三次往返才拿到结果，这期间别说成"暂无评论"
                 text: MusicApi.loadState ? "评论加载中…" : "暂无评论"
-                color: Style.themes.textColor
+                color: Style.textColor
                 font.pixelSize: Style.settings.text
             }
         }

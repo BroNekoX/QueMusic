@@ -8,8 +8,8 @@ Rectangle {
     width: settingStack.standWidth / 2 - 12
     height: 88
     radius: 16
-    color: cardArea.containsMouse ? Style.themes.containColor : Style.themes.primaryColor
-    border.color: Style.themes.secondaryColor
+    color: cardArea.containsMouse ? Style.containColor : Style.primaryColor
+    border.color: Style.secondaryColor
     border.width: 2
     property url source: "qrc:/QueMusic/resources/app/header.png"
     property string title: "Account"
@@ -31,7 +31,7 @@ Rectangle {
         anchors.verticalCenter: root.verticalCenter
         Text {
             text: root.title
-            color: Style.themes.fontColor
+            color: Style.fontColor
             verticalAlignment: Text.AlignVCenter
             font.bold: true
             font.pixelSize: Style.settings.textH2
@@ -39,7 +39,7 @@ Rectangle {
         Text {
             text: root.text
             width: root.width - 96
-            color: Style.themes.textColor
+            color: Style.textColor
             verticalAlignment: Text.AlignVCenter
             font.pixelSize: Style.settings.text
             wrapMode: Text.Wrap

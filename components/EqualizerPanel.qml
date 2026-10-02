@@ -26,7 +26,7 @@ Column {
     Rectangle {
         width: panel.width
         height: statusRow.height + 20
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         radius: Style.settings.cubeRadius
         visible: panel.display == 0 || panel.display == 1
 
@@ -37,7 +37,7 @@ Column {
             spacing: 24
             Text {
                 font.pixelSize: Style.settings.textTip
-                color: Style.themes.textColor
+                color: Style.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine
                       ? (panel.engine.codecName + " · " + panel.engine.sourceSampleRate + " Hz · "
@@ -46,13 +46,13 @@ Column {
             }
             Text {
                 font.pixelSize: Style.settings.textTip
-                color: Style.themes.textColor
+                color: Style.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine ? "输出 " + panel.engine.outputFormatName : ""
             }
             Text {
                 font.pixelSize: Style.settings.textTip
-                color: Style.themes.textColor
+                color: Style.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine
                       ? "解码 " + panel.engine.decodeSampleRate + " Hz · 缓冲 " + panel.engine.bufferMs + " ms"
@@ -60,7 +60,7 @@ Column {
             }
             Text {
                 font.pixelSize: Style.settings.textTip
-                color: panel.engine && panel.engine.dspActive ? Style.themes.themeColor : Style.themes.textColor
+                color: panel.engine && panel.engine.dspActive ? Style.themeColor : Style.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine && panel.engine.dspActive
                       ? "DSP 已介入 · 增益 " + panel.engine.effectiveGainDb.toFixed(1) + " dB"
@@ -71,7 +71,7 @@ Column {
 
     Rectangle {
         width: panel.width
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         radius: Style.settings.cubeRadius
         height: eqColumn.height
         visible: panel.display == 0 || panel.display == 1
@@ -263,7 +263,7 @@ Column {
                                 width: 6
                                 height: fader.trackH
                                 radius: 3
-                                color: Style.themes.sideColor
+                                color: Style.sideColor
                             }
 
                             Rectangle {
@@ -271,14 +271,14 @@ Column {
                                 y: fader.centerY
                                 width: 22
                                 height: 1
-                                color: Style.themes.borderColor
+                                color: Style.borderColor
                             }
 
                             Rectangle {
                                 x: (parent.width - width) / 2
                                 width: 6
                                 radius: 3
-                                color: Style.themes.themeColor
+                                color: Style.themeColor
                                 y: fader.gain >= 0 ? fader.centerY - height : fader.centerY
                                 height: Math.abs(fader.gain) / panel.eqMax * fader.trackH / 2
                             }
@@ -309,7 +309,7 @@ Column {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: fader.trackY + fader.trackH + 2
                                 font.pixelSize: Style.settings.textTip
-                                color: Style.themes.fontColor
+                                color: Style.fontColor
                                 text: (fader.gain > 0 ? "+" : "") + fader.gain.toFixed(1)
                             }
 
@@ -317,7 +317,7 @@ Column {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: fader.trackY + fader.trackH + 20
                                 font.pixelSize: Style.settings.textTip
-                                color: Style.themes.textColor
+                                color: Style.textColor
                                 text: modelData
                             }
 
@@ -325,7 +325,7 @@ Column {
                                 id: drag
                                 anchors.fill: parent
                                 preventStealing: true
-                                function apply(y) {
+                                function apply(y: real): void {
                                     const clamped = Math.max(fader.trackY, Math.min(fader.trackY + fader.trackH, y))
                                     const value = (fader.centerY - clamped) / (fader.trackH / 2) * panel.eqMax
                                     if (panel.engine)
@@ -342,7 +342,7 @@ Column {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     font.pixelSize: Style.settings.textTip
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     text: "频段中心频率（Hz）"
                 }
             }
@@ -356,7 +356,7 @@ Column {
                     anchors.fill: parent
                     iconCharacter: "\uf01e"
                     radius: Style.settings.labelRadius
-                    buttonColor: Style.themes.secondaryColor
+                    buttonColor: Style.secondaryColor
                     tipText: "重置均衡器"
                     onClicked: {
                         if (!panel.engine)
@@ -374,7 +374,7 @@ Column {
 
     Rectangle {
         width: panel.width
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         radius: Style.settings.cubeRadius
         height: soundRoadColumn.height
         visible: panel.display == 0 || panel.display == 2
@@ -497,7 +497,7 @@ Column {
     Rectangle {
         width: panel.width
         height: premiumSoundColumn.height
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         radius: Style.settings.cubeRadius
         visible: panel.display == 0 || panel.display == 3
         Column {

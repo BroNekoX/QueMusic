@@ -45,13 +45,13 @@ Popup {
             font.bold: true
             font.pixelSize: Style.settings.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: Style.fontColor
             Rectangle {
                 y: 6
                 x: parent.width + 8
                 height: 24
                 radius: 8
-                color: Style.themes.themeColor
+                color: Style.themeColor
                 width: songCountTag.width + 16
                 Text {
                     id: songCountTag
@@ -59,7 +59,7 @@ Popup {
                     font.bold: true
                     font.pixelSize: Style.settings.textmain
                     text: playListModel.count + "首"
-                    color: Style.themes.primaryColor
+                    color: Style.primaryColor
                 }
             }
         }
@@ -172,23 +172,28 @@ Popup {
 
             delegate: Rectangle {
                 id: listfile
+                required property int index
+                required property string name
+                required property string songer
+                required property string path
+                required property int source
                 // 复用时清掉上一行残留的悬停态
-                readonly property string songName: model.name || ""
-                readonly property string songArtist: model.songer || ""
-                readonly property bool isCurrent: playListModel.playListIndex === index
+                readonly property string songName: listfile.name || ""
+                readonly property string songArtist: listfile.songer || ""
+                readonly property bool isCurrent: playListModel.playListIndex === listfile.index
                 height: 60
                 width: parent.width
                 radius: Style.settings.labelRadius
-                color: isCurrent ? Style.themes.containColor : "transparent"
+                color: isCurrent ? Style.containColor : "transparent"
 
                 Text {
                     y: 10
                     x: 8
-                    text: index + 1
+                    text: listfile.index + 1
                     z: 5
                     width: 40
                     height: 40
-                    color: isCurrent ? Style.themes.themeColor : Style.themes.textColor
+                    color: isCurrent ? Style.themeColor : Style.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -201,7 +206,7 @@ Popup {
                     height: 20
                     text: songName
                     elide: Text.ElideRight
-                    color: Style.themes.fontColor
+                    color: Style.fontColor
                     font.pixelSize: Style.settings.text
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -212,7 +217,7 @@ Popup {
                     width: 200
                     height: 20
                     text: songArtist
-                    color: Style.themes.textColor
+                    color: Style.textColor
                     elide: Text.ElideRight
                     font.pixelSize: Style.settings.textTip
                     verticalAlignment: Text.AlignVCenter
@@ -231,8 +236,8 @@ Popup {
                     Text {
                         width: 56
                         height: 40
-                        color: Style.themes.textColor
-                        text: model.source == -1 ? "本地" : "在线"
+                        color: Style.textColor
+                        text: listfile.source == -1 ? "本地" : "在线"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Style.settings.text
@@ -247,9 +252,9 @@ Popup {
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
                     onClicked: {
-                        playListModel.playListIndex = index
-                        if (model.source < 0) Playback.playLocalSong(model.path, model.name)
-                        else MusicApi.getMusicInfo(model.path, 0, model.source)
+                        playListModel.playListIndex = listfile.index
+                        if (listfile.source < 0) Playback.playLocalSong(listfile.path, listfile.name)
+                        else MusicApi.getMusicInfo(listfile.path, 0, listfile.source)
                     }
 
                     Rectangle {
@@ -275,9 +280,9 @@ Popup {
                             tipText: "下一首播放"
                             onClicked: {
                                 const cur = playListModel.playListIndex
-                                if (index === cur) return
-                                playListModel.move(index, cur + 1, 1)
-                                if (index < cur) playListModel.playListIndex = cur - 1
+                                if (listfile.index === cur) return
+                                playListModel.move(listfile.index, cur + 1, 1)
+                                if (listfile.index < cur) playListModel.playListIndex = cur - 1
                                 mainWarn.tiped("已设为下一首", 1)
                             }
                         }
@@ -294,12 +299,12 @@ Popup {
                             shadowEnabled: false
                             tipText: "收藏"
                             onClicked: {
-                                if (model.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
-                                if (FavoriteSongs.isFavorite(model.path, "song")) {
-                                    FavoriteSongs.removeFavorite(model.path, "song")
+                                if (listfile.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
+                                if (FavoriteSongs.isFavorite(listfile.path, "song")) {
+                                    FavoriteSongs.removeFavorite(listfile.path, "song")
                                     mainWarn.tiped("已取消收藏", 0)
                                 } else {
-                                    FavoriteSongs.addFavorite(model.path, model.name, model.songer, "", model.source, 0, "song")
+                                    FavoriteSongs.addFavorite(listfile.path, listfile.name, listfile.songer, "", listfile.source, 0, "song")
                                     mainWarn.tiped("已收藏", 1)
                                 }
                             }
@@ -317,9 +322,9 @@ Popup {
                             shadowEnabled: false
                             tipText: "移除"
                             onClicked: {
-                                if (playListModel.playListIndex !== index) {
-                                    if (playListModel.playListIndex > index) playListModel.playListIndex -= 1;
-                                    playListModel.remove(index, 1);
+                                if (playListModel.playListIndex !== listfile.index) {
+                                    if (playListModel.playListIndex > listfile.index) playListModel.playListIndex -= 1;
+                                    playListModel.remove(listfile.index, 1);
                                 }
                             }
                         }

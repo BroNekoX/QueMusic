@@ -18,7 +18,7 @@ Item {
         x: 0
         height: 2
         radius: 1
-        color: Style.themes.themeColor
+        color: Style.themeColor
     }
     ParallelAnimation {
         id: barAnime
@@ -58,7 +58,7 @@ Item {
                     text: tabItem.modelData
                     font.pixelSize: Style.settings.textmain
                     font.bold: tabs.index === tabItem.index
-                    color: tabs.index === tabItem.index ? Style.themes.themeColor : Style.themes.textColor
+                    color: tabs.index === tabItem.index ? Style.themeColor : Style.textColor
                 }
                 MouseArea {
                     anchors.fill: parent

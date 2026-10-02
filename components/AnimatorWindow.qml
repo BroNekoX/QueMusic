@@ -67,7 +67,7 @@ Item {
         y: root.haveControl ? 16 : 34
         width: 200
         height: 60
-        color: Style.themes.fontColor
+        color: Style.fontColor
         text: root.title
         font.pixelSize: Style.settings.textH1
         verticalAlignment: Text.AlignVCenter

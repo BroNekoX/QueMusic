@@ -9,9 +9,9 @@ Rectangle {
     implicitWidth: 200
     implicitHeight: 36
     radius: Style.settings.labelRadius
-    color: Style.themes.fullColor
+    color: Style.fullColor
     border.width: input.focus ? 2 : 1
-    border.color: input.focus ? Style.themes.themeColor : Style.themes.sideColor
+    border.color: input.focus ? Style.themeColor : Style.sideColor
     signal entered()
     property alias inputText: input.text
     property alias echoMode: input.echoMode
@@ -20,7 +20,7 @@ Rectangle {
         anchors.fill: parent
         anchors.leftMargin: 14
         anchors.rightMargin: 14
-        color: Style.themes.fontColor
+        color: Style.fontColor
         font.pixelSize: Style.settings.textmain
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter

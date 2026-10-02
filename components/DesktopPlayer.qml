@@ -58,7 +58,7 @@ Popup {
             font.bold: true
             font.pixelSize: Style.settings.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.themes.fontColor
+            color: Style.fontColor
         }
         SButton {
             iconCharacter: "\uf025"
@@ -88,14 +88,14 @@ Popup {
                 delegate: Rectangle {
                     width: parent.width
                     radius: Style.settings.labelRadius
-                    color: desktopPlayer.desktopPlayerMode === index ? Style.themes.themeColor : Style.themes.primaryColor
+                    color: desktopPlayer.desktopPlayerMode === index ? Style.themeColor : Style.primaryColor
                     height: 60
                     border.width: 2
-                    border.color: Style.themes.sideColor
+                    border.color: Style.sideColor
                     Rectangle {
                         radius: parent.radius
                         anchors.fill: parent
-                        color: Style.themes.hoverColor
+                        color: Style.hoverColor
                         opacity: modeArea.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
@@ -105,16 +105,16 @@ Popup {
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Style.settings.textH2
                         text: modelData
-                        color: desktopPlayer.desktopPlayerMode === index ? Style.themes.secondaryColor : Style.themes.fontColor
+                        color: desktopPlayer.desktopPlayerMode === index ? Style.secondaryColor : Style.fontColor
                     }
                     Text {
                         x: parent.width - 42
                         anchors.verticalCenter: parent.verticalCenter
                         text: "\uf099"
                         font.pixelSize: Style.settings.texticon
-                        font.family: iconFont.name
+                        font.family: IconFont.name
                         visible: desktopPlayer.desktopPlayerMode === index
-                        color: Style.themes.secondaryColor
+                        color: Style.secondaryColor
                     }
                     MouseArea {
                         id: modeArea

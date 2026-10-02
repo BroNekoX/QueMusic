@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 插件目录通用逻辑：每个插件一个目录（info.json + 入口 QML + 可选预览图），目录名即插件 id。
-// 这里只负责「磁盘上的插件」——扫描、安装（复制目录）、删除、打开目录；
-// 歌词界面插件（单选）与功能插件（可多选）各自的状态由派生类补上。
-// 注意：派生类构造函数里要调一次 load()，load 会回调虚函数 builtinPlugins()。
+// 插件目录通用逻辑：扫描 / 安装（复制目录）/ 删除 / 打开目录；两类插件各自的启用状态由派生类补上。
+// 派生类构造函数里要调一次 load()（它会回调 builtinPlugins()）。
 #pragma once
 
 #include <QObject>

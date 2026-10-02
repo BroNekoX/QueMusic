@@ -48,7 +48,7 @@ Item {
         radius: root.borderRadius
         blur: 20
         spread: 0
-        color: Style.themes.shadowColor
+        color: Style.shadowColor
     }
 
     ShaderEffect {
@@ -64,7 +64,7 @@ Item {
         property vector2d cardSize: Qt.vector2d(root.width, root.height)
         property vector2d texSize: Qt.vector2d(root._texW, root._texH)
         property real aa: 1.0
-        property color fillColor: Style.themes.secondaryColor
+        property color fillColor: Style.secondaryColor
 
         fragmentShader: "qrc:/shaders/shaders/cardblur.frag.qsb"
     }
@@ -74,7 +74,7 @@ Item {
         id: topCard
         anchors.fill: root
         radius: root.borderRadius
-        color: Style.themes.sideBlurColor
+        color: Style.sideBlurColor
         z: 3
         border.color: root.borderColor
         border.width: root.borderWidth
@@ -88,7 +88,7 @@ Item {
         width: root.tabWidth
         height: root.height - 6
         radius: root.borderRadius
-        color: Style.themes.primaryColor
+        color: Style.primaryColor
         Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
     }
     Row {
@@ -112,7 +112,7 @@ Item {
                     anchors.fill: navMusic
                     radius: root.borderRadius
                     opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
-                    color: Style.themes.hoverColor
+                    color: Style.hoverColor
                     Behavior on opacity { NumberAnimation { duration: 100 } }
                 }
 
@@ -120,7 +120,7 @@ Item {
                 Text {
                     anchors.fill: parent
                     text: modelData
-                    color: navMusic.isSelected ? Style.themes.fontColor : Style.themes.textColor
+                    color: navMusic.isSelected ? Style.fontColor : Style.textColor
                     font.pixelSize: Style.settings.text
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter

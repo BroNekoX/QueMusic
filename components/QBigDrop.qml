@@ -26,15 +26,15 @@ Rectangle {
             delegate: Rectangle {
                 height: parent.height
                 width: root.singleWidth
-                color: root.choice == index ? Style.themes.themeColor : Style.themes.primaryColor
+                color: root.choice == index ? Style.themeColor : Style.primaryColor
                 border.width: 2
-                border.color: Style.themes.secondaryColor
+                border.color: Style.secondaryColor
                 radius: Style.settings.labelRadius
                 Behavior on color { ColorAnimation { duration: 80 } }
             
                 Rectangle {
                     id: hover
-                    color: Style.themes.hoverColor
+                    color: Style.hoverColor
                     anchors.fill: parent
                     radius: root.radius
                     opacity: 0
@@ -59,7 +59,7 @@ Rectangle {
                     y: 80
                     text: modelData
                     font.pixelSize: Style.settings.textmain
-                    color: root.choice == index ? Style.themes.primaryColor : Style.themes.textColor
+                    color: root.choice == index ? Style.primaryColor : Style.textColor
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter
                 }
