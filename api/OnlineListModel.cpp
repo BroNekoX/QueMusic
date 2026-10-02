@@ -13,6 +13,7 @@ static const char *const kKnownRoles[] = {
     "hashsq",     "lyric",      "mvid",        "singer",     "singername",
     "songname",   "specialname", "specialid",  "album_name", "albumid",
     "imgurl",     "intro",      "username",    "author_name",
+    "user",       "avatar",     "content",     "liked",
 };
 
 OnlineListModel::OnlineListModel(QObject *parent)

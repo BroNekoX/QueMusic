@@ -445,13 +445,16 @@ Item {
 
             delegate: Item {
                 id: lyricItem
+                required property int index
+                required property real time
+                required property var modelData
                 x: 10
                 width: lyricContent.width - 20
                 height: lyricsText.implicitHeight + lyricTransText.height + lyricContent.lineSpacing
 
-                readonly property bool isCurrent: index === lyricContent.currentLine
-                readonly property bool isFlowActive: modelData.info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
-                readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - modelData.time : 0
+                readonly property bool isCurrent: lyricItem.index === lyricContent.currentLine
+                readonly property bool isFlowActive: modelData.info ? (lyricItem.index == lyricContent.currentLine || lyricItem.index == lyricContent.currentLine - 1) : false
+                readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - lyricItem.time : 0
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
                 property real standY: 0.0
@@ -477,7 +480,7 @@ Item {
 
                 function animeTo(ty: real): void {
                     lyricAnime.running = false;
-                    const d = index - lyricContent.currentLine;
+                    const d = lyricItem.index - lyricContent.currentLine;
                     let durationMs;
                     lyricItem.standY = lyricItem.standY;
                     // 不使用弹簧动画的外部区域（非index>-3至7)，使用融合动画：绑定至统一的动画值，提升性能喵~
@@ -508,11 +511,11 @@ Item {
                 }
 
                 onHeightChanged: {
-                    lyricContent.heights[index] = height;
+                    lyricContent.heights[lyricItem.index] = height;
                     Qt.callLater(lyricContent.rebuild);
                 }
                 Component.onCompleted: {
-                    lyricContent.heights[index] = height;
+                    lyricContent.heights[lyricItem.index] = height;
                     Qt.callLater(lyricContent.rebuild);
                     if(Style.settings.fontFamily) {
                         lyricsText.font.family = Style.settings.fontFamily;
@@ -545,7 +548,7 @@ Item {
                     scale: lyricItem.isCurrent && !waitAnimeSection.visible ? LyricsFreeConfig.lyricCurrentScale : 1.00
                     visible: text !== ""
                     height: visible ? implicitHeight * 1.5 : 0
-                    text: mainLyrics.translateModel.length !== 0 && mainLyrics.openTranslate ? (mainLyrics.translateModel[index] || "") : ""
+                    text: mainLyrics.translateModel.length !== 0 && mainLyrics.openTranslate ? (mainLyrics.translateModel[lyricItem.index] || "") : ""
                     width: parent.width
                     horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
@@ -574,7 +577,7 @@ Item {
                         delegate: Item {
                             width: lyricFlowText.width
                             height: lyricFlowText.height
-                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent
+                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isCurrent
                             onToTextAnimeValueChanged: {
                                 if(toTextAnimeValue) {
                                     outFlowText.running = false;
@@ -587,7 +590,7 @@ Item {
 
                             ParallelAnimation {
                                 id: toFlowText
-                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo }
+                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + linesText.model[lyricItem.index].duration * 10; easing.type: Easing.OutExpo }
                             }
                             ParallelAnimation {
                                 id: outFlowText
@@ -596,8 +599,8 @@ Item {
 
                             Text {
                                 id: lyricFlowText
-                                text: linesText.model[index].text
-                                y: 0//lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent ? -3 : 0
+                                text: linesText.model[lyricItem.index].text
+                                y: 0//lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isCurrent ? -3 : 0
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
@@ -605,8 +608,8 @@ Item {
                                 opacity: LyricsFreeConfig.lyricIdleOpacity
                             }
                             LinearGradient {
-                                property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
-                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[index].duration / mainLyrics.playbackRate * (width + 16) / width } }
+                                property int countToWidth: lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isFlowActive ? width + 16 : 0
+                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[lyricItem.index].duration / mainLyrics.playbackRate * (width + 16) / width } }
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y

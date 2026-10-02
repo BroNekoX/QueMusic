@@ -1062,21 +1062,4 @@ Window {
     PluginHost {
         onPluginLoaded: window.syncTitleBarHitTest()
     }
-
-    // TEMP-AOT-VERIFY4-START
-    Timer {
-        interval: 12000
-        running: true
-        repeat: false
-        onTriggered: {
-            console.log("ONLINE-menu=" + MusicApi.getHotlistMenu.count
-                        + " hotPlayLists=" + MusicApi.hotPlayLists.count
-                        + " recommend=" + MusicApi.recommendSongs.count
-                        + " newSongs=" + MusicApi.newSongs.count
-                        + " toplist=" + MusicApi.toplistList.count
-                        + " singer=" + MusicApi.singerList.count);
-            Qt.quit();
-        }
-    }
-    // TEMP-AOT-VERIFY4-END
 }
