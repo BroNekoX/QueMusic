@@ -26,9 +26,12 @@ Item {
 
         delegate: Item {
             id: holder
+            // 必须逐个声明为 required property：在 createObject 的 JS 里读 delegate 的
+            // 隐式上下文变量（modelData）在 AOT 下会抛 ReferenceError，接口建不出来
             required property string id
             required property string name
             required property string source
+            required property string path
 
             width: 0
             height: 0
@@ -68,7 +71,7 @@ Item {
                 holder.api = apiComponent.createObject(holder, {
                     pluginId: holder.id,
                     pluginName: holder.name,
-                    pluginDir: modelData.path,
+                    pluginDir: holder.path,
                     pluginUrl: holder.source.substring(0, holder.source.lastIndexOf("/") + 1),
                     window: holder.Window.window
                 });

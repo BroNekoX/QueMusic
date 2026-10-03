@@ -43,14 +43,16 @@ QtObject {
             return null;
         }
         const byUrl = typeof source === "string";
-        const obj = byUrl ? api.loaderTemplate.createObject(target, props || {})
+        const obj = byUrl ? api.loaderTemplate.createObject(target, {})
                           : source.createObject(target, props || {});
         if (!obj) {
             api.warn("挂载到 " + slotName + " 失败");
             return null;
         }
+        // url 挂载建出来的是 Loader：属性要交给 setSource 作为 item 的初始属性，
+        // 直接设到 Loader 上会报「Loader does not have a property called …」而丢失
         if (byUrl)
-            obj.source = source;
+            obj.setSource(source, props || {});
         owned.push(obj);
         return obj;
     }

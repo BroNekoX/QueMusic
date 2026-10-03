@@ -13,6 +13,9 @@
 - **播放稳定性**：自动跳下一首改为连续 2 次即停（坏条目会形成高速跳歌循环）；`QueueModel::get()` 越界返回的空 map 在 QML 里是真值、`if (!e)` 拦不住；`DownloadManager` 析构期重入
 - **列表与歌词**：收藏 / 排序列表操作全部失效（`QSortModel` 缺 `get(行)`，且收藏行字段是 `id` 而非 `favId`）；拖进度条回闪；逐字歌词首行整行重叠；内嵌 `SYLT` 与 `USLT` 同时存在时歌词与翻译二选一
 - **数据源**：WebDAV 左键点歌不入播放列表、歌手列错位、已缓存行缺封面；酷狗分类页歌单曲目数恒为 0（字段是 `songcount`，且需 `withsong=1` 才返回）
+- **功能插件加载即失败**：`PluginHost` 的 delegate 里读了没声明成 `required property` 的 `modelData`（AOT 下抛 `ReferenceError`，接口建不出来 ⇒ 插件被自动停用）；`PluginApi.mount()` 用 url 挂载时把 `props` 当成
+  `Loader` 自己的初始属性（`Loader does not have a property called api`，面板拿不到 `api`），现在改走
+  `Loader.setSource(url, props)`，属性作为加载项的初始属性生效
 
 ### 🧩 重构
 - **音频后端自研**：弃用 `QMediaPlayer` / `QAudioOutput`，改为 FFmpeg 解码 + 无锁环形缓冲 + `QAudioSink` 拉模式（DSP 全程在音频线程内）；频谱由引擎后处理直接驱动，不再依赖 `QAudioBufferOutput`
