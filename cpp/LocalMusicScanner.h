@@ -78,7 +78,7 @@ class LocalMusicScanner : public QAbstractListModel
     Q_PROPERTY(bool deleting READ deleting NOTIFY deletingChanged)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged)
-    Q_PROPERTY(QAbstractListModel *searchResults READ searchResults CONSTANT)
+    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT)
 public:
     enum Roles {
         FileNameRole = Qt::UserRole + 1,
@@ -112,7 +112,7 @@ public:
     // 紧接着再扫一遍，等于连续两次模型重置。
     Q_INVOKABLE void rescan();
     bool searchActive() const { return m_searchActive; }
-    QAbstractListModel *searchResults() const { return m_searchResults; }
+    SearchResultModel *searchResults() const { return m_searchResults; }
 
     QUrl folder() const { return m_folder; }
     void setFolder(const QUrl &folder);

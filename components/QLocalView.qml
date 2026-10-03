@@ -81,6 +81,8 @@ ListView {
             model: view.menuModel
             delegate: MenuItem {
                 id: menuItem
+                required property string modelData
+                required property int index
                 background: Rectangle {
                     implicitWidth: 146
                     implicitHeight: 36

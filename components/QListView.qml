@@ -180,6 +180,8 @@ ListView {
             onObjectRemoved: (i, obj) => menu.removeItem(obj)
             delegate: MenuItem {
                 id: menuItem
+                required property string modelData
+                required property int index
                 background: Rectangle {
                     implicitWidth: 146
                     implicitHeight: 36
@@ -269,7 +271,7 @@ ListView {
                 model: infoDialog.rows()
                 delegate: Row {
                     id: infoRow
-                    required property var modelData
+                    required property string modelData
                     width: infoDialog.width - 40
                     height: 22
                     Text {
@@ -407,6 +409,13 @@ ListView {
         id: listDel
         required property int index
         required property var model
+        required property string title
+        required property string artist
+        required property string cover
+        required property real duration
+        // 收藏/下载/历史等本地模型的角色里没有 paytype，从 item 兜底读
+        readonly property int paytype: listDel.model && listDel.model.paytype !== undefined
+                                       ? listDel.model.paytype : 0
         readonly property QListView vw: ListView.view
         height: 60
         width: listDel.vw.width - 16
@@ -433,7 +442,7 @@ ListView {
             width: 44
             height: 44
             radius: 10
-            source: (model.cover || "").replace("{size}","64") || "qrc:/QueMusic/resources/app/musicpic.png"
+            source: (listDel.cover || "").replace("{size}","64") || "qrc:/QueMusic/resources/app/musicpic.png"
         }
 
         Text {
@@ -442,7 +451,7 @@ ListView {
             y: 16
             width: listDel.vw.artistX - 110
             height: 28
-            text: model.title || "Unknown"
+            text: listDel.title || "Unknown"
             color: Style.fontColor
             font.weight: Font.DemiBold
             elide: Text.ElideRight
@@ -456,7 +465,9 @@ ListView {
             width: 32
             height: 18
             radius: 9
-            visible: model.paytype === 3
+            // VIP 角标：paytype === 3 是 ApiCommon::kPaytypePaid（见 api/ApiCommon.h 的约定）。
+            // 各平台必须把自家枚举归一到这里，别原样透传。
+            visible: listDel.paytype === 3
             Text {
                 text: "VIP"
                 anchors.centerIn: parent
@@ -470,7 +481,7 @@ ListView {
             y: 16
             width: listDel.vw.artistX - 128
             height: 28
-            text: model.artist || "Unknown"
+            text: listDel.artist || "Unknown"
             color: Style.textColor
             font.weight: Font.Normal
             elide: Text.ElideRight
@@ -483,8 +494,8 @@ ListView {
             width: 60
             height: 28
             // 歌单：duration 存的是曲目数（没拿到就留空，别显示「0 首」）；歌曲：duration 是秒
-            text: listDel.vw.isList ? (model.duration > 0 ? model.duration + "首" : "")
-                              : Playback.fmt(model.duration * 1000)
+            text: listDel.vw.isList ? (listDel.duration > 0 ? listDel.duration + "首" : "")
+                              : Playback.fmt(listDel.duration * 1000)
             color: Style.textColor
             font.bold: false
             elide: Text.ElideRight

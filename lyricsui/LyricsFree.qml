@@ -232,7 +232,7 @@ Item {
         font.weight: 600
         width: mainLyrics.piclong
         elide: Text.ElideRight
-        visible: x !== -400 && !mainLyrics.basicCd
+        visible: x !== -400 && !mainLyrics.basicCd && LyricsFreeConfig.showTitle
         font.pixelSize: mainLyrics.standHeight / 2
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: mainLyrics.lyricType == 1 ? Text.AlignHCenter : Text.AlignLeft
@@ -261,7 +261,7 @@ Item {
         font.bold: false
         font.pixelSize: mainLyrics.standHeight / 3.6
         verticalAlignment: Text.AlignVCenter
-        visible: x !== -400 && !mainLyrics.basicCd
+        visible: x !== -400 && !mainLyrics.basicCd && LyricsFreeConfig.showArtist
         color: Qt.rgba(1,1,1,0.7)
     }
 
@@ -849,6 +849,36 @@ Item {
                     anchors.right: parent.right
                     switchTrue: Style.settings.waveDisplay
                     onToggled: mainLyrics.request("waveDisplay", !Style.settings.waveDisplay)
+                }
+            }
+            SettingItem {
+                label: "显示歌曲名"
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: LyricsFreeConfig.showTitle
+                    onToggled: LyricsFreeConfig.showTitle = !LyricsFreeConfig.showTitle
+                }
+            }
+            SettingItem {
+                label: "显示歌手名"
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: LyricsFreeConfig.showArtist
+                    onToggled: LyricsFreeConfig.showArtist = !LyricsFreeConfig.showArtist
+                }
+            }
+            SettingItem {
+                label: "封面倒影"
+                width: parent.width
+                QSwitch {
+                    height: 36; width: 120
+                    anchors.right: parent.right
+                    switchTrue: LyricsFreeConfig.coverReflection
+                    onToggled: LyricsFreeConfig.coverReflection = !LyricsFreeConfig.coverReflection
                 }
             }
             // ── 本主题专属项（经 request 写宿主白名单，持久化在 Style.settings）──

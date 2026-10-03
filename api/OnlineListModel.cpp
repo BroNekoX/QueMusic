@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-// 预注册字段：委托可声明 required property，某行缺该字段时取默认值，而不是整行不渲染
+// 预注册角色：委托声明 required property 时，缺字段的行取默认值而不是整行不渲染
 static const char *const kKnownRoles[] = {
     "title",      "artist",     "album",       "cover",      "hash",
     "duration",   "source",     "playcount",   "paytype",    "category",

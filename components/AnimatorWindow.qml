@@ -34,13 +34,13 @@ Item {
         animeOnList[animeType].running = false;
         mainTarget.visible = true;
         animeOutList[animeType].running = true;
-        window.exitIndex -= 1;
+        Options.exitIndex -= 1;
     }
     Connections {
         target: window
         enabled: root.visible
         function onExit(): void {
-            if(window.exitIndex <= root.winIndex) {
+            if(Options.exitIndex <= root.winIndex) {
                 root.animeOnList[root.animeType].running = false;
                 root.mainTarget.visible = true;
                 root.animeOutList[root.animeType].running = true;

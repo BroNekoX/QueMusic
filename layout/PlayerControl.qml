@@ -25,11 +25,11 @@ Rectangle {
       }
 
     Connections {
-        target: playListModel
+        target: Options.queue
         function onPlayListIndexChanged(): void {
-            if(playListModel.playListIndex < 0)
+            if(Options.queue.playListIndex < 0)
                 return;
-            likeButton.iconColor = FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")
+            likeButton.iconColor = FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")
                                    ? Style.themeColor : Style.textColor;
         }
     }
@@ -60,7 +60,7 @@ Rectangle {
         MusicApi.nowIndex = 0;
         mainContent.contentIndexed(6);
         MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
-        window.exitIndex = 1;
+        Options.exitIndex = 1;
     }
 
     //控制条
@@ -308,15 +308,15 @@ Rectangle {
             iconColor: Style.textColor
             shadowEnabled: false
             onClicked: {
-                if(playListModel.get(playListModel.playListIndex).source !== -1) {
-                    console.log("收藏的hash/id:",playListModel.get(playListModel.playListIndex).path);
-                    if (FavoriteSongs.isFavorite(playListModel.get(playListModel.playListIndex).path, "song")) {
-                        FavoriteSongs.removeFavorite(playListModel.get(playListModel.playListIndex).path, "song");
-                        mainWarn.tiped("已取消收藏", 0);
+                if(Options.queue.get(Options.queue.playListIndex).source !== -1) {
+                    console.log("收藏的hash/id:",Options.queue.get(Options.queue.playListIndex).path);
+                    if (FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")) {
+                        FavoriteSongs.removeFavorite(Options.queue.get(Options.queue.playListIndex).path, "song");
+                        Options.warn.tiped("已取消收藏", 0);
                         iconColor = Style.textColor;
                     } else {
-FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr, playListModel.get(playListModel.playListIndex).source, Math.floor(Playback.player.duration / 1000), "song");
-                        mainWarn.tiped("已收藏", 1);
+FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr, Options.queue.get(Options.queue.playListIndex).source, Math.floor(Playback.player.duration / 1000), "song");
+                        Options.warn.tiped("已收藏", 1);
                         iconColor = Style.themeColor;
                     }
                 }
@@ -334,13 +334,13 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             hoverColor: Style.hoverColor
             iconColor: Style.textColor
             shadowEnabled: false
-            visible: playListModel.count > 0 && playListModel.playListIndex >= 0
-                     && playListModel.playListIndex < playListModel.count
-                     && playListModel.get(playListModel.playListIndex).source !== -1
+            visible: Options.queue.count > 0 && Options.queue.playListIndex >= 0
+                     && Options.queue.playListIndex < Options.queue.count
+                     && Options.queue.get(Options.queue.playListIndex).source !== -1
             onClicked: {
-                if(playListModel.get(playListModel.playListIndex).path) {
+                if(Options.queue.get(Options.queue.playListIndex).path) {
                     // 音质交给 MusicApi 按设置选 hash，这里无需再分支
-                    MusicApi.getMusicInfo(playListModel.get(playListModel.playListIndex).path,1);
+                    MusicApi.getMusicInfo(Options.queue.get(Options.queue.playListIndex).path,1);
                 }
             }
             tipText: "下载"
@@ -517,10 +517,10 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
             shadowEnabled: false
             iconSize: Style.settings.texticon + 1
             onClicked: {
-                if(desktopPlayer.visible) {
-                    desktopPlayer.close()
+                if(Options.desktop.visible) {
+                    Options.desktop.close()
                 } else {
-                    desktopPlayer.open()
+                    Options.desktop.open()
                 }
             }
             tipText: "桌面部件"
@@ -562,22 +562,22 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
 
     // 收藏/取消收藏当前曲目
     function toggleFavorite(): void {
-        const i = playListModel.playListIndex;
-        if(i < 0 || i >= playListModel.count) return;
-        const e = playListModel.get(i);
+        const i = Options.queue.playListIndex;
+        if(i < 0 || i >= Options.queue.count) return;
+        const e = Options.queue.get(i);
         if(e.source === -1) {
-            mainWarn.tiped("本地歌曲请使用本地收藏", 0);
+            Options.warn.tiped("本地歌曲请使用本地收藏", 0);
             return;
         }
         if(FavoriteSongs.isFavorite(e.path, "song")) {
             FavoriteSongs.removeFavorite(e.path, "song");
             likeButton.iconColor = Style.textColor;
-            mainWarn.tiped("已取消收藏", 0);
+            Options.warn.tiped("已取消收藏", 0);
         } else {
             FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr,
                                       e.source, Math.floor(Playback.player.duration / 1000), "song");
             likeButton.iconColor = Style.themeColor;
-            mainWarn.tiped("已收藏", 1);
+            Options.warn.tiped("已收藏", 1);
         }
     }
 
@@ -628,7 +628,7 @@ FavoriteSongs.addFavorite(playListModel.get(playListModel.playListIndex).path, P
 
     PlayList {
         id: playList
-        model: playListModel
+        model: Options.queue
     }
 
     PlayerOptions {

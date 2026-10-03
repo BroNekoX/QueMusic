@@ -56,13 +56,13 @@ Item {
         animeOnList[animeType].running = false;
         mainTarget.visible = true;
         animeOutList[animeType].running = true;
-        window.exitIndex -= 1;
+        Options.exitIndex -= 1;
     }
     Connections {
         target: window
         enabled: root.visible
         function onExit(): void {
-            if(window.exitIndex <= root.winIndex) {
+            if(Options.exitIndex <= root.winIndex) {
                 root.animeOnList[root.animeType].running = false;
                 root.mainTarget.visible = true;
                 root.animeOutList[root.animeType].running = true;
@@ -386,11 +386,11 @@ Item {
                 onClicked: {
                     if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
                         FavoritePlaylists.removeFavorite(root.id, "playlist");
-                        mainWarn.tiped("已取消收藏", 0);
+                        Options.warn.tiped("已取消收藏", 0);
                         iconColor = Style.textColor
                     } else {
                         FavoritePlaylists.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
-                        mainWarn.tiped("已收藏", 1);
+                        Options.warn.tiped("已收藏", 1);
                         iconColor = Style.themeColor
                     }
                 }

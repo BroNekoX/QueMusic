@@ -18,6 +18,7 @@ Column {
     readonly property int trackTop: 6
     readonly property int trackHeight: faderHeight - 40
     readonly property var sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
+    property color cardColor: Style.primaryColor
     property int display: 0
     property int controlWidth: settingStack.standWidth
 
@@ -26,7 +27,7 @@ Column {
     Rectangle {
         width: panel.width
         height: statusRow.height + 20
-        color: Style.primaryColor
+        color: panel.cardColor
         radius: Style.settings.cubeRadius
         visible: panel.display == 0 || panel.display == 1
 
@@ -71,7 +72,7 @@ Column {
 
     Rectangle {
         width: panel.width
-        color: Style.primaryColor
+        color: panel.cardColor
         radius: Style.settings.cubeRadius
         height: eqColumn.height
         visible: panel.display == 0 || panel.display == 1
@@ -249,6 +250,8 @@ Column {
 
                         delegate: Item {
                             id: fader
+                            required property string modelData
+                            required property int index
                             width: 46
                             height: panel.faderHeight
                             readonly property real gain: panel.engine ? panel.engine.eqGains[index] : 0
@@ -374,7 +377,7 @@ Column {
 
     Rectangle {
         width: panel.width
-        color: Style.primaryColor
+        color: panel.cardColor
         radius: Style.settings.cubeRadius
         height: soundRoadColumn.height
         visible: panel.display == 0 || panel.display == 2
@@ -497,7 +500,7 @@ Column {
     Rectangle {
         width: panel.width
         height: premiumSoundColumn.height
-        color: Style.primaryColor
+        color: panel.cardColor
         radius: Style.settings.cubeRadius
         visible: panel.display == 0 || panel.display == 3
         Column {

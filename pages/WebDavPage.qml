@@ -48,7 +48,7 @@ Item {
     }
 
     function deleteServer(server: var): void {
-        globalDialog.openSimpleDialog("删除", "将移除该 WebDAV 服务器，是否删除？", function() {
+        Options.dialog.openSimpleDialog("删除", "将移除该 WebDAV 服务器，是否删除？", function() {
             WebDav.removeServer(server.id)
             Style.warned("已移除服务器", 1)
         })

@@ -78,6 +78,13 @@ Item {
 
         delegate: Rectangle {
             id: row
+            required property string id
+            required property string name
+            required property bool builtin
+            required property string preview
+            required property string description
+            required property string author
+            required property string version
             width: listView.width
             height: 92
             radius: Style.settings.cubeRadius
@@ -87,8 +94,8 @@ Item {
 
             readonly property bool isOn: manager.store === null ? false
                                         : manager.multi
-                                          ? manager.store.enabledIds.indexOf(modelData.id) >= 0
-                                          : manager.store.selectedId === modelData.id
+                                          ? manager.store.enabledIds.indexOf(row.id) >= 0
+                                          : manager.store.selectedId === row.id
 
             QPicture {
                 x: 12
@@ -96,7 +103,7 @@ Item {
                 width: 68
                 height: 68
                 radius: 10
-                source: modelData.preview ? modelData.preview
+                source: row.preview ? row.preview
                                           : "qrc:/QueMusic/resources/app/musicpic.png"
             }
 
@@ -104,7 +111,7 @@ Item {
                 x: 92
                 y: 18
                 width: row.width - 300
-                text: modelData.name
+                text: row.name
                 elide: Text.ElideRight
                 color: Style.fontColor
                 font.pixelSize: Style.settings.textmain
@@ -117,9 +124,9 @@ Item {
                 elide: Text.ElideRight
                 color: Style.textColor
                 font.pixelSize: Style.settings.textTip
-                text: (modelData.builtin ? "内置" : (modelData.author ? modelData.author : "未知作者"))
-                      + (modelData.version ? "  v" + modelData.version : "")
-                      + (modelData.id ? "  " + modelData.id : "")
+                text: (row.builtin ? "内置" : (row.author ? row.author : "未知作者"))
+                      + (row.version ? "  v" + row.version : "")
+                      + (row.id ? "  " + row.id : "")
             }
             Text {
                 x: 92
@@ -129,7 +136,7 @@ Item {
                 color: Style.textColor
                 font.pixelSize: Style.settings.textTip
                 opacity: 0.8
-                text: modelData.description
+                text: row.description
             }
 
             Row {
@@ -145,14 +152,14 @@ Item {
                     text: row.isOn ? "使用中" : "启用"
                     enabled: !row.isOn
                     iconCharacter: "\uf0e7"
-                    onClicked: manager.store.selectedId = modelData.id
+                    onClicked: manager.store.selectedId = row.id
                 }
                 QSwitch {
                     visible: manager.multi
                     width: 96
                     height: 32
                     switchTrue: row.isOn
-                    onToggled: manager.store.setEnabled(modelData.id, !row.isOn)
+                    onToggled: manager.store.setEnabled(row.id, !row.isOn)
                 }
                 SButton {
                     iconCharacter: "\uf0f5"
@@ -162,10 +169,10 @@ Item {
                     buttonColor: "transparent"
                     shadowEnabled: false
                     tipText: "打开插件目录"
-                    onClicked: manager.store.reveal(modelData.id)
+                    onClicked: manager.store.reveal(row.id)
                 }
                 SButton {
-                    visible: !modelData.builtin
+                    visible: !row.builtin
                     iconCharacter: "\uf08e"
                     width: 34
                     height: 34
@@ -175,9 +182,9 @@ Item {
                     shadowEnabled: false
                     tipText: "删除插件"
                     onClicked: {
-                        const pluginId = modelData.id;
-                        globalDialog.openSimpleDialog("删除插件",
-                            "将删除" + manager.pluginKind + "「" + modelData.name + "」，是否继续？", function() {
+                        const pluginId = row.id;
+                        Options.dialog.openSimpleDialog("删除插件",
+                            "将删除" + manager.pluginKind + "「" + row.name + "」，是否继续？", function() {
                             const err = manager.store.remove(pluginId);
                             if (err) Style.warned(err, 0);
                             else Style.warned("已删除插件", 1);

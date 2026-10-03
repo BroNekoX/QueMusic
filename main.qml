@@ -17,6 +17,12 @@ Window {
     color: Style.primaryColor
     title: "QueMusic"
     Component.onCompleted: {
+        Options.queue = playListModel
+        Options.warn = mainWarn
+        Options.dialog = globalDialog
+        Options.agent = windowAgent
+        Options.desktop = desktopPlayer
+        Options.smtc = smtc
         windowAgent.setup(window);
         // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
         if(!window.isMacOS) {
@@ -91,7 +97,6 @@ Window {
         onTriggered: window.silentUpdateCheck()
     }
 
-    property int exitIndex: 0
 
 
     readonly property bool isMacOS: Qt.platform.os === "osx"
@@ -109,7 +114,7 @@ Window {
         Options.settings.searchList = Options.settings.searchList.filter(value => value !== text);
         Options.settings.searchList.splice(0, 0, text);
         MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
-        window.exitIndex = 1;
+        Options.exitIndex = 1;
     }
 
     // 首次加载内容临时存储，防止重新加载浪费内存
@@ -151,8 +156,8 @@ Window {
         onActivated: {
             window.exit();
             console.log("Exit");
-            if(window.exitIndex > 0) {
-                window.exitIndex -= 1;
+            if(Options.exitIndex > 0) {
+                Options.exitIndex -= 1;
             }
             mainLayout.forceActiveFocus();
         }
@@ -246,8 +251,8 @@ Window {
                 onClicked: {
                     window.exit()
                     console.log("Exit")
-                    if(window.exitIndex > 0) {
-                        window.exitIndex -= 1
+                    if(Options.exitIndex > 0) {
+                        Options.exitIndex -= 1
                     }
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(returnButton, true);

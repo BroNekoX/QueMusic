@@ -128,10 +128,10 @@ Item {
                 height: 38
                 text: "清空历史"
                 iconCharacter: "\uf08e"
-                onClicked: globalDialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
+                onClicked: Options.dialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
                     function() {
                         Playback.clearHistory()
-                        mainWarn.tiped("已清空播放历史", 1)
+                        Options.warn.tiped("已清空播放历史", 1)
                     })
             }
             QButton {
@@ -217,7 +217,7 @@ Item {
                         MusicApi.getPlaylistSongs(r.id,1,20,r.source);
                         playListSongsWindow.songSource = r.source;
                         playListSongsWindow.opened({ id: r.id, title: r.title, artist: r.artist, cover: r.cover, duration: r.duration });
-                        window.exitIndex = 1;
+                        Options.exitIndex = 1;
                     }
                 }
                 AnimatedImage {
@@ -265,18 +265,18 @@ Item {
                 toolText1: "\uf0c8"
 
                 function addToQueue(e: var): void {
-                    if (playListModel.indexOfPath(e.path) !== -1) return
-                    playListModel.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
-                    mainWarn.tiped("已加入播放列表", 1)
+                    if (Options.queue.indexOfPath(e.path) !== -1) return
+                    Options.queue.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                    Options.warn.tiped("已加入播放列表", 1)
                 }
                 function toggleFav(e: var): void {
-                    if (e.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
+                    if (e.source === -1) { Options.warn.tiped("本地歌曲请使用本地收藏", 0); return }
                     if (FavoriteSongs.isFavorite(e.path, "song")) {
                         FavoriteSongs.removeFavorite(e.path, "song")
-                        mainWarn.tiped("已取消收藏", 0)
+                        Options.warn.tiped("已取消收藏", 0)
                     } else {
                         FavoriteSongs.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
-                        mainWarn.tiped("已收藏", 1)
+                        Options.warn.tiped("已收藏", 1)
                     }
                 }
 
@@ -357,7 +357,7 @@ Item {
                     onClicked: {
                         switch(favouritePage.setMode) {
                         case 1:
-                            globalDialog.openSimpleDialog("取消收藏",
+                            Options.dialog.openSimpleDialog("取消收藏",
                                 "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 首歌曲",
                                 function() {
                                     // 先记下数量：下面清空 chooseIndex 后就读不到了
@@ -372,7 +372,7 @@ Item {
                             );
                             break;
                         case 2:
-                            globalDialog.openSimpleDialog("取消收藏",
+                            Options.dialog.openSimpleDialog("取消收藏",
                                 "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 个歌单",
                                 function() {
                                     const total = favouritePage.chooseIndex.length;
@@ -403,9 +403,9 @@ Item {
                                 const fav = songSort.at(favouritePage.chooseIndex[a]);
                                 if (!fav)
                                     continue;
-                                if (playListModel.indexOfPath(fav.id) === -1) {
-                                    playListModel.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
-                                    mainWarn.tiped("已加入播放列表", 1);
+                                if (Options.queue.indexOfPath(fav.id) === -1) {
+                                    Options.queue.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
+                                    Options.warn.tiped("已加入播放列表", 1);
                                 }
                             }
                             break;

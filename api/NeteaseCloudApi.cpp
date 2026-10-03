@@ -21,25 +21,17 @@ QString songId(const QVariant &v)
     return QString::number(v.toLongLong());
 }
 
-// 网易云 fee → 统一 paytype。
-// 全项目消费端只把 paytype==3 当作「需要会员/付费」（VIP 角标 QListView.qml、免费筛选
-// MusicApiService::songList），所以必须把「需要会员/付费」的 fee 归到 3、其余归到 0。
-//   fee=0 免费；fee=1 VIP 专享（非会员不可播）；fee=4 数字专辑（需购买）；
-//   fee=8 非会员可听低音质（**可以播**，会员才享高音质）→ 归免费，否则会像《花骨朵》
-//   那样明明能播却挂着 VIP 角标。
-// 原实现是 `fee==0 ? 0 : (fee==1 ? 1 : 3)`：把 VIP 曲目（fee=1）映射成 1，而没有任何
-// 消费端认 1，于是《Everywhere We Go》这类 VIP 曲目反而不显示 VIP 角标。
+// fee：1 VIP 专享 / 4 数字专辑 → 需付费；0 免费 / 8 低音质可播 → 免费
 int paytypeFromFee(qint64 fee)
 {
-    return (fee == 1 || fee == 4) ? 3 : 0;
+    return (fee == 1 || fee == 4) ? ApiCommon::kPaytypePaid : ApiCommon::kPaytypeFree;
 }
 
-// 取歌曲的付费类型：优先 privilege.fee，回退 song.fee
+// 优先 privilege.fee，回退 song.fee
 qint64 feeOf(const QVariantMap &s)
 {
-    const QVariantMap priv = s.value(QStringLiteral("privilege")).toMap();
-    return (priv.contains(QStringLiteral("fee")) ? priv.value(QStringLiteral("fee"))
-                                                 : s.value(QStringLiteral("fee")))
+    return s.value(QStringLiteral("privilege")).toMap().value(QStringLiteral("fee"),
+                                                              s.value(QStringLiteral("fee")))
         .toLongLong();
 }
 
@@ -322,8 +314,6 @@ private:
                     duration,
                     album.value(QStringLiteral("name")).toString(),
                     id, id,
-                    // 原实现读的是 song.pay_type（网易云没有这个字段），永远读不到、
-                    // 兜底成 1 —— 既不是「免费」也不是消费端认的 3，等于推荐列表永不标 VIP。
                     paytypeFromFee(feeOf(song)));
             }
         }

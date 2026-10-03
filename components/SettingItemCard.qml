@@ -14,7 +14,7 @@ Item {
     property bool bottomLine: true
 
     width: settingStack.standWidth
-    height: isBigItem ? 112 : 64
+    height: isBigItem ? 116 : 64
 
     // 标签
     Text {
@@ -42,7 +42,7 @@ Item {
         y: settingItem.isBigItem ? 60 : 14
         x: settingItem.isBigItem ? 16 : settingItem.width - width - 16
         width: settingItem.isBigItem ? settingItem.width - 32 : settingItem.controlWidth
-        height: 36
+        height: settingItem.isBigItem ? 40 : 36
     }
 
     // 底分隔线

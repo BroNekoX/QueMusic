@@ -62,17 +62,12 @@ QString generateStaticDeviceId() {
 
 const QString kStaticDeviceId = generateStaticDeviceId();
 
-// api / eapi 模式下 UA 必须与 cookie 里的 os 指纹自洽。
-// 原先 api 模式硬编码 iPhone 的 UA，若 cookie 声明 os=pc（桌面端），
-// 网易云风控会因「UA 与设备标识矛盾」直接返回 -460（环境异常/设备异常），登录必失败。
-// 这里按 os 选取对应平台的 UA，未识别时回退 pc。
+// UA 需与 cookie 里的 os 自洽，否则 api 模式会被风控判 -460（设备异常）
 QString uaTypeOfOs(const QString &os) {
     const QString o = os.toLower();
     if (o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("ios")))
         return QStringLiteral("iphone");
-    if (o.contains(QLatin1String("android")))
-        return QStringLiteral("android");
-    return QStringLiteral("pc");
+    return o.contains(QLatin1String("android")) ? QStringLiteral("android") : QStringLiteral("pc");
 }
 
 }
@@ -275,7 +270,6 @@ QVariantMap Request::createRequest(
         }();
         headers["User-Agent"] = !options.value("ua").toString().isEmpty()
             ? options.value("ua")
-            // UA 跟随 cookie 声明的 os，避免 os=pc 却用 iPhone UA 被风控判 -460
             : chooseUserAgent("api", uaTypeOfOs(cookie.value("os").toString()));
         if (crypto == "eapi") {
             // 使用eapi加密

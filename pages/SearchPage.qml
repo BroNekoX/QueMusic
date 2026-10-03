@@ -57,7 +57,7 @@ Item {
                     MusicApi.songSource = choiced;
                     MusicApi.searchSongsResults.clear();
                     MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
-                    window.exitIndex = 1;
+                    Options.exitIndex = 1;
                 }
             }
         }
@@ -137,7 +137,7 @@ Item {
                 //var image = model.get(index).cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
                 //var title = model.get(index).title;
                 playListSongsWindow.opened(model.get(index));
-                window.exitIndex = 2;
+                Options.exitIndex = 2;
             }
         }
         QListView {

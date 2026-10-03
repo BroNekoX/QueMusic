@@ -145,9 +145,7 @@ private:
     // 客户端身份：稳定 deviceId + os=pc（与 weapi 的 PC UA、网页扫码 type=1 自洽）。
     // SDK 默认每次启动随机生成 deviceId、且默认 iPhone App 身份，容易被判为异常环境。
     QString ensureNeteaseDeviceId();
-    // 设备匿名注册（register_anonimous）换取 MUSIC_A：网易云判断"设备是否可信"的凭证。
-    // 真机客户端登录前必做；缺失时登录类接口（扫码/手机号）会被风控判为异常设备。
-    // 阻塞调用（SDK 的 invoke 是阻塞的），必须从工作线程调用。
+    // 设备匿名注册换 MUSIC_A（网易云的可信设备凭证）；阻塞调用，须在工作线程里用
     void ensureNeteaseAnonymousToken();
     QString mergeNeteaseIdentity(const QString &cookie) const;
     void verifyNeteaseLogin(); // 用账号信息接口校验当前 cookie 是否有效
@@ -175,8 +173,8 @@ private:
 
     // 网易云客户端身份与扫码登录状态控制
     QString m_neteaseDeviceId;        // 持久化的设备号（Account.ini: Netease/deviceId）
-    QString m_neteaseAnonymousToken;  // 持久化的设备匿名令牌 MUSIC_A（Netease/anonymousToken）
-    QAtomicInt m_neteaseAnonBusy{0};  // 设备注册去重（多个登录入口并发时只注册一次）
+    QString m_neteaseAnonymousToken;  // MUSIC_A（Netease/anonymousToken）
+    QAtomicInt m_neteaseAnonBusy{0};  // 注册去重
     int m_neteasePollFails = 0;       // 连续轮询失败次数（风控时及时停止，避免刷分）
     qint64 m_neteaseQrDeadlineMs = 0; // 二维码整体有效期
     bool m_neteaseCookieVerifying = false; // 正在校验手工填入的 Cookie

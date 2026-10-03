@@ -116,7 +116,7 @@ QtObject {
         const e = queue.get(queue.playListIndex)
         pushHistory({ title: musicTitle, artist: musicArtist, path: e.path, source: e.source,
 cover: player.urlStr || "",
-                      duration: player ? Math.floor(player.duration / 1000) : 0, time: Date.now() })
+                      duration: player ? Math.floor(player.duration / 1000) : 0, time: Date.now(), paytype: 0 })
     }
 
     // 本地播放：立即起播不阻塞，元数据/封面/歌词就绪后回填

@@ -67,6 +67,8 @@ Popup {
             Repeater {
                 model: Options.settings.searchList
                 delegate: Rectangle {
+                    required property string modelData
+                    required property int index
                     //短搜索记录自适应即可，超长时以父容器宽度为上限
                     width: Math.min(searchText.implicitWidth + 20, parent.width)
                     height: searchText.height + 16

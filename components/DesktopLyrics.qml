@@ -252,7 +252,7 @@ Window {
                 iconColor: "#fffdfdfd"
                 shadowEnabled: false
                 onClicked: {
-                    desktopPlayer.desktopPlayerMode = 0;
+                    Options.desktop.desktopPlayerMode = 0;
                     desktopLyricsLoader.active = false;
                 }
 

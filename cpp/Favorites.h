@@ -42,7 +42,8 @@ public:
         SourceRole,
         DurationRole,
         TypeRole,
-        CreatedAtRole
+        CreatedAtRole,
+        PaytypeRole        // 收藏未存付费类型：只给角色名 → QML 取 0
     };
 
     explicit FavoritesModel(QObject *parent = nullptr);

@@ -54,6 +54,8 @@ ListView {
 
     delegate: Rectangle {
         id: amessage
+        required property int index
+        required property var model
         width: ListView.view.width
         height: 80
         radius: Style.settings.labelRadius

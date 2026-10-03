@@ -20,6 +20,8 @@
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
 
+#include "ApiCommon.h"   // paytype 取值约定（kPaytypeFree / kPaytypePaid）
+
 #include <attachedpictureframe.h>
 #include <audioproperties.h>
 #include <fileref.h>
@@ -40,7 +42,7 @@ namespace {
 constexpr int kSourceKugou = 0;
 constexpr int kSourceNetease = 1;
 constexpr int kSourceBilibili = 2;
-// 未完成请求的兜底时限：超过这么久没有任何平台响应，就强制结束加载态
+// 超过这么久没有任何平台响应就强制结束加载态
 constexpr int kRequestWatchdogMs = 20000;
 
 // 取多个候选字段中第一个非空字符串（模拟 JS 的 a || b || c || ""）
@@ -167,8 +169,7 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(&m_altsSaveTimer, &QTimer::timeout, this, &MusicApiService::saveQualityCache);
     loadQualityCache();
 
-    // 计数兜底：任一平台「有请求不回结果」时，未完成计数会一直大于 0，
-    // 加载动画就再也停不下来。20 秒没有任何响应即视为链路异常，强制销账
+    // 兜底：任一平台不回结果也不能让加载动画一直转（超时强制销账）
     m_requestWatchdog.setSingleShot(true);
     m_requestWatchdog.setInterval(kRequestWatchdogMs);
     connect(&m_requestWatchdog, &QTimer::timeout, this, [this] {
@@ -434,7 +435,7 @@ void MusicApiService::getAllToplist(int source)
 void MusicApiService::getAllToplists()
 {
     m_toplistList.clear();
-    // 两个平台各算一个未完成请求：任何一个先回来都不会提前结束加载动画
+    // 两个平台各算一个未完成请求，任何一方先回来都不提前结束加载动画
     beginRequest();
     syncSource(kSourceKugou);
     m_kugou.getAllToplist();
@@ -474,8 +475,7 @@ void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
     // 酷狗同一首歌按音质是不同 hash：按设置换成高清/无损 hash，没有就回退原 hash
     const int resolvedSource = resolve(source);
     const QString playHash = (resolvedSource == kSourceKugou) ? resolveQualityHash(hash) : hash;
-    // type=0 是「播放」：每次点击都开一个新代次，旧代次的响应一律丢弃。
-    // type=1 是下载，不影响当前播放，不参与代次竞争
+    // type=0 播放：每次点击开新代次、旧代次响应丢弃；type=1 下载不参与代次
     if (type == 0) {
         ++m_playGeneration;
         m_playHash = playHash;
@@ -584,8 +584,7 @@ void MusicApiService::findLocalLyrics(const QString &filePath, const QString &ti
     searchSongs(keyword, 0, 1, 10, resolvedSource);
 }
 
-// B 站稿件没有字幕：复用「本地歌曲在线搜词」的同一条链路，
-// 按标题/歌手在回退平台（默认酷狗）搜歌，命中后取该平台歌词覆盖占位歌词。
+// B 站稿件没有字幕：复用本地搜词链路，按标题/歌手在回退平台（默认酷狗）搜词
 void MusicApiService::findOnlineLyrics(const QString &title, const QString &artist,
                                        int duration, int source)
 {
@@ -829,12 +828,11 @@ void MusicApiService::setLoadState(bool s)
         emit finished();
 }
 
-// 未完成请求计数：只有计数归零才结束加载态，
-// 否则「列表页请求 + 播放请求」并发时，先回来的那个会把动画提前关掉
+// 计数归零才结束加载态，否则并发请求里先回来的会把动画提前关掉
 void MusicApiService::beginRequest()
 {
     ++m_pendingRequests;
-    // 有响应回来会重启，等价于「距上次响应超过 kRequestWatchdogMs 就强制销账」
+    // 有响应回来就重启计时（距上次响应超时即强制销账）
     m_requestWatchdog.start();
     setLoadState(true);
 }
@@ -851,8 +849,7 @@ void MusicApiService::endRequest()
     }
 }
 
-// 过期判断：响应的 hash / 平台与当前代次不一致时，说明它是上一首歌的响应。
-// hash 为空（接口没回 hash 的错误响应）不参与判断，避免把真实错误提示吞掉
+// 代次/hash 不符即上一首歌的过期响应；hash 为空不参与判断，不吞真实错误
 bool MusicApiService::isStalePlayResponse(const QString &playHash, int source) const
 {
     if (playHash.isEmpty() || m_playHash.isEmpty())
@@ -916,7 +913,7 @@ QVariantMap MusicApiService::normalizeItem(const QVariantMap &raw)
     if (!has("playcount"))
         item.insert(QStringLiteral("playcount"), 0);
     if (!has("paytype"))
-        item.insert(QStringLiteral("paytype"), 0);
+        item.insert(QStringLiteral("paytype"), ApiCommon::kPaytypeFree);
     if (!has("hashhq"))
         item.insert(QStringLiteral("hashhq"), val("hash"));
     if (!has("hashsq"))
@@ -945,7 +942,8 @@ QVariantList MusicApiService::normalizeList(const QVariant &v)
 }
 
 // 歌曲列表：归一 + 按「筛选」丢掉不符合的条目。
-// paytype 由各平台归一（0 视为免费，非 0 视为需要会员/付费），腾讯系以外的源取不到就按免费算。
+// paytype 由各平台归一到 ApiCommon::kPaytypeFree / kPaytypePaid（约定见 ApiCommon.h），
+// 取不到就按免费算。**消费端只认 kPaytypePaid**，平台侧别把自家枚举原样透传。
 QVariantList MusicApiService::songList(const QVariant &data)
 {
     const QVariantList items = normalizeList(data);
@@ -954,7 +952,8 @@ QVariantList MusicApiService::songList(const QVariant &data)
     QVariantList kept;
     kept.reserve(items.size());
     for (const QVariant &item : items) {
-        const bool free = item.toMap().value(QStringLiteral("paytype")).toInt() != 3;
+        const bool free =
+            item.toMap().value(QStringLiteral("paytype")).toInt() != ApiCommon::kPaytypePaid;
         if ((m_songFilter == 1 && free) || (m_songFilter == 2 && !free))
             kept << item;
     }
@@ -964,16 +963,13 @@ QVariantList MusicApiService::songList(const QVariant &data)
 // 平台结果统一处理（填模型 / 属性 / 发信号）
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
-    // 响应已到达就先销账：本函数中间有提前 return 的分支，
-    // 放在出口处会漏减，导致加载动画永远不结束。
+    // 进来先销账：本函数中间有提前 return，放出口会漏减导致动画不结束
     // 歌词请求不计数（见 getLyricInfo），跟着减会让别的请求的加载态提前收尾
     if (action != QLatin1String("getLyricInfo"))
         endRequest();
 
     const QVariantMap d = data.toMap();
-    // 平台失败与「接口成功的合法空数据」必须区分：B 站失败时会回
-    // { info: [], error: <QNetworkReply::NetworkError> }，带 error 的响应
-    // 不能再当成「没有数据/没有歌词」使用，否则网络故障会被显示成「纯音乐，请欣赏」
+    // 带 error 的失败响应不能当成「没有数据/歌词」，否则网络故障会显示成纯音乐
     const bool requestFailed = d.contains(QStringLiteral("error"));
     if (requestFailed)
         qWarning() << "[api] 请求失败:" << action
@@ -1027,7 +1023,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
 
             const QString hash = best.value(QStringLiteral("hash")).toString();
             if (hash.isEmpty()) {
-                // 请求失败不是「没搜到」：不要把失败说成没有歌词
+                // 请求失败 ≠ 没搜到，不要把失败说成没有歌词
                 if (localLookup && !requestFailed)
                     emit localLyricsFailed(request.filePath);
             } else if (localLookup) {
@@ -1090,7 +1086,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     } else if (action == QLatin1String("getPersonalFm")) {
         // 分页累积：第一页由 UI 侧 clear，后续页直接 append
         const QVariantList items = info.toList();
-        // 空列表只有在「请求成功」时才等于「未登录」，失败时别误导用户去登录
+        // 空列表只在请求成功时才等于「未登录」
         if (items.isEmpty() && !requestFailed) // 网易云 personal_fm 未登录返回空
             emit warned(QStringLiteral("私人漫游需要先在设置中登录账号"), 2);
         else
@@ -1105,7 +1101,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         handleMusicInfo(d, source);
     } else if (action == QLatin1String("getLyricInfo")) {
         const QString lyricHash = d.value(QStringLiteral("hash")).toString();
-        // 播放链路发出的歌词请求：代次不符说明当前已经在放下一首，丢弃
+        // 代次不符说明已在放下一首，丢弃
         if (m_playLyricGenerations.contains(lyricHash)) {
             const int generation = m_playLyricGenerations.take(lyricHash);
             if (generation != m_playGeneration) {
@@ -1113,22 +1109,21 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
                 return;
             }
         }
-        // 请求失败 ≠ 没有歌词：失败时保留当前歌词并提示重试，
-        // 否则「网络挂了/接口异常」会被显示成「纯音乐，请欣赏」
+        // 请求失败时保留当前歌词并提示重试，不能显示成纯音乐
         if (requestFailed) {
             emit warned(QStringLiteral("歌词加载失败，请检查网络后重试"), 0);
-            // 本地歌词的等待者也要销账，否则这个文件之后再也不会重新匹配
+            // 本地歌词等待者也要销账，否则该文件之后不再重新匹配
             if (!lyricHash.isEmpty() && m_pendingLocalLyrics.contains(lyricHash))
                 emit localLyricsFailed(m_pendingLocalLyrics.take(lyricHash).filePath);
         } else {
             QVariantList onlineLyrics = d.value(QStringLiteral("info")).toList();
-            // B 站稿件没有字幕：复用在线搜词链路补词（结果回来后覆盖下面的占位歌词）
+            // B 站稿件没有字幕：复用在线搜词链路补词（结果覆盖占位歌词）
             const bool biliNoSubtitle = source == kSourceBilibili && !lyricHash.isEmpty()
                                         && lyricHash == m_biliTrack.hash;
             if (biliNoSubtitle && onlineLyrics.isEmpty())
                 findOnlineLyrics(m_biliTrack.title, m_biliTrack.artist, m_biliTrack.duration);
 
-            // 只有「请求成功且确实没有歌词」才显示纯音乐占位
+            // 只有请求成功且确实没有歌词才显示纯音乐占位
             if (onlineLyrics.isEmpty()) {
                 QVariantMap line;
                 line.insert(QStringLiteral("time"), 0);
@@ -1173,8 +1168,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
     // 接口回传的是实际请求的（可能是高清）hash；队列/收藏统一用普通 hash 当身份，
     // 否则同一首歌会因音质不同在队列里出现多条。
     const QString playHash = d.value(QStringLiteral("hash")).toString();
-    // 快速连续切歌：B 的响应先回来并已起播，A 的响应后到。
-    // 过期响应一旦走下去，会把音源切回 A，并按 A 的 hash 改队列索引
+    // 过期响应若继续处理会把音源切回上一首并按它的 hash 改队列索引
     if (type == 0 && isStalePlayResponse(playHash, source)) {
         qDebug() << "[api] 丢弃过期播放响应 hash:" << playHash.left(8)
                  << "当前代次 hash:" << m_playHash.left(8);
@@ -1182,8 +1176,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
     }
     const QString identityHash = m_baseOf.value(playHash, playHash);
     if (playUrl.isEmpty()) { // 无可用地址：按原因提示（接口层已保证一定会回结果，这里必须给出提示）
-        // 网络失败（超时/断网/解析失败）与「接口成功但确实没有地址」是两回事：
-        // 前者提示检查网络，后者才是版权/会员问题
+        // 网络失败 → 提示检查网络；接口成功但无地址 → 版权/会员问题
         const bool networkFailed = d.contains(QStringLiteral("error"));
         const QString reason = d.value(QStringLiteral("errReason")).toString();
         const bool kugouNotLoggedIn = source == kSourceKugou && m_account
@@ -1225,8 +1218,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
                      cover, solve,
                      identityHash,
                      source);
-        // 直接请求歌词（用实际请求的 hash，高清 hash 同样能取到歌词）
-        // 记下这个歌词请求属于哪一代：歌词响应回来时要再校验一次代次
+        // 记下该请求的代次，响应回来时再校验
         if (m_playLyricGenerations.size() > 32) {
             for (auto it = m_playLyricGenerations.begin(); it != m_playLyricGenerations.end(); ) {
                 if (it.value() != m_playGeneration)

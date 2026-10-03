@@ -249,12 +249,17 @@ Rectangle {
                 model: LyricsPlugins.plugins
                 delegate: Rectangle {
                     id: themeRow
+                    required property string author
+                    required property string preview
+                    required property string name
+                    required property string id
+                    required property string version
                     width: parent.width
                     height: 64
                     radius: Style.settings.labelRadius
                     color: themeRow.selected ? Style.themeColor
                            : (themeArea.containsMouse ? Style.hoverColor : "transparent")
-                    readonly property bool selected: modelData.id === LyricsPlugins.selectedId
+                    readonly property bool selected: themeRow.id === LyricsPlugins.selectedId
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     QPicture {
@@ -266,7 +271,7 @@ Rectangle {
                         radius2: 10
                         radius3: 10
                         radius4: 10
-                        source: modelData.preview ? modelData.preview
+                        source: themeRow.preview ? themeRow.preview
                                                   : "qrc:/QueMusic/resources/app/musicpic.png"
                     }
 
@@ -277,7 +282,7 @@ Rectangle {
                         spacing: 2
                         Text {
                             width: parent.width
-                            text: modelData.name
+                            text: themeRow.name
                             elide: Text.ElideRight
                             color: themeRow.selected ? "#ffffff" : Style.fontColor
                             font.pixelSize: Style.settings.textmain
@@ -286,7 +291,7 @@ Rectangle {
                         Text {
                             width: parent.width
                             elide: Text.ElideRight
-                            text: (modelData.author ? modelData.author + " · " : "") + (modelData.version ? "v" + modelData.version : "内置")
+                            text: (themeRow.author ? themeRow.author + " · " : "") + (themeRow.version ? "v" + themeRow.version : "内置")
                             color: themeRow.selected ? "#b3ffffff" : Style.textColor
                             font.pixelSize: Style.settings.textTip
                         }
@@ -308,7 +313,7 @@ Rectangle {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: LyricsPlugins.selectedId = modelData.id
+                        onClicked: LyricsPlugins.selectedId = themeRow.id
                     }
                 }
             }

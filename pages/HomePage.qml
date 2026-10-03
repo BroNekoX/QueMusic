@@ -11,7 +11,7 @@ Item {
 
 
     Component.onCompleted: {
-        if(!window.completedStart.homeLoaded) {
+        if(!Options.homeLoaded) {
             MusicApi.getHotlistMenu.clear();
             MusicApi.getHotPlaylistMenu(3);
             MusicApi.getHotPlaylists(1);
@@ -27,7 +27,7 @@ Item {
                 homeText.text = "晚上好"
             } else {
             }
-            window.completedStart.homeLoaded = true;
+            Options.homeLoaded = true;
         }
     }
     
@@ -202,7 +202,7 @@ Item {
                             const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
                             const title = "每日推荐";
                             dailyRecomWindow.opened(title,image);
-                            window.exitIndex = 1;
+                            Options.exitIndex = 1;
                         }
                         controlItem: QButton {
                             x: 16
@@ -221,7 +221,7 @@ Item {
                                 const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
                                 const title = "每日推荐";
                                 dailyRecomWindow.opened(title,image);
-                                window.exitIndex = 1;
+                                Options.exitIndex = 1;
                             }
                         }
                     }
@@ -328,9 +328,9 @@ Item {
                                 shadowEnabled: false
                                 onClicked: {
                                     const indexHash = Options.lastSongs.hash;
-                                    if (playListModel.indexOfPath(indexHash) === -1) {
-                                        playListModel.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
-                                        mainWarn.tiped("已加入播放列表", 1);
+                                    if (Options.queue.indexOfPath(indexHash) === -1) {
+                                        Options.queue.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
+                                        Options.warn.tiped("已加入播放列表", 1);
                                     }
                                 }
                             }
@@ -503,7 +503,7 @@ Item {
                                         MusicApi.getMusicPlaylists(catDel.tagid, 1, 20);
                                         const image = (catDel.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
                                         recommendWindow.opened(catDel.title, image);
-                                        window.exitIndex = 1;
+                                        Options.exitIndex = 1;
                                     }
                                 }
                             }
@@ -553,7 +553,7 @@ Item {
                             MusicApi.getPersonalFm(1, 20, MusicApi.songSource);
                             personalWindow.currentModel = MusicApi.personalFm;
                             personalWindow.opened("私人漫游", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
-                            window.exitIndex = 1;
+                            Options.exitIndex = 1;
                         }
                         controlItem: SButton {
                             x: parent.width - 50
@@ -612,7 +612,7 @@ Item {
                             MusicApi.getPersonalRadar(1, 20, MusicApi.songSource);
                             personalWindow.currentModel = MusicApi.personalRadar;
                             personalWindow.opened("私人雷达", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
-                            window.exitIndex = 1;
+                            Options.exitIndex = 1;
                         }
                         controlItem: SButton {
                             x: parent.width - 50
@@ -653,7 +653,7 @@ Item {
                             if (MusicApi.hotPlayLists.count % 20 === 0) {
                                 MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
                             } else {
-                                mainWarn.tiped("没有更多了",0);
+                                Options.warn.tiped("没有更多了",0);
                             }
                         }
                     }
@@ -694,7 +694,7 @@ Item {
                                 MusicApi.globalid = hotPlayRow.hash;
                                 MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
                                 hotlistsWindow.opened(model);
-                                window.exitIndex = 1;
+                                Options.exitIndex = 1;
                             }
                         }
                         QPicture {
@@ -894,7 +894,7 @@ Item {
                 MusicApi.globalid = model.get(index).hash;
                 MusicApi.getPlaylistSongs(model.get(index).hash,1,20);
                 hotlistsWindow.opened(model.get(index));
-                window.exitIndex = 2;
+                Options.exitIndex = 2;
             }
         }
     }

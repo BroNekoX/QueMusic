@@ -39,7 +39,8 @@ public:
         FileNameRole,
         FileUrlRole,
         LyricsRole,
-        TranslateRole
+        TranslateRole,
+        PaytypeRole        // 本地文件恒免费：只给角色名，data() 返回空 → QML 取 0
     };
 
     explicit DownloadedMusicModel(QObject *parent = nullptr);

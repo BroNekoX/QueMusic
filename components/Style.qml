@@ -46,8 +46,7 @@ QtObject {
     // 主题色板同样抽成独立的 StyleThemes 类型（详见 StyleThemes.qml 说明）
     property StyleThemes themes: StyleThemes {}
 
-    // 扁平镜像：QML 编译器无法把「跨类型读 color 再写进 color」编译成 C++（Style.X 一律回退字节码），
-    // 但单例自身的 color 属性可以。这里镜像一份，外部统一用 Style.X，色值仍以 themes 为准。
+    // 镜像
     readonly property color themeColor: themes.themeColor
     readonly property color fontColor: themes.fontColor
     readonly property color textColor: themes.textColor

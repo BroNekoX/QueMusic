@@ -2114,10 +2114,7 @@ QVariantMap Api::login_cellphone(QVariantMap query) {
                                          QCryptographicHash::hash(query["password"].toString().toUtf8(), QCryptographicHash::Md5).toHex())) },
                 { "rememberLogin", "true" }
     };
-    // 与官方 JS 参考实现一致：手机号登录走 weapi（网页加密通道）。
-    // 原先用 createOption(query) 掉进默认的 api 明文通道，是登录家族里唯一的异类
-    // （captcha_sent / login_qr_* / register_anonimous 都用 weapi），
-    // 明文通道的真实账号登录会被网易云风控判「当前登录存在安全风险」(10004)。
+    // 手机号登录走 weapi：明文 api 通道会被风控判「登录存在安全风险」(10004)
     QVariantMap result = request("/api/w/login/cellphone", data, Option::createOption(query, "weapi"));
     if (result["body"].toMap()["code"] == 200) {
         auto body = result["body"].toMap();

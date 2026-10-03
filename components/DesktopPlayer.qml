@@ -86,6 +86,8 @@ Popup {
             Repeater {
                 model: ["无部件","小窗播放器","桌面歌词"]
                 delegate: Rectangle {
+                    required property string modelData
+                    required property int index
                     width: parent.width
                     radius: Style.settings.labelRadius
                     color: desktopPlayer.desktopPlayerMode === index ? Style.themeColor : Style.primaryColor
@@ -135,7 +137,7 @@ Popup {
                     text: switchTrue ? "工作中" : "不支持"
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: smtc.mgr.available
+                    switchTrue: Options.smtc.mgr.available
                     onToggled: {
                     }
                 }

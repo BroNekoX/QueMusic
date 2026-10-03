@@ -128,7 +128,8 @@ QHash<int, QByteArray> DownloadedMusicModel::roleNames() const
         { FileNameRole,   "fileName" },
         { FileUrlRole,    "fileUrl" },
         { LyricsRole,     "lyrics" },
-        { TranslateRole,  "translate" }
+        { TranslateRole,  "translate" },
+        { PaytypeRole,    "paytype" }
     };
 }
 

@@ -90,7 +90,7 @@ class SongModel : public QAbstractListModel
     QML_ANONYMOUS
     Q_PROPERTY(int folderId READ folderId WRITE setFolderId NOTIFY folderIdChanged)
     Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged)
-    Q_PROPERTY(QAbstractListModel *searchResults READ searchResults CONSTANT)
+    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT)
 
 public:
     enum Roles {
@@ -125,7 +125,7 @@ public:
     Q_INVOKABLE void startSearch(const QString &text);
     Q_INVOKABLE void clearSearch();
     bool searchActive() const { return m_searchActive; }
-    QAbstractListModel *searchResults() const { return m_searchResults; }
+    SearchResultModel *searchResults() const { return m_searchResults; }
 
     int folderId() const { return m_folderId; }
     void setFolderId(int folderId);

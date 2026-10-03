@@ -18,11 +18,10 @@ Item {
     property var translateModel: []
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
+    property int hideHeight: 0              // 宿主沉浸模式偏移
 
     readonly property real rowH: (lyricSize * 1.35 + 78) * 1.45      // 行距拉大
     readonly property real bigFont: Math.min(lyricSize * 2 + 30, width * 0.105)
-
-    // 模块自有设置见 Lyrics3DConfig 单例（自动持久化）
 
     // 预设表：名称 / 背景着色器 / 点云舞台预设（-1 = 该预设不用点云）
     readonly property var presetTable: [
@@ -86,6 +85,7 @@ Item {
     HoverHandler {
         id: hover
         enabled: !diyPanel.visible
+        blocking: false
         onPointChanged: {
             const p = hover.point;
             if (!p) return;
@@ -313,7 +313,7 @@ Item {
     SButton {
         id: diyButton
         x: root.width - 60 - 48
-        y: root.height - 130
+        y: root.height - 130 + root.hideHeight
         z: 20
         width: 36
         height: 36
@@ -337,9 +337,9 @@ Item {
         width: 360
         height: Math.min(root.height * 0.66, 470)
         radius: 18
-        color: "#f20b0d12"
+        color: Style.primaryColor
         border.width: 1
-        border.color: "#33ffffff"
+        border.color: Style.sideColor
         anchors.right: diyButton.right
         anchors.bottom: diyButton.top
         anchors.bottomMargin: 12

@@ -26,6 +26,9 @@ Item {
 
         delegate: Item {
             id: holder
+            required property string id
+            required property string name
+            required property string source
 
             width: 0
             height: 0
@@ -34,17 +37,17 @@ Item {
             property QtObject api: null
             property var instance: null
             property bool loading: false
-            property bool wanted: FunctionPlugins.enabledIds.indexOf(modelData.id) >= 0
+            property bool wanted: FunctionPlugins.enabledIds.indexOf(holder.id) >= 0
 
             Component.onCompleted: if (holder.wanted) holder.load()
             onWantedChanged: holder.wanted ? holder.load() : holder.unload()
             Component.onDestruction: holder.unload()
 
             function load(): void {
-                if (holder.loading || holder.instance || !modelData.source)
+                if (holder.loading || holder.instance || !holder.source)
                     return;
                 holder.loading = true;
-                const component = Qt.createComponent(modelData.source, Component.Asynchronous, holder);
+                const component = Qt.createComponent(holder.source, Component.Asynchronous, holder);
                 if (!component) {
                     holder.fail("入口文件读不到");
                     return;
@@ -63,10 +66,10 @@ Item {
                     return;
                 }
                 holder.api = apiComponent.createObject(holder, {
-                    pluginId: modelData.id,
-                    pluginName: modelData.name,
+                    pluginId: holder.id,
+                    pluginName: holder.name,
                     pluginDir: modelData.path,
-                    pluginUrl: modelData.source.substring(0, modelData.source.lastIndexOf("/") + 1),
+                    pluginUrl: holder.source.substring(0, holder.source.lastIndexOf("/") + 1),
                     window: holder.Window.window
                 });
                 if (!holder.api) {
@@ -99,8 +102,8 @@ Item {
 
             function fail(text: string): void {
                 holder.unload();
-                Style.warned("功能插件「" + modelData.name + "」加载失败：" + text, 0);
-                FunctionPlugins.setEnabled(modelData.id, false);
+                Style.warned("功能插件「" + holder.name + "」加载失败：" + text, 0);
+                FunctionPlugins.setEnabled(holder.id, false);
             }
         }
     }

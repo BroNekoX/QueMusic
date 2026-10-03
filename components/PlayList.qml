@@ -29,7 +29,7 @@ Popup {
     }
 
     function locateCurrent(): void {
-        const i = playListModel.playListIndex;
+        const i = Options.queue.playListIndex;
         if (i < 0) return;
         playListView.positionViewAtIndex(i, ListView.Center);
     }
@@ -58,7 +58,7 @@ Popup {
                     anchors.centerIn: parent
                     font.bold: true
                     font.pixelSize: Style.settings.textmain
-                    text: playListModel.count + "首"
+                    text: Options.queue.count + "首"
                     color: Style.primaryColor
                 }
             }
@@ -76,7 +76,7 @@ Popup {
             shadowEnabled: false
             onClicked: {
                 playListView.model = [];
-                playListView.model = playListModel;
+                playListView.model = Options.queue;
                 playList.locateCurrent();
                 playListView.scrollToY = playListView.contentY;
             }
@@ -94,17 +94,17 @@ Popup {
             hoverColor: Qt.rgba(1.0,0.5,0.5,0.5)
             shadowEnabled: false
             onClicked: {
-                globalDialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
+                Options.dialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
                     function(): void {
                         // 空队列 / 无当前曲时下标为 -1：那就只清空，不留一条空条目
-                        const i = playListModel.playListIndex;
-                        const cur = (i >= 0 && i < playListModel.count) ? playListModel.get(i) : null;
-                        playListModel.remove( 0, playListModel.count );
+                        const i = Options.queue.playListIndex;
+                        const cur = (i >= 0 && i < Options.queue.count) ? Options.queue.get(i) : null;
+                        Options.queue.remove( 0, Options.queue.count );
                         if (cur) {
-                            playListModel.append({ name: cur.name, path: cur.path, songer: cur.songer, source: cur.source });
-                            playListModel.playListIndex = 0;
+                            Options.queue.append({ name: cur.name, path: cur.path, songer: cur.songer, source: cur.source });
+                            Options.queue.playListIndex = 0;
                         } else {
-                            playListModel.playListIndex = -1;
+                            Options.queue.playListIndex = -1;
                         }
                         Style.warned("已清空播放列表",1);
                     }
@@ -133,7 +133,7 @@ Popup {
             z: 2
             width: 348
             height: parent.height - 60
-            model: playListModel
+            model: Options.queue
             spacing: 0
             orientation: Qt.Vertical
             clip: true
@@ -180,7 +180,7 @@ Popup {
                 // 复用时清掉上一行残留的悬停态
                 readonly property string songName: listfile.name || ""
                 readonly property string songArtist: listfile.songer || ""
-                readonly property bool isCurrent: playListModel.playListIndex === listfile.index
+                readonly property bool isCurrent: Options.queue.playListIndex === listfile.index
                 height: 60
                 width: parent.width
                 radius: Style.settings.labelRadius
@@ -252,7 +252,7 @@ Popup {
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
                     onClicked: {
-                        playListModel.playListIndex = listfile.index
+                        Options.queue.playListIndex = listfile.index
                         if (listfile.source < 0) Playback.playLocalSong(listfile.path, listfile.name)
                         else MusicApi.getMusicInfo(listfile.path, 0, listfile.source)
                     }
@@ -279,11 +279,11 @@ Popup {
                             shadowEnabled: false
                             tipText: "下一首播放"
                             onClicked: {
-                                const cur = playListModel.playListIndex
+                                const cur = Options.queue.playListIndex
                                 if (listfile.index === cur) return
-                                playListModel.move(listfile.index, cur + 1, 1)
-                                if (listfile.index < cur) playListModel.playListIndex = cur - 1
-                                mainWarn.tiped("已设为下一首", 1)
+                                Options.queue.move(listfile.index, cur + 1, 1)
+                                if (listfile.index < cur) Options.queue.playListIndex = cur - 1
+                                Options.warn.tiped("已设为下一首", 1)
                             }
                         }
                         SButton {
@@ -299,13 +299,13 @@ Popup {
                             shadowEnabled: false
                             tipText: "收藏"
                             onClicked: {
-                                if (listfile.source === -1) { mainWarn.tiped("本地歌曲请使用本地收藏", 0); return }
+                                if (listfile.source === -1) { Options.warn.tiped("本地歌曲请使用本地收藏", 0); return }
                                 if (FavoriteSongs.isFavorite(listfile.path, "song")) {
                                     FavoriteSongs.removeFavorite(listfile.path, "song")
-                                    mainWarn.tiped("已取消收藏", 0)
+                                    Options.warn.tiped("已取消收藏", 0)
                                 } else {
                                     FavoriteSongs.addFavorite(listfile.path, listfile.name, listfile.songer, "", listfile.source, 0, "song")
-                                    mainWarn.tiped("已收藏", 1)
+                                    Options.warn.tiped("已收藏", 1)
                                 }
                             }
                         }
@@ -322,9 +322,9 @@ Popup {
                             shadowEnabled: false
                             tipText: "移除"
                             onClicked: {
-                                if (playListModel.playListIndex !== listfile.index) {
-                                    if (playListModel.playListIndex > listfile.index) playListModel.playListIndex -= 1;
-                                    playListModel.remove(listfile.index, 1);
+                                if (Options.queue.playListIndex !== listfile.index) {
+                                    if (Options.queue.playListIndex > listfile.index) Options.queue.playListIndex -= 1;
+                                    Options.queue.remove(listfile.index, 1);
                                 }
                             }
                         }

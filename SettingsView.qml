@@ -26,6 +26,19 @@ Item {
     property string neteaseLoginStatus: "等待登录…"
     property string kugouLoginStatus: "等待登录…"
 
+    Image {
+        id: settingsBackGround
+        z: 0
+        x: 0
+        y: 0
+        width: parent.width
+        height: parent.height
+        source: backGround.source
+        visible: Style.settings.backmode === 2 || Style.settings.backmode === 3
+        asynchronous: true
+        fillMode: Image.PreserveAspectCrop
+    }
+
     // 登录成功自动收起面板
     Connections {
         target: AccountManager
@@ -323,7 +336,7 @@ Item {
             if (p.indexOf("file:///") === 0)
                 p = p.substring(8);
             Options.settings.downloadFolder = p;
-            mainWarn.tiped("已设置默认下载目录", 1);
+            Options.warn.tiped("已设置默认下载目录", 1);
         }
     }
 
@@ -337,7 +350,7 @@ Item {
         opacity: 1
         property color choiceColor: Style.hoverColor
         property color choiceTextColor: Style.fontColor
-        color: Style.settings.sidebarColor ? Style.secondaryColor : Style.primaryColor
+        color: sidebar.color
         Connections {
             target: Style
             function onChangeTheme(): void {
@@ -367,18 +380,6 @@ Item {
                 choicebar1.x = 0;
                 choicebar1.radius = 0;
             }
-            leftBarAnime.running = true;
-        }
-
-        // 左栏显现动画
-        NumberAnimation {
-            id: leftBarAnime
-            target: leftSidebarSettings
-            property: "x"
-            from: -210
-            to: 0
-            duration: 300
-            easing.type: Easing.OutExpo
         }
 
         function index1ed(choice: int): void {
@@ -477,7 +478,7 @@ Item {
                     Behavior on color { ColorAnimation { duration: 50 } }
                 }
                 onClicked: settingOutAnime.running = true;
-                Component.onCompleted: windowAgent.setHitTestVisible(returnButton, true);
+                Component.onCompleted: Options.agent.setHitTestVisible(returnButton, true);
             }
 
             Label {
@@ -594,8 +595,9 @@ Item {
         x: 210
         width: parent.width - 210
         height: parent.height
-        color: Style.secondaryColor
+        color: mainContent.color
         z: 2
+        property color cardColor: Style.settings.backmode === 0 ? Style.primaryColor : Style.primaryBlurColor
         property list<Item> setPages: [
             themeset,
             uiset,
@@ -665,7 +667,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: globalThemeCard.height
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         id: globalThemeCard
@@ -743,7 +745,7 @@ Item {
                                 blurSource: settingsView
                                 onAccepted: {
                                     Style.settings.colorList.push(Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0));
-                                    mainWarn.tiped("已添加主题颜色", 1);
+                                    Options.warn.tiped("已添加主题颜色", 1);
                                 }
                             }
                         }
@@ -794,7 +796,7 @@ Item {
                                 nameFilters: ["图片文件 (*.jpg *.png *.jpeg *.pkm *.svg *.gif *.bmp *.tiff *.xbm *.xpm *.pbm *.pgm *.ppm)"]
                                 onAccepted: {
                                     Style.settings.backgroundImage = imagefileDialog.selectedFile;
-                                    mainWarn.tiped("已设置背景图片", 1);
+                                    Options.warn.tiped("已设置背景图片", 1);
                                     Style.changeUi();
                                     Style.changeTheme();
                                 }
@@ -807,7 +809,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -862,7 +864,7 @@ Item {
                                 onClicked: MusicApi.songSource = 0;
                                 onLogined: {
                                     if (AccountManager.kugouLoggedIn) {
-                                        globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？",
                                             function() {
                                                 AccountManager.logoutKugou();
                                             }
@@ -887,7 +889,7 @@ Item {
                                 onClicked: MusicApi.songSource = 1;
                                 onLogined: {
                                     if (AccountManager.neteaseLoggedIn) {
-                                        globalDialog.openSimpleDialog("警告", "是否退出账号？",
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？",
                                             function() {
                                                 AccountManager.logoutNetease();
                                             }
@@ -918,7 +920,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1009,7 +1011,7 @@ Item {
                                         p = p.substring(8);
                                     Options.settings.cacheUrl = p;
                                     coverHelper.setCacheDir(p);
-                                    mainWarn.tiped("已设置封面缓存目录", 1);
+                                    Options.warn.tiped("已设置封面缓存目录", 1);
                                 }
                             }
                         }
@@ -1076,7 +1078,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1110,23 +1112,6 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "卡片圆角大小"
-                            tip: "设置全局大型卡片的圆角大小"
-                            controlItem: QSlider {
-                                anchors.fill: parent
-                                from: 0
-                                to: 24
-                                stepSize: 2
-                                leftText: true
-                                valueText: value
-                                value: Style.settings.cubeRadius
-                                onMoved: {
-                                    Style.settings.cubeRadius = value
-                                }
-                            }
-                        }
-
-                        SettingItemCard {
                             label: "不透明底栏"
                             tip: "播放器控制底栏将不再透明"
                             controlItem: QSwitch {
@@ -1155,6 +1140,23 @@ Item {
                         }
 
                         SettingItemCard {
+                            label: "控件圆角大小"
+                            tip: "设置全局控件的圆角大小"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 0
+                                to: 24
+                                stepSize: 2
+                                leftText: true
+                                valueText: value
+                                value: Style.settings.labelRadius
+                                onMoved: {
+                                    Style.settings.labelRadius = value
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
                             label: "不使用控件大圆角"
                             tip: "(废弃)将部分完全圆角的控件取消完全圆角"
                             controlItem: QSwitch {
@@ -1172,7 +1174,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1256,7 +1258,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1282,7 +1284,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: settingStack.standWidth
@@ -1404,32 +1406,6 @@ Item {
                         }
                     }
                 }
-
-                QHead { text: "桌面音乐部件" }
-
-                Rectangle {
-                    width: settingStack.standWidth
-                    color: Style.primaryColor
-                    radius: Style.settings.cubeRadius
-                    Column {
-                        width: settingStack.standWidth
-                        padding: 0
-                        Component.onCompleted: {
-                            parent.height = height
-                        }
-                        SettingItemCard {
-                            label: "动画速度"
-                            tip: "设置桌面音乐部件的动画播放速度"
-                            controlItem: QDrop {
-                                anchors.fill: parent
-                                choice: Style.settings.spotSpeed
-                                model: ["默认","快","慢"]
-                                onTransformed: (choiced) => Style.settings.spotSpeed = choiced
-                            }
-                            bottomLine: false
-                        }
-                    }
-                }
             }
         }
 
@@ -1463,7 +1439,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1521,7 +1497,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1589,7 +1565,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1700,10 +1676,10 @@ Item {
                                 text: "清空"
                                 buttonColor: "#fa4642"
                                 textColor: "#ffffff"
-                                onClicked: globalDialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
+                                onClicked: Options.dialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
                                     function() {
                                         Playback.clearHistory()
-                                        mainWarn.tiped("已清空播放历史", 1)
+                                        Options.warn.tiped("已清空播放历史", 1)
                                     })
                             }
                             bottomLine: false
@@ -1742,6 +1718,7 @@ Item {
                 EqualizerPanel {
                     width: settingStack.standWidth
                     engine: player
+                    cardColor: settingStack.cardColor
                 }
             }
         }
@@ -1820,7 +1797,7 @@ Item {
                 Options.recordingShortCut = true   // 录制期间屏蔽所有全局快捷键
                 keyCapture.forceActiveFocus()
                 keyCapture.focus = true;
-                mainWarn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
+                Options.warn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
             }
 
             // 停止录制（完成或取消）
@@ -1830,9 +1807,9 @@ Item {
                 Options.recordingShortCut = false
                 if (success && sequence) {
                     Options.shortCuts[recordingAction] = sequence
-                    mainWarn.tiped("已设置快捷键: " + sequence, 1)
+                    Options.warn.tiped("已设置快捷键: " + sequence, 1)
                 } else {
-                    mainWarn.tiped("已取消录制", 1)
+                    Options.warn.tiped("已取消录制", 1)
                 }
                 recordingAction = ""
                 keyCapture.focus = false
@@ -1879,7 +1856,7 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         width: parent.width
@@ -1921,13 +1898,13 @@ Item {
                         if (event.key === Qt.Key_Escape) {
                             shortcutset.stopRecording(false)
                             event.accepted = true
-                            mainWarn.tiped("已取消", 0)
+                            Options.warn.tiped("已取消", 0)
                             return
                         }
                         const seq = shortcutset.keyEventToSequence(event)
                         if (seq) {
                             shortcutset.stopRecording(true, seq)
-                            mainWarn.tiped("设置已保存", 1)
+                            Options.warn.tiped("设置已保存", 1)
                             event.accepted = true
                         }
                         // 如果是无效键（如单独的修饰键），不处理，等待有效组合
@@ -1943,7 +1920,7 @@ Item {
                             borderWidth: 1
                             onClicked: {
                                 shortcutset.stopRecording(false);
-                                mainWarn.tiped("已取消", 0);
+                                Options.warn.tiped("已取消", 0);
                             }
                         }
                         Text {
@@ -1960,7 +1937,7 @@ Item {
                 QHead { text: "快捷键列表" }
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     height: shortCutColumn.height // 自适应高度
 
@@ -2044,7 +2021,7 @@ Item {
                                     buttonColor: "transparent"
                                     onClicked: {
                                         Options.shortCuts[model.name] = model.defau
-                                        mainWarn.tiped("已恢复默认快捷键", 1)
+                                        Options.warn.tiped("已恢复默认快捷键", 1)
                                     }
                                 }
                             }
@@ -2247,7 +2224,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 60
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     SettingItem {
                         width: settingStack.standWidth - 32
@@ -2374,7 +2351,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: description.implicitHeight + 48
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Text {
                         id: description
@@ -2399,6 +2376,7 @@ Item {
                         title: "BroNekoX Studio"
                         text: "本项目的主要开发负责人"
                         openUrl: "https://github.com/bronekox"
+                        color: settingStack.cardColor
                     }
                 }
 
@@ -2407,7 +2385,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 238
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
@@ -2492,18 +2470,21 @@ Item {
                         title: "QWindowKit"
                         text: "实现全平台完美的无边框窗口"
                         openUrl: "https://github.com/stdware/qwindowkit"
+                        color: settingStack.cardColor
                     }
                     AccountCard {
                         source: "qrc:/QueMusic/resources/app/icons/qticon.png"
                         title: "Qt Community"
                         text: "强大的开源跨平台软件包框架"
                         openUrl: "https://github.com/qt"
+                        color: settingStack.cardColor
                     }
                     AccountCard {
                         source: ""
                         title: "QCloudMusicApi"
                         text: "网易云音乐第三方API服务框架"
                         openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
+                        color: settingStack.cardColor
                     }
                 }
 
@@ -2512,7 +2493,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 200
-                    color: Style.primaryColor
+                    color: settingStack.cardColor
                     radius: Style.settings.cubeRadius
                     Column {
                         spacing: 8
@@ -2866,7 +2847,7 @@ Item {
 
         function checkForUpdate(): void {
             console.log("正在检查更新...");
-            mainWarn.tiped("正在检查更新", 0);
+            Options.warn.tiped("正在检查更新", 0);
 
             const xhr = new XMLHttpRequest();
             xhr.onreadystatechange = function() {
@@ -2885,11 +2866,11 @@ Item {
                         } else {
                             console.log("当前已是最新版本");
                             // 可选：显示“已是最新”的提示
-                            mainWarn.tiped("当前已是最新版本", 1);
+                            Options.warn.tiped("当前已是最新版本", 1);
                         }
                     } else {
                         console.error("检查更新失败，HTTP状态码:", xhr.status);
-                        mainWarn.tiped("检查更新失败，请稍后重试", 2);
+                        Options.warn.tiped("检查更新失败，请稍后重试", 2);
                     }
                 }
             }

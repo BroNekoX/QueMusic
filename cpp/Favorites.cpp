@@ -71,8 +71,9 @@ QHash<int, QByteArray> FavoritesModel::roleNames() const
         {SourceRole,    "source"},
         {DurationRole,  "duration"},
         {TypeRole,      "type"},
-        {CreatedAtRole, "createdAt"}
-    };
+        {CreatedAtRole, "createdAt"},
+        {PaytypeRole,   "paytype"}
+        };
 }
 
 QVariantMap FavoritesModel::get(int row) const

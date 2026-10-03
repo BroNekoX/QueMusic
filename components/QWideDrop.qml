@@ -7,7 +7,7 @@ import QueMusic 1.0
 Item {
     id: root
     width: 360
-    height: 40
+    height: 42
     property list<string> model: ["Click1","Click2","Click3"]
     property int singleWidth: model.length > 0 ? width / model.length - 16 : 0
     property int choice: 0
@@ -21,6 +21,9 @@ Item {
         Repeater {
             model: root.model
             delegate: Rectangle {
+                id: del
+                required property string modelData
+                required property int index
                 height: parent.height
                 width: root.singleWidth
                 color: root.choice == index ? Style.themeColor : Style.primaryColor
@@ -40,12 +43,11 @@ Item {
                 }
             
                 Text {
-                    anchors.fill: parent
-                    text: modelData
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 20
+                    text: del.modelData
                     font.pixelSize: Style.settings.textmain
                     color: root.choice == index ? Style.primaryColor : Style.textColor
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignHCenter
                 }
                 MouseArea {
                     anchors.fill: parent

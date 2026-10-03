@@ -16,13 +16,15 @@ QVariantList builtins()
             {QStringLiteral("author"), QStringLiteral("QueMusic")},
             {QStringLiteral("description"), QStringLiteral("应用内置歌词界面")},
             {QStringLiteral("source"), source},
-            {QStringLiteral("builtin"), true}
+            {QStringLiteral("builtin"), true},
+            {QStringLiteral("version"), QStringLiteral("")},
+            {QStringLiteral("preview"), QStringLiteral("")}
         };
     };
     return {
         make(QStringLiteral("default"), QStringLiteral("默认"), QStringLiteral("qrc:/QueMusic/layout/MainLyric.qml")),
         make(QStringLiteral("free"), QStringLiteral("自由"), QStringLiteral("qrc:/QueMusic/lyricsui/LyricsFree.qml")),
-        make(QStringLiteral("3d"), QStringLiteral("3D"), QStringLiteral("qrc:/QueMusic/lyricsui/Lyrics3D.qml"))
+        make(QStringLiteral("3d(Beta)"), QStringLiteral("3D(Beta)"), QStringLiteral("qrc:/QueMusic/lyricsui/Lyrics3D.qml"))
     };
 }
 

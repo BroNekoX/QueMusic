@@ -372,12 +372,12 @@ Item {
                         return;
                     Playback.playLocalSong(item.fileUrl, item.fileName);
 
-                    const listIndex = playListModel.indexOfPath(item.fileUrl);
+                    const listIndex = Options.queue.indexOfPath(item.fileUrl);
                     if (listIndex === -1) {
-                        playListModel.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
-                        playListModel.playListIndex = playListModel.count - 1;
+                        Options.queue.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
+                        Options.queue.playListIndex = Options.queue.count - 1;
                     } else {
-                        playListModel.playListIndex = listIndex;
+                        Options.queue.playListIndex = listIndex;
                     }
                 }
 

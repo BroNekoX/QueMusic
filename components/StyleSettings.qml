@@ -62,9 +62,6 @@ Settings {
     property bool maskBlur: true
     property bool lyricHideGui: true
 
-    // 注：各歌词主题自己的设置由主题自己持有（模块内 Settings，分类 "LyricsFree" / "Lyrics3D"），
-    // 不集中到这里；此处只保留跨主题共用的键（waveDisplay / premiumLyricAnime 等）
-
     property string fontFamily
 
     // 背景图片

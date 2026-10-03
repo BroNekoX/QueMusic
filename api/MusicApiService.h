@@ -220,13 +220,12 @@ private:
     int resolve(int source) const; // source<0 → 默认源
     static QVariantMap readLocalMetadataBlocking(const QString &filePath);
     static bool writeLocalMetadataBlocking(const QString &filePath, const QVariantMap &meta);
-    // 未完成请求计数：布尔 loadState 会被任意一个响应提前置回 false，
-    // 导致加载动画提前结束，也无法区分「谁还没回来」
+    // 未完成请求数，loadState 由它派生
     void beginRequest();
     void endRequest();
-    // 计数兜底：平台万一有请求不回结果，计数会永远 >0，加载动画再也停不下来
+    // 兜底：平台有请求不回结果时计数永不归零，加载动画停不下来
     QTimer m_requestWatchdog;
-    // 播放代次：只有最新一次 getMusicInfo(type=0) 的响应才允许切换音源/歌词
+    // 播放代次：只有最新一次播放请求的响应才允许切音源/歌词
     bool isStalePlayResponse(const QString &playHash, int source) const;
     // 音质：记录 hash ↔ hashhq/hashsq，按设置把 hash 升级成高清；映射落盘以便重启后仍可用
     void rememberHashes(const QVariantList &items);
@@ -303,7 +302,7 @@ private:
     int m_playGeneration = 0;           // 每次新的播放请求 +1
     QString m_playHash;                 // 当前代次的播放 hash（音质升级后的实际请求值）
     int m_playSource = -1;              // 当前代次的平台
-    // 播放链路发出的歌词请求：hash → 代次。响应回来时据此丢弃过期的歌词
+    // 播放链路的歌词请求：hash → 代次，过期响应据此丢弃
     QHash<QString, int> m_playLyricGenerations;
     QVariant m_globalid;
     QVariant m_globaltagid;

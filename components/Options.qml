@@ -3,8 +3,21 @@
 //
 pragma Singleton
 import QtQuick
+import QueMusic 1.0
+import QWindowKit 1.0
 
 QtObject {
+    // 跨文件共享对象：main.qml 启动时注入
+    property QueueModel queue
+    property QWarn warn
+    property QAlertDialog dialog
+    property WindowAgent agent
+    property DesktopPlayer desktop
+    property SmtcBridge smtc
+
+    // window 上移过来的状态
+    property int exitIndex: 0          // 要求主界面切到的页
+    property bool homeLoaded: false    // 首页是否已加载过
     property bool recordingShortCut: false
     readonly property string version: "0.5.1"
     readonly property int versionCode: 51

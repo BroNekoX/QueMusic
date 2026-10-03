@@ -102,6 +102,8 @@ Item {
 
             delegate: Item {
                 id: navMusic
+                required property string modelData
+                required property int index
                 width: root.tabWidth
                 height: root.height - 6
                 property bool isSelected: tabView.choiceIndex === index

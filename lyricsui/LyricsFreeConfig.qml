@@ -12,6 +12,9 @@ Settings {
     property int bgStyle: 0            // 0 流体 / 1 图片 / 2 视频 / 3 平面星空
     property string bgImage: ""
     property string bgVideo: ""
+    property bool showTitle: true      // 封面下方显示歌曲名
+    property bool showArtist: true     // 封面下方显示歌手名
+    property bool coverReflection: false // 封面下方显示封面倒影
     property real lyricSpacingScale: 1.0
     property int lyricCardAngle: 0
     property real lyricCurrentScale: 1.02

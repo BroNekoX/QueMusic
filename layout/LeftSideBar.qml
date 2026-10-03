@@ -57,7 +57,7 @@ Rectangle {
     Connections {
         target: window
         function onExit(): void {
-            if(mainContent.pageIndex === 6 && window.exitIndex <= 1 ) {
+            if(mainContent.pageIndex === 6 && Options.exitIndex <= 1 ) {
                 mainContent.contentIndexed(navlistview.choiceIndex)
                 MusicApi.searchSongsResults.clear()
             }
@@ -197,6 +197,8 @@ Rectangle {
 
             delegate: Rectangle {
                 id: navDelegate
+                required property int index
+                required property var model
                 width: navlistview.width
                 height: 42
                 radius: Style.settings.labelRadius

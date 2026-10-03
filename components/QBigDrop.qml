@@ -24,6 +24,8 @@ Rectangle {
         Repeater {
             model: root.model
             delegate: Rectangle {
+                required property string modelData
+                required property int index
                 height: parent.height
                 width: root.singleWidth
                 color: root.choice == index ? Style.themeColor : Style.primaryColor

@@ -36,7 +36,7 @@ Item {
 
     // 移入回收站；结果由 onDeleteFinished 提示
     function deleteLocalFile(path: string, title: string): void {
-        globalDialog.openSimpleDialog("删除本地文件", "这将把「" + title + "」移入回收站，是否继续？",
+        Options.dialog.openSimpleDialog("删除本地文件", "这将把「" + title + "」移入回收站，是否继续？",
             function() { localFileModel.deleteFiles([path]) })
     }
 
@@ -118,7 +118,7 @@ Item {
             }
         }
         // 一次批量追加，逐条 append 会触发 N 次插入与信号
-        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
+        const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
         Style.warned(added === 0 ? "所选歌曲都已在播放列表中" : "已加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
     }
 
@@ -175,14 +175,14 @@ Item {
             rows.push({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
         }
         // 批量接口内部去重，并只发一次插入信号
-        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
+        const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
         if (added === 0) {
             Style.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
             Style.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
-            Playback.goTo(playListModel.count - added);
+            Playback.goTo(Options.queue.count - added);
         }
     }
 
@@ -202,14 +202,14 @@ Item {
             if (!name || !path) continue;
             rows.push({ name: name, path: path, songer: row ? (row.artist || "") : "", source: -1 });
         }
-        const added = rows.length > 0 ? playListModel.appendBatch(rows) : 0;
+        const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
         if (added === 0) {
             Style.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
             Style.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
-            Playback.goTo(playListModel.count - added);
+            Playback.goTo(Options.queue.count - added);
         }
     }
 
@@ -360,9 +360,9 @@ Item {
                         onConfirm: {
                             if(input!=="") {
                                 MyFolders.renameFolder(editDialog.folderId, input);
-                                mainWarn.tiped("文件夹已重命名", 1);
+                                Options.warn.tiped("文件夹已重命名", 1);
                             } else {
-                                mainWarn.tiped("请输入文件名",0);
+                                Options.warn.tiped("请输入文件名",0);
                             }
                         }
                     }
@@ -431,7 +431,7 @@ Item {
                                     filePage.toggleChoose(listfolder.folderId);
                                 } else {
                                     filePage.folderNumber = listfolder.index;
-                                    window.exitIndex = 1;
+                                    Options.exitIndex = 1;
                                     Songs.folderId = listfolder.folderId;
                                     Songs.clearSearch();
                                     folderMusic.searching = false;
@@ -493,7 +493,7 @@ Item {
                                     tipText: "删除文件夹"
                                     onClicked: {
                                         if(listfolder.folderId !== 1) {
-                                            globalDialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
+                                            Options.dialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                                 function() {
                                                     MyFolders.deleteFolder(listfolder.folderId);
                                                     Style.warned("已删除「我的文件夹」", 1);
@@ -526,7 +526,7 @@ Item {
                     sortReversed: filePage.localSortReversed
                     onScanFinished: function(count) {
                         if (count > 0)
-                            mainWarn.tiped("已加载 " + count + " 个音频文件", 1);
+                            Options.warn.tiped("已加载 " + count + " 个音频文件", 1);
                     }
                 }
 
@@ -539,7 +539,7 @@ Item {
                         const folderPath = folderUrl.toString();
                         const folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
                         LocalFolders.addFolder(folderName, "local", folderPath);
-                        mainWarn.tiped("已定位本地文件夹", 1);
+                        Options.warn.tiped("已定位本地文件夹", 1);
 
                     }
                 }
@@ -600,7 +600,7 @@ Item {
                             if(input!=="") {
                                 LocalFolders.renameFolder(editLocalDialog.index, input);
                             } else {
-                                mainWarn.opened("请输入文件名",0);
+                                Options.warn.opened("请输入文件名",0);
                             }
                         }
                     }
@@ -677,7 +677,7 @@ Item {
                                     filePage.toggleChoose(listLocalfolder.folderId);
                                 } else {
                                     localFileModel.folder = listLocalfolder.path;
-                                    window.exitIndex = 1
+                                    Options.exitIndex = 1
                                     localFileModel.clearSearch();
                                     localFolderMusic.searching = false;
                                     localFolderMusic.opened(listLocalfolder.name,"");
@@ -734,7 +734,7 @@ Item {
                                     shadowEnabled: false
                                     tipText: "删除文件夹"
                                     onClicked: {
-                                        globalDialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
+                                        Options.dialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
                                             function() {
                                                 LocalFolders.deleteFolder(listLocalfolder.folderId);
                                                 Style.warned("已移除本地文件夹", 1);
@@ -1120,10 +1120,10 @@ Item {
                                 Playback.playLocalSong(listfile.path, listfile.songTitle);
                                 const musicName = listfile.songTitle;
                                 const musicPath = listfile.path;
-                                const listIndex = playListModel.indexOfName(musicName);
+                                const listIndex = Options.queue.indexOfName(musicName);
                                 if (listIndex == -1) {
-                                    playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
-                                    playListModel.playListIndex = playListModel.count - 1;
+                                    Options.queue.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
+                                    Options.queue.playListIndex = Options.queue.count - 1;
                                 }
                             } else {
                                 fileView.menu.index = index;
@@ -1152,9 +1152,9 @@ Item {
                                 onClicked: {
                                     const musicName = listfile.songTitle;
                                     const musicPath = listfile.path;
-                                    const listIndex = playListModel.indexOfName(musicName);
+                                    const listIndex = Options.queue.indexOfName(musicName);
                                     if (listIndex == -1) {
-                                        playListModel.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
+                                        Options.queue.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
                                         Style.warned("已加入播放列表", 1);
                                     }
                                 }
@@ -1513,10 +1513,10 @@ Item {
                                 Playback.playLocalSong(listLocalFile.fileUrl.toString(), listLocalFile.songTitle);
                                 const musicName = listLocalFile.songTitle;
                                 const musicPath = listLocalFile.fileUrl.toString();
-                                const listIndex = playListModel.indexOfName(musicName);
+                                const listIndex = Options.queue.indexOfName(musicName);
                                 if (listIndex == -1) {
-                                    playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
-                                    playListModel.playListIndex = playListModel.count - 1;
+                                    Options.queue.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
+                                    Options.queue.playListIndex = Options.queue.count - 1;
                                 }
                             } else {
                                 localFileView.menu.index = listLocalFile.index;
@@ -1544,9 +1544,9 @@ Item {
                                 onClicked: {
                                     const musicName = listLocalFile.songTitle;
                                     const musicPath = listLocalFile.fileUrl.toString();
-                                    const listIndex = playListModel.indexOfName(musicName);
+                                    const listIndex = Options.queue.indexOfName(musicName);
                                     if (listIndex == -1) {
-                                        playListModel.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
+                                        Options.queue.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
                                     }
                                 }
                             }
@@ -1749,7 +1749,7 @@ Item {
                 const tip = filePage.setMode === 4 ? "这将把这些文件移入回收站，是否删除？"
                         : filePage.setMode === 3 ? "这将从文件夹移除这些歌曲，无法恢复，是否删除？"
                         : "这将删除这些文件夹，无法恢复，是否删除？";
-                globalDialog.openSimpleDialog("删除", tip,
+                Options.dialog.openSimpleDialog("删除", tip,
                     function() {
                         filePage.deleteChosen();
                     }

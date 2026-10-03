@@ -52,8 +52,7 @@ AccountManager::AccountManager(QObject *parent)
     // 未登录时也要带身份（mergeNeteaseIdentity 对空 cookie 同样会补上这两个字段）
     m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
 
-    // 启动即在后台做设备匿名注册（拿 MUSIC_A）：
-    // 保证用户第一次点"登录/扫码"时，请求就已带上可信设备凭证。
+    // 启动即后台取设备凭证，避免首次登录被风控拦截
     (void)QtConcurrent::run([this]() { ensureNeteaseAnonymousToken(); });
 }
 
@@ -141,62 +140,50 @@ QString AccountManager::mergeNeteaseIdentity(const QString &cookie) const
     }
     out << QStringLiteral("deviceId=") + m_neteaseDeviceId;
     out << QStringLiteral("os=pc");
-    // 设备匿名令牌 MUSIC_A：登录类接口靠它判断"这台设备是否可信"。
-    // 缺了它，扫码会被判"环境异常"、手机号登录会被判"登录存在安全风险"(10003/10004)。
     if (!m_neteaseAnonymousToken.isEmpty())
         out << QStringLiteral("MUSIC_A=") + m_neteaseAnonymousToken;
     return out.join(QStringLiteral("; "));
 }
 
-// 设备匿名注册：调 register_anonimous 换 MUSIC_A 并持久化。
-// 真机客户端与官方 SDK 在登录前都会先做这一步；QCloudMusicApi 只在 request.cpp 里
-// 从临时文件读缓存、由调用方负责维护，而 QueMusic 之前从未调用过 register_anonimous，
-// 导致 MUSIC_A 一直为空 ➜ 登录类接口必被网易云风控拦截。
+// 设备匿名注册换 MUSIC_A：缺它登录类接口会被网易云判为异常设备
 void AccountManager::ensureNeteaseAnonymousToken()
 {
     if (!m_neteaseAnonymousToken.isEmpty())
         return;
     if (!m_neteaseAnonBusy.testAndSetAcquire(0, 1))
-        return; // 已有线程在注册，避免重复注册（重复注册也会累积风控分）
+        return; // 已有线程在注册，不重复注册
 
-    if (m_neteaseAnonymousToken.isEmpty()) {
-        const QVariantMap res = m_api->invoke(QStringLiteral("register_anonimous"), QVariantMap());
-        const QVariantMap body = res.value(QStringLiteral("body")).toMap();
-        QString token = body.value(QStringLiteral("token")).toString().trimmed();
+    const QVariantMap res = m_api->invoke(QStringLiteral("register_anonimous"), QVariantMap());
+    const QVariantMap body = res.value(QStringLiteral("body")).toMap();
+    QString token = body.value(QStringLiteral("token")).toString().trimmed();
 
-        if (token.isEmpty()) { // 兜底：从返回的 set-cookie 里挑 MUSIC_A
-            const QStringList parts = res.value(QStringLiteral("cookie"))
-                                          .toString()
-                                          .split(QLatin1Char(';'), Qt::SkipEmptyParts);
-            for (const QString &part : parts) {
-                const QString t = part.trimmed();
-                if (t.startsWith(QStringLiteral("MUSIC_A="), Qt::CaseInsensitive)) {
-                    token = t.mid(8).trimmed();
-                    break;
-                }
+    if (token.isEmpty()) { // 兜底：从返回的 set-cookie 里挑 MUSIC_A
+        const QStringList parts = res.value(QStringLiteral("cookie"))
+                                      .toString()
+                                      .split(QLatin1Char(';'), Qt::SkipEmptyParts);
+        for (const QString &part : parts) {
+            const QString t = part.trimmed();
+            if (t.startsWith(QStringLiteral("MUSIC_A="), Qt::CaseInsensitive)) {
+                token = t.mid(8).trimmed();
+                break;
             }
         }
+    }
 
-        if (!token.isEmpty()) {
-            m_neteaseAnonymousToken = token;
-            { // 立即落盘：下次启动直接复用，不必每次启动都注册
-                QSettings s(m_configPath, QSettings::IniFormat);
-                s.beginGroup(QStringLiteral("Netease"));
-                s.setValue(QStringLiteral("anonymousToken"), token);
-                s.endGroup();
-                s.sync();
-            }
-            // 让后续所有请求都带上 MUSIC_A
-            m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
-            qWarning() << "[网易云] 设备匿名注册成功，已获取 MUSIC_A";
-        }
-        else {
-            qWarning().noquote()
-                << QStringLiteral("[网易云] 设备匿名注册失败 status=%1 code=%2 message=%3")
-                       .arg(res.value(QStringLiteral("status")).toInt())
-                       .arg(body.value(QStringLiteral("code")).toInt())
-                       .arg(body.value(QStringLiteral("message")).toString());
-        }
+    if (token.isEmpty()) {
+        qWarning().noquote() << QStringLiteral("[网易云] 设备匿名注册失败 status=%1 code=%2 message=%3")
+                                    .arg(res.value(QStringLiteral("status")).toInt())
+                                    .arg(body.value(QStringLiteral("code")).toInt())
+                                    .arg(body.value(QStringLiteral("message")).toString());
+    } else {
+        m_neteaseAnonymousToken = token;
+        QSettings s(m_configPath, QSettings::IniFormat);
+        s.beginGroup(QStringLiteral("Netease"));
+        s.setValue(QStringLiteral("anonymousToken"), token);
+        s.endGroup();
+        s.sync();
+        m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
+        qWarning() << "[网易云] 设备匿名注册成功，已获取 MUSIC_A";
     }
     m_neteaseAnonBusy.storeRelease(0);
 }
@@ -245,7 +232,7 @@ void AccountManager::sendNeteaseCaptcha(const QString &phone)
     m_neteasePollTimer->stop();
     setNeteaseQr(QrWaiting, QStringLiteral("正在发送验证码…"));
     (void)QtConcurrent::run([this, p]() {
-        ensureNeteaseAnonymousToken(); // 设备可信凭证先就绪
+        ensureNeteaseAnonymousToken(); // 先备好设备凭证
         const QVariantMap res = m_api->invoke(
             QStringLiteral("captcha_sent"),
             QVariantMap{{QStringLiteral("cellphone"), p}, {QStringLiteral("ctcode"), QStringLiteral("86")}});
@@ -255,11 +242,10 @@ void AccountManager::sendNeteaseCaptcha(const QString &phone)
                             || body.value(QStringLiteral("data")).toBool());
         const QString msg = body.value(QStringLiteral("message")).toString();
         if (!ok)
-            qWarning().noquote()
-                << QStringLiteral("[网易云] 发送验证码失败 status=%1 code=%2 message=%3")
-                       .arg(res.value(QStringLiteral("status")).toInt())
-                       .arg(body.value(QStringLiteral("code")).toInt())
-                       .arg(msg);
+            qWarning().noquote() << QStringLiteral("[网易云] 发送验证码失败 status=%1 code=%2 message=%3")
+                                        .arg(res.value(QStringLiteral("status")).toInt())
+                                        .arg(body.value(QStringLiteral("code")).toInt())
+                                        .arg(msg);
         QMetaObject::invokeMethod(
             this,
             [this, ok, msg] {
@@ -284,7 +270,7 @@ void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QStri
     m_neteasePollTimer->stop();
     setNeteaseQr(QrWaiting, QStringLiteral("正在登录…"));
     (void)QtConcurrent::run([this, p, code]() {
-        ensureNeteaseAnonymousToken(); // 登录必须带 MUSIC_A，否则会被判 10003/10004「登录存在安全风险」
+        ensureNeteaseAnonymousToken(); // 缺 MUSIC_A 会被判"登录存在安全风险"
         const QVariantMap res = m_api->invoke(
             QStringLiteral("login_cellphone"),
             QVariantMap{{QStringLiteral("phone"), p},
@@ -295,14 +281,11 @@ void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QStri
         const QString cookie = res.value(QStringLiteral("cookie")).toString();
         const QString msg = body.value(QStringLiteral("message")).toString();
         if (bcode != 200)
-            qWarning().noquote()
-                << QStringLiteral("[网易云] 手机号登录失败 status=%1 code=%2 message=%3 cookie=%4 MUSIC_A=%5")
-                       .arg(res.value(QStringLiteral("status")).toInt())
-                       .arg(bcode)
-                       .arg(msg)
-                       .arg(cookie.isEmpty() ? QStringLiteral("空") : QStringLiteral("非空"))
-                       .arg(m_neteaseAnonymousToken.isEmpty() ? QStringLiteral("无")
-                                                              : QStringLiteral("有"));
+            qWarning().noquote() << QStringLiteral("[网易云] 手机号登录失败 status=%1 code=%2 message=%3 cookie=%4 MUSIC_A=%5")
+                                        .arg(res.value(QStringLiteral("status")).toInt())
+                                        .arg(bcode).arg(msg)
+                                        .arg(cookie.isEmpty() ? QStringLiteral("空") : QStringLiteral("非空"))
+                                        .arg(m_neteaseAnonymousToken.isEmpty() ? QStringLiteral("无") : QStringLiteral("有"));
         QMetaObject::invokeMethod(
             this,
             [this, bcode, cookie, msg] {
@@ -394,8 +377,7 @@ void AccountManager::neteaseFetchQrWorker()
     if (!m_neteaseBusy.testAndSetAcquire(0, 1))
         return;
 
-    // 0) 先保证设备匿名凭证（MUSIC_A）就绪：缺了它 unikey 会被风控直接拒绝
-    ensureNeteaseAnonymousToken();
+    ensureNeteaseAnonymousToken(); // 缺设备凭证 unikey 会被风控直接拒
 
     // 1) 获取 unikey
     QVariantMap keyRes = m_api->invoke(QStringLiteral("login_qr_key"), QVariantMap());
@@ -407,13 +389,10 @@ void AccountManager::neteaseFetchQrWorker()
     }
     if (unikey.isEmpty()) {
         m_neteaseBusy.storeRelease(0);
-        qWarning().noquote()
-            << QStringLiteral("[网易云] 获取二维码 unikey 失败 status=%1 code=%2 message=%3")
-                   .arg(keyRes.value(QStringLiteral("status")).toInt())
-                   .arg(keyRes.value(QStringLiteral("body")).toMap()
-                            .value(QStringLiteral("code")).toInt())
-                   .arg(keyRes.value(QStringLiteral("body")).toMap()
-                            .value(QStringLiteral("message")).toString());
+        qWarning().noquote() << QStringLiteral("[网易云] 获取二维码 unikey 失败 status=%1 code=%2 message=%3")
+                                    .arg(keyRes.value(QStringLiteral("status")).toInt())
+                                    .arg(keyRes.value(QStringLiteral("body")).toMap().value(QStringLiteral("code")).toInt())
+                                    .arg(keyRes.value(QStringLiteral("body")).toMap().value(QStringLiteral("message")).toString());
         QMetaObject::invokeMethod(this, "onNeteaseFetchError", Qt::QueuedConnection,
                                   Q_ARG(QString, QStringLiteral("获取二维码失败（可能被网易云风控拦截），"
                                                                 "可改用手机号或 Cookie 登录")));
@@ -536,8 +515,7 @@ void AccountManager::onNeteasePollResult(int code, const QString &cookie,
         break;
     }
     default:
-        qWarning().noquote()
-            << QStringLiteral("[网易云] 扫码轮询异常 code=%1 message=%2").arg(code).arg(msg);
+        qWarning().noquote() << QStringLiteral("[网易云] 扫码轮询异常 code=%1 message=%2").arg(code).arg(msg);
         // 801/802 之外的未知状态多是风控拦截：连续几次就停手，避免继续刷分
         if (++m_neteasePollFails >= 3) {
             m_neteasePollTimer->stop();
@@ -818,7 +796,6 @@ void AccountManager::loadNetease()
 
     QSettings s(m_configPath, QSettings::IniFormat);
     s.beginGroup(QStringLiteral("Netease"));
-    // 匿名设备令牌先读出来：下面 mergeNeteaseIdentity 会把它拼进 cookie
     m_neteaseAnonymousToken = s.value(QStringLiteral("anonymousToken")).toString().trimmed();
     m_neteaseCookie = s.value(QStringLiteral("cookie")).toString();
     m_neteaseNickname = s.value(QStringLiteral("nickname")).toString();

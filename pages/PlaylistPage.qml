@@ -42,7 +42,7 @@ Item {
 
     function refreshView(): void {
         reloadCurrent();
-        mainWarn.tiped("已刷新", 1);
+        Options.warn.tiped("已刷新", 1);
     }
 
     // 分类菜单是 OnlineListModel，只能按下标 get()，不能当数组用
@@ -59,7 +59,7 @@ Item {
             return;
         MusicApi.songFilter = index;
         reloadCurrent();
-        mainWarn.tiped("已筛选： " + filterItems[index], 1);
+        Options.warn.tiped("已筛选： " + filterItems[index], 1);
     }
 
     QMenu {
@@ -346,7 +346,7 @@ Item {
                     //var image = model.get(index).cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
                     //var title = model.get(index).title;
                     playListSongsWindow.opened(model.get(index));
-                    window.exitIndex = 2;
+                    Options.exitIndex = 2;
                 }
             }
         }
@@ -447,7 +447,7 @@ Item {
                             playListSongsWindow.listType = "toplist";
                             MusicApi.getMusicToplist(1, 20, Number(toplistCard.hash), toplistCard.source);
                             playListSongsWindow.opened(model);
-                            window.exitIndex = 2;
+                            Options.exitIndex = 2;
                         }
                     }
                 }
@@ -554,7 +554,7 @@ Item {
                                 MusicApi.getSingerCategory(area, album.singerPage, 30, MusicApi.songSource);
                             }
                         } else {
-                            mainWarn.tiped("没有更多了",0);
+                            Options.warn.tiped("没有更多了",0);
                         }
                     }
                 }
@@ -593,7 +593,7 @@ Item {
                             MusicApi.globalid = singerCard.hash;
                             MusicApi.getSingerSongs(singerCard.hash, 1, 20, MusicApi.songSource);
                             singerSongsWindow.opened(singerCard.title, (singerCard.cover || "").replace("{size}","256"));
-                            window.exitIndex = 2;
+                            Options.exitIndex = 2;
                         }
                     }
                 }
@@ -638,7 +638,7 @@ Item {
                     if (MusicApi.loadState)
                         return;
                     if (MusicApi.playlistSong.count % 20 !== 0) {
-                        mainWarn.tiped("没有更多了", 0);
+                        Options.warn.tiped("没有更多了", 0);
                         return;
                     }
                     playListSongsWindow.reload(MusicApi.playlistSong.count / 20 + 1);
@@ -675,7 +675,7 @@ Item {
                     if (MusicApi.loadState)
                         return;
                     if (MusicApi.playlistSong.count % 20 !== 0) {
-                        mainWarn.tiped("没有更多了", 0);
+                        Options.warn.tiped("没有更多了", 0);
                         return;
                     }
                     MusicApi.getSingerSongs(MusicApi.globalid, MusicApi.playlistSong.count / 20 + 1, 20, MusicApi.songSource);
