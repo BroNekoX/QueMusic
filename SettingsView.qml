@@ -1039,6 +1039,8 @@ Item {
                                 text: "清理"
                                 onClicked: {
                                     coverHelper.clearCache();
+                                    // 清缓存时 DB 引用已作废，重载列表以丢弃界面上的死链路径
+                                    Songs.reload();
                                     Style.warned("已清除图片缓存", 1);
                                 }
                             }

@@ -793,13 +793,8 @@ Window {
 
     AudioEngine {
         id: mainMedia
-        property string noTitle
-        property string urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
-        property string album
-        property string date
-        property string type
-        property bool onMedia: mediaStatus !== AudioEngine.NoMedia
-        property int audioBit: bitRate
+        // 封面初值；noTitle / onMedia 由引擎提供，专辑等元数据直接读 albumTitle / mediaDate / mediaType
+        urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
 
         source: ""
         volume: Playback.outVolume
@@ -813,10 +808,6 @@ Window {
                 Playback.musicTitle = tagTitle
             if (artist)
                 Playback.musicArtist = artist
-            if (albumTitle)
-                mainMedia.album = albumTitle
-            mainMedia.date = mediaDate
-            mainMedia.type = mediaType
         }
 
         onMediaStatusChanged: {

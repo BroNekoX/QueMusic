@@ -50,6 +50,10 @@ class AudioEngine : public QObject
     Q_PROPERTY(bool pitchCompensation READ pitchCompensation WRITE setPitchCompensation NOTIFY pitchCompensationChanged)
     Q_PROPERTY(qreal pitchSemitones READ pitchSemitones WRITE setPitchSemitones NOTIFY pitchChanged)
     Q_PROPERTY(QString deviceId READ deviceId WRITE setDeviceId NOTIFY deviceIdChanged)
+    // 展示用信息：封面 URL 与列表显示名由 QML 侧注入（引擎不关心来源）；onMedia 派生自 mediaStatus
+    Q_PROPERTY(QString urlStr READ urlStr WRITE setUrlStr NOTIFY urlStrChanged)
+    Q_PROPERTY(QString noTitle READ noTitle WRITE setNoTitle NOTIFY noTitleChanged)
+    Q_PROPERTY(bool onMedia READ onMedia NOTIFY mediaStatusChanged)
 
     Q_PROPERTY(QString title READ title NOTIFY metaDataChanged)
     Q_PROPERTY(QString tagTitle READ tagTitle NOTIFY metaDataChanged)
@@ -127,6 +131,13 @@ public:
 
     QString deviceId() const { return m_deviceId; }
     void setDeviceId(const QString &id);
+
+    QString urlStr() const { return m_urlStr; }
+    void setUrlStr(const QString &url);
+    QString noTitle() const { return m_noTitle; }
+    void setNoTitle(const QString &name);
+    // 有媒体（含加载中/已加载/播放中/结束）：派生值，随 mediaStatusChanged 更新
+    bool onMedia() const { return m_mediaStatus != NoMedia; }
 
     QString title() const { return m_meta.title; }
     QString tagTitle() const { return m_meta.tagTitle; }
@@ -218,6 +229,8 @@ signals:
     void pitchCompensationChanged();
     void pitchChanged();
     void deviceIdChanged();
+    void urlStrChanged();
+    void noTitleChanged();
     void outputFormatChanged();
     void eqChanged();
     void dspChanged();
@@ -290,6 +303,8 @@ private:
     qreal m_volume = 1.0;
     qreal m_playbackRate = 1.0;
     QString m_deviceId;
+    QString m_urlStr;      // 封面 URL（QML 注入，仅供展示）
+    QString m_noTitle;     // 列表显示名 / 文件名（QML 注入，仅供展示）
     std::atomic<bool> m_pitchCompensation{false};
     std::atomic<int> m_rateMilli{1000};
     std::atomic<int> m_stretchSpeedMilli{1000};

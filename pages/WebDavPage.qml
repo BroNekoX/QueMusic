@@ -60,13 +60,13 @@ Item {
             return
         WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
         // 与本地列表一致：先入播放列表再起播（直接 playWebDav 的话队列里没有它，上一首/下一首会丢）
-        Playback.playItem({ name: row.title, path: row.url, songer: row.artist || "", source: 3 })
+        Playback.playItem({ name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav })
     }
 
     // 右侧操作区
     Row {
         x: parent.width - width - 16
-        y: 11
+        y: 13
         z: 2
         spacing: 8
         QButton {
@@ -260,7 +260,7 @@ Item {
             const row = browser.at(index)
             if (!row.url || row.isDir) return
             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-            const item = { name: row.title, path: row.url, songer: row.artist || "", source: 3 }
+            const item = { name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav }
             if (choice === 0) {
                 Playback.playItem(item)
             } else if (choice === 1) {
@@ -397,7 +397,7 @@ Item {
                             const row = browser.at(listDir.index)
                             if (!row.url) return
                             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-                            const added = Playback.enqueue({ name: row.title, path: row.url, songer: "", source: 3 })
+                            const added = Playback.enqueue({ name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav })
                             Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                         }
                     }

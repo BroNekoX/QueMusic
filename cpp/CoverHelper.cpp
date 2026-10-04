@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 #include "CoverHelper.h"
+#include "DbService.h"
 
 #include <QtConcurrent/QtConcurrentRun>
 
@@ -16,6 +17,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -32,9 +35,6 @@
 #include <tpropertymap.h>
 
 namespace {
-
-// 封面限制边长，降低编码耗时与磁盘占用
-constexpr int kMaxCoverSize = 512;
 
 QString metadataCacheKey(const QFileInfo &fi)
 {
@@ -132,8 +132,9 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
 }
 
 QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
-                                      Metadata *metaOut)
+                                      Metadata *metaOut, int maxSize)
 {
+    const int size = qMax(16, maxSize);
     const QString localPath = localPathFromSource(sourcePath);
     const QFileInfo fi(localPath);
     if (metaOut)
@@ -141,8 +142,10 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
     if (!fi.isFile())
         return QString();
 
+    // 文件名带尺寸与格式：小图/大图两档互不复用，旧版 .png 缓存文件也自然作废
     const QString cacheFilePath = cacheDir + QStringLiteral("/cover-")
-                                  + metadataCacheKey(fi) + QStringLiteral(".png");
+                                  + metadataCacheKey(fi) + QLatin1Char('-')
+                                  + QString::number(size) + QStringLiteral(".jpg");
     if (QFileInfo::exists(cacheFilePath)) {
         if (metaOut)
             *metaOut = readMetadata(fi);
@@ -202,11 +205,15 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
             QImage image;
             image.loadFromData(QByteArray(coverData.data(), coverData.size()));
             if (!image.isNull()) {
-                if (qMax(image.width(), image.height()) > kMaxCoverSize)
-                    image = image.scaled(kMaxCoverSize, kMaxCoverSize, Qt::KeepAspectRatio,
-                                         Qt::FastTransformation);
+                // 覆盖式缩放：短边不小于目标值，配合 QML 的 PreserveAspectCrop 不会被拉糊
+                if (qMax(image.width(), image.height()) > size)
+                    image = image.scaled(size, size, Qt::KeepAspectRatioByExpanding,
+                                         Qt::SmoothTransformation);
+                // JPEG 没有 alpha 通道，带透明通道的封面先转 RGB，免得存出来发黑
+                if (image.hasAlphaChannel())
+                    image = image.convertToFormat(QImage::Format_RGB32);
                 QSaveFile out(cacheFilePath);
-                if (out.open(QIODevice::WriteOnly) && image.save(&out, "PNG") && out.commit())
+                if (out.open(QIODevice::WriteOnly) && image.save(&out, "JPEG", 88) && out.commit())
                     coverUrl = QUrl::fromLocalFile(cacheFilePath).toString();
             }
         }
@@ -300,6 +307,14 @@ void CoverHelper::clearCache()
         dir.removeRecursively();
     if (!dir.mkpath(m_cacheDir))
         qWarning() << "Failed to recreate cache directory:" << m_cacheDir;
+
+    // 文件删了，DB 里存的封面路径就成了死链（QML 会一路报「无法打开 cover-xxx.jpg」）：
+    // 清掉引用并标记未提取，下次打开列表时按小图档重新提取
+    DbService::instance()->submit([](QSqlDatabase &db) {
+        QSqlQuery query(db);
+        if (!query.exec(QStringLiteral("UPDATE songs SET tagged = 0, tag_cover = ''")))
+            qWarning() << "Failed to reset cover cache in db:" << query.lastError().text();
+    });
 }
 
 void CoverHelper::setCacheDir(const QString &path)
@@ -318,7 +333,8 @@ void CoverHelper::pruneCache(int maxMB)
     if (maxMB <= 0)
         return;
     const QString cacheDir = m_cacheDir;
-    QtConcurrent::run([cacheDir, maxMB] {
+    // 丢弃 QFuture：只是把清理丢给线程池，不阻塞 UI
+    (void)QtConcurrent::run([cacheDir, maxMB] {
         QDir dir(cacheDir);
         if (!dir.exists())
             return;
@@ -342,18 +358,4 @@ void CoverHelper::pruneCache(int maxMB)
     });
 }
 
-QImage CoverHelper::toImage(const QVariant &value)
-{
-    if (!value.isValid() || value.isNull())
-        return QImage();
 
-    if (value.userType() == QMetaType::QImage)
-        return value.value<QImage>();
-
-    if (value.canConvert<QByteArray>()) {
-        QImage image;
-        image.loadFromData(value.toByteArray());
-        return image;
-    }
-    return QImage();
-}

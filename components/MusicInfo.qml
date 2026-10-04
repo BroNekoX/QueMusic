@@ -221,7 +221,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: Playback.player.album
+                        text: Playback.player.albumTitle
                         color: Style.textColor
                         readOnly: true
                         selectByMouse: true
@@ -237,7 +237,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: Playback.player.audioBit + " k"
+                        text: Math.round(Playback.player.bitRate / 1000) + " kbps"
                         color: Style.textColor
                         readOnly: true
                         selectByMouse: true
@@ -269,7 +269,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: Playback.player.date
+                        text: Playback.player.mediaDate
                         color: Style.textColor
                         readOnly: true
                         selectByMouse: true
@@ -285,7 +285,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: Playback.player.type
+                        text: Playback.player.mediaType
                         color: Style.textColor
                         readOnly: true
                         selectByMouse: true

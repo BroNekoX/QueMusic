@@ -13,6 +13,23 @@
 - **播放稳定性**：自动跳下一首改为连续 2 次即停（坏条目会形成高速跳歌循环）；`QueueModel::get()` 越界返回的空 map 在 QML 里是真值、`if (!e)` 拦不住；`DownloadManager` 析构期重入
 - **列表与歌词**：收藏 / 排序列表操作全部失效（`QSortModel` 缺 `get(行)`，且收藏行字段是 `id` 而非 `favId`）；拖进度条回闪；逐字歌词首行整行重叠；内嵌 `SYLT` 与 `USLT` 同时存在时歌词与翻译二选一
 - **数据源**：WebDAV 左键点歌不入播放列表、歌手列错位、已缓存行缺封面；酷狗分类页歌单曲目数恒为 0（字段是 `songcount`，且需 `withsong=1` 才返回）
+- **自由歌词界面把「纯音乐」显示成一串重复字**：逐字渲染的 Repeater 用**歌词行号**去索引逐字数组
+  （`linesText.model[lyricItem.index]`），同一行的每个字都取到同一项，整行于是变成重复的首字（默认主题用的是
+  delegate 自身的下标，所以看起来正常）。现在按 delegate 下标取字，逐字判定收敛为 `info && info.length > 0`
+  —— C++ 传来的是 `QVariantList`，有 `length` 但**不是 JS `Array`**，所以判定不能用 `Array.isArray`
+- **本地歌曲不入播放列表（同名在线曲挡路）**：`FilePage` 的本地列表用 `Options.queue.indexOfName(歌名)` 查重，
+  队列里已有同名在线曲时就跳过入队（于是播放器在放本地歌、队列索引却指向那首在线曲）。现在查重与入队统一按
+  `path`（在线曲的 path 是 hash，不会与本地路径撞名），四处手写入队改走 `Playback.playItem()` /
+  `Playback.enqueue()`（后者顺带给出「已在播放列表中」的反馈）
+- **清理图片缓存后满屏「无法打开 cover-xxx.png」**：缓存文件删了，但 DB 的 `songs.tag_cover` 与模型里的
+  `tagCoverUrl` 仍指向旧路径，列表每行都会尝试加载一次。现在 `clearCache()` 同时在 DB 线程把 `tagged` 置 0、
+  `tag_cover` 清空，设置页清理后重载当前列表，封面回到占位并在下次打开时重新提取
+- **`qmllint` 属性名错误（MusicInfo 等 5 处）**：`Playback.player` 的静态类型是 `AudioEngine`，而 `noTitle` / `urlStr` /
+  `onMedia` 是 `main.qml` 里给 `mainMedia` 现加的 QML 属性，`album` / `date` / `type` / `audioBit` 则是元数据字段的
+  别名 —— 这 7 个成员 lint 都看不到，于是报 `missing-property` 并让 CI 退出码为 1。现在 `noTitle` / `urlStr` /
+  `onMedia` 提升为 `AudioEngine` 的正式属性（`onMedia` 派生自 `mediaStatus`），其余 4 个直接改用引擎自带的
+  `albumTitle` / `mediaDate` / `mediaType` / `bitRate`，`mainMedia` 上的 6 个影子属性与 `onMetaDataChanged`
+  里的镜像赋值一并删除
 - **功能插件加载即失败**：`PluginHost` 的 delegate 里读了没声明成 `required property` 的 `modelData`（AOT 下抛 `ReferenceError`，接口建不出来 ⇒ 插件被自动停用）；`PluginApi.mount()` 用 url 挂载时把 `props` 当成
   `Loader` 自己的初始属性（`Loader does not have a property called api`，面板拿不到 `api`），现在改走
   `Loader.setSource(url, props)`，属性作为加载项的初始属性生效
@@ -29,6 +46,12 @@
 - **音频回调零分配、无锁**：EQ 增益改直读快照数组；频谱通路改无锁环形缓冲，窗口 resize 不再卡住音频线程
 - **在线 API 收敛**到 `api/ApiHttp.h`（统一 UA / Referer / Cookie + 15s 超时），评论接口加缓存、游标按稿件隔离
 - **频谱**：段间混合 + 上升快 / 下降慢平滑，每帧 `exp` 从 128 次降到 2 次
+- 清理：`CoverHelper::toImage()` 无调用已删除；`FilePage` 本地列表的播放/入队抽成 `playLocalEntry()` /
+  `enqueueLocalEntry()`，四处重复的入队代码各收成一行
+- **封面缓存瘦身**：内嵌封面缓存从「512×512 PNG」改为「JPEG（q88）」，并分两档 —— 列表用 **64×64 缩略图**
+  （我的文件夹 / 本地文件夹 / WebDAV），播放页与歌曲信息仍取 512 大图；缓存文件名带尺寸，两档互不覆盖；
+  缩放改为 `KeepAspectRatioByExpanding + SmoothTransformation`（覆盖式，配合 `PreserveAspectCrop` 不会被拉糊），
+  带透明通道的封面先转 RGB 再存，免得 JPEG 发黑。旧版 `cover-*.png` 不再复用，会随缓存上限淘汰或手动清理消失
 
 ### ✨ 新增
 - 音高调节 ±12 半音（与倍速可叠加）；自由歌词界面新增「显示歌曲名 / 歌手名」开关与「封面倒影」

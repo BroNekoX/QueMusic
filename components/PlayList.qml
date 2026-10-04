@@ -182,7 +182,7 @@ Popup {
                 readonly property string songArtist: listfile.songer || ""
                 readonly property bool isCurrent: Options.queue.playListIndex === listfile.index
                 height: 60
-                width: parent.width
+                width: ListView.view.width - 12
                 radius: Style.settings.labelRadius
                 color: isCurrent ? Style.containColor : "transparent"
 
@@ -237,7 +237,7 @@ Popup {
                         width: 56
                         height: 40
                         color: Style.textColor
-                        text: listfile.source == -1 ? "本地" : "在线"
+                        text: Playback.sourceText(listfile.source)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Style.settings.text
@@ -251,10 +251,10 @@ Popup {
                     hoverEnabled: true
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
+                    // 统一走 startTrack：本地/在线/WebDAV 只在这里判定一次
                     onClicked: {
                         Options.queue.playListIndex = listfile.index
-                        if (listfile.source < 0) Playback.playLocalSong(listfile.path, listfile.name)
-                        else MusicApi.getMusicInfo(listfile.path, 0, listfile.source)
+                        Playback.startTrack(listfile.index)
                     }
 
                     Rectangle {

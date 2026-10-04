@@ -608,6 +608,23 @@ void AudioEngine::setDeviceId(const QString &id)
     reconfigureOutput();
 }
 
+// 展示用属性：只在 GUI 线程读写，音频线程完全不碰
+void AudioEngine::setUrlStr(const QString &url)
+{
+    if (m_urlStr == url)
+        return;
+    m_urlStr = url;
+    emit urlStrChanged();
+}
+
+void AudioEngine::setNoTitle(const QString &name)
+{
+    if (m_noTitle == name)
+        return;
+    m_noTitle = name;
+    emit noTitleChanged();
+}
+
 // ------------------------------------------------------------------ 状态发布
 
 void AudioEngine::setPlaybackState(PlaybackState state)

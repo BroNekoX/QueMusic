@@ -452,8 +452,14 @@ Item {
                 width: lyricContent.width - 20
                 height: lyricsText.implicitHeight + lyricTransText.height + lyricContent.lineSpacing
 
+                // 逐字数据：C++ 传来的 info 是 QVariantList（有 length，但不是 JS Array，别用 Array.isArray 判）
+                // 空表/缺省值都退回整行文本渲染
+                readonly property var flowWords: (modelData && modelData.info
+                                                  && modelData.info.length > 0) ? modelData.info : null
                 readonly property bool isCurrent: lyricItem.index === lyricContent.currentLine
-                readonly property bool isFlowActive: modelData.info ? (lyricItem.index == lyricContent.currentLine || lyricItem.index == lyricContent.currentLine - 1) : false
+                readonly property bool isFlowActive: flowWords !== null
+                                                     && (lyricItem.index === lyricContent.currentLine
+                                                         || lyricItem.index === lyricContent.currentLine - 1)
                 readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - lyricItem.time : 0
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
@@ -531,12 +537,12 @@ Item {
                     text: modelData.text || ""
                     font.weight: Style.settings.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
+                    color: lyricItem.flowWords ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
-                    scale: lyricItem.isCurrent && !modelData.info ? LyricsFreeConfig.lyricCurrentScale : 1.00
-                    opacity: modelData.info ? LyricsFreeConfig.lyricIdleOpacity : (LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.4)
-                    visible: modelData.info ? !lyricItem.isFlowActive : true
+                    scale: lyricItem.isCurrent && !lyricItem.flowWords ? LyricsFreeConfig.lyricCurrentScale : 1.00
+                    opacity: lyricItem.flowWords ? LyricsFreeConfig.lyricIdleOpacity : (LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.4)
+                    visible: lyricItem.flowWords ? !lyricItem.isFlowActive : true
                     horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                 }
@@ -573,11 +579,16 @@ Item {
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     Repeater {
                         id: linesText
-                        model: lyricItem.isFlowActive ? (modelData.info || 0) : 0
+                        model: lyricItem.isFlowActive ? lyricItem.flowWords : 0
                         delegate: Item {
+                            id: wordItem
+                            required property int index
+                            required property var modelData
+                            // 按 delegate 下标取字：用歌词行号会串到别的字上
+                            readonly property var word: lyricItem.flowWords[wordItem.index]
                             width: lyricFlowText.width
                             height: lyricFlowText.height
-                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isCurrent
+                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > wordItem.word.offset && lyricItem.isCurrent
                             onToTextAnimeValueChanged: {
                                 if(toTextAnimeValue) {
                                     outFlowText.running = false;
@@ -590,7 +601,7 @@ Item {
 
                             ParallelAnimation {
                                 id: toFlowText
-                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + linesText.model[lyricItem.index].duration * 10; easing.type: Easing.OutExpo }
+                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + wordItem.word.duration * 10; easing.type: Easing.OutExpo }
                             }
                             ParallelAnimation {
                                 id: outFlowText
@@ -599,8 +610,8 @@ Item {
 
                             Text {
                                 id: lyricFlowText
-                                text: linesText.model[lyricItem.index].text
-                                y: 0//lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isCurrent ? -3 : 0
+                                text: wordItem.word.text
+                                y: 0
                                 font.weight: Style.settings.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
@@ -608,8 +619,8 @@ Item {
                                 opacity: LyricsFreeConfig.lyricIdleOpacity
                             }
                             LinearGradient {
-                                property int countToWidth: lyricItem.nowPosition > linesText.model[lyricItem.index].offset && lyricItem.isFlowActive ? width + 16 : 0
-                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[lyricItem.index].duration / mainLyrics.playbackRate * (width + 16) / width } }
+                                property int countToWidth: lyricItem.nowPosition > wordItem.word.offset && lyricItem.isFlowActive ? width + 16 : 0
+                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = wordItem.word.duration / mainLyrics.playbackRate * (width + 16) / width } }
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y

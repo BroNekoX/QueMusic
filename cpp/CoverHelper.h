@@ -54,15 +54,18 @@ public:
         QString artist;
     };
 
-    // 单次 TagLib 打开：提取内嵌封面缩略图写入 cacheDir 并返回 file:// URL；
+    // 封面缓存两档边长：列表只要缩略图，播放页/详情页才要接近原尺寸的大图
+    static constexpr int kThumbSize = 64;   // 列表（我的文件夹 / 本地文件夹 / WebDAV）
+    static constexpr int kCoverSize = 512;  // 播放页、歌曲信息、桌面歌词
+
+    // 单次 TagLib 打开：提取内嵌封面按 maxSize 缩放后写入 cacheDir（JPEG）并返回 file:// URL；
     // metaOut 非空时顺带带回 title/artist（同名 .json 优先）。
-    // 无共享可变状态，可在工作线程调用。
+    // 缓存文件名带尺寸，两档互不覆盖；无共享可变状态，可在工作线程调用。
     static QString readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
-                                    Metadata *metaOut = nullptr);
+                                    Metadata *metaOut = nullptr, int maxSize = kCoverSize);
     static Metadata readMetadata(const QFileInfo &fileInfo, TagLib::FileRef *openRef = nullptr);
 
 private:
-    static QImage toImage(const QVariant &value);
     static Metadata metadataFromTag(TagLib::FileRef &ref);
 
     QString m_cacheDir;

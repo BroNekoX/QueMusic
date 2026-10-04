@@ -336,7 +336,8 @@ void WebDavModel::warmCovers()
             }
             const QString local = WebDavCache::cachedAudioFor(url);
             const QString cover = local.isEmpty() ? QString()
-                                                  : CoverHelper::readCoverFromTag(local, coverDir);
+                                                  : CoverHelper::readCoverFromTag(local, coverDir, nullptr,
+                                                                                  CoverHelper::kThumbSize);
             if (!cover.isEmpty())
                 covers.insert(url, cover);
         }

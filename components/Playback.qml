@@ -77,22 +77,32 @@ QtObject {
         goTo(i)
     }
 
+    // 队列 source：-1 本地文件；3 WebDAV（沿用旧值，QQ 音乐未实现故不冲突）
+    readonly property int kSourceWebDav: 3
+
+    // source 文案：本地文件与 WebDAV（播的是本地缓存）都算本地
+    function sourceText(source: int): string {
+        return source < 0 || source == kSourceWebDav ? "本地" : "在线"
+    }
+
     // WebDAV：已缓存则直接播本地；否则带鉴权头直连，同时后台缓存（落地后回填元数据/封面/歌词）
-    function playWebDav(url: string, name: string): void {
+    function playWebDav(url: string, name: string, artist: string): void {
+        const sidecars = WebDav.sidecarsOf(url)
         const cached = WebDavCache.localPathFor(url)
         if (cached !== "") {
             playLocalSong(cached, name)
+            if (artist !== "") musicArtist = artist    // 先用已知歌手，TAG 读到后覆盖
             return
         }
         localLyricsRequestPath = ""
         player.noTitle = name
         musicTitle = name
-        musicArtist = ""
+        musicArtist = artist
+        player.urlStr = sidecars.coverUrl || ""
         MusicApi.lyricsData = []
         MusicApi.lyricsTranslate = []
         const auth = WebDav.authHeaderOfUrl(url)
         player.sourceHeaders = auth !== "" ? { "Authorization": auth } : {}
-        const sidecars = WebDav.sidecarsOf(url)
         WebDavCache.cache(url, auth, sidecars.lyricsUrl || "", sidecars.coverUrl || "")
         swap(function() {
             player.source = url
@@ -106,7 +116,7 @@ QtObject {
         const e = queue.get(index)
         // 用 == 而非 ===，且不要对 e 取反：AOT 下这两种写法会导致切歌闪退
         if (e.path == undefined) return
-        if (e.source == 3) playWebDav(e.path, e.name)
+        if (e.source == kSourceWebDav) playWebDav(e.path, e.name, e.songer)
         else if (e.source < 0) playLocalSong(e.path, e.name)
         else MusicApi.getMusicInfo(e.path, 0, e.source)
     }

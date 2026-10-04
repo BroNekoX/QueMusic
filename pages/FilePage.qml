@@ -40,6 +40,16 @@ Item {
             function() { localFileModel.deleteFiles([path]) })
     }
 
+    // 本地条目播放/入队：按 path 查重（在线曲的 path 是 hash，不会与本地路径撞车）
+    function playLocalEntry(path: string, title: string, artist: string): void {
+        Playback.playItem({ name: title, path: path, songer: artist, source: -1 })
+    }
+
+    function enqueueLocalEntry(path: string, title: string, artist: string): void {
+        Style.warned(Playback.enqueue({ name: title, path: path, songer: artist, source: -1 })
+                     ? "已加入播放列表" : "已在播放列表中", 1)
+    }
+
     function toggleChoose(key: var): void {
         filePage.chooseIndex = filePage.chooseIndex.indexOf(key) === -1
             ? filePage.chooseIndex.concat([key])
@@ -294,7 +304,7 @@ Item {
                 // 右侧操作区
                 Row {
                     x: parent.width - width - 16
-                    y: 11
+                    y: 13
                     z: 2
                     spacing: 8
                     QButton {
@@ -547,7 +557,7 @@ Item {
                 // 右侧操作区
                 Row {
                     x: parent.width - width - 16
-                    y: 11
+                    y: 13
                     z: 2
                     spacing: 8
                     QButton {
@@ -1117,14 +1127,8 @@ Item {
                                     filePage.toggleChoose(listfile.songId);
                                     return;
                                 }
-                                Playback.playLocalSong(listfile.path, listfile.songTitle);
-                                const musicName = listfile.songTitle;
-                                const musicPath = listfile.path;
-                                const listIndex = Options.queue.indexOfName(musicName);
-                                if (listIndex == -1) {
-                                    Options.queue.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
-                                    Options.queue.playListIndex = Options.queue.count - 1;
-                                }
+                                filePage.playLocalEntry(listfile.path, listfile.songTitle,
+                                                        listfile.artistName);
                             } else {
                                 fileView.menu.index = index;
                                 filePage.menuRow = { path: listfile.path, title: listfile.songTitle,
@@ -1149,15 +1153,8 @@ Item {
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
-                                onClicked: {
-                                    const musicName = listfile.songTitle;
-                                    const musicPath = listfile.path;
-                                    const listIndex = Options.queue.indexOfName(musicName);
-                                    if (listIndex == -1) {
-                                        Options.queue.append({ name: musicName, path: musicPath, songer: listfile.artistName, source: -1 });
-                                        Style.warned("已加入播放列表", 1);
-                                    }
-                                }
+                                onClicked: filePage.enqueueLocalEntry(listfile.path, listfile.songTitle,
+                                                                      listfile.artistName)
                             }
                             SButton {
                                 id: fileOpen
@@ -1510,14 +1507,8 @@ Item {
                                     filePage.toggleChoose(listLocalFile.fileUrl.toString());
                                     return;
                                 }
-                                Playback.playLocalSong(listLocalFile.fileUrl.toString(), listLocalFile.songTitle);
-                                const musicName = listLocalFile.songTitle;
-                                const musicPath = listLocalFile.fileUrl.toString();
-                                const listIndex = Options.queue.indexOfName(musicName);
-                                if (listIndex == -1) {
-                                    Options.queue.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
-                                    Options.queue.playListIndex = Options.queue.count - 1;
-                                }
+                                filePage.playLocalEntry(listLocalFile.fileUrl.toString(),
+                                                        listLocalFile.songTitle, listLocalFile.artistName);
                             } else {
                                 localFileView.menu.index = listLocalFile.index;
                                 filePage.menuRow = { path: listLocalFile.fileUrl.toString(), title: listLocalFile.songTitle,
@@ -1541,14 +1532,9 @@ Item {
                                 hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
-                                onClicked: {
-                                    const musicName = listLocalFile.songTitle;
-                                    const musicPath = listLocalFile.fileUrl.toString();
-                                    const listIndex = Options.queue.indexOfName(musicName);
-                                    if (listIndex == -1) {
-                                        Options.queue.append({ name: musicName, path: musicPath, songer: listLocalFile.artistName, source: -1 });
-                                    }
-                                }
+                                onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(),
+                                                                      listLocalFile.songTitle,
+                                                                      listLocalFile.artistName)
                             }
                             SButton {
                                 iconCharacter: "\uf107"

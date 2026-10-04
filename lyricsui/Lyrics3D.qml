@@ -373,13 +373,13 @@ Item {
                             width: (panelCol.width - 24) / 4
                             height: 38
                             radius: 10
-                            color: index === root.presetIndex ? root.mainColor : "#26ffffff"
+                            color: index === root.presetIndex ? root.mainColor : Style.primaryColor
                             border.width: 1
-                            border.color: index === root.presetIndex ? root.mainColor : "#33ffffff"
+                            border.color: index === root.presetIndex ? root.mainColor : Style.sideColor
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData.n
-                                color: "#ffffff"
+                                color: Style.textColor
                                 font.pixelSize: 11
                                 font.family: Style.settings.fontFamily
                             }

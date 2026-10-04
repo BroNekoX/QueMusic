@@ -54,7 +54,7 @@ QtObject {
                 if (item)
                     mediaId = item.path
             }
-            mgr.updateMediaInfo(Playback.musicTitle, Playback.musicArtist, player.album,
+            mgr.updateMediaInfo(Playback.musicTitle, Playback.musicArtist, player.albumTitle,
                                 player.urlStr, mediaId)
         })
     }

@@ -462,7 +462,8 @@ void SongModel::enrichBatch()
             EnrichResult result;
             result.row = slice.at(i);
             CoverHelper::Metadata meta;
-            result.coverUrl = CoverHelper::readCoverFromTag(paths.at(i), cacheDir, &meta);
+            result.coverUrl = CoverHelper::readCoverFromTag(paths.at(i), cacheDir, &meta,
+                                                            CoverHelper::kThumbSize);
             result.title = meta.title;
             result.artist = meta.artist;
             out.append(result);

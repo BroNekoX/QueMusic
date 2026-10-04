@@ -161,10 +161,7 @@ void GetWave::setRenderWindow(QQuickWindow *window)
         disconnect(m_frameConnection);
     m_renderWindow = window;
     if (m_renderWindow)
-        // 用 afterAnimating：Qt 文档明确它是 GUI 线程信号、且可用于同步外部动画系统。
-        // 比 frameSwapped 少一次队列投递，也不会在渲染线程 emit 触发 QML 绑定
-        m_frameConnection = connect(m_renderWindow, &QQuickWindow::afterAnimating,
-                                    this, &GetWave::updateSpectrum);
+        m_frameConnection = connect(m_renderWindow, &QQuickWindow::afterAnimating, this, &GetWave::updateSpectrum);
     emit renderWindowChanged();
 }
 
