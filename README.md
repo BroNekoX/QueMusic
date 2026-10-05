@@ -25,6 +25,8 @@
 
 ## 📋 必读
 
+### QueMusic官网已推出，快速获取文档及下载内容：[quemusic.top](https://quemusic.top)
+
 #### 国内快速下载本应用及历史版本：
 
 永久下载链接：[下载](https://pan.baidu.com/s/1Z14cgxzb44mi8HauS8F8zA?pwd=63sn) 提取码: 63sn

@@ -19,8 +19,8 @@ QtObject {
     property int exitIndex: 0          // 要求主界面切到的页
     property bool homeLoaded: false    // 首页是否已加载过
     property bool recordingShortCut: false
-    readonly property string version: "0.5.1"
-    readonly property int versionCode: 51
+    readonly property string version: "0.6.0"
+    readonly property int versionCode: 60
     readonly property int pluginApi: 10
 
     // 配置存储，后续也可以存储在服务器数据库中

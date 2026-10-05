@@ -16,10 +16,7 @@ Item {
     // 账号登录面板展开状态
     property bool neteaseShowLogin: false
     property bool kugouShowLogin: false
-    // 扫码被风控时展开的备用登录方式（手机号 / 粘贴 Cookie）
     property bool neteaseAltVisible: false
-    // 手机号登录的输入框在弹窗的 options（Component）里，弹窗外层读不到那些 id，
-    // 所以由输入框把内容上报上来，弹窗底部的「取消」按钮据此变成「确认登录」
     property string neteasePhone: ""
     property string neteaseCaptcha: ""
     readonly property bool neteasePhoneReady: neteasePhone !== "" && neteaseCaptcha !== ""
