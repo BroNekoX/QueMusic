@@ -2573,7 +2573,7 @@ Item {
                         text: "QueMusic Web"
                         iconCharacter: "\uf0d7"
                         onClicked: {
-                            Qt.openUrlExternally("https://8.133.18.144");
+                            Qt.openUrlExternally("https://quemusic.top");
                         }
                     }
 

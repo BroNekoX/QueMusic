@@ -274,7 +274,7 @@ jobs:
           APP_NAME="QueMusic"
           # 按构建机实际架构命名（arm64 / x86_64），避免文件名与实际不符导致用户下错包
           ARCH_NAME="$(uname -m)"
-          DMG_NAME="${APP_NAME}-$(git describe --tags --always)-macOS-${ARCH_NAME}.dmg"
+          DMG_NAME="${APP_NAME}-macOS-${ARCH_NAME}.dmg"
           echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
           hdiutil create -volname "${APP_NAME}" \
             -srcfolder "${APP_PATH}" \

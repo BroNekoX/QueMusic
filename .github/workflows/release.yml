@@ -80,6 +80,10 @@ jobs:
     needs: [linux-x86, linux-arm64, macos, linux-tar]
     runs-on: ubuntu-24.04
     steps:
+      # gh 要靠本地 .git 才能推断仓库与 tag（缺失即报 fatal: not a git repository）
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
       - name: 下载三个平台的产物
         uses: actions/download-artifact@v4
         with:
@@ -91,6 +95,8 @@ jobs:
       - name: 创建（或更新）Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 双保险：显式给出仓库，gh 不再依赖本地 .git
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag }}
           TITLE: ${{ inputs.title }}
           NOTES: ${{ inputs.notes }}
