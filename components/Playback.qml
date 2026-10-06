@@ -260,7 +260,6 @@ cover: player.urlStr || "",
         onTriggered: root.armFadeIn()
     }
 
-    // 音量
     readonly property real volumeStep: Options.settings.volumeStep / 100
     function setVolume(v: real): void { Options.settings.musicVolume = Math.max(0, Math.min(1, v)) }
     function stepVolume(d: real): void { setVolume(Options.settings.musicVolume + d) }

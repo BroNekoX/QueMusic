@@ -9,7 +9,6 @@
 #include <QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -895,4 +894,3 @@ void AccountManager::setKugouQr(int state, const QString &msg, const QString &qr
     m_kugouQrMessage = msg;
     emit kugouQrChanged();
 }
-

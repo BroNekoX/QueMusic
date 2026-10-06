@@ -421,14 +421,6 @@ void AudioEngine::stop()
     requestSeek(0);
 }
 
-void AudioEngine::togglePause()
-{
-    if (m_playbackState == PlayingState)
-        pause();
-    else
-        play();
-}
-
 void AudioEngine::setPosition(qint64 ms)
 {
     const qint64 bound = m_durationMs > 0 ? qMin(ms, m_durationMs) : ms;
@@ -623,6 +615,14 @@ void AudioEngine::setNoTitle(const QString &name)
         return;
     m_noTitle = name;
     emit noTitleChanged();
+}
+
+void AudioEngine::setAlbum(const QString &name)
+{
+    if (m_album == name)
+        return;
+    m_album = name;
+    emit albumChanged();
 }
 
 // ------------------------------------------------------------------ 状态发布

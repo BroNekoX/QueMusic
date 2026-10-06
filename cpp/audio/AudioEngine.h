@@ -50,9 +50,11 @@ class AudioEngine : public QObject
     Q_PROPERTY(bool pitchCompensation READ pitchCompensation WRITE setPitchCompensation NOTIFY pitchCompensationChanged)
     Q_PROPERTY(qreal pitchSemitones READ pitchSemitones WRITE setPitchSemitones NOTIFY pitchChanged)
     Q_PROPERTY(QString deviceId READ deviceId WRITE setDeviceId NOTIFY deviceIdChanged)
-    // 展示用信息：封面 URL 与列表显示名由 QML 侧注入（引擎不关心来源）；onMedia 派生自 mediaStatus
+    // 展示用信息：封面 URL、列表显示名、专辑名由 QML 侧注入（引擎不关心来源）；
+    // 专辑走 TagLib 读出的值（Qt 自己的元数据解析对部分格式不可靠）；onMedia 派生自 mediaStatus
     Q_PROPERTY(QString urlStr READ urlStr WRITE setUrlStr NOTIFY urlStrChanged)
     Q_PROPERTY(QString noTitle READ noTitle WRITE setNoTitle NOTIFY noTitleChanged)
+    Q_PROPERTY(QString album READ album WRITE setAlbum NOTIFY albumChanged)
     Q_PROPERTY(bool onMedia READ onMedia NOTIFY mediaStatusChanged)
 
     Q_PROPERTY(QString title READ title NOTIFY metaDataChanged)
@@ -136,6 +138,8 @@ public:
     void setUrlStr(const QString &url);
     QString noTitle() const { return m_noTitle; }
     void setNoTitle(const QString &name);
+    QString album() const { return m_album; }
+    void setAlbum(const QString &name);
     // 有媒体（含加载中/已加载/播放中/结束）：派生值，随 mediaStatusChanged 更新
     bool onMedia() const { return m_mediaStatus != NoMedia; }
 
@@ -201,7 +205,6 @@ public:
     Q_INVOKABLE void play();
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
-    Q_INVOKABLE void togglePause();
     // 淡变在音频线程逐样本完成，与 GUI 调度无关
     Q_INVOKABLE void fadeTo(qreal target, int ms);
     Q_INVOKABLE void fadeOut(int ms);
@@ -231,6 +234,7 @@ signals:
     void deviceIdChanged();
     void urlStrChanged();
     void noTitleChanged();
+    void albumChanged();
     void outputFormatChanged();
     void eqChanged();
     void dspChanged();
@@ -305,6 +309,7 @@ private:
     QString m_deviceId;
     QString m_urlStr;      // 封面 URL（QML 注入，仅供展示）
     QString m_noTitle;     // 列表显示名 / 文件名（QML 注入，仅供展示）
+    QString m_album;       // 专辑名（QML 注入，仅供展示）
     std::atomic<bool> m_pitchCompensation{false};
     std::atomic<int> m_rateMilli{1000};
     std::atomic<int> m_stretchSpeedMilli{1000};

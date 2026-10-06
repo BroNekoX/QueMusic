@@ -32,7 +32,6 @@ public:
     Q_INVOKABLE void cache(const QString &url, const QString &authHeader,
                            const QString &lyricsUrl = QString(),
                            const QString &coverUrl = QString());
-    Q_INVOKABLE void clear();
 
 signals:
     void cached(const QString &url, const QString &localPath);

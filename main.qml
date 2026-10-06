@@ -694,13 +694,21 @@ Window {
 
     CoverHelper {
         id: coverHelper
+        // 本次播放 json 给出的封面（空表示这首歌没有 json 封面）
+        property string jsonCover: ""
         onLocalCoverReady: (path, coverUrl) => {
             if (path !== Playback.localLyricsRequestPath)
                 return;
+            // 内嵌 > 同目录图片；都取不到时保留 json 封面，确实没有才退回占位图
             const localCover = coverUrl || coverHelper.findLocalCover(path);
-            mainMedia.urlStr = localCover || "qrc:/QueMusic/resources/app/musicpic.png";
-            if (localCover)
-                colorExtractor.extractColorsFromUrl(localCover);
+            if (localCover) {
+                if (localCover !== mainMedia.urlStr) {
+                    mainMedia.urlStr = localCover;
+                    colorExtractor.extractColorsFromUrl(localCover);
+                }
+            } else if (!jsonCover) {
+                mainMedia.urlStr = "qrc:/QueMusic/resources/app/musicpic.png";
+            }
         }
     }
 
@@ -772,12 +780,14 @@ Window {
                 MusicApi.setLocalLyrics();
             MusicApi.readLocalLyricsAsync(filePath, meta.title || mainMedia.noTitle,
                                           meta.artist || "", meta.duration || 0, !hasMetaLyrics);
+            // 封面优先级：内嵌 > 同名 json。json 的 cover 多是在线 URL，离线或防盗链时加载不出来，
+            // 先顶上让界面立刻有图；内嵌封面始终提取（否则「json 里有 cover」会让内嵌永远不被读取）
+            coverHelper.jsonCover = meta.cover || "";
             if (meta.cover) {
                 mainMedia.urlStr = meta.cover;
                 colorExtractor.extractColorsFromUrl(meta.cover);
-            } else {
-                coverHelper.findEmbeddedCoverAsync(filePath);
             }
+            coverHelper.findEmbeddedCoverAsync(filePath);
         }
     }
 
@@ -793,7 +803,7 @@ Window {
 
     AudioEngine {
         id: mainMedia
-        // 封面初值；noTitle / onMedia 由引擎提供，专辑等元数据直接读 albumTitle / mediaDate / mediaType
+        // 封面初值；urlStr / noTitle / album 由 QML 侧注入（见 MusicApi 回调），onMedia 派生自 mediaStatus
         urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
 
         source: ""

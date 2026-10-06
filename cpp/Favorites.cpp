@@ -237,5 +237,3 @@ bool FavoritesModel::isFavorite(const QString &id, const QString &type) const
 
     return false;
 }
-
-

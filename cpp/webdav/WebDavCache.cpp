@@ -227,8 +227,3 @@ void WebDavCache::prune()
         total -= entry.size;
     }
 }
-
-void WebDavCache::clear()
-{
-    QDir(DbService::cacheDir() + QStringLiteral("/webdav")).removeRecursively();
-}

@@ -16,7 +16,6 @@ Item {
     width: settingStack.standWidth
     height: isBigItem ? 116 : 64
 
-    // 标签
     Text {
         id: label
         x: 20; y: 13
@@ -24,7 +23,6 @@ Item {
         text: settingItem.label
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.settings.textmain + 1
-        //font.bold: true
         color: Style.fontColor
     }
     Text {

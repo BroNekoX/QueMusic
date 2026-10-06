@@ -221,7 +221,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.settings.textmain
-                        text: Playback.player.albumTitle
+                        text: Playback.player.album
                         color: Style.textColor
                         readOnly: true
                         selectByMouse: true

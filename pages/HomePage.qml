@@ -665,6 +665,7 @@ Item {
                         required property string album
                         required property real playcount
                         required property real duration
+                        required property var model
                         width: 148
                         height: 256
                         radius: Style.settings.labelRadius
@@ -693,7 +694,7 @@ Item {
                                 MusicApi.playlistSong.clear();
                                 MusicApi.globalid = hotPlayRow.hash;
                                 MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
-                                hotlistsWindow.opened(model);
+                                hotlistsWindow.opened(hotPlayRow.model);
                                 Options.exitIndex = 1;
                             }
                         }

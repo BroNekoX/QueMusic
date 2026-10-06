@@ -94,7 +94,6 @@ Window {
             fillMode: Image.PreserveAspectCrop
         }
 
-        // 标题
         Text {
             id: playerTitle
             x: 102

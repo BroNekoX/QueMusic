@@ -4,6 +4,7 @@
 #include "WebDavModel.h"
 
 #include "CoverHelper.h"
+#include "DbService.h"
 #include "WebDavCache.h"   // 已落地的封面按缓存的同一规则查
 
 #include <QFutureWatcher>
@@ -327,7 +328,7 @@ void WebDavModel::warmCovers()
     });
     watcher->setFuture(QtConcurrent::run([pending]() {
         QHash<QString, QString> covers;
-        const QString coverDir = CoverHelper::defaultCacheDir();
+        const QString coverDir = DbService::cacheDir();
         for (const QString &url : pending) {
             const QString sidecar = WebDavCache::cachedCoverFor(url);   // 同目录 cover.*
             if (!sidecar.isEmpty()) {
@@ -336,8 +337,7 @@ void WebDavModel::warmCovers()
             }
             const QString local = WebDavCache::cachedAudioFor(url);
             const QString cover = local.isEmpty() ? QString()
-                                                  : CoverHelper::readCoverFromTag(local, coverDir, nullptr,
-                                                                                  CoverHelper::kThumbSize);
+                                                  : CoverHelper::readCoverFromTag(local, coverDir);
             if (!cover.isEmpty())
                 covers.insert(url, cover);
         }

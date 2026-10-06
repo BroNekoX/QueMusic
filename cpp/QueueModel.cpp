@@ -5,7 +5,6 @@
 
 #include <QSet>
 
-// 继承QListModel自定义
 QueueModel::QueueModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -104,7 +103,6 @@ void QueueModel::insert(int index, const QVariantMap &item)
     endInsertRows();
     // 缓存永远与 m_items 行号一致：插入会让 index 及其后每一行的行号整体 +1，
     // 只记录新行会让后续行的缓存索引全部失效，所以统一在模型变更信号之后整体重建。
-    // （rebuildIndex() 对重复 path 取首次出现的行，与 indexOfName() 的首次匹配语义一致。）
     rebuildIndex();
     emit countChanged();
 }
@@ -158,18 +156,9 @@ int QueueModel::indexOfPath(const QString &path) const
     return m_indexOfPath.value(path, -1);
 }
 
-int QueueModel::indexOfName(const QString &name) const
-{
-    for (int i = 0; i < m_items.size(); ++i)
-        if (m_items.at(i).name == name)
-            return i;
-    return -1;
-}
-
-// 唯一的不变量：缓存永远与 m_items 行号一致。
-// 即 indexOfPath(p) 必须等于「m_items 中 path == p 的第一行」的行号；重复 path 取首次出现
-// （与 indexOfName() 的首次匹配语义一致），空 path 不入缓存，查不到时返回 -1。
-// 所有修改操作（insert/remove/move）都在模型变更信号之后整体重建，不做增量维护。
+// 唯一的不变量：缓存永远与 m_items 行号一致 —— indexOfPath(p) 等于「path == p 的第一行」的行号，
+// 重复 path 取首次出现，空 path 不入缓存，查不到返回 -1。
+// insert/remove/move 都在模型变更信号之后整体重建，不做增量维护。
 void QueueModel::rebuildIndex()
 {
     m_indexOfPath.clear();

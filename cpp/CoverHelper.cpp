@@ -11,15 +11,14 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
-#include <QHashFunctions>
 #include <QMultiMap>
 #include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QStandardPaths>
 #include <QUrl>
 
 #include <fileref.h>
@@ -43,6 +42,10 @@ QString metadataCacheKey(const QFileInfo &fi)
                                 .toUtf8();
     return QString::fromLatin1(QCryptographicHash::hash(seed, QCryptographicHash::Sha1).toHex());
 }
+
+// 旧版带尺寸后缀的缓存名，如 cover-<sha1>-64.jpg
+const QRegularExpression kSizedCoverName(
+    QStringLiteral("^cover-[0-9a-f]{40}-\\d+\\.(?:jpg|png)$"));
 
 // TagLib 字符串统一转 UTF-8，避免中文乱码
 QString tagToQString(const TagLib::String &value)
@@ -81,15 +84,9 @@ QString localPathFromSource(const QString &sourcePath)
 
 } // namespace
 
-QString CoverHelper::defaultCacheDir()
-{
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-           + QStringLiteral("/cache");
-}
-
 CoverHelper::CoverHelper(QObject *parent)
     : QObject(parent)
-    , m_cacheDir(defaultCacheDir())
+    , m_cacheDir(DbService::cacheDir())
 {
     QDir().mkpath(m_cacheDir);
 }
@@ -132,94 +129,130 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
 }
 
 QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
-                                      Metadata *metaOut, int maxSize)
+                                      Metadata *metaOut, bool *failedOut)
 {
-    const int size = qMax(16, maxSize);
+    if (failedOut)
+        *failedOut = false;
     const QString localPath = localPathFromSource(sourcePath);
     const QFileInfo fi(localPath);
     if (metaOut)
         *metaOut = Metadata();
-    if (!fi.isFile())
+    if (!fi.isFile()) {
+        if (failedOut)
+            *failedOut = true;   // 文件暂时不可用，留待重试
         return QString();
+    }
 
-    // 文件名带尺寸与格式：小图/大图两档互不复用，旧版 .png 缓存文件也自然作废
-    const QString cacheFilePath = cacheDir + QStringLiteral("/cover-")
-                                  + metadataCacheKey(fi) + QLatin1Char('-')
-                                  + QString::number(size) + QStringLiteral(".jpg");
-    if (QFileInfo::exists(cacheFilePath)) {
+    // 一首歌只有一个封面缓存文件（JPEG，写不出去才退 PNG），与用途无关
+    const QString base = cacheDir + QStringLiteral("/cover-") + metadataCacheKey(fi);
+    const QString cachedJpg = base + QStringLiteral(".jpg");
+    const QString cachedPng = base + QStringLiteral(".png");
+    const bool hasJpg = QFileInfo::exists(cachedJpg);
+    if (hasJpg || QFileInfo::exists(cachedPng)) {
         if (metaOut)
             *metaOut = readMetadata(fi);
-        return QUrl::fromLocalFile(cacheFilePath).toString();
+        return QUrl::fromLocalFile(hasJpg ? cachedJpg : cachedPng).toString();
+    }
+
+    if (!QDir().mkpath(cacheDir)) {
+        qWarning() << "[cover] 缓存目录不可用:" << cacheDir;
+        if (failedOut)
+            *failedOut = true;
+        return QString();
     }
 
     const QByteArray encodedPath = QFile::encodeName(localPath);
     TagLib::FileRef ref(encodedPath.constData(), false);
-    QString coverUrl;
-    if (!ref.isNull() && ref.file() != nullptr) {
-        if (metaOut)
-            *metaOut = readMetadata(fi, &ref);
+    if (ref.isNull() || ref.file() == nullptr) {
+        // 典型情形是文件正被播放占用：等空闲时（列表扫描）再提取
+        qWarning() << "[cover] 无法打开音频文件读取封面:" << localPath;
+        if (failedOut)
+            *failedOut = true;
+        return QString();
+    }
+    if (metaOut)
+        *metaOut = readMetadata(fi, &ref);
 
-        TagLib::ByteVector coverData;
+    TagLib::ByteVector coverData;
 
-        if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(ref.file())) {
-            if (auto *id3v2 = mpeg->ID3v2Tag()) {
-                const auto frames = id3v2->frameList("APIC");
-                for (auto *frame : frames) {
-                    auto *pic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
-                    if (!pic || pic->picture().isEmpty())
-                        continue;
-                    if (pic->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) {
-                        coverData = pic->picture();
-                        break;
-                    }
-                    if (coverData.isEmpty())
-                        coverData = pic->picture();
-                }
-            }
-        } else if (auto *flac = dynamic_cast<TagLib::FLAC::File *>(ref.file())) {
-            const auto pictures = flac->pictureList();
-            for (auto *pic : pictures) {
-                if (!pic || pic->data().isEmpty())
+    if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(ref.file())) {
+        if (auto *id3v2 = mpeg->ID3v2Tag()) {
+            const auto frames = id3v2->frameList("APIC");
+            for (auto *frame : frames) {
+                auto *pic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
+                if (!pic || pic->picture().isEmpty())
                     continue;
-                if (pic->type() == TagLib::FLAC::Picture::FrontCover) {
-                    coverData = pic->data();
+                if (pic->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) {
+                    coverData = pic->picture();
                     break;
                 }
                 if (coverData.isEmpty())
-                    coverData = pic->data();
-            }
-        } else if (auto *mp4 = dynamic_cast<TagLib::MP4::File *>(ref.file())) {
-            if (mp4->tag()) {
-                const TagLib::MP4::CoverArtList covers =
-                    mp4->tag()->item("covr").toCoverArtList();
-                for (const auto &cover : covers) {
-                    if (!cover.data().isEmpty()) {
-                        coverData = cover.data();
-                        break;
-                    }
-                }
+                    coverData = pic->picture();
             }
         }
-
-        if (!coverData.isEmpty()) {
-            QImage image;
-            image.loadFromData(QByteArray(coverData.data(), coverData.size()));
-            if (!image.isNull()) {
-                // 覆盖式缩放：短边不小于目标值，配合 QML 的 PreserveAspectCrop 不会被拉糊
-                if (qMax(image.width(), image.height()) > size)
-                    image = image.scaled(size, size, Qt::KeepAspectRatioByExpanding,
-                                         Qt::SmoothTransformation);
-                // JPEG 没有 alpha 通道，带透明通道的封面先转 RGB，免得存出来发黑
-                if (image.hasAlphaChannel())
-                    image = image.convertToFormat(QImage::Format_RGB32);
-                QSaveFile out(cacheFilePath);
-                if (out.open(QIODevice::WriteOnly) && image.save(&out, "JPEG", 88) && out.commit())
-                    coverUrl = QUrl::fromLocalFile(cacheFilePath).toString();
+    } else if (auto *flac = dynamic_cast<TagLib::FLAC::File *>(ref.file())) {
+        const auto pictures = flac->pictureList();
+        for (auto *pic : pictures) {
+            if (!pic || pic->data().isEmpty())
+                continue;
+            if (pic->type() == TagLib::FLAC::Picture::FrontCover) {
+                coverData = pic->data();
+                break;
+            }
+            if (coverData.isEmpty())
+                coverData = pic->data();
+        }
+    } else if (auto *mp4 = dynamic_cast<TagLib::MP4::File *>(ref.file())) {
+        if (mp4->tag()) {
+            const TagLib::MP4::CoverArtList covers = mp4->tag()->item("covr").toCoverArtList();
+            for (const auto &cover : covers) {
+                if (!cover.data().isEmpty()) {
+                    coverData = cover.data();
+                    break;
+                }
             }
         }
     }
 
-    return coverUrl;
+    if (coverData.isEmpty())   // 没有内嵌封面是常见情况，不值得刷日志，也不需要重试
+        return QString();
+
+    QImage image;
+    image.loadFromData(QByteArray(coverData.data(), coverData.size()));
+    if (image.isNull()) {
+        qWarning() << "[cover] 内嵌封面解码失败:" << localPath;
+        if (failedOut)
+            *failedOut = true;
+        return QString();
+    }
+
+    // 覆盖式缩放：短边不小于目标值，配合 QML 的 PreserveAspectCrop 不会被拉糊
+    if (qMax(image.width(), image.height()) > kCoverSize)
+        image = image.scaled(kCoverSize, kCoverSize, Qt::KeepAspectRatioByExpanding,
+                             Qt::SmoothTransformation);
+    // JPEG 没有 alpha 通道，带透明通道的封面先转 RGB，免得存出来发黑
+    if (image.hasAlphaChannel())
+        image = image.convertToFormat(QImage::Format_RGB32);
+
+    QSaveFile out(cachedJpg);
+    if (out.open(QIODevice::WriteOnly) && image.save(&out, "JPEG", 88) && out.commit())
+        return QUrl::fromLocalFile(cachedJpg).toString();
+
+    QSaveFile png(cachedPng);   // 构建里万一没有 JPEG 支持
+    if (png.open(QIODevice::WriteOnly) && image.save(&png, "PNG") && png.commit())
+        return QUrl::fromLocalFile(cachedPng).toString();
+
+    qWarning() << "[cover] 封面缓存写入失败:" << cachedJpg;
+    if (failedOut)
+        *failedOut = true;
+    return QString();
+}
+
+bool CoverHelper::isLegacyCover(const QString &coverUrl)
+{
+    if (coverUrl.isEmpty())
+        return false;
+    return kSizedCoverName.match(QFileInfo(QUrl(coverUrl).toLocalFile()).fileName()).hasMatch();
 }
 
 QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
@@ -239,6 +272,7 @@ void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
     connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, sourcePath]() {
         const QString coverUrl = watcher->result();
         watcher->deleteLater();
+        // 空结果也要回传：QML 据此决定保留 json 封面还是回退占位图
         emit localCoverReady(sourcePath, coverUrl);
     });
     watcher->setFuture(QtConcurrent::run([localPath, cacheDir]() {
@@ -308,8 +342,7 @@ void CoverHelper::clearCache()
     if (!dir.mkpath(m_cacheDir))
         qWarning() << "Failed to recreate cache directory:" << m_cacheDir;
 
-    // 文件删了，DB 里存的封面路径就成了死链（QML 会一路报「无法打开 cover-xxx.jpg」）：
-    // 清掉引用并标记未提取，下次打开列表时按小图档重新提取
+    // 文件删了，DB 里存的封面路径就成了死链：清掉引用并标记未提取，下次打开列表时重新提取
     DbService::instance()->submit([](QSqlDatabase &db) {
         QSqlQuery query(db);
         if (!query.exec(QStringLiteral("UPDATE songs SET tagged = 0, tag_cover = ''")))
@@ -357,5 +390,3 @@ void CoverHelper::pruneCache(int maxMB)
         }
     });
 }
-
-

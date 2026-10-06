@@ -119,7 +119,6 @@ Rectangle {
         }
     }
 
-    //标题
     Item {
         x: 10
         y: 10

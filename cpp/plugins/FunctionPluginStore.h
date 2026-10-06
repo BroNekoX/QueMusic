@@ -22,7 +22,6 @@ public:
     static FunctionPluginStore *create(QQmlEngine *, QJSEngine *) { return new FunctionPluginStore(); }
 
     const QStringList &enabledIds() const { return m_enabled; }
-    Q_INVOKABLE bool isEnabled(const QString &id) const { return m_enabled.contains(id); }
     Q_INVOKABLE void setEnabled(const QString &id, bool on);
 
     Q_INVOKABLE void rescan() override;

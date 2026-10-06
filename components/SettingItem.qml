@@ -13,7 +13,6 @@ Item {
     width: settingStack.standWidth
     height: isBigItem ? 76 : 36
 
-    // 标签
     Text {
         id: label
         x: 0; y: 0

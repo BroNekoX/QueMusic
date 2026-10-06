@@ -6,11 +6,13 @@
 #include "CoverHelper.h"
 #include "DbService.h"
 
+#include <QFileInfo>
 #include <QFutureWatcher>
 #include <QPointer>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QtConcurrent/QtConcurrentRun>
+#include <QUrl>
 
 #include <algorithm>
 
@@ -22,6 +24,7 @@ struct EnrichResult {
     QString title;
     QString artist;
     QString coverUrl;
+    bool failed = false;   // 读取失败（非「确实没有封面」），不要落 tagged，留待下次重试
 };
 
 constexpr int kEnrichBatchSize = 64;
@@ -395,7 +398,13 @@ void SongModel::startEnrichment()
 
     m_enrichPending.clear();
     for (int i = 0; i < m_items.size(); ++i) {
-        if (!m_items.at(i).tagged)
+        const SongItem &item = m_items.at(i);
+        // 缓存文件被清理过（tag_cover 指向不存在的文件）或还是旧版带尺寸后缀的缓存名都要重提：
+        // 否则这一行要么永远空封面，要么一直用低分辨率的旧图
+        const bool coverStale = !item.tagCoverUrl.isEmpty()
+                                && (!QFileInfo(QUrl(item.tagCoverUrl).toLocalFile()).exists()
+                                    || CoverHelper::isLegacyCover(item.tagCoverUrl));
+        if (!item.tagged || coverStale)
             m_enrichPending.append(i);
     }
     if (m_enrichPending.isEmpty())
@@ -443,12 +452,14 @@ void SongModel::enrichBatch()
             item.tagTitle = result.title;
             item.tagArtist = result.artist;
             item.tagCoverUrl = result.coverUrl;
-            item.tagged = true;
+            item.tagged = !result.failed;
+            emit dataChanged(index(result.row), index(result.row), roles);
+            if (result.failed)   // 本次没读到就别写库，下次打开列表还能再试
+                continue;
             ids.append(item.id);
             titles.append(result.title);
             artists.append(result.artist);
             covers.append(result.coverUrl);
-            emit dataChanged(index(result.row), index(result.row), roles);
         }
         persistTags(ids, titles, artists, covers);
         enrichBatch();
@@ -463,7 +474,7 @@ void SongModel::enrichBatch()
             result.row = slice.at(i);
             CoverHelper::Metadata meta;
             result.coverUrl = CoverHelper::readCoverFromTag(paths.at(i), cacheDir, &meta,
-                                                            CoverHelper::kThumbSize);
+                                                            &result.failed);
             result.title = meta.title;
             result.artist = meta.artist;
             out.append(result);

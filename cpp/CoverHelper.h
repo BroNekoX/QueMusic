@@ -5,11 +5,8 @@
 #define COVERHELPER_H
 
 #include <QFileInfo>
-#include <QFutureWatcher>
-#include <QImage>
 #include <QObject>
 #include <QString>
-#include <QVariant>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 namespace TagLib {
@@ -25,16 +22,13 @@ class CoverHelper : public QObject
 public:
     explicit CoverHelper(QObject *parent = nullptr);
 
-    // 默认封面缓存目录（实例与「其它地方也要提取封面」的调用方共用同一处，避免两套路径）
-    static QString defaultCacheDir();
-
     // 音频同目录查找同名/常见命名封面（cover/folder/AlbumArt），未命中返回空
     Q_INVOKABLE QString findLocalCover(const QString &sourcePath);
 
     // 读取音频文件内嵌封面（ID3v2 APIC / FLAC Picture / MP4 covr）
     Q_INVOKABLE QString findEmbeddedCover(const QString &sourcePath);
 
-    // 工作线程提取内嵌封面（含图像解码与缓存落盘），经 localCoverReady 回传
+    // 工作线程取内嵌封面（命中缓存直接回传），经 localCoverReady 回传
     Q_INVOKABLE void findEmbeddedCoverAsync(const QString &sourcePath);
 
     Q_INVOKABLE void clearCache();
@@ -54,15 +48,16 @@ public:
         QString artist;
     };
 
-    // 封面缓存两档边长：列表只要缩略图，播放页/详情页才要接近原尺寸的大图
-    static constexpr int kThumbSize = 64;   // 列表（我的文件夹 / 本地文件夹 / WebDAV）
-    static constexpr int kCoverSize = 512;  // 播放页、歌曲信息、桌面歌词
+    // 内嵌封面统一按这一档缓存成 cover-<key>.jpg，列表与播放页共用，解码尺寸交给 QML 的 sourceSize
+    static constexpr int kCoverSize = 512;
 
-    // 单次 TagLib 打开：提取内嵌封面按 maxSize 缩放后写入 cacheDir（JPEG）并返回 file:// URL；
-    // metaOut 非空时顺带带回 title/artist（同名 .json 优先）。
-    // 缓存文件名带尺寸，两档互不覆盖；无共享可变状态，可在工作线程调用。
+    // 旧版缓存名带尺寸后缀（cover-<key>-64.jpg），命中说明是过期缓存、需要重提
+    static bool isLegacyCover(const QString &coverUrl);
+
+    // TagLib 打开音频取内嵌封面：命中缓存直接返回，否则缩到 kCoverSize 写入 cacheDir（JPEG）。
+    // metaOut 非空时顺带带回 title/artist（同名 .json 优先）；failedOut 区分「没读到」与「确实没有封面」。
     static QString readCoverFromTag(const QString &sourcePath, const QString &cacheDir,
-                                    Metadata *metaOut = nullptr, int maxSize = kCoverSize);
+                                    Metadata *metaOut = nullptr, bool *failedOut = nullptr);
     static Metadata readMetadata(const QFileInfo &fileInfo, TagLib::FileRef *openRef = nullptr);
 
 private:

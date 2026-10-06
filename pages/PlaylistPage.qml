@@ -343,6 +343,7 @@ Item {
                     MusicApi.playlistSong.clear();
                     MusicApi.globalid = model.get(index).hash;
                     MusicApi.getPlaylistSongs(model.get(index).hash,1,20);
+                    playListSongsWindow.listType = 0;
                     //var image = model.get(index).cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
                     //var title = model.get(index).title;
                     playListSongsWindow.opened(model.get(index));
@@ -376,6 +377,7 @@ Item {
                     required property string title
                     required property string artist
                     required property string hash
+                    required property var model
                     width: 156
                     height: 216
                     radius: Style.settings.labelRadius
@@ -444,9 +446,9 @@ Item {
                         onClicked: {
                             MusicApi.playlistSong.clear();
                             MusicApi.globalid = toplistCard.hash;
-                            playListSongsWindow.listType = "toplist";
+                            playListSongsWindow.listType = 1;
                             MusicApi.getMusicToplist(1, 20, Number(toplistCard.hash), toplistCard.source);
-                            playListSongsWindow.opened(model);
+                            playListSongsWindow.opened(toplistCard.model);
                             Options.exitIndex = 2;
                         }
                     }
@@ -606,13 +608,13 @@ Item {
         id: playListSongsWindow
         mainTarget: playlistChildPage
         winIndex: 2
-        property string listType: "playlist"   // playlist 歌单 / toplist 榜单
+        property int listType: 0   // 0 歌单 / 1 榜单
         function reload(page: int): void {
             const id = MusicApi.globalid;
-            if (listType === "toplist")
+            if (listType === 1)
                 MusicApi.getMusicToplist(page, 20, Number(id), MusicApi.songSource);
             else
-                MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
+                MusicApi.getPlaylistSongs(Number(id), page, 20, MusicApi.songSource);
         }
         content: Item {
             QListView {

@@ -190,7 +190,6 @@ Window {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
 
-                // 上一首
                 SButton {
                     width: 36; height: 36; radius: Style.settings.labelRadius
                     iconCharacter: "\uf0dc"
@@ -216,7 +215,6 @@ Window {
                     QTip { visible: parent.hovered; text: Playback.player.playing ? "暂停" : "播放" }
                 }
 
-                // 下一首
                 SButton {
                     width: 36; height: 36; radius: Style.settings.labelRadius
                     iconCharacter: "\uf0d9"
