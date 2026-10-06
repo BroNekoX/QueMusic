@@ -549,5 +549,5 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何 Pro、Ultr
 
 <p align="center">
   <sub>Written for QueMusic Project</sub><br/>
-  <sub>最后更新：2026-09-26 · 版本 0.5.1</sub>
+  <sub>最后更新：2026-10-06 · 版本 0.6.0</sub>
 </p>

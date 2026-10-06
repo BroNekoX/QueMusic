@@ -62,8 +62,14 @@ if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 endif()
 
-# Linux 也要把 QWindowKit 动态库放到 exe 旁边
-if(NOT WIN32)
+# QWindowKit运行时库
+set(QUEMUSIC_QWK_RUNTIME_COPY ON)
+if(QWINDOWKIT_BUILD_STATIC)
+    set(QUEMUSIC_QWK_RUNTIME_COPY OFF)
+endif()
+
+# Linux / macOS 要把 QWindowKit 动态库放到可执行文件旁边
+if(NOT WIN32 AND QUEMUSIC_QWK_RUNTIME_COPY)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:QWindowKit::Core>
@@ -321,12 +327,15 @@ if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32 crypt32)
 
     # QWindowKit 的 DLL 输出在 _deps 下，需拷到 exe 同目录，否则运行时找不到 QWKCore/QWKQuick
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:QWindowKit::Core>
-                $<TARGET_FILE:QWindowKit::Quick>
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMENT "Copying QWindowKit runtime libraries next to the executable...")
+    # （静态库已链进 exe，无需拷贝，见上方 QUEMUSIC_QWK_RUNTIME_COPY）
+    if(QUEMUSIC_QWK_RUNTIME_COPY)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:QWindowKit::Core>
+                    $<TARGET_FILE:QWindowKit::Quick>
+                    $<TARGET_FILE_DIR:${PROJECT_NAME}>
+            COMMENT "Copying QWindowKit runtime libraries next to the executable...")
+    endif()
 
     # FFmpeg 运行库须项目自带（解码层直接链接 avcodec/avformat，Qt 部署不再提供）；
     # 缺目录直接报错，不静默跳过，否则应用能启动但无法播放

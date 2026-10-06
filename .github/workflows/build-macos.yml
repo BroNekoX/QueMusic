@@ -241,9 +241,9 @@ jobs:
             < <(find "$APP_PATH" -depth -type d -name "*.framework" -print0)
 
           # 2) 其余 .dylib / .so；framework 内部的跳过（上一步已按 bundle 签过）
-          #    注意这里必须扫整个 .app，不能只扫 Frameworks 和 PlugIns：
-          #    QWindowKit 把 libQWKCore.dylib 放在 Contents/MacOS/ 下，漏掉它签 .app 本体时就会报
-          #    "code object is not signed at all / In subcomponent: .../MacOS/libQWKCore.dylib"。
+          #    必须扫整个 .app，不能只扫 Frameworks 和 PlugIns：落在其它子目录（如 Contents/MacOS/）
+          #    的动态库漏签时，签 .app 本体会报
+          #    "code object is not signed at all / In subcomponent: .../<漏签的库>"。
           while IFS= read -r -d '' lib; do
             case "$lib" in *".framework/"*) continue ;; esac
             sign_item "$lib"
