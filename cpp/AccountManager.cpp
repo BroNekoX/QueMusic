@@ -9,6 +9,7 @@
 #include <QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
+#include <QDesktopServices>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -52,7 +53,7 @@ AccountManager::AccountManager(QObject *parent)
     m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
 
     // 启动即后台取设备凭证，避免首次登录被风控拦截
-    (void)QtConcurrent::run([this]() { ensureNeteaseAnonymousToken(); });
+    (void)QtConcurrent::run(&m_pool, [this]() { ensureNeteaseAnonymousToken(); });
 }
 
 AccountManager::~AccountManager()
@@ -62,6 +63,8 @@ AccountManager::~AccountManager()
         m_neteasePollTimer->stop();
     if (m_kugouPollTimer)
         m_kugouPollTimer->stop();
+    // 等登录任务退出：worker 捕获裸 this，线程还在跑就析构会 UAF
+    m_pool.waitForDone();
     // m_api 由进程退出时自然释放，这里不主动 delete 以免与后台线程的阻塞 invoke 竞争
 }
 
@@ -230,7 +233,7 @@ void AccountManager::sendNeteaseCaptcha(const QString &phone)
     }
     m_neteasePollTimer->stop();
     setNeteaseQr(QrWaiting, QStringLiteral("正在发送验证码…"));
-    (void)QtConcurrent::run([this, p]() {
+    (void)QtConcurrent::run(&m_pool, [this, p]() {
         ensureNeteaseAnonymousToken(); // 先备好设备凭证
         const QVariantMap res = m_api->invoke(
             QStringLiteral("captcha_sent"),
@@ -267,8 +270,9 @@ void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QStri
         return;
     }
     m_neteasePollTimer->stop();
+    m_neteaseVerifyUrl.clear();
     setNeteaseQr(QrWaiting, QStringLiteral("正在登录…"));
-    (void)QtConcurrent::run([this, p, code]() {
+    (void)QtConcurrent::run(&m_pool, [this, p, code]() {
         ensureNeteaseAnonymousToken(); // 缺 MUSIC_A 会被判"登录存在安全风险"
         const QVariantMap res = m_api->invoke(
             QStringLiteral("login_cellphone"),
@@ -279,19 +283,33 @@ void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QStri
         const int bcode = body.value(QStringLiteral("code")).toInt();
         const QString cookie = res.value(QStringLiteral("cookie")).toString();
         const QString msg = body.value(QStringLiteral("message")).toString();
-        if (bcode != 200)
-            qWarning().noquote() << QStringLiteral("[网易云] 手机号登录失败 status=%1 code=%2 message=%3 cookie=%4 MUSIC_A=%5")
+        if (bcode != 200) {
+            // 打完整响应体：10003/10004 这类风控码的 body 里常带"需要二次验证/设备验证"之类的
+            // 字段，只看 code/message 无从判断下一步该做什么（网易云的 message 只是给用户看的白话）
+            const QString bodyJson = QString::fromUtf8(
+                QJsonDocument(QJsonObject::fromVariantMap(body)).toJson(QJsonDocument::Compact));
+            qWarning().noquote() << QStringLiteral("[网易云] 手机号登录失败 status=%1 code=%2 message=%3 cookie=%4 MUSIC_A=%5 body=%6")
                                         .arg(res.value(QStringLiteral("status")).toInt())
                                         .arg(bcode).arg(msg)
                                         .arg(cookie.isEmpty() ? QStringLiteral("空") : QStringLiteral("非空"))
-                                        .arg(m_neteaseAnonymousToken.isEmpty() ? QStringLiteral("无") : QStringLiteral("有"));
+                                        .arg(m_neteaseAnonymousToken.isEmpty() ? QStringLiteral("无") : QStringLiteral("有"))
+                                        .arg(bodyJson.left(900));
+        }
+        // 账号安全风险拦截时网易云返回的验证页：只在失败响应里给，别丢
+        const QString verifyUrl = body.value(QStringLiteral("redirectUrl")).toString();
         QMetaObject::invokeMethod(
             this,
-            [this, bcode, cookie, msg] {
+            [this, bcode, cookie, msg, verifyUrl] {
+                const bool urlChanged = (m_neteaseVerifyUrl != verifyUrl);
+                m_neteaseVerifyUrl = verifyUrl;
                 if (bcode != 200 || cookie.isEmpty()) {
                     setNeteaseQr(QrError,
-                                 QStringLiteral("登录失败：%1")
-                                     .arg(msg.isEmpty() ? QStringLiteral("验证码错误或已过期") : msg));
+                                 verifyUrl.isEmpty()
+                                     ? QStringLiteral("登录失败：%1")
+                                           .arg(msg.isEmpty() ? QStringLiteral("验证码错误或已过期") : msg)
+                                     : QStringLiteral("账号被判定存在安全风险，请用手机 App 扫码完成验证后再登录"));
+                    if (urlChanged)
+                        emit neteaseQrChanged();
                     return;
                 }
                 storeNeteaseCookieString(cookie);
@@ -366,7 +384,7 @@ void AccountManager::startNeteaseQrLogin()
     setNeteaseQr(QrWaiting, QStringLiteral("正在获取二维码…"));
 
     // 登录走 QCloudMusicApi 的 login_qr_* 接口（同步阻塞），放到线程池执行避免卡 UI
-    (void)QtConcurrent::run([this]() { neteaseFetchQrWorker(); });
+    (void)QtConcurrent::run(&m_pool, [this]() { neteaseFetchQrWorker(); });
 }
 
 void AccountManager::neteaseFetchQrWorker()
@@ -434,7 +452,9 @@ void AccountManager::cancelNeteaseQrLogin()
 
 void AccountManager::logoutNetease()
 {
-    m_neteasePollTimer->stop();
+    // 置取消位并清 unikey：否则在途轮询结果回来会被当成登录成功，退出后又变回已登录
+    cancelNeteaseQrLogin();
+    m_neteaseUnikey.clear();
     m_neteaseLoggedIn = false;
     m_neteaseNickname.clear();
     m_neteaseAvatar.clear();
@@ -443,10 +463,18 @@ void AccountManager::logoutNetease()
     m_jar->setCookiesFromUrl({}, QUrl(QStringLiteral("https://music.163.com")));
 
     clearLoginSettings(QStringLiteral("Netease"));
+    m_neteaseVerifyUrl.clear();
 
     setNeteaseQr(QrWaiting, QStringLiteral("已退出登录"));
     emit neteaseLoginChanged();
     emit message(QStringLiteral("已退出网易云账号"), 0);
+}
+
+void AccountManager::openNeteaseVerifyUrl()
+{
+    if (m_neteaseVerifyUrl.isEmpty())
+        return;
+    QDesktopServices::openUrl(QUrl(m_neteaseVerifyUrl));
 }
 
 void AccountManager::pollNetease()
@@ -462,7 +490,7 @@ void AccountManager::pollNetease()
     }
     // 登录走 QCloudMusicApi，invoke 为阻塞调用，放到线程池执行避免卡 UI
     const QString key = m_neteaseUnikey;
-    (void)QtConcurrent::run([this, key]() { neteasePollWorker(key); });
+    (void)QtConcurrent::run(&m_pool, [this, key]() { neteasePollWorker(key); });
 }
 
 void AccountManager::onNeteaseQrFetched(const QString &unikey, const QString &qrurl)
