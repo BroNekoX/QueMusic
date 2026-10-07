@@ -105,6 +105,19 @@ Item {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
             }
+            // 账号安全风险拦截：网易云给了验证页链接就让用户直接打开处理
+            QButton {
+                visible: AccountManager.neteaseVerifyUrl !== ""
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "去完成安全验证"
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                buttonColor: Style.themeColor
+                textColor: Style.primaryColor
+                onClicked: AccountManager.openNeteaseVerifyUrl()
+            }
             QButton {
                 visible: AccountManager.neteaseQrState === 3 || AccountManager.neteaseQrState === 4
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -230,6 +243,19 @@ Item {
                     font.pixelSize: Style.settings.textmain - 3
                     wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
+                }
+
+                QButton {
+                    visible: AccountManager.neteaseVerifyUrl !== ""
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "去完成安全验证"
+                    width: 150
+                    height: 36
+                    radius: Style.settings.labelRadius
+                    shadowEnabled: false
+                    buttonColor: Style.themeColor
+                    textColor: Style.primaryColor
+                    onClicked: AccountManager.openNeteaseVerifyUrl()
                 }
             }
 

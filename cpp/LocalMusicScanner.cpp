@@ -388,8 +388,11 @@ void LocalMusicScanner::deleteFiles(const QVariantList &paths)
         if (!path.isEmpty())
             list.append(path);
     }
-    if (list.isEmpty())
+    if (list.isEmpty()) {
+        // 空列表也要回信号：QML 的模态进度框靠它关闭，否则整个窗口卡死
+        emit deleteFinished(0, 0);
         return;
+    }
 
     if (!m_deleting) {
         m_deleting = true;

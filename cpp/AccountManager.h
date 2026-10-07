@@ -12,6 +12,7 @@
 
 #include <QNetworkCookieJar>
 #include <QObject>
+#include <QThreadPool>
 #include <QTimer>
 
 class QNetworkAccessManager;
@@ -41,6 +42,8 @@ class AccountManager : public QObject
     Q_PROPERTY(QString neteaseQrText READ neteaseQrText NOTIFY neteaseQrChanged)
     Q_PROPERTY(int neteaseQrState READ neteaseQrState NOTIFY neteaseQrChanged)
     Q_PROPERTY(QString neteaseQrMessage READ neteaseQrMessage NOTIFY neteaseQrChanged)
+    // 账号安全风险拦截时网易云返回的验证页（需用官方 App 扫码完成验证）
+    Q_PROPERTY(QString neteaseVerifyUrl READ neteaseVerifyUrl NOTIFY neteaseQrChanged)
     // 酷狗
     Q_PROPERTY(bool kugouLoggedIn READ isKugouLoggedIn NOTIFY kugouLoginChanged)
     Q_PROPERTY(QString kugouNickname READ kugouNickname NOTIFY kugouLoginChanged)
@@ -86,6 +89,7 @@ public:
     QString neteaseQrText() const { return m_neteaseQrText; }
     int neteaseQrState() const { return m_neteaseQrState; }
     QString neteaseQrMessage() const { return m_neteaseQrMessage; }
+    QString neteaseVerifyUrl() const { return m_neteaseVerifyUrl; }
 
     bool isKugouLoggedIn() const { return m_kugouLoggedIn; }
     QString kugouNickname() const { return m_kugouNickname; }
@@ -103,6 +107,7 @@ public slots:
     void startNeteaseQrLogin();
     void cancelNeteaseQrLogin();
     void logoutNetease();
+    Q_INVOKABLE void openNeteaseVerifyUrl();
 
     void startKugouQrLogin();
     void cancelKugouQrLogin();
@@ -182,6 +187,7 @@ private:
     QString m_neteaseQrText;
     int m_neteaseQrState = QrWaiting;
     QString m_neteaseQrMessage;
+    QString m_neteaseVerifyUrl;
     QString m_kugouQrText;
     int m_kugouQrState = QrWaiting;
     QString m_kugouQrMessage;
@@ -196,6 +202,7 @@ private:
 
     // 网易云登录走 QCloudMusicApi（login_qr_* 接口），由其内部维护 cookie
     ApiHelper *m_api = nullptr;
+    QThreadPool m_pool;               // 登录任务专用池：析构等它即可，不必等全局池
     QAtomicInt m_neteaseBusy{0};      // 防止并发调用阻塞的 invoke
     QAtomicInt m_neteaseCancelled{0}; // 取消/退出登录时置位
 
