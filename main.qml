@@ -11,7 +11,7 @@ import QtQuick.Controls.Basic
 Window {
     id: window
     width: 1140
-    height: 720
+    height: 760
     minimumWidth: 810
     minimumHeight: 540
     color: Style.primaryColor
