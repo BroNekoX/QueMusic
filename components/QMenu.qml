@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Effects
@@ -17,8 +18,8 @@ Menu {
     background: Rectangle {
         implicitWidth: 160
         implicitHeight: 40
-        color: Style.primaryColor
-        radius: Style.settings.labelRadius
+        color: Theme.primaryColor
+        radius: Style.labelRadius
         RectangularShadow {
             anchors.fill: parent
             z: -1
@@ -27,7 +28,7 @@ Menu {
             radius: parent.radius
             blur: 20
             spread: 0
-            color: Style.shadowColor
+            color: Theme.shadowColor
         }
     }
 
@@ -42,24 +43,24 @@ Menu {
                 implicitHeight: 36
                 x: 2
                 y: 2
-                radius: Style.settings.labelRadius - 2
+                radius: Style.labelRadius - 2
                 width: menuItem.width - 4
                 height: menuItem.height - 4
-                color: index === dialog.current ? Style.containColor
-                     : (menuItem.down || menuItem.highlighted) ? Style.hoverColor
+                color: menuItem.index === dialog.current ? Theme.containColor
+                     : (menuItem.down || menuItem.highlighted) ? Theme.hoverColor
                      : "transparent"
             }
             text: modelData
             //显式指定contentItem，
             contentItem: Text {
                 text: menuItem.text
-                color: index === dialog.current ? Style.themeColor : Style.fontColor//使用项目主题文字色，深浅色主题下都可读
-                font.pixelSize: Style.settings.textmain
+                color: menuItem.index === dialog.current ? Theme.themeColor : Theme.fontColor
+                font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: 12
                 elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
             }
-            onTriggered: dialog.clicked(index)
+            onTriggered: dialog.clicked(menuItem.index)
         }
         onObjectAdded: (i, obj) => dialog.insertItem(i, obj)
         onObjectRemoved: (i, obj) => dialog.removeItem(obj)

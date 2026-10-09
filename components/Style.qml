@@ -1,68 +1,70 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2025-2026 QueMusic Contributors
+// Copyright (c) 2026 QueMusic Contributors
 //
+// 样式配置存储。
 pragma Singleton
 import QtQuick
-import QueMusic 1.0
+import QtCore
 
-QtObject {
-    // Style.settings.name
-    // Style.name
-    readonly property bool darkis: settings.theme === 0 ? false : settings.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
-    onDarkisChanged: {
-        Style.changeTheme();
-    }
+Settings {
+    category: "Style"
 
-    // 配置存储，后续也可以存储在服务器数据库中
-    property StyleSettings settings: StyleSettings {}
+    // 全局主题-参考设置页面
+    property int theme: 0 //主题样式
+    property int color: 0 //主题色
+    property list<color> colorList: ["#3481fa", "#34fa4a", "#faad34", "#ad34fa"]
+    property int backmode: 0 //背景模式
+    property int backpic: 0 //背景图片选择
 
-    signal changeUi()
-    signal changeTheme()
-    signal warned(string text,int type)
-    onChangeTheme: {
-        const hue = settings.colorList[settings.color].hsvHue;
-        themes.fontColor = darkis ? "#f5f5f7" : "#1d1d1f";
-        themes.textColor = darkis ? "#bebec2" : "#5e5e61";
-        themes.fullColor = darkis ? "#1c1c1e" : "#ffffff";
-        themes.hoverColor = darkis ? "#10ffffff" : "#0a000000";
-        themes.sideColor = darkis ?  "#4a4a4e" : "#e9e9ee";
-        themes.sideBlurColor = darkis ? "#954a4a4e" : "#95e9e9ee";
+    // 阴影,模糊,发光效果
+    property real shadowBlur: 1.0 //阴影模糊
+    property int shadowXOffset: 5
+    property int shadowYOffset: 5
+    property int shadowSize: 16
+    property int blurSize: 48
+    property bool highQualityBlur: false //高质量模糊
 
-        themes.containColor = darkis ? Qt.hsva(hue,0.55,0.38,1.0) : Qt.hsva(hue,0.14,1.0,1.0);
-        themes.containOutColor = darkis ? Qt.hsva(hue,0.2,1.0,1.0) : Qt.hsva(hue,0.9,0.4,1.0);
-        themes.themeColor = settings.colorList[settings.color];
+    // 文字统一
+    property int textH1: 22
+    property int textH2: 17
+    property int textmain: 13
+    property int text: 12
+    property int textTip: 11 //小提示
+    property int texticon: 16
+    property int pageTitle: 26 //页头
+    property int texticonH: 22
 
-        themes.primaryColor = darkis ? Qt.hsva(hue,0.10,0.17,1.0) : Qt.hsva(hue,0.01,1.0,1.0);
-        themes.primaryBlurColor = darkis ? Qt.hsva(hue,0.10,0.17,0.82) : Qt.hsva(hue,0.01,1.0,0.72);
-        themes.secondaryColor = darkis ? Qt.hsva(hue,0.10,0.12,1.0) : Qt.hsva(hue,0.015,0.973,1.0);
-        themes.secondaryBlurColor = darkis ? Qt.hsva(hue,0.10,0.12,0.82) : Qt.hsva(hue,0.015,0.973,0.72);
-        themes.borderColor = darkis ? Qt.hsva(hue,0.08,0.24,1.0) : Qt.hsva(hue,0.02,0.97,1.0);
-        themes.blurOverlayColor = darkis ? Qt.hsva(hue,0.08,0.14,0.62) : Qt.hsva(hue,0.01,1.0,0.55);
-        themes.blurSecondaryColor = darkis ? Qt.hsva(hue,0.10,0.16,0.62) : Qt.hsva(hue,0.02,0.97,0.55);
-        themes.shadowColor = darkis ? Qt.hsva(hue,0.9,0.03,0.3) : Qt.hsva(hue,0.9,0.2,0.1);
-        themes.themeShadowColor = darkis ? Qt.hsva(hue,1.0,0.5,0.3) : Qt.hsva(hue,1.0,0.6,0.3);
-    }
+    // 全局UI控件
+    property int labelRadius: 12
+    property int cubeRadius: 16
+    property bool noControlRadius: false
+    property real borderDepth: 0.08 //边框透明度
+    property bool layerEnabled: true
+    property bool premiumAnime: false //高级动画
+    property int animeSpeed: 1
+    property int homeLayout: 0 //首页布局 0.默认 1.竖向 2.混合
+    property bool noOpacityControl: false //透明底部播放栏
 
-    // 主题色板同样抽成独立的 StyleThemes 类型（详见 StyleThemes.qml 说明）
-    property StyleThemes themes: StyleThemes {}
+    // UI设置
+    property bool sidebarColor: false
+    property int sidebarStyle: 1
+    property int animeType: 0
+    property int menutheme: 1
+    //1.material 2.fluent
+    property int glmode: 0
+    property int uilevel: 0
 
-    // 镜像
-    readonly property color themeColor: themes.themeColor
-    readonly property color fontColor: themes.fontColor
-    readonly property color textColor: themes.textColor
-    readonly property color fullColor: themes.fullColor
-    readonly property color hoverColor: themes.hoverColor
-    readonly property color sideColor: themes.sideColor
-    readonly property color sideBlurColor: themes.sideBlurColor
-    readonly property color containColor: themes.containColor
-    readonly property color containOutColor: themes.containOutColor
-    readonly property color primaryColor: themes.primaryColor
-    readonly property color primaryBlurColor: themes.primaryBlurColor
-    readonly property color secondaryColor: themes.secondaryColor
-    readonly property color secondaryBlurColor: themes.secondaryBlurColor
-    readonly property color borderColor: themes.borderColor
-    readonly property color blurOverlayColor: themes.blurOverlayColor
-    readonly property color blurSecondaryColor: themes.blurSecondaryColor
-    readonly property color shadowColor: themes.shadowColor
-    readonly property color themeShadowColor: themes.themeShadowColor
+    // 歌词界面
+    property int lyricSize: 10
+    property int flowStyle: 1 // 流体背景算法：0=Fluid 1=Classic 2=静态渐变
+    property bool waveDisplay: true //显示音波效果
+    property bool premiumLyricAnime: true //高级逐行弹簧动画
+    property int textWidth: 600
+    property bool maskBlur: true
+    property bool lyricHideGui: true
+
+    property string fontFamily
+
+    // 背景图片
+    property string backgroundImage: "qrc:/QueMusic/resources/pic/back2.jpg"
 }

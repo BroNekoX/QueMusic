@@ -27,12 +27,12 @@ class GetWave : public QObject, public AudioSpectrumSink, public AudioSpectrumSo
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(AudioEngine* engine READ engine WRITE setEngine NOTIFY engineChanged)
-    Q_PROPERTY(QList<qreal> spectrumData READ spectrumData NOTIFY spectrumChanged)
-    Q_PROPERTY(int bands READ bands WRITE setBands NOTIFY bandsChanged)
-    Q_PROPERTY(QVector<QPointF> wavePath READ wavePath NOTIFY wavePathChanged)
-    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
-    Q_PROPERTY(QQuickWindow* renderWindow READ renderWindow WRITE setRenderWindow NOTIFY renderWindowChanged)
+    Q_PROPERTY(AudioEngine* engine READ engine WRITE setEngine NOTIFY engineChanged FINAL)
+    Q_PROPERTY(QList<qreal> spectrumData READ spectrumData NOTIFY spectrumChanged FINAL)
+    Q_PROPERTY(int bands READ bands WRITE setBands NOTIFY bandsChanged FINAL)
+    Q_PROPERTY(QVector<QPointF> wavePath READ wavePath NOTIFY wavePathChanged FINAL)
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged FINAL)
+    Q_PROPERTY(QQuickWindow* renderWindow READ renderWindow WRITE setRenderWindow NOTIFY renderWindowChanged FINAL)
 
 public:
     explicit GetWave(QObject *parent = nullptr);

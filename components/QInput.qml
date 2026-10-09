@@ -8,10 +8,10 @@ Rectangle {
     id: root
     implicitWidth: 200
     implicitHeight: 36
-    radius: Style.settings.labelRadius
-    color: Style.fullColor
+    radius: Style.labelRadius
+    color: Theme.fullColor
     border.width: input.focus ? 2 : 1
-    border.color: input.focus ? Style.themeColor : Style.sideColor
+    border.color: input.focus ? Theme.themeColor : Theme.sideColor
     signal entered()
     property alias inputText: input.text
     property alias echoMode: input.echoMode
@@ -20,8 +20,8 @@ Rectangle {
         anchors.fill: parent
         anchors.leftMargin: 14
         anchors.rightMargin: 14
-        color: Style.fontColor
-        font.pixelSize: Style.settings.textmain
+        color: Theme.fontColor
+        font.pixelSize: Style.textmain
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
         clip: true

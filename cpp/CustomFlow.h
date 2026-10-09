@@ -9,8 +9,8 @@ class CustomFlow : public QQuickItem
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged)
-    Q_PROPERTY(Alignment alignment READ alignment WRITE setAlignment NOTIFY alignmentChanged)
+    Q_PROPERTY(double spacing READ spacing WRITE setSpacing NOTIFY spacingChanged FINAL)
+    Q_PROPERTY(Alignment alignment READ alignment WRITE setAlignment NOTIFY alignmentChanged FINAL)
 
 public:
     enum Alignment {

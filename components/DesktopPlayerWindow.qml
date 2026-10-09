@@ -79,9 +79,9 @@ Window {
         anchors.fill: parent
         radius: 12
         z: 1
-        color: Style.primaryColor
+        color: Theme.primaryColor
         border.width: 2
-        border.color: Style.sideColor
+        border.color: Theme.sideColor
 
         Image {
             x: 16
@@ -105,7 +105,7 @@ Window {
             font.bold: true
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
-            color: Style.fontColor
+            color: Theme.fontColor
         }
 
         // 艺术家
@@ -119,7 +119,7 @@ Window {
             elide: Text.ElideRight
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
-            color: Style.textColor
+            color: Theme.textColor
         }
 
         // 进度条
@@ -140,12 +140,12 @@ Window {
                 width: seekSlider.availableWidth
                 height: 4
                 radius: 2
-                color: Style.secondaryColor
+                color: Theme.secondaryColor
                 Rectangle {
                     width: seekSlider.visualPosition * parent.width
                     height: parent.height
                     radius: 2
-                    color: Style.themeColor
+                    color: Theme.themeColor
                 }
             }
             handle: Rectangle {
@@ -154,9 +154,9 @@ Window {
                 width: 12
                 height: 12
                 radius: 6
-                color: Style.primaryColor
+                color: Theme.primaryColor
                 border.width: 2
-                border.color: Style.themeColor
+                border.color: Theme.themeColor
                 visible: seekSlider.hovered || seekSlider.pressed
             }
         }
@@ -170,7 +170,7 @@ Window {
             height: 16
             text: Playback.fmt(Playback.player.position) + " / " + Playback.fmt(Playback.player.duration)
             font.pixelSize: 11
-            color: Style.textColor
+            color: Theme.textColor
             horizontalAlignment: Text.AlignRight
         }
 
@@ -183,15 +183,15 @@ Window {
                 height: 36
                 radius: 18
                 buttonColor: "transparent"
-                hoverColor: Style.hoverColor
-                iconColor: Style.textColor
+                hoverColor: Theme.hoverColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
-                iconSize: Style.settings.texticon
+                iconSize: Style.texticon
                 onClicked: {
-                    if(Options.settings.cycleIndex < 3) {
-                        Options.settings.cycleIndex += 1;
+                    if(Config.cycleIndex < 3) {
+                        Config.cycleIndex += 1;
                     } else {
-                        Options.settings.cycleIndex = 0;
+                        Config.cycleIndex = 0;
                     }
                 }
                 tipText: "播放顺序"
@@ -203,10 +203,10 @@ Window {
                 height: 36
                 radius: 18
                 iconCharacter: "\uf0dc"
-                iconSize: Style.settings.texticon
+                iconSize: Style.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.hoverColor
-                iconColor: Style.textColor
+                hoverColor: Theme.hoverColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
                 onClicked: Playback.previous()
                 tipText: "上一首"
@@ -217,10 +217,10 @@ Window {
                 height: 36
                 radius: 18
                 iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
-                iconSize: Style.settings.texticon + 2
-                buttonColor: Style.secondaryBlurColor
-                hoverColor: Style.hoverColor
-                iconColor: Style.textColor
+                iconSize: Style.texticon + 2
+                buttonColor: Theme.secondaryBlurColor
+                hoverColor: Theme.hoverColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
                 onClicked: Playback.togglePlay()
                 tipText: Playback.player.playing ? "暂停" : "播放"
@@ -231,10 +231,10 @@ Window {
                 height: 36
                 radius: 18
                 iconCharacter: "\uf0d9"
-                iconSize: Style.settings.texticon
+                iconSize: Style.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.hoverColor
-                iconColor: Style.textColor
+                hoverColor: Theme.hoverColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
                 onClicked: Playback.next(false)
                 tipText: "下一首"
@@ -245,10 +245,10 @@ Window {
                 height: 36
                 radius: 17
                 iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
-                iconSize: Style.settings.texticon
+                iconSize: Style.texticon
                 buttonColor: "transparent"
-                hoverColor: Style.hoverColor
-                iconColor: Style.textColor
+                hoverColor: Theme.hoverColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
                 onClicked: {
                     if(desktopPlayerWindow.topWindow) {
@@ -272,14 +272,14 @@ Window {
             height: 32
             radius: 16
             iconCharacter: "\uf025"
-            iconSize: Style.settings.texticon
+            iconSize: Style.texticon
             buttonColor: "transparent"
             hoverColor: Qt.rgba(1.0, 0.4, 0.4, 0.4)
-            iconColor: Style.textColor
+            iconColor: Theme.textColor
             shadowEnabled: false
             onClicked: {
-                desktopPlayer.desktopPlayerMode = 0;
-                desktopPlayerLoader.active = false;
+                Options.desktop.desktopPlayerMode = 0;
+                Options.desktopPlayerLoader.active = false;
             }
 
             tipText: "关闭"

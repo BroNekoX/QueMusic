@@ -18,9 +18,9 @@ Column {
     readonly property int trackTop: 6
     readonly property int trackHeight: faderHeight - 40
     readonly property var sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
-    property color cardColor: Style.primaryColor
+    property color cardColor: Theme.primaryColor
     property int display: 0
-    property int controlWidth: settingStack.standWidth
+    property int controlWidth
 
     QHead { visible: panel.display === 0; width: panel.width; text: "均衡器与音频处理" }
 
@@ -28,7 +28,7 @@ Column {
         width: panel.width
         height: statusRow.height + 20
         color: panel.cardColor
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         visible: panel.display == 0 || panel.display == 1
 
         Row {
@@ -37,8 +37,8 @@ Column {
             y: 10
             spacing: 24
             Text {
-                font.pixelSize: Style.settings.textTip
-                color: Style.textColor
+                font.pixelSize: Style.textTip
+                color: Theme.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine
                       ? (panel.engine.codecName + " · " + panel.engine.sourceSampleRate + " Hz · "
@@ -46,22 +46,22 @@ Column {
                       : "无音源"
             }
             Text {
-                font.pixelSize: Style.settings.textTip
-                color: Style.textColor
+                font.pixelSize: Style.textTip
+                color: Theme.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine ? "输出 " + panel.engine.outputFormatName : ""
             }
             Text {
-                font.pixelSize: Style.settings.textTip
-                color: Style.textColor
+                font.pixelSize: Style.textTip
+                color: Theme.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine
                       ? "解码 " + panel.engine.decodeSampleRate + " Hz · 缓冲 " + panel.engine.bufferMs + " ms"
                       : ""
             }
             Text {
-                font.pixelSize: Style.settings.textTip
-                color: panel.engine && panel.engine.dspActive ? Style.themeColor : Style.textColor
+                font.pixelSize: Style.textTip
+                color: panel.engine && panel.engine.dspActive ? Theme.themeColor : Theme.textColor
                 verticalAlignment: Text.AlignVCenter
                 text: panel.engine && panel.engine.dspActive
                       ? "DSP 已介入 · 增益 " + panel.engine.effectiveGainDb.toFixed(1) + " dB"
@@ -73,7 +73,7 @@ Column {
     Rectangle {
         width: panel.width
         color: panel.cardColor
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         height: eqColumn.height
         visible: panel.display == 0 || panel.display == 1
 
@@ -266,7 +266,7 @@ Column {
                                 width: 6
                                 height: fader.trackH
                                 radius: 3
-                                color: Style.sideColor
+                                color: Theme.sideColor
                             }
 
                             Rectangle {
@@ -274,14 +274,14 @@ Column {
                                 y: fader.centerY
                                 width: 22
                                 height: 1
-                                color: Style.borderColor
+                                color: Theme.borderColor
                             }
 
                             Rectangle {
                                 x: (parent.width - width) / 2
                                 width: 6
                                 radius: 3
-                                color: Style.themeColor
+                                color: Theme.themeColor
                                 y: fader.gain >= 0 ? fader.centerY - height : fader.centerY
                                 height: Math.abs(fader.gain) / panel.eqMax * fader.trackH / 2
                             }
@@ -311,16 +311,16 @@ Column {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: fader.trackY + fader.trackH + 2
-                                font.pixelSize: Style.settings.textTip
-                                color: Style.fontColor
+                                font.pixelSize: Style.textTip
+                                color: Theme.fontColor
                                 text: (fader.gain > 0 ? "+" : "") + fader.gain.toFixed(1)
                             }
 
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: fader.trackY + fader.trackH + 20
-                                font.pixelSize: Style.settings.textTip
-                                color: Style.textColor
+                                font.pixelSize: Style.textTip
+                                color: Theme.textColor
                                 text: modelData
                             }
 
@@ -344,8 +344,8 @@ Column {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
-                    font.pixelSize: Style.settings.textTip
-                    color: Style.textColor
+                    font.pixelSize: Style.textTip
+                    color: Theme.textColor
                     text: "频段中心频率（Hz）"
                 }
             }
@@ -358,8 +358,8 @@ Column {
                 controlItem: SButton {
                     anchors.fill: parent
                     iconCharacter: "\uf01e"
-                    radius: Style.settings.labelRadius
-                    buttonColor: Style.secondaryColor
+                    radius: Style.labelRadius
+                    buttonColor: Theme.secondaryColor
                     tipText: "重置均衡器"
                     onClicked: {
                         if (!panel.engine)
@@ -378,7 +378,7 @@ Column {
     Rectangle {
         width: panel.width
         color: panel.cardColor
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         height: soundRoadColumn.height
         visible: panel.display == 0 || panel.display == 2
         Column {
@@ -501,7 +501,7 @@ Column {
         width: panel.width
         height: premiumSoundColumn.height
         color: panel.cardColor
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         visible: panel.display == 0 || panel.display == 3
         Column {
             id: premiumSoundColumn

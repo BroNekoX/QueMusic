@@ -58,10 +58,10 @@ ListView {
         required property var model
         width: ListView.view.width
         height: 80
-        radius: Style.settings.labelRadius
-        color: Style.fontColor
+        radius: Style.labelRadius
+        color: Theme.fontColor
         border.width: 1
-        border.color: Style.textColor
+        border.color: Theme.textColor
 
         Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
@@ -83,7 +83,7 @@ ListView {
             to: 350
             duration: 320
             easing.type: Easing.InExpo
-            onFinished: tipModel.remove(index)
+            onFinished: tipModel.remove(amessage.index)
         }
 
         RectangularShadow {
@@ -91,11 +91,11 @@ ListView {
             z: -1
             offset.x: 2
             offset.y: 2
-            radius: Style.settings.labelRadius
+            radius: Style.labelRadius
             blur: 24
             spread: 0
             visible: true
-            color: Style.shadowColor
+            color: Theme.shadowColor
         }
 
 
@@ -105,17 +105,17 @@ ListView {
             height: 32
             width: 32
             radius: 8
-            color: Style.textColor
+            color: Theme.textColor
             z: 4
             clip: false
             Text {
                 anchors.fill: parent
-                text: model.icontype
-                font.family: IconFont.name
-                font.pixelSize: Style.settings.texticon
+                text: amessage.model.icontype
+                font.family: Fonts.icon
+                font.pixelSize: Style.texticon
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                color: Style.sideColor
+                color: Theme.sideColor
 
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -127,10 +127,10 @@ ListView {
             width: 230
             height: 20
             z: 8
-            text: model.name
+            text: amessage.model.name
             font.pixelSize: 14
             font.bold: true
-            color: Style.primaryColor
+            color: Theme.primaryColor
             verticalAlignment: Text.AlignVCenter
         }
 
@@ -140,10 +140,10 @@ ListView {
             width: 230
             height: 20
             z: 6
-            text: model.text
+            text: amessage.model.text
             font.pixelSize: 12
             font.bold: false
-            color: Style.sideColor
+            color: Theme.sideColor
             verticalAlignment: Text.AlignVCenter
         }
 

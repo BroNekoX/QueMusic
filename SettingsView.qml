@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
@@ -22,6 +23,9 @@ Item {
     readonly property bool neteasePhoneReady: neteasePhone !== "" && neteaseCaptcha !== ""
     property string neteaseLoginStatus: "等待登录…"
     property string kugouLoginStatus: "等待登录…"
+    property url backSource
+    property color sidebarColor
+    property color mainContentColor
 
     Image {
         id: settingsBackGround
@@ -30,8 +34,8 @@ Item {
         y: 0
         width: parent.width
         height: parent.height
-        source: backGround.source
-        visible: Style.settings.backmode === 2 || Style.settings.backmode === 3
+        source: settingsView.backSource
+        visible: Style.backmode === 2 || Style.backmode === 3
         asynchronous: true
         fillMode: Image.PreserveAspectCrop
     }
@@ -85,8 +89,8 @@ Item {
                 height: 232
                 anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
-                color: Style.darkis ? Style.secondaryColor : "#ffffff"
-                border.color: Style.secondaryColor
+                color: Options.darkis ? Theme.secondaryColor : "#ffffff"
+                border.color: Theme.secondaryColor
                 border.width: 1
                 QRCodeView {
                     id: neteaseQrCode
@@ -99,11 +103,24 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: AccountManager.neteaseQrMessage
-                color: Style.fontColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.fontColor
+                font.pixelSize: Style.textmain
                 elide: Text.ElideRight
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
+            }
+            // 账号安全风险拦截：网易云给了验证页链接就让用户直接打开处理
+            QButton {
+                visible: AccountManager.neteaseVerifyUrl !== ""
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "去完成安全验证"
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
+                onClicked: AccountManager.openNeteaseVerifyUrl()
             }
             QButton {
                 visible: AccountManager.neteaseQrState === 3 || AccountManager.neteaseQrState === 4
@@ -113,8 +130,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.themeColor
-                textColor: Style.primaryColor
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
                 onClicked: AccountManager.startNeteaseQrLogin()
             }
 
@@ -122,9 +139,9 @@ Item {
             Text {
                 width: parent.width
                 text: "手机号登录被网易云风控拦截时，可改用：粘贴浏览器里的 Cookie（最稳）"
-                color: Style.fontColor
+                color: Theme.fontColor
                 opacity: 0.7
-                font.pixelSize: Style.settings.textmain - 3
+                font.pixelSize: Style.textmain - 3
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -136,8 +153,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.secondaryColor
-                textColor: Style.fontColor
+                buttonColor: Theme.secondaryColor
+                textColor: Theme.fontColor
                 onClicked: settingsView.neteaseAltVisible = !settingsView.neteaseAltVisible
             }
 
@@ -165,13 +182,13 @@ Item {
                     height: 36
                     leftPadding: 12
                     placeholderText: "手机号"
-                    color: Style.textColor
-                    font.pixelSize: Style.settings.textmain
+                    color: Theme.textColor
+                    font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
                     background: Rectangle {
                         radius: 8
-                        color: Style.primaryColor
-                        border.color: Style.secondaryColor
+                        color: Theme.primaryColor
+                        border.color: Theme.secondaryColor
                         border.width: 1
                     }
                 }
@@ -186,13 +203,13 @@ Item {
                         height: 36
                         leftPadding: 12
                         placeholderText: "短信验证码"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.textColor
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         background: Rectangle {
                             radius: 8
-                            color: Style.primaryColor
-                            border.color: Style.secondaryColor
+                            color: Theme.primaryColor
+                            border.color: Theme.secondaryColor
                             border.width: 1
                         }
                     }
@@ -200,11 +217,11 @@ Item {
                     QButton {
                         width: 120
                         height: 36
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         shadowEnabled: false
                         text: "发送验证码"
-                        buttonColor: Style.secondaryColor
-                        textColor: Style.fontColor
+                        buttonColor: Theme.secondaryColor
+                        textColor: Theme.fontColor
                         onClicked: AccountManager.sendNeteaseCaptcha(neteasePhoneInput.text)
                     }
                 }
@@ -212,11 +229,11 @@ Item {
                 QButton {
                     width: 150
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     shadowEnabled: false
                     text: "手机号登录"
-                    buttonColor: Style.themeColor
-                    textColor: Style.primaryColor
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
                     onClicked: AccountManager.loginNeteaseWithCellphone(neteasePhoneInput.text,
                                                                       neteaseCaptchaInput.text)
                 }
@@ -225,11 +242,24 @@ Item {
                 Text {
                     width: parent.width
                     text: AccountManager.neteaseQrMessage
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     opacity: 0.7
-                    font.pixelSize: Style.settings.textmain - 3
+                    font.pixelSize: Style.textmain - 3
                     wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
+                }
+
+                QButton {
+                    visible: AccountManager.neteaseVerifyUrl !== ""
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "去完成安全验证"
+                    width: 150
+                    height: 36
+                    radius: Style.labelRadius
+                    shadowEnabled: false
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
+                    onClicked: AccountManager.openNeteaseVerifyUrl()
                 }
             }
 
@@ -245,13 +275,13 @@ Item {
                     height: 36
                     leftPadding: 12
                     placeholderText: "粘贴含 MUSIC_U 的 Cookie"
-                    color: Style.textColor
-                    font.pixelSize: Style.settings.textmain
+                    color: Theme.textColor
+                    font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
                     background: Rectangle {
                         radius: 8
-                        color: Style.primaryColor
-                        border.color: Style.secondaryColor
+                        color: Theme.primaryColor
+                        border.color: Theme.secondaryColor
                         border.width: 1
                     }
                 }
@@ -259,11 +289,11 @@ Item {
                 QButton {
                     width: 150
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     shadowEnabled: false
                     text: "用 Cookie 登录"
-                    buttonColor: Style.themeColor
-                    textColor: Style.primaryColor
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
                     onClicked: AccountManager.loginNeteaseWithCookie(neteaseCookieInput.text)
                 }
             }
@@ -289,8 +319,8 @@ Item {
                 height: 232
                 anchors.horizontalCenter: parent.horizontalCenter
                 radius: 12
-                color: Style.darkis ? Style.secondaryColor : "#ffffff"
-                border.color: Style.secondaryColor
+                color: Options.darkis ? Theme.secondaryColor : "#ffffff"
+                border.color: Theme.secondaryColor
                 border.width: 1
                 QRCodeView {
                     id: kugouQrCode
@@ -303,8 +333,8 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: AccountManager.kugouQrMessage
-                color: Style.fontColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.fontColor
+                font.pixelSize: Style.textmain
                 elide: Text.ElideRight
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
@@ -317,8 +347,8 @@ Item {
                 height: 34
                 radius: 17
                 shadowEnabled: false
-                buttonColor: Style.themeColor
-                textColor: Style.primaryColor
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
                 onClicked: AccountManager.startKugouQrLogin()
             }
         }
@@ -327,13 +357,13 @@ Item {
     FolderDialog {
         id: downloadFolderDialog
         title: "选择默认下载目录"
-        currentFolder: Options.settings.downloadFolder || StandardPaths.writableLocation(StandardPaths.MusicLocation)
+        currentFolder: Config.downloadFolder || StandardPaths.writableLocation(StandardPaths.MusicLocation)
         onAccepted: {
             let p = downloadFolderDialog.selectedFolder.toString();
             if (p.indexOf("file:///") === 0)
                 p = p.substring(8);
-            Options.settings.downloadFolder = p;
-            Options.warn.tiped("已设置默认下载目录", 1);
+            Config.downloadFolder = p;
+            Options.warned("已设置默认下载目录", 1);
         }
     }
 
@@ -345,20 +375,20 @@ Item {
         height: settingsView.height
         width: 210
         opacity: 1
-        property color choiceColor: Style.hoverColor
-        property color choiceTextColor: Style.fontColor
-        color: sidebar.color
+        property color choiceColor: Theme.hoverColor
+        property color choiceTextColor: Theme.fontColor
+        color: settingsView.sidebarColor
         Connections {
-            target: Style
+            target: Options
             function onChangeTheme(): void {
-                if(Style.settings.sidebarStyle === 0) {
-                    leftSidebarSettings.choiceColor = Style.hoverColor;
-                    leftSidebarSettings.choiceTextColor = Style.fontColor;
+                if(Style.sidebarStyle === 0) {
+                    leftSidebarSettings.choiceColor = Theme.hoverColor;
+                    leftSidebarSettings.choiceTextColor = Theme.fontColor;
                     choicebar1.x = 18;
                     choicebar1.radius = 2;
-                } else if(Style.settings.sidebarStyle === 1) {
-                    leftSidebarSettings.choiceColor = Style.themeColor;
-                    leftSidebarSettings.choiceTextColor = Style.primaryColor;
+                } else if(Style.sidebarStyle === 1) {
+                    leftSidebarSettings.choiceColor = Theme.themeColor;
+                    leftSidebarSettings.choiceTextColor = Theme.primaryColor;
                     choicebar1.x = 0;
                     choicebar1.radius = 0;
                 }
@@ -366,21 +396,21 @@ Item {
         }
         Component.onCompleted: {
             index1ed(0);
-            if(Style.settings.sidebarStyle === 0) {
-                leftSidebarSettings.choiceColor = Style.hoverColor;
-                leftSidebarSettings.choiceTextColor = Style.fontColor;
+            if(Style.sidebarStyle === 0) {
+                leftSidebarSettings.choiceColor = Theme.hoverColor;
+                leftSidebarSettings.choiceTextColor = Theme.fontColor;
                 choicebar1.x = 18;
                 choicebar1.radius = 2;
-            } else if(Style.settings.sidebarStyle === 1) {
-                leftSidebarSettings.choiceColor = Style.themeColor;
-                leftSidebarSettings.choiceTextColor = Style.primaryColor;
+            } else if(Style.sidebarStyle === 1) {
+                leftSidebarSettings.choiceColor = Theme.themeColor;
+                leftSidebarSettings.choiceTextColor = Theme.primaryColor;
                 choicebar1.x = 0;
                 choicebar1.radius = 0;
             }
         }
 
         function index1ed(choice: int): void {
-            if(window.isMacOS) {
+            if(Options.isMacOS) {
                 choicebar1.willBarY = 44 * choice + 100
             } else {
                 choicebar1.willBarY = 44 * choice + 80
@@ -411,13 +441,13 @@ Item {
             x: 18
             width: 4
             height: barBottom - y
-            y: window.isMacOS ? 100 : 80
+            y: Options.isMacOS ? 100 : 80
             topRightRadius: 2
             bottomRightRadius: 2
             radius: 2
-            color: Style.themeColor
+            color: Theme.themeColor
             opacity: 1
-            property int barBottom: window.isMacOS ? 122 : 102
+            property int barBottom: Options.isMacOS ? 122 : 102
             property int willBarY: 80
             property int indexOld: 0
             ParallelAnimation {
@@ -461,21 +491,20 @@ Item {
         }
 
         Item {
-            x: 16;y: window.isMacOS ? 42 : 12
+            x: 16;y: Options.isMacOS ? 42 : 12
             height: 36
             width: 180
             QWKButton {
                 id: returnButton
                 width: 36
                 height: 36
-                source: Style.darkis ? "qrc:/QueMusic/resources/window-bar/returnd.svg" : "qrc:/QueMusic/resources/window-bar/return.svg"
+                source: Options.darkis ? "qrc:/QueMusic/resources/window-bar/returnd.svg" : "qrc:/QueMusic/resources/window-bar/return.svg"
                 background: Rectangle {
-                    color: returnButton.hovered ? Style.hoverColor : "transparent"
-                    radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 8
+                    color: returnButton.hovered ? Theme.hoverColor : "transparent"
+                    radius: Style.noControlRadius ? Style.labelRadius : 8
                     Behavior on color { ColorAnimation { duration: 50 } }
                 }
-                onClicked: settingOutAnime.running = true;
-                Component.onCompleted: Options.agent.setHitTestVisible(returnButton, true);
+                onClicked: Options.settingOutAnime.running = true;
             }
 
             Label {
@@ -487,7 +516,7 @@ Item {
                 font.pixelSize: 14
                 font.bold: false
                 verticalAlignment: Text.AlignVCenter
-                color: Style.fontColor
+                color: Theme.fontColor
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
         }
@@ -507,7 +536,7 @@ Item {
         Column {
             id: navListViewSettings
             x: 15
-            y: window.isMacOS ? 90 : 70
+            y: Options.isMacOS ? 90 : 70
             width: 180
             height: settingsView.height - 80
             property int setChoiceIndex: 0
@@ -521,10 +550,12 @@ Item {
                     id: navDelegateSettings
                     width: navListViewSettings.width
                     height: 42
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     color: isSelected ? leftSidebarSettings.choiceColor : "transparent"
 
                     property bool isSelected: navListViewSettings.setChoiceIndex === index
+                    required property int index
+                    required property var model
 
                     scale: 1.0
                     Behavior on color { ColorAnimation { duration: 120 } }
@@ -533,8 +564,8 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: Style.settings.labelRadius
-                        color: Style.hoverColor
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
                         opacity: barMouse.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
@@ -545,10 +576,10 @@ Item {
                         z: 1
                         width: 42
                         height: 42
-                        text: model.iconChar
-                        font.family: IconFont.name
-                        font.pixelSize: Style.settings.texticon
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.textColor
+                        text: navDelegateSettings.model.iconChar
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.texticon
+                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         Behavior on color { ColorAnimation { duration: 120 } }
@@ -560,10 +591,10 @@ Item {
                         z: 2
                         width: 140
                         height: 42
-                        text: model.display
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Style.textColor
+                        text: navDelegateSettings.model.display
+                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
                         font.bold: navDelegateSettings.isSelected
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         Behavior on color { ColorAnimation { duration: 120 } }
                     }
@@ -578,8 +609,8 @@ Item {
                         onReleased: navDelegateSettings.scale = 1.0
                         onCanceled: navDelegateSettings.scale = 1.0
                         onClicked: {
-                            leftSidebarSettings.index1ed(index)
-                            navListViewSettings.setChoiceIndex = index
+                            leftSidebarSettings.index1ed(navDelegateSettings.index)
+                            navListViewSettings.setChoiceIndex = navDelegateSettings.index
                         }
                     }
                 }
@@ -592,9 +623,9 @@ Item {
         x: 210
         width: parent.width - 210
         height: parent.height
-        color: mainContent.color
+        color: settingsView.mainContentColor
         z: 2
-        property color cardColor: Style.settings.backmode === 0 ? Style.primaryColor : Style.primaryBlurColor
+        property color cardColor: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
         property list<Item> setPages: [
             themeset,
             uiset,
@@ -651,10 +682,10 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "通用"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
@@ -665,7 +696,7 @@ Item {
                     width: settingStack.standWidth
                     height: globalThemeCard.height
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         id: globalThemeCard
                         width: parent.width
@@ -678,10 +709,10 @@ Item {
                             controlItem: QWideDrop {
                                 anchors.fill: parent
                                 model: ["浅色主题","深色主题","跟随系统"]
-                                choice: Style.settings.theme
+                                choice: Style.theme
                                 onTransformed: (choiced) => {
-                                    Style.settings.theme = choiced;
-                                    Style.changeTheme();
+                                    Style.theme = choiced;
+                                    Options.changeTheme();
                                 }
                             }
                         }
@@ -698,41 +729,43 @@ Item {
                                     spacing: 12
 
                                     Repeater {
-                                        model: Style.settings.colorList
+                                        model: Style.colorList
                                         delegate: SButton {
+                                            required property int index
+                                            required property color modelData
                                             width: 36
                                             height: 36
-                                            radius: Style.settings.labelRadius
-                                            borderWidth: Style.settings.color === index ? 2 : 0
-                                            borderColor: Style.textColor
+                                            radius: Style.labelRadius
+                                            borderWidth: Style.color === index ? 2 : 0
+                                            borderColor: Theme.textColor
                                             iconCharacter: ""
                                             buttonColor: modelData
                                             onClicked: {
-                                                Style.settings.color = index;
-                                                Style.changeTheme();
+                                                Style.color = index;
+                                                Options.changeTheme();
                                             }
                                         }
                                     }
                                     SButton {
                                         width: 36
                                         height: 36
-                                        radius: Style.settings.labelRadius
+                                        radius: Style.labelRadius
                                         iconCharacter: "\uf08e"
-                                        visible: Style.settings.colorList.length > 4
+                                        visible: Style.colorList.length > 4
                                         buttonColor: "#fa6666"
                                         onClicked: {
-                                            Style.settings.colorList.length -= 1;
+                                            Style.colorList.length -= 1;
                                         }
                                     }
                                     SButton {
                                         width: 36
                                         height: 36
-                                        radius: Style.settings.labelRadius
+                                        radius: Style.labelRadius
                                         iconCharacter: "\uf008"
-                                        visible: Style.settings.colorList.length < 8
-                                        buttonColor: Style.secondaryColor
+                                        visible: Style.colorList.length < 8
+                                        buttonColor: Theme.secondaryColor
                                         onClicked: {
-                                            themeColorChoose.openColor(Style.themeColor);
+                                            themeColorChoose.openColor(Theme.themeColor);
                                         }
                                     }
                                 }
@@ -741,8 +774,8 @@ Item {
                                 id: themeColorChoose
                                 blurSource: settingsView
                                 onAccepted: {
-                                    Style.settings.colorList.push(Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0));
-                                    Options.warn.tiped("已添加主题颜色", 1);
+                                    Style.colorList.push(Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0));
+                                    Options.warned("已添加主题颜色", 1);
                                 }
                             }
                         }
@@ -754,13 +787,13 @@ Item {
                             controlItem: QWideDrop {
                                 anchors.fill: parent
                                 model: ["默认","浅主题色","云母材质","图片","模糊窗口"]
-                                choice: Style.settings.backmode
+                                choice: Style.backmode
                                 onTransformed: (choiced) => {
-                                    Style.settings.backmode = choiced
-                                    Style.changeUi()
-                                    Style.changeTheme()
+                                    Style.backmode = choiced
+                                    Options.changeUi()
+                                    Options.changeTheme()
                                     if(choiced === 4) {
-                                        mainMessage.openSimpleDialog("提示", "重启本应用以生效模糊窗口功能.", null);
+                                        Options.dialog.openSimpleDialog("提示", "重启本应用以生效模糊窗口功能.", null);
                                     }
                                 }
                             }
@@ -769,17 +802,17 @@ Item {
                         SettingItemCard {
                             label: "选择背景图片"
                             tip: "设置应用背景壁纸显示的图片"
-                            visible: Style.settings.backmode == 3
+                            visible: Style.backmode == 3
                             height: visible ? 64 : 0
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Style.settings.backpic
+                                choice: Style.backpic
                                 model: ["示例1","示例2","自定义图片"]
                                 onTransformed: (choiced) => {
-                                    Style.settings.backpic = choiced;
-                                    Style.changeUi();
-                                    Style.changeTheme();
+                                    Style.backpic = choiced;
+                                    Options.changeUi();
+                                    Options.changeTheme();
                                     if(choiced === 2) {
                                         imagefileDialog.open();
                                     }
@@ -792,10 +825,10 @@ Item {
                                 fileMode: FileDialog.OpenFile
                                 nameFilters: ["图片文件 (*.jpg *.png *.jpeg *.pkm *.svg *.gif *.bmp *.tiff *.xbm *.xpm *.pbm *.pgm *.ppm)"]
                                 onAccepted: {
-                                    Style.settings.backgroundImage = imagefileDialog.selectedFile;
-                                    Options.warn.tiped("已设置背景图片", 1);
-                                    Style.changeUi();
-                                    Style.changeTheme();
+                                    Style.backgroundImage = imagefileDialog.selectedFile;
+                                    Options.warned("已设置背景图片", 1);
+                                    Options.changeUi();
+                                    Options.changeTheme();
                                 }
                             }
                         }
@@ -807,7 +840,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         topPadding: 12
@@ -819,23 +852,23 @@ Item {
                             x: 16
                             width: parent.width - 32
                             height: 46
-                            color: Style.hoverColor
-                            radius: Style.settings.labelRadius
+                            color: Theme.hoverColor
+                            radius: Style.labelRadius
                             Text {
                                 x: 12
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 30
                                 text: "\uf0b6"
-                                font.family: IconFont.name
-                                color: Style.textColor
-                                font.pixelSize: Style.settings.texticon
+                                font.family: Fonts.icon
+                                color: Theme.textColor
+                                font.pixelSize: Style.texticon
                             }
                             Text {
                                 x: 44
                                 width: parent.width - 56
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "扫码登录：用你自己的账号在应用内登录（账号即能力），登录后自动读取登录态，仅保存在本机，随时可退出。"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 12
                                 wrapMode: Text.WordWrap
                             }
@@ -851,7 +884,7 @@ Item {
                             PlatformCard {
                                 text: "酷狗音乐"
                                 chooseColor: "#4384F5"
-                                chooseColor1: Style.darkis ? "#153A57" : "#CDE8FF"
+                                chooseColor1: Options.darkis ? "#153A57" : "#CDE8FF"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 0
@@ -876,7 +909,7 @@ Item {
                             PlatformCard {
                                 text: "网易云音乐"
                                 chooseColor: "#F54343"
-                                chooseColor1: Style.darkis ? "#601515" : "#FFCDCD"
+                                chooseColor1: Options.darkis ? "#601515" : "#FFCDCD"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 1
@@ -901,7 +934,7 @@ Item {
                             PlatformCard {
                                 text: "哔哩哔哩"
                                 chooseColor: "#FB7299"
-                                chooseColor1: Style.darkis ? "#5C2338" : "#FFD9E6"
+                                chooseColor1: Options.darkis ? "#5C2338" : "#FFD9E6"
                                 width: settingStack.standWidth / 3 - 20
                                 height: 128
                                 choose: MusicApi.songSource === 2
@@ -918,7 +951,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -933,9 +966,9 @@ Item {
                                 stepSize: 1
                                 leftText: true
                                 valueText: value
-                                value: Math.floor(Options.settings.musicVolume * 100)
+                                value: Math.floor(Config.musicVolume * 100)
                                 onMoved: {
-                                    Options.settings.musicVolume = value / 100
+                                    Config.musicVolume = value / 100
                                 }
                             }
                         }
@@ -946,10 +979,10 @@ Item {
                             controlItem: QButton {
                                 anchors.fill: parent
                                 shadowEnabled: false
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
                                 borderWidth: 2
-                                text: Options.settings.downloadFolder ? "自定义目录" : "系统音乐文件夹"
-                                fontSize: Style.settings.text
+                                text: Config.downloadFolder ? "自定义目录" : "系统音乐文件夹"
+                                fontSize: Style.text
                                 onClicked: downloadFolderDialog.open()
                             }
                         }
@@ -960,8 +993,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.closeToManage
-                                onToggled: Options.settings.closeToManage = !Options.settings.closeToManage
+                                switchTrue: Config.closeToManage
+                                onToggled: Config.closeToManage = !Config.closeToManage
                             }
                         }
 
@@ -971,8 +1004,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.rememberWindow
-                                onToggled: Options.settings.rememberWindow = !Options.settings.rememberWindow
+                                switchTrue: Config.rememberWindow
+                                onToggled: Config.rememberWindow = !Config.rememberWindow
                             }
                         }
 
@@ -982,8 +1015,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.autoUpdate
-                                onToggled: Options.settings.autoUpdate = !Options.settings.autoUpdate
+                                switchTrue: Config.autoUpdate
+                                onToggled: Config.autoUpdate = !Config.autoUpdate
                             }
                         }
 
@@ -993,10 +1026,10 @@ Item {
                             controlItem: QButton {
                                 anchors.fill: parent
                                 shadowEnabled: false
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
                                 borderWidth: 2
-                                text: Options.settings.cacheUrl ? "自定义目录" : "系统默认"
-                                fontSize: Style.settings.text
+                                text: Config.cacheUrl ? "自定义目录" : "系统默认"
+                                fontSize: Style.text
                                 onClicked: cacheFolderDialog.open()
                             }
                             FolderDialog {
@@ -1006,9 +1039,9 @@ Item {
                                     let p = cacheFolderDialog.selectedFolder.toString();
                                     if (p.indexOf("file:///") === 0)
                                         p = p.substring(8);
-                                    Options.settings.cacheUrl = p;
-                                    coverHelper.setCacheDir(p);
-                                    Options.warn.tiped("已设置封面缓存目录", 1);
+                                    Config.cacheUrl = p;
+                                    Options.coverHelper.setCacheDir(p);
+                                    Options.warned("已设置封面缓存目录", 1);
                                 }
                             }
                         }
@@ -1019,8 +1052,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.picCache
-                                onToggled: Options.settings.picCache = !Options.settings.picCache
+                                switchTrue: Config.picCache
+                                onToggled: Config.picCache = !Config.picCache
                             }
                         }
 
@@ -1031,14 +1064,14 @@ Item {
                                 anchors.fill: parent
                                 shadowEnabled: false
                                 buttonColor: "transparent"
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
                                 borderWidth: 2
                                 text: "清理"
                                 onClicked: {
-                                    coverHelper.clearCache();
+                                    Options.coverHelper.clearCache();
                                     // 清缓存时 DB 引用已作废，重载列表以丢弃界面上的死链路径
                                     Songs.reload();
-                                    Style.warned("已清除图片缓存", 1);
+                                    Options.warned("已清除图片缓存", 1);
                                 }
                             }
                             bottomLine: false
@@ -1066,10 +1099,10 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "界面"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
@@ -1078,7 +1111,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1091,8 +1124,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.sidebarColor
-                                onToggled: Style.settings.sidebarColor = !Style.settings.sidebarColor
+                                switchTrue: Style.sidebarColor
+                                onToggled: Style.sidebarColor = !Style.sidebarColor
                             }
                         }
 
@@ -1101,11 +1134,11 @@ Item {
                             tip: "左侧的页面切换栏样式"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Style.settings.sidebarStyle
+                                choice: Style.sidebarStyle
                                 model: ["Basic","SquiwaUI"]
                                 onTransformed: (choiced) => {
-                                    Style.settings.sidebarStyle = choiced;
-                                    Style.changeTheme();
+                                    Style.sidebarStyle = choiced;
+                                    Options.changeTheme();
                                 }
                             }
                         }
@@ -1116,8 +1149,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.noOpacityControl
-                                onToggled: Style.settings.noOpacityControl = !Style.settings.noOpacityControl
+                                switchTrue: Style.noOpacityControl
+                                onToggled: Style.noOpacityControl = !Style.noOpacityControl
                             }
                         }
 
@@ -1131,9 +1164,9 @@ Item {
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.cubeRadius
+                                value: Style.cubeRadius
                                 onMoved: {
-                                    Style.settings.cubeRadius = value
+                                    Style.cubeRadius = value
                                 }
                             }
                         }
@@ -1148,9 +1181,9 @@ Item {
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.labelRadius
+                                value: Style.labelRadius
                                 onMoved: {
-                                    Style.settings.labelRadius = value
+                                    Style.labelRadius = value
                                 }
                             }
                         }
@@ -1161,8 +1194,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.noControlRadius
-                                onToggled: Style.settings.noControlRadius = !Style.settings.noControlRadius
+                                switchTrue: Style.noControlRadius
+                                onToggled: Style.noControlRadius = !Style.noControlRadius
                             }
                             bottomLine: false
                         }
@@ -1174,7 +1207,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1187,8 +1220,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.highQualityBlur
-                                onToggled: Style.settings.highQualityBlur = !Style.settings.highQualityBlur
+                                switchTrue: Style.highQualityBlur
+                                onToggled: Style.highQualityBlur = !Style.highQualityBlur
                             }
                         }
 
@@ -1202,9 +1235,9 @@ Item {
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.shadowSize
+                                value: Style.shadowSize
                                 onMoved: {
-                                    Style.settings.shadowSize = value
+                                    Style.shadowSize = value
                                 }
                             }
                         }
@@ -1219,9 +1252,9 @@ Item {
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.blurSize
+                                value: Style.blurSize
                                 onMoved: {
-                                    Style.settings.blurSize = value
+                                    Style.blurSize = value
                                 }
                             }
                         }
@@ -1231,10 +1264,10 @@ Item {
                             tip: "在打开或关闭子页面所使用的动画效果"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Style.settings.animeType
+                                choice: Style.animeType
                                 model: ["放大缩小","左右渐入"]
                                 onTransformed: (choiced) => {
-                                    Style.settings.animeType = choiced;
+                                    Style.animeType = choiced;
                                 }
                             }
                         }
@@ -1245,8 +1278,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.premiumAnime
-                                onToggled: Style.settings.premiumAnime = !Style.settings.premiumAnime
+                                switchTrue: Style.premiumAnime
+                                onToggled: Style.premiumAnime = !Style.premiumAnime
                             }
                             bottomLine: false
                         }
@@ -1258,7 +1291,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1270,9 +1303,9 @@ Item {
                             tip: "设置首页面的卡片布局"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Style.settings.homeLayout
+                                choice: Style.homeLayout
                                 model: ["默认","竖向","混合"]
-                                onTransformed: (choiced) => Style.settings.homeLayout = choiced
+                                onTransformed: (choiced) => Style.homeLayout = choiced
                             }
                             bottomLine: false
                         }
@@ -1284,7 +1317,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: settingStack.standWidth
                         padding: 0
@@ -1301,9 +1334,9 @@ Item {
                                 stepSize: 2
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.lyricSize
+                                value: Style.lyricSize
                                 onMoved: {
-                                    Style.settings.lyricSize = value
+                                    Style.lyricSize = value
                                 }
                             }
                         }
@@ -1318,9 +1351,9 @@ Item {
                                 stepSize: 50
                                 leftText: true
                                 valueText: value
-                                value: Style.settings.textWidth
+                                value: Style.textWidth
                                 onMoved: {
-                                    Style.settings.textWidth = value
+                                    Style.textWidth = value
                                 }
                             }
                         }
@@ -1331,17 +1364,17 @@ Item {
                             controlItem: QButton {
                                 anchors.fill: parent
                                 shadowEnabled: false
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
                                 borderWidth: 2
-                                text: Style.settings.fontFamily ? Style.settings.fontFamily : "系统默认"
-                                fontSize: Style.settings.text
-                                onClicked: lyricFontDialog.openFamily(Style.settings.fontFamily)
+                                text: Style.fontFamily ? Style.fontFamily : "系统默认"
+                                fontSize: Style.text
+                                onClicked: lyricFontDialog.openFamily(Style.fontFamily)
                             }
                             FontFamilyDialog {
                                 id: lyricFontDialog
                                 blurSource: settingsView
-                                currentFamily: Style.settings.fontFamily
-                                onAccepted: Style.settings.fontFamily = lyricFontDialog.selectedFamily
+                                currentFamily: Style.fontFamily
+                                onAccepted: Style.fontFamily = lyricFontDialog.selectedFamily
                             }
                         }
 
@@ -1352,9 +1385,9 @@ Item {
                             controlItem: QWideDrop {
                                 anchors.fill: parent
                                 model: ["Fluid", "Classic", "静态渐变"]
-                                choice: Style.settings.flowStyle
+                                choice: Style.flowStyle
                                 onTransformed: (choiced) => {
-                                    Style.settings.flowStyle = choiced
+                                    Style.flowStyle = choiced
                                 }
                             }
                         }
@@ -1365,8 +1398,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.waveDisplay
-                                onToggled: Style.settings.waveDisplay = !Style.settings.waveDisplay
+                                switchTrue: Style.waveDisplay
+                                onToggled: Style.waveDisplay = !Style.waveDisplay
                             }
                         }
 
@@ -1376,8 +1409,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.maskBlur
-                                onToggled: Style.settings.maskBlur = !Style.settings.maskBlur
+                                switchTrue: Style.maskBlur
+                                onToggled: Style.maskBlur = !Style.maskBlur
                             }
                         }
 
@@ -1387,8 +1420,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.premiumLyricAnime
-                                onToggled: Style.settings.premiumLyricAnime = !Style.settings.premiumLyricAnime
+                                switchTrue: Style.premiumLyricAnime
+                                onToggled: Style.premiumLyricAnime = !Style.premiumLyricAnime
                             }
                         }
 
@@ -1398,8 +1431,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Style.settings.lyricHideGui
-                                onToggled: Style.settings.lyricHideGui = !Style.settings.lyricHideGui
+                                switchTrue: Style.lyricHideGui
+                                onToggled: Style.lyricHideGui = !Style.lyricHideGui
                             }
                             bottomLine: false
                         }
@@ -1426,10 +1459,10 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "播放器"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
@@ -1439,7 +1472,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -1450,10 +1483,10 @@ Item {
                             tip: "设置在线音乐默认播放的音质等级"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Options.settings.soundQuality
+                                choice: Config.soundQuality
                                 model: ["标准-128k","高清-320k","无损-500+k"]
                                 onTransformed: (choiced) => {
-                                    Options.settings.soundQuality = choiced
+                                    Config.soundQuality = choiced
                                 }
                             }
                         }
@@ -1463,10 +1496,10 @@ Item {
                             tip: "设置在线音乐默认使用的音源平台"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Options.settings.mainMusicSource
+                                choice: Config.mainMusicSource
                                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐"]
                                 onTransformed: (choiced) => {
-                                    Options.settings.mainMusicSource = choiced
+                                    Config.mainMusicSource = choiced
                                 }
                             }
                         }
@@ -1481,10 +1514,10 @@ Item {
                                 stepSize: 10
                                 leftText: true
                                 valueText: value
-                                value: Options.settings.cacheSize
+                                value: Config.cacheSize
                                 onMoved: {
-                                    Options.settings.cacheSize = value
-                                    coverHelper.pruneCache(value)
+                                    Config.cacheSize = value
+                                    Options.coverHelper.pruneCache(value)
                                 }
                             }
                             bottomLine: false
@@ -1497,7 +1530,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -1509,24 +1542,24 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.useDefaultDevice
-                                onToggled: Options.settings.useDefaultDevice = !Options.settings.useDefaultDevice
+                                switchTrue: Config.useDefaultDevice
+                                onToggled: Config.useDefaultDevice = !Config.useDefaultDevice
                             }
                         }
 
                         SettingItemCard {
                             label: "音频输出设备"
                             tip: "指定播放时使用的音频输出设备"
-                            visible: Options.settings.useDefaultDevice === false
+                            visible: Config.useDefaultDevice === false
                             height: visible ? 56 : 0
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {
                                 useId: true
                                 anchors.fill: parent
-                                choice: Options.settings.audioDevice
+                                choice: Config.audioDevice
                                 model: musicDevices.audioOutputs
                                 onTransformed: (choiced) => {
-                                    Options.settings.audioDevice = choiced
+                                    Config.audioDevice = choiced
                                 }
                             }
                         }
@@ -1537,8 +1570,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.autoPlay
-                                onToggled: Options.settings.autoPlay = !Options.settings.autoPlay
+                                switchTrue: Config.autoPlay
+                                onToggled: Config.autoPlay = !Config.autoPlay
                             }
                         }
 
@@ -1552,8 +1585,8 @@ Item {
                                 stepSize: 1
                                 leftText: true
                                 valueText: value.toString() + " %"
-                                value: Options.settings.volumeStep
-                                onMoved: Options.settings.volumeStep = value
+                                value: Config.volumeStep
+                                onMoved: Config.volumeStep = value
                             }
                             bottomLine: false
                         }
@@ -1565,7 +1598,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -1576,9 +1609,9 @@ Item {
                             tip: "快捷键快进/快退一次跳转的秒数"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: [3,5,10,15,30].indexOf(Options.settings.seekStep)
+                                choice: [3,5,10,15,30].indexOf(Config.seekStep)
                                 model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
-                                onTransformed: (choiced) => Options.settings.seekStep = [3,5,10,15,30][choiced]
+                                onTransformed: (choiced) => Config.seekStep = [3,5,10,15,30][choiced]
                             }
                         }
 
@@ -1588,8 +1621,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.fadeEnabled
-                                onToggled: Options.settings.fadeEnabled = !Options.settings.fadeEnabled
+                                switchTrue: Config.fadeEnabled
+                                onToggled: Config.fadeEnabled = !Config.fadeEnabled
                             }
                         }
 
@@ -1603,8 +1636,8 @@ Item {
                                 stepSize: 50
                                 leftText: true
                                 valueText: value.toString() + " ms"
-                                value: Options.settings.fadeMs
-                                onMoved: Options.settings.fadeMs = value
+                                value: Config.fadeMs
+                                onMoved: Config.fadeMs = value
                             }
                         }
 
@@ -1618,8 +1651,8 @@ Item {
                                 stepSize: 1
                                 leftText: true
                                 valueText: value.toString() + " 分"
-                                value: Options.settings.sleepMinutes
-                                onMoved: Options.settings.sleepMinutes = value
+                                value: Config.sleepMinutes
+                                onMoved: Config.sleepMinutes = value
                             }
                         }
 
@@ -1633,8 +1666,8 @@ Item {
                                 stepSize: 1
                                 leftText: true
                                 valueText: value.toString() + " 首"
-                                value: Options.settings.shuffleAvoid
-                                onMoved: Options.settings.shuffleAvoid = value
+                                value: Config.shuffleAvoid
+                                onMoved: Config.shuffleAvoid = value
                             }
                         }
 
@@ -1644,8 +1677,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.autoRestoreQueue
-                                onToggled: Options.settings.autoRestoreQueue = !Options.settings.autoRestoreQueue
+                                switchTrue: Config.autoRestoreQueue
+                                onToggled: Config.autoRestoreQueue = !Config.autoRestoreQueue
                             }
                         }
 
@@ -1659,8 +1692,8 @@ Item {
                                 stepSize: 20
                                 leftText: true
                                 valueText: value.toString() + " 条"
-                                value: Options.settings.historyLimit
-                                onMoved: Options.settings.historyLimit = value
+                                value: Config.historyLimit
+                                onMoved: Config.historyLimit = value
                             }
                         }
 
@@ -1671,14 +1704,14 @@ Item {
                                 anchors.fill: parent
                                 anchors.verticalCenter: parent.verticalCenter
                                 shadowEnabled: false
-                                fontSize: Style.settings.textTip
+                                fontSize: Style.textTip
                                 text: "清空"
                                 buttonColor: "#fa4642"
                                 textColor: "#ffffff"
                                 onClicked: Options.dialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
                                     function() {
                                         Playback.clearHistory()
-                                        Options.warn.tiped("已清空播放历史", 1)
+                                        Options.warned("已清空播放历史", 1)
                                     })
                             }
                             bottomLine: false
@@ -1706,17 +1739,18 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "音频"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
 
                 EqualizerPanel {
                     width: settingStack.standWidth
-                    engine: player
+                    controlWidth: settingStack.standWidth
+                    engine: settingsView.player
                     cardColor: settingStack.cardColor
                 }
             }
@@ -1734,7 +1768,7 @@ Item {
             property bool isRecording: false
             property bool oldShortCutState: false
 
-            // 根据 action 名拼出 Options.settings 里的"该功能是否全局生效"属性名
+            // 根据 action 名拼出 Config 里的"该功能是否全局生效"属性名
             function globalPropertyName(actionName: string): string {
                 return "globalShortcut" + actionName.charAt(0).toUpperCase() + actionName.slice(1)
             }
@@ -1791,24 +1825,24 @@ Item {
                 if (isRecording) return
                 recordingAction = action
                 isRecording = true
-                oldShortCutState = Options.settings.openShortCut
-                Options.settings.openShortCut = false   // 关闭总开关（兼容旧逻辑）
+                oldShortCutState = Config.openShortCut
+                Config.openShortCut = false   // 关闭总开关（兼容旧逻辑）
                 Options.recordingShortCut = true   // 录制期间屏蔽所有全局快捷键
                 keyCapture.forceActiveFocus()
                 keyCapture.focus = true;
-                Options.warn.tiped("按下新的快捷键... (按 Esc 取消)", 0)
+                Options.warned("按下新的快捷键... (按 Esc 取消)", 0)
             }
 
             // 停止录制（完成或取消）
             function stopRecording(success: bool, sequence: string): void {
                 isRecording = false
-                Options.settings.openShortCut = oldShortCutState
+                Config.openShortCut = oldShortCutState
                 Options.recordingShortCut = false
                 if (success && sequence) {
-                    Options.shortCuts[recordingAction] = sequence
-                    Options.warn.tiped("已设置快捷键: " + sequence, 1)
+                    ShortCut[recordingAction] = sequence
+                    Options.warned("已设置快捷键: " + sequence, 1)
                 } else {
-                    Options.warn.tiped("已取消录制", 1)
+                    Options.warned("已取消录制", 1)
                 }
                 recordingAction = ""
                 keyCapture.focus = false
@@ -1843,10 +1877,10 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "快捷键"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                 }
 
@@ -1856,7 +1890,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -1868,8 +1902,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.openShortCut
-                                onToggled: Options.settings.openShortCut = !Options.settings.openShortCut
+                                switchTrue: Config.openShortCut
+                                onToggled: Config.openShortCut = !Config.openShortCut
                             }
                             bottomLine: false
                         }
@@ -1881,9 +1915,9 @@ Item {
                     id: keyCapture
                     height: shortcutset.isRecording ? 60 : 0
                     width: settingStack.standWidth
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     border.width: 1
-                    border.color: Style.sideColor
+                    border.color: Theme.sideColor
                     radius: 16
                     focus: false
                     visible: true          // 必须可见才能获得焦点
@@ -1897,13 +1931,13 @@ Item {
                         if (event.key === Qt.Key_Escape) {
                             shortcutset.stopRecording(false)
                             event.accepted = true
-                            Options.warn.tiped("已取消", 0)
+                            Options.warned("已取消", 0)
                             return
                         }
                         const seq = shortcutset.keyEventToSequence(event)
                         if (seq) {
                             shortcutset.stopRecording(true, seq)
-                            Options.warn.tiped("设置已保存", 1)
+                            Options.warned("设置已保存", 1)
                             event.accepted = true
                         }
                         // 如果是无效键（如单独的修饰键），不处理，等待有效组合
@@ -1915,18 +1949,18 @@ Item {
                             width: 100
                             height: 34
                             text: "取消[Esc]"
-                            buttonColor: Style.primaryColor
+                            buttonColor: Theme.primaryColor
                             borderWidth: 1
                             onClicked: {
                                 shortcutset.stopRecording(false);
-                                Options.warn.tiped("已取消", 0);
+                                Options.warned("已取消", 0);
                             }
                         }
                         Text {
                             id: keyCaptureText
                             anchors.verticalCenter: parent.verticalCenter
-                            font.pixelSize: Style.settings.textmain
-                            color: Style.secondaryColor
+                            font.pixelSize: Style.textmain
+                            color: Theme.secondaryColor
                             text: "正在键位录制状态，请输入一个键来设置" + shortcutset.recordingAction + "功能的快捷键"
                         }
                     }
@@ -1937,7 +1971,7 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     height: shortCutColumn.height // 自适应高度
 
                     Column {
@@ -1947,38 +1981,40 @@ Item {
                         Repeater {
                             model: actionDefs
                             delegate: Rectangle {
+                                id: shortCutDel
                                 width: shortCutColumn.width
                                 height: 56
                                 color: "transparent"
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
+                                required property var model
                                 Row {
                                     spacing: 12
                                     anchors.verticalCenter: parent.verticalCenter
                                     x: 16
 
                                     Label {
-                                        text: model.desc
+                                        text: shortCutDel.model.desc
                                         width: 150
-                                        font.pixelSize: Style.settings.textmain
-                                        color: Style.fontColor
+                                        font.pixelSize: Style.textmain
+                                        color: Theme.fontColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
 
                                     Label {
-                                        text: Options.shortCuts[model.name] || model.defau
+                                        text: ShortCut[shortCutDel.model.name] || shortCutDel.model.defau
                                         width: 120
-                                        font.pixelSize: Style.settings.textmain
-                                        color: Style.fontColor
+                                        font.pixelSize: Style.textmain
+                                        color: Theme.fontColor
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
 
                                     Label {
-                                        text: "默认: " + model.defau
+                                        text: "默认: " + shortCutDel.model.defau
                                         width: 120
-                                        font.pixelSize: Style.settings.textmain
-                                        color: Qt.rgba(Style.fontColor.r, Style.fontColor.g, Style.fontColor.b, 0.6)
+                                        font.pixelSize: Style.textmain
+                                        color: Qt.rgba(Theme.fontColor.r, Theme.fontColor.g, Theme.fontColor.b, 0.6)
                                         verticalAlignment: Text.AlignVCenter
                                         elide: Text.ElideRight
                                     }
@@ -1988,10 +2024,10 @@ Item {
                                     y: 10
                                     width: 96
                                     height: 36
-                                    switchTrue: Options.shortCuts[shortcutset.globalPropertyName(model.name)]
+                                    switchTrue: ShortCut[shortcutset.globalPropertyName(shortCutDel.model.name)]
                                     onToggled: {
-                                        const prop = shortcutset.globalPropertyName(model.name);
-                                        Options.shortCuts[prop] = !Options.shortCuts[prop];
+                                        const prop = shortcutset.globalPropertyName(shortCutDel.model.name);
+                                        ShortCut[prop] = !ShortCut[prop];
                                     }
                                 }
 
@@ -2002,10 +2038,10 @@ Item {
                                     height: 36
                                     text: "设置"
                                     shadowEnabled: false
-                                    radius: Style.settings.labelRadius
+                                    radius: Style.labelRadius
                                     borderWidth: 2
                                     buttonColor: "transparent"
-                                    onClicked: shortcutset.startRecording(model.name)
+                                    onClicked: shortcutset.startRecording(shortCutDel.model.name)
                                 }
 
                                 QButton {
@@ -2015,12 +2051,12 @@ Item {
                                     height: 36
                                     text: "重置"
                                     shadowEnabled: false
-                                    radius: Style.settings.labelRadius
+                                    radius: Style.labelRadius
                                     borderWidth: 2
                                     buttonColor: "transparent"
                                     onClicked: {
-                                        Options.shortCuts[model.name] = model.defau
-                                        Options.warn.tiped("已恢复默认快捷键", 1)
+                                        ShortCut[shortCutDel.model.name] = shortCutDel.model.defau
+                                        Options.warned("已恢复默认快捷键", 1)
                                     }
                                 }
                             }
@@ -2032,7 +2068,7 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     text: "提示：点击「设置」后按下新的组合键（如 Ctrl+Shift+A），按 Esc 取消。"
-                    color: Style.textColor
+                    color: Theme.textColor
                     font.pixelSize: 12
                     wrapMode: Text.Wrap
                 }
@@ -2052,10 +2088,10 @@ Item {
                 y: 24
                 width: settingStack.standWidth
                 height: 36
-                color: Style.fontColor
+                color: Theme.fontColor
                 verticalAlignment: Text.AlignVCenter
                 text: "插件"
-                font.pixelSize: Style.settings.pageTitle
+                font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
             }
@@ -2082,18 +2118,18 @@ Item {
                 y: 124
                 width: settingStack.standWidth
                 height: warnModText.implicitHeight + 48
-                color: Style.containColor
-                radius: Style.settings.cubeRadius
-                border.color: Style.sideColor
+                color: Theme.containColor
+                radius: Style.cubeRadius
+                border.color: Theme.sideColor
                 border.width: 1
                 Text {
                     x: 24
                     y: 24
-                    font.family: IconFont.name
+                    font.family: Fonts.icon
                     height: warnModText.implicitHeight
                     text: "\uf11a"
-                    color: Style.themeColor
-                    font.pixelSize: Style.settings.texticon
+                    color: Theme.themeColor
+                    font.pixelSize: Style.texticon
                 }
                 Text {
                     id: warnModText
@@ -2102,9 +2138,9 @@ Item {
                     width: parent.width - 64
                     text: "音乐源插件还未开发完成，等待开发者更新喵"
                     wrapMode: Text.Wrap
-                    color: Style.textColor
+                    color: Theme.textColor
                     font.bold: false
-                    font.pixelSize: Style.settings.textmain
+                    font.pixelSize: Style.textmain
                 }
             }
 
@@ -2150,7 +2186,7 @@ Item {
                         text: "音乐源"
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
-                        color: Style.textColor
+                        color: Theme.textColor
                         font.pixelSize: 14
                     }
                 }
@@ -2174,10 +2210,10 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "关于应用"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
@@ -2203,20 +2239,20 @@ Item {
                         height: 56
                         width: implicitWidth// + 96
                         text: "QueMusic"
-                        font.family: TextFont.name
+                        font.family: Fonts.text
                         font.pixelSize: 56
                         font.bold: false
                         verticalAlignment: Text.AlignVCenter
-                        color: Style.fontColor
+                        color: Theme.fontColor
                     }
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "一款基于 C++/Qt Quick 框架开发的高性能音乐播放器"
                         wrapMode: Text.Wrap
-                        color: Style.textColor
+                        color: Theme.textColor
                         font.bold: false
-                        font.pixelSize: Style.settings.textH2
+                        font.pixelSize: Style.textH2
                     }
                 }
 
@@ -2224,7 +2260,7 @@ Item {
                     width: settingStack.standWidth
                     height: 60
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     SettingItem {
                         width: settingStack.standWidth - 32
                         label: "QueMusic Beta (测试版本)"
@@ -2239,7 +2275,7 @@ Item {
                             Text {
                                 height: 36
                                 text: Options.version + " (" + Options.versionCode + ")"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2247,9 +2283,9 @@ Item {
                                 height: 36
                                 width: 100
                                 text: "检查更新"
-                                buttonColor: Style.themeColor
-                                textColor: Style.primaryColor
-                                iconColor: Style.primaryColor
+                                buttonColor: Theme.themeColor
+                                textColor: Theme.primaryColor
+                                iconColor: Theme.primaryColor
                                 shadowEnabled: false
                                 onClicked: {
                                     updater.checkForUpdate();
@@ -2262,18 +2298,18 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: warnText.implicitHeight + 40
-                    color: Style.containColor
-                    radius: Style.settings.cubeRadius
-                    border.color: Style.sideColor
+                    color: Theme.containColor
+                    radius: Style.cubeRadius
+                    border.color: Theme.sideColor
                     border.width: 1
                     Text {
                         x: 20
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: IconFont.name
+                        font.family: Fonts.icon
                         height: warnText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themeColor
-                        font.pixelSize: Style.settings.texticon
+                        color: Theme.themeColor
+                        font.pixelSize: Style.texticon
                     }
                     Text {
                         id: warnText
@@ -2282,9 +2318,9 @@ Item {
                         width: parent.width - 108
                         text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
                         wrapMode: Text.Wrap
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.bold: false
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                     }
                     SButton {
                         iconCharacter: "\uf025"
@@ -2293,7 +2329,7 @@ Item {
                         width: 36
                         height: 36
                         radius: 18
-                        iconSize: Style.settings.texticon
+                        iconSize: Style.texticon
                         buttonColor: "transparent"
                         shadowEnabled: false
                         onClicked: {
@@ -2305,18 +2341,18 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: warnMoneyText.implicitHeight + 40
-                    color: Style.containColor
-                    radius: Style.settings.cubeRadius
-                    border.color: Style.sideColor
+                    color: Theme.containColor
+                    radius: Style.cubeRadius
+                    border.color: Theme.sideColor
                     border.width: 1
                     Text {
                         x: 20
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: IconFont.name
+                        font.family: Fonts.icon
                         height: warnMoneyText.implicitHeight
                         text: "\uf11a"
-                        color: Style.themeColor
-                        font.pixelSize: Style.settings.texticon
+                        color: Theme.themeColor
+                        font.pixelSize: Style.texticon
                     }
                     Text {
                         id: warnMoneyText
@@ -2325,9 +2361,9 @@ Item {
                         width: parent.width - 108
                         text: "QueMusic Beta（官方版）始终是完全免费且开源的软件，不存在付费，会员，捐献，充值，广告等入口，官方版本不存在Pro，Ultra，高级版等版本，如果你发现软件或软件内有需要付费的内容，请立即与开发者联系。"
                         wrapMode: Text.Wrap
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.bold: false
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                     }
                     SButton {
                         iconCharacter: "\uf025"
@@ -2336,7 +2372,7 @@ Item {
                         width: 36
                         height: 36
                         radius: 18
-                        iconSize: Style.settings.texticon
+                        iconSize: Style.texticon
                         buttonColor: "transparent"
                         shadowEnabled: false
                         onClicked: {
@@ -2351,14 +2387,14 @@ Item {
                     width: settingStack.standWidth
                     height: description.implicitHeight + 48
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Text {
                         id: description
                         anchors.centerIn: parent
                         width: settingStack.standWidth - 48
                         text: "QueMusic是一个基于Qt QML开发的全能音乐播放器，旨在让听歌变得更简单，在Qt RHI * QML * C++强大组合下，性能卓越，UI美观丝滑，基于C++的在线音源使其拥有强大的稳定在线体验，并且由此实现美观强大的自定义功能，QueMusic希望做一个全能的音乐播放器。"
                         wrapMode: Text.Wrap
-                        color: Style.textColor
+                        color: Theme.textColor
                         font.pixelSize: 13
                     }
                 }
@@ -2371,6 +2407,7 @@ Item {
                     width: settingStack.standWidth
                     height: 80
                     AccountCard {
+                        width: settingStack.standWidth / 2 - 12
                         source: "qrc:/QueMusic/resources/app/icons/bronekox.jpg"
                         title: "BroNekoX Studio"
                         text: "本项目的主要开发负责人"
@@ -2385,7 +2422,7 @@ Item {
                     width: settingStack.standWidth
                     height: 238
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         spacing: 8
                         padding: 16
@@ -2397,7 +2434,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.version + " (" + Options.versionCode + ") (Beta)"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2410,7 +2447,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.pluginApi + " (Beta)"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2422,8 +2459,8 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: "Qt-" + qtRuntimeVersion + "(Community)"
-                                color: Style.textColor
+                                text: "Qt-" + "6.10.3" + "(Community)"
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2436,7 +2473,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "QRHI/Qt Scene Graph"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2449,7 +2486,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "C++/JS/QtQuick"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2465,6 +2502,7 @@ Item {
                     rows: 2
                     width: settingStack.standWidth
                     AccountCard {
+                        width: settingStack.standWidth / 2 - 12
                         source: "qrc:/QueMusic/resources/app/icons/qwk.png"
                         title: "QWindowKit"
                         text: "实现全平台完美的无边框窗口"
@@ -2472,6 +2510,7 @@ Item {
                         color: settingStack.cardColor
                     }
                     AccountCard {
+                        width: settingStack.standWidth / 2 - 12
                         source: "qrc:/QueMusic/resources/app/icons/qticon.png"
                         title: "Qt Community"
                         text: "强大的开源跨平台软件包框架"
@@ -2479,6 +2518,7 @@ Item {
                         color: settingStack.cardColor
                     }
                     AccountCard {
+                        width: settingStack.standWidth / 2 - 12
                         source: ""
                         title: "QCloudMusicApi"
                         text: "网易云音乐第三方API服务框架"
@@ -2493,7 +2533,7 @@ Item {
                     width: settingStack.standWidth
                     height: 200
                     color: settingStack.cardColor
-                    radius: Style.settings.cubeRadius
+                    radius: Style.cubeRadius
                     Column {
                         spacing: 8
                         padding: 16
@@ -2505,7 +2545,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "241422517"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2518,7 +2558,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "uihugd@outlook.com"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2531,7 +2571,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "695207057"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2544,7 +2584,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "1105114511"
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
                             }
@@ -2552,7 +2592,7 @@ Item {
                     }
                 }
 
-                Text { text: "期待您的贡献与反馈"; color: Style.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "期待您的贡献与反馈"; color: Theme.fontColor; font.pixelSize: Style.textmain }
 
                 Row {
                     spacing: 20
@@ -2593,7 +2633,7 @@ Item {
                         text: "开源许可"
                         iconCharacter: "\uf10a"
                         onClicked: {
-                            textWatch.active = true;
+                            Options.textWatch.active = true;
                         }
                     }
                 }
@@ -2602,8 +2642,8 @@ Item {
                     height: 36
                     Text {
                         anchors.centerIn: parent
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.fontColor
+                        font.pixelSize: Style.textmain
                         text: "Copyright (c) 2025-2026 QueMusic Contributors\n   本项目基于 Apache License 2.0 协议获得许可"
                     }
                 }
@@ -2628,22 +2668,22 @@ Item {
                 Text {
                     width: settingStack.standWidth
                     height: 40
-                    color: Style.fontColor
+                    color: Theme.fontColor
                     verticalAlignment: Text.AlignVCenter
                     text: "DeBug"
-                    font.pixelSize: Style.settings.pageTitle
+                    font.pixelSize: Style.pageTitle
                     font.weight: Font.DemiBold
                     font.letterSpacing: -0.3
                 }
 
-                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请到软件配置目录删除"; color: Style.fontColor; font.pixelSize: Style.settings.textmain }
+                Text { text: "本页设置仅供调试，可能会出现崩溃甚至软件失效，如要恢复请到软件配置目录删除"; color: Theme.fontColor; font.pixelSize: Style.textmain }
 
                 QHead { text: "渲染" }
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
-                    radius: Style.settings.cubeRadius
+                    color: Theme.primaryColor
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -2655,10 +2695,10 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.noWindowKit
+                                switchTrue: Config.noWindowKit
                                 onToggled: {
-                                    Options.settings.noWindowKit = !Options.settings.noWindowKit;
-                                    mainMessage.openSimpleDialog("提示", "重启本应用以生效更改.", null);
+                                    Config.noWindowKit = !Config.noWindowKit;
+                                    Options.dialog.openSimpleDialog("提示", "重启本应用以生效更改.", null);
                                 }
                             }
                         }
@@ -2668,11 +2708,11 @@ Item {
                             tip: "选择界面渲染使用的图形后端，重启后生效"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Options.settings.gpuRenderMode
+                                choice: Config.gpuRenderMode
                                 model: ["系统偏好","OpenGL","Vulkan","Software"]
                                 onTransformed: (choiced) => {
-                                    Options.settings.gpuRenderMode = choiced;
-                                    mainMessage.openSimpleDialog("提示", "重启本应用以生效更改.", null);
+                                    Config.gpuRenderMode = choiced;
+                                    Options.dialog.openSimpleDialog("提示", "重启本应用以生效更改.", null);
                                 }
                             }
                         }
@@ -2683,10 +2723,10 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.timerAnimator
+                                switchTrue: Config.timerAnimator
                                 onToggled: {
-                                    Options.settings.timerAnimator = !Options.settings.timerAnimator;
-                                    mainMessage.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
+                                    Config.timerAnimator = !Config.timerAnimator;
+                                    Options.dialog.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
                                 }
                             }
                         }
@@ -2698,10 +2738,10 @@ Item {
                                 anchors.fill: parent
                                 letRight: true
                                 text: switchTrue ? "Vsync" : "默认"
-                                switchTrue: Options.settings.qmlAnimator
+                                switchTrue: Config.qmlAnimator
                                 onToggled: {
-                                    Options.settings.qmlAnimator = !Options.settings.qmlAnimator;
-                                    mainMessage.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
+                                    Config.qmlAnimator = !Config.qmlAnimator;
+                                    Options.dialog.openSimpleDialog("提示", "重启本应用以完全生效更改.", null);
                                 }
                             }
                             bottomLine: false
@@ -2713,8 +2753,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
-                    radius: Style.settings.cubeRadius
+                    color: Theme.primaryColor
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -2726,8 +2766,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.displayFps
-                                onToggled: Options.settings.displayFps = !Options.settings.displayFps
+                                switchTrue: Config.displayFps
+                                onToggled: Config.displayFps = !Config.displayFps
                             }
                         }
 
@@ -2737,8 +2777,8 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Options.settings.debug
-                                onToggled: Options.settings.debug = !Options.settings.debug
+                                switchTrue: Config.debug
+                                onToggled: Config.debug = !Config.debug
                             }
                             bottomLine: false
                         }
@@ -2749,8 +2789,8 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
-                    color: Style.primaryColor
-                    radius: Style.settings.cubeRadius
+                    color: Theme.primaryColor
+                    radius: Style.cubeRadius
                     Column {
                         width: parent.width
                         padding: 0
@@ -2786,7 +2826,7 @@ Item {
                                 text: "打开"
                                 shadowEnabled: false
                                 buttonColor: "transparent"
-                                radius: Style.settings.labelRadius
+                                radius: Style.labelRadius
                                 borderWidth: 2
                                 onClicked: LogManager.openLogFolder()
                             }
@@ -2798,8 +2838,8 @@ Item {
                 Rectangle {
                     width: settingStack.standWidth
                     height: 320
-                    color: Style.primaryColor
-                    radius: Style.settings.cubeRadius
+                    color: Theme.primaryColor
+                    radius: Style.cubeRadius
                     Column {
                         anchors.fill: parent
                         anchors.margins: 16
@@ -2807,8 +2847,8 @@ Item {
                         Text {
                             width: parent.width
                             text: "实时日志预览（完整内容见日志文件）"
-                            color: Style.textColor
-                            font.pixelSize: Style.settings.text
+                            color: Theme.textColor
+                            font.pixelSize: Style.text
                         }
                         Flickable {
                             id: logPreviewFlick
@@ -2822,8 +2862,8 @@ Item {
                                 id: logPreviewText
                                 width: parent.width
                                 text: LogManager.logPreview
-                                color: Style.textColor
-                                font.pixelSize: Style.settings.text
+                                color: Theme.textColor
+                                font.pixelSize: Style.text
                                 wrapMode: Text.Wrap
                             }
                         }
@@ -2846,7 +2886,7 @@ Item {
 
         function checkForUpdate(): void {
             console.log("正在检查更新...");
-            Options.warn.tiped("正在检查更新", 0);
+            Options.warned("正在检查更新", 0);
 
             const xhr = new XMLHttpRequest();
             xhr.onreadystatechange = function() {
@@ -2865,11 +2905,11 @@ Item {
                         } else {
                             console.log("当前已是最新版本");
                             // 可选：显示“已是最新”的提示
-                            Options.warn.tiped("当前已是最新版本", 1);
+                            Options.warned("当前已是最新版本", 1);
                         }
                     } else {
                         console.error("检查更新失败，HTTP状态码:", xhr.status);
-                        Options.warn.tiped("检查更新失败，请稍后重试", 2);
+                        Options.warned("检查更新失败，请稍后重试", 2);
                     }
                 }
             }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -18,7 +19,7 @@ Item {
         x: 0
         height: 2
         radius: 1
-        color: Style.themeColor
+        color: Theme.themeColor
     }
     ParallelAnimation {
         id: barAnime
@@ -56,9 +57,9 @@ Item {
                     id: tabLabel
                     anchors.centerIn: parent
                     text: tabItem.modelData
-                    font.pixelSize: Style.settings.textmain
+                    font.pixelSize: Style.textmain
                     font.bold: tabs.index === tabItem.index
-                    color: tabs.index === tabItem.index ? Style.themeColor : Style.textColor
+                    color: tabs.index === tabItem.index ? Theme.themeColor : Theme.textColor
                 }
                 MouseArea {
                     anchors.fill: parent

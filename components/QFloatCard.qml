@@ -9,9 +9,9 @@ Rectangle {
     id: root
     width: 240
     height: 120
-    radius: Style.settings.cubeRadius
-    color: Style.primaryColor
-    border.color: Style.sideColor
+    radius: Style.cubeRadius
+    color: Theme.primaryColor
+    border.color: Theme.sideColor
     border.width: 1
     signal clicked()
     property alias controlItem: cardArea.data
@@ -27,10 +27,10 @@ Rectangle {
         z: -1
         offset.x: 0
         offset.y: 4 - translateTransform.y
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         blur: 14
         spread: 0
-        color: Style.shadowColor
+        color: Theme.shadowColor
         Behavior on blur { NumberAnimation { duration: 240 } }
     }
     MouseArea {

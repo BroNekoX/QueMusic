@@ -29,11 +29,11 @@ class LogManager : public QObject
     QML_ELEMENT
     QML_SINGLETON
 
-    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
-    Q_PROPERTY(int minimumLevel READ minimumLevel WRITE setMinimumLevel NOTIFY minimumLevelChanged)
-    Q_PROPERTY(QString logDirectory READ logDirectory CONSTANT)
-    Q_PROPERTY(QString currentLogFile READ currentLogFile NOTIFY currentLogFileChanged)
-    Q_PROPERTY(QString logPreview READ logPreview NOTIFY logPreviewChanged)
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged FINAL)
+    Q_PROPERTY(int minimumLevel READ minimumLevel WRITE setMinimumLevel NOTIFY minimumLevelChanged FINAL)
+    Q_PROPERTY(QString logDirectory READ logDirectory CONSTANT FINAL)
+    Q_PROPERTY(QString currentLogFile READ currentLogFile NOTIFY currentLogFileChanged FINAL)
+    Q_PROPERTY(QString logPreview READ logPreview NOTIFY logPreviewChanged FINAL)
 
 public:
     // QML 单例工厂。main.cpp 会提前调用一次，保证日志从启动早期就接管 Qt 消息；

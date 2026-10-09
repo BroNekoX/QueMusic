@@ -37,13 +37,13 @@ class MeshGradientItem : public QQuickItem
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(QUrl coverUrl READ coverUrl WRITE setCoverUrl NOTIFY coverUrlChanged)
-    Q_PROPERTY(QColor color1 READ color1 WRITE setColor1 NOTIFY color1Changed)
-    Q_PROPERTY(QColor color2 READ color2 WRITE setColor2 NOTIFY color2Changed)
-    Q_PROPERTY(QColor color3 READ color3 WRITE setColor3 NOTIFY color3Changed)
-    Q_PROPERTY(int algorithm READ algorithm WRITE setAlgorithm NOTIFY algorithmChanged)
-    Q_PROPERTY(bool animating READ animating WRITE setAnimating NOTIFY animatingChanged)
-    Q_PROPERTY(qreal flowSpeed READ flowSpeed WRITE setFlowSpeed NOTIFY flowSpeedChanged)
+    Q_PROPERTY(QUrl coverUrl READ coverUrl WRITE setCoverUrl NOTIFY coverUrlChanged FINAL)
+    Q_PROPERTY(QColor color1 READ color1 WRITE setColor1 NOTIFY color1Changed FINAL)
+    Q_PROPERTY(QColor color2 READ color2 WRITE setColor2 NOTIFY color2Changed FINAL)
+    Q_PROPERTY(QColor color3 READ color3 WRITE setColor3 NOTIFY color3Changed FINAL)
+    Q_PROPERTY(int algorithm READ algorithm WRITE setAlgorithm NOTIFY algorithmChanged FINAL)
+    Q_PROPERTY(bool animating READ animating WRITE setAnimating NOTIFY animatingChanged FINAL)
+    Q_PROPERTY(qreal flowSpeed READ flowSpeed WRITE setFlowSpeed NOTIFY flowSpeedChanged FINAL)
 
 public:
     explicit MeshGradientItem(QQuickItem *parent = nullptr);

@@ -8,8 +8,9 @@ import 'qrc:/QueMusic/pages'
 // 主体内容区域
 Rectangle {
     id: mainContent
-    color: Style.secondaryColor //Style.blurOverlayColor
+    color: Theme.secondaryColor //Theme.blurOverlayColor
     readonly property int pageHeight: height - 60
+    signal reLoad6()
 
     // 页面数组，便于管理
     property list<Item> pages: [
@@ -24,6 +25,7 @@ Rectangle {
 
     property int pageIndex: 0
     function contentIndexed(choice: int): void {
+        reLoad6();
         if(choice !== mainContent.pageIndex) {
             mainContent.pages[mainContent.pageIndex].visible = false;
             mainContent.pages[mainContent.pageIndex].active = false;

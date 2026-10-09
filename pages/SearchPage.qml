@@ -9,6 +9,12 @@ Item {
 
     property int searchTab: 0
 
+    Connections {
+        target: mainContent
+        function onReLoad6(): void {
+            searchChildPage.pageList[searchChildPage.lastIndex].scrollTop();
+        }
+    }
 
     QPages {
         x: 24
@@ -32,9 +38,9 @@ Item {
                 height: 40
                 verticalAlignment: Text.AlignVCenter
                 text: "搜索结果"
-                font.pixelSize: Style.settings.pageTitle
+                font.pixelSize: Style.pageTitle
                 font.weight: Font.DemiBold
-                color: Style.fontColor
+                color: Theme.fontColor
                 QLoadSign {
                     id: searchLoad
                     x: parent.width
@@ -51,12 +57,12 @@ Item {
                 color: MusicApi.songSource == 0 ? "#CDE8FF" : MusicApi.songSource == 1 ? "#FFCDCD" : MusicApi.songSource == 2 ? "#FFD9E6" : MusicApi.songSource == 3 ? "#CDFFCD" : "#FFFFCD"
                 border.color: MusicApi.songSource == 0 ? "#4384F5" : MusicApi.songSource == 1 ? "#F54343" : MusicApi.songSource == 2 ? "#FB7299" : MusicApi.songSource == 3 ? "#4DF543" : "#F5F543"
                 radius: 18
-                cardRadius: Style.settings.labelRadius
+                cardRadius: Style.labelRadius
                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
                     MusicApi.searchSongsResults.clear();
-                    MusicApi.searchSongs(mainSearchInput.text,MusicApi.nowIndex,1,20);
+                    MusicApi.searchSongs(Options.searchText,MusicApi.nowIndex,1,20);
                     Options.exitIndex = 1;
                 }
             }
@@ -75,7 +81,7 @@ Item {
                 MusicApi.searchSongsResults.clear()
                 searchChildPage.stack(index)
                 MusicApi.nowIndex = index
-                MusicApi.searchSongs(mainSearchInput.text,index,1,20)
+                MusicApi.searchSongs(Options.searchText,index,1,20)
             }
         }
 
@@ -89,7 +95,7 @@ Item {
 
             onEnded: {
                 if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(mainSearchInput.text,0,MusicApi.searchSongsResults.count / 20 + 1,20);
+                    MusicApi.searchSongs(Options.searchText,0,MusicApi.searchSongsResults.count / 20 + 1,20);
                     isEnd = false;
                 } else {
                     if(MusicApi.searchSongsResults.count !== 0) {
@@ -99,9 +105,9 @@ Item {
             }
 
             onClicked: (index) => {
-                if(Options.settings.soundQuality === 0) {
+                if(Config.soundQuality === 0) {
                     MusicApi.getMusicInfo(model.get(index).hash);
-                } else if(Options.settings.soundQuality === 1) {
+                } else if(Config.soundQuality === 1) {
                     MusicApi.getMusicInfo(model.get(index).hashhq);
                 } else {
                     MusicApi.getMusicInfo(model.get(index).hashsq);
@@ -121,7 +127,7 @@ Item {
 
             onEnded: {
                 if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(mainSearchInput.text,1,MusicApi.searchSongsResults.count / 20 + 1,20);
+                    MusicApi.searchSongs(Options.searchText,1,MusicApi.searchSongsResults.count / 20 + 1,20);
                     isEnd = false;
                 } else {
                     if(MusicApi.searchSongsResults.count !== 0) {
@@ -153,7 +159,7 @@ Item {
 
             onEnded: {
                 if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(mainSearchInput.text,2,MusicApi.searchSongsResults.count / 20 + 1,20);
+                    MusicApi.searchSongs(Options.searchText,2,MusicApi.searchSongsResults.count / 20 + 1,20);
                     isEnd = false;
                 } else {
                     if(MusicApi.searchSongsResults.count !== 0) {
@@ -177,7 +183,7 @@ Item {
 
             onEnded: {
                 if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(mainSearchInput.text,3,MusicApi.searchSongsResults.count / 20 + 1,20);
+                    MusicApi.searchSongs(Options.searchText,3,MusicApi.searchSongsResults.count / 20 + 1,20);
                     isEnd = false;
                 } else {
                     if(MusicApi.searchSongsResults.count !== 0) {
@@ -186,9 +192,9 @@ Item {
                 }
             }
             onClicked: (index) => {
-                if(Options.settings.soundQuality === 0) {
+                if(Config.soundQuality === 0) {
                     MusicApi.getMusicInfo(model.get(index).hash);
-                } else if(Options.settings.soundQuality === 1) {
+                } else if(Config.soundQuality === 1) {
                     MusicApi.getMusicInfo(model.get(index).hashhq);
                 } else {
                     MusicApi.getMusicInfo(model.get(index).hashsq);
@@ -215,9 +221,9 @@ Item {
                 bottomMargin: 24
 
                 onClicked: (index) => {
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);

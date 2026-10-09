@@ -33,7 +33,7 @@ Item {
     property int hideHeight: 0              // 宿主沉浸模式偏移
     property int lyricSize: 0               // 歌词大小设置
 
-    // 模块自有设置见 LyricsFreeConfig 单例（不写宿主 StyleSettings、不走白名单）
+    // 模块自有设置见 LyricsFreeConfig 单例（不写宿主 Style、不走白名单）
 
     // 受控写入口：只用于宿主自身状态（封面模式 / 主题模式），样式项由 LyricsFreeConfig 自己持有
     property var requestStyle: null
@@ -77,7 +77,7 @@ Item {
             startX: 0
             startY: waveItem.height
             PathPolyline {
-                path: getWave.wavePath
+                path: Options.getWave.wavePath
             }
         }
     }
@@ -92,25 +92,25 @@ Item {
         blurEnabled: true
         blurMax: 32
         blur: 1.0
-        visible: Style.settings.waveDisplay
+        visible: Style.waveDisplay
     }
 
     // ── 背景样式（LyricsFreeConfig.bgStyle）：0 流体 / 1 图片 / 2 视频 / 3 平面星空 ──
     MeshGradientItem {
         anchors.fill: parent
-        visible: LyricsFreeConfig.bgStyle === 0 && Style.settings.flowStyle !== 2
+        visible: LyricsFreeConfig.bgStyle === 0 && Style.flowStyle !== 2
         coverUrl: mainLyrics.coverUrl || "qrc:/QueMusic/resources/app/musicpic.png"
         color1: mainLyrics.mainColor
         color2: mainLyrics.secondColor
         color3: mainLyrics.thirdColor
-        algorithm: Style.settings.flowStyle
+        algorithm: Style.flowStyle
         animating: true
         clip: true
     }
     // 流体（关闭流动时的静态渐变）
     Rectangle {
         anchors.fill: parent
-        visible: LyricsFreeConfig.bgStyle === 0 && Style.settings.flowStyle === 2
+        visible: LyricsFreeConfig.bgStyle === 0 && Style.flowStyle === 2
         gradient: Gradient {
             GradientStop { position: 0.0; color: mainLyrics.mainColor }
             GradientStop { position: 1.0; color: mainLyrics.secondColor }
@@ -293,7 +293,7 @@ Item {
             property real fadeBottom: 0.3
             property real blurTop: 0.3
             property real blurBottom: 0.5
-            property real blurRadius: Style.settings.maskBlur ? 8 : 0
+            property real blurRadius: Style.maskBlur ? 8 : 0
             property vector2d srcSize: Qt.vector2d(lyricContent.width * Screen.devicePixelRatio, lyricContent.height * Screen.devicePixelRatio)
             fragmentShader: "qrc:/shaders/shaders/lyricfade.frag.qsb"
         }
@@ -355,7 +355,7 @@ Item {
             }
         }
 
-        // 宿主每 320ms 调用（见 PlayerMaxCenter 的 lyricTimer），idx 由宿主遍历列表得出
+        // 宿主每 320ms 调用，idx 由宿主计算
         function tick(idx: int): void {
             const data = mainLyrics.lyricsModel;
             if (!data || data.length === 0 || idx < 0 || idx >= lyricRep.count) return;
@@ -523,9 +523,9 @@ Item {
                 Component.onCompleted: {
                     lyricContent.heights[lyricItem.index] = height;
                     Qt.callLater(lyricContent.rebuild);
-                    if(Style.settings.fontFamily) {
-                        lyricsText.font.family = Style.settings.fontFamily;
-                        lyricTransText.font.family = Style.settings.fontFamily;
+                    if(Style.fontFamily) {
+                        lyricsText.font.family = Style.fontFamily;
+                        lyricTransText.font.family = Style.fontFamily;
 
                     }
                 }
@@ -535,7 +535,7 @@ Item {
                     id: lyricsText
                     width: lyricItem.width - lyricContent.lyricHeight / 4
                     text: modelData.text || ""
-                    font.weight: Style.settings.textWidth
+                    font.weight: Style.textWidth
                     font.pixelSize: lyricContent.lyricHeight
                     color: lyricItem.flowWords ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
                     transformOrigin: modelData.isOther ? Item.BottomRight : Item.BottomLeft
@@ -558,7 +558,7 @@ Item {
                     width: parent.width
                     horizontalAlignment: modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
-                    font.weight: Style.settings.textWidth
+                    font.weight: Style.textWidth
                     color: "#ffe8e8e8"
                     opacity: LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.2
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -612,7 +612,7 @@ Item {
                                 id: lyricFlowText
                                 text: wordItem.word.text
                                 y: 0
-                                font.weight: Style.settings.textWidth
+                                font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
                                 color: LyricsFreeConfig.lyricLineColor !== "" && lyricItem.isCurrent ? LyricsFreeConfig.lyricLineColor : "#ffe8e8e8"
@@ -759,13 +759,13 @@ Item {
                     spacing: 10
                     Rectangle {
                         width: 88; height: 36; radius: 10
-                        color: Style.primaryBlurColor
+                        color: Theme.primaryBlurColor
                         border.width: 1
-                        border.color: Style.primaryColor
+                        border.color: Theme.primaryColor
                         Text {
                             anchors.centerIn: parent
                             text: "选择"
-                            color: Style.textColor
+                            color: Theme.textColor
                             font.pixelSize: 13
                         }
                         MouseArea {
@@ -776,13 +776,13 @@ Item {
                     }
                     Rectangle {
                         width: 72; height: 36; radius: 10
-                        color: Style.primaryBlurColor
+                        color: Theme.primaryBlurColor
                         border.width: 1
-                        border.color: Style.primaryColor
+                        border.color: Theme.primaryColor
                         Text {
                             anchors.centerIn: parent
                             text: "清除"
-                            color: Style.textColor
+                            color: Theme.textColor
                             font.pixelSize: 13
                         }
                         MouseArea {
@@ -848,8 +848,8 @@ Item {
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Style.settings.premiumLyricAnime
-                    onToggled: mainLyrics.request("premiumLyricAnime", !Style.settings.premiumLyricAnime)
+                    switchTrue: Style.premiumLyricAnime
+                    onToggled: mainLyrics.request("premiumLyricAnime", !Style.premiumLyricAnime)
                 }
             }
             SettingItem {
@@ -858,8 +858,8 @@ Item {
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Style.settings.waveDisplay
-                    onToggled: mainLyrics.request("waveDisplay", !Style.settings.waveDisplay)
+                    switchTrue: Style.waveDisplay
+                    onToggled: mainLyrics.request("waveDisplay", !Style.waveDisplay)
                 }
             }
             SettingItem {
@@ -892,7 +892,7 @@ Item {
                     onToggled: LyricsFreeConfig.coverReflection = !LyricsFreeConfig.coverReflection
                 }
             }
-            // ── 本主题专属项（经 request 写宿主白名单，持久化在 Style.settings）──
+            // ── 本主题专属项（经 request 写宿主白名单，持久化在 Style）──
             SettingItem {
                 label: "歌词间隔"
                 width: parent.width
@@ -951,13 +951,13 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     width: 120; height: 36; radius: 10
-                    color: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : Style.primaryBlurColor
+                    color: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : Theme.primaryBlurColor
                     border.width: 1
-                    border.color: Style.primaryColor
+                    border.color: Theme.primaryColor
                     Text {
                         anchors.centerIn: parent
                         text: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor.toUpperCase() : "默认"
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.pixelSize: 13
                     }
                     MouseArea {
@@ -973,13 +973,13 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     width: 120; height: 36; radius: 10
-                    color: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : Style.primaryBlurColor
+                    color: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : Theme.primaryBlurColor
                     border.width: 1
-                    border.color: Style.primaryColor
+                    border.color: Theme.primaryColor
                     Text {
                         anchors.centerIn: parent
                         text: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor.toUpperCase() : "默认"
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.pixelSize: 13
                     }
                     MouseArea {

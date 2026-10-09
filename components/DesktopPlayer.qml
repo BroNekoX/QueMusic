@@ -21,30 +21,30 @@ Popup {
         switch(index) {
             case 0:
                 // 无：全部关闭
-                desktopPlayerLoader.active = false;
-                desktopLyricsLoader.active = false;
+                Options.desktopPlayerLoader.active = false;
+                Options.desktopLyricsLoader.active = false;
                 break;
             case 1:
                 // 小窗播放器：开启小窗，关闭灵动岛
-                desktopLyricsLoader.active = false;
-                desktopPlayerLoader.active = true;
-                if (desktopPlayerLoader.status === Loader.Ready) {
-                    desktopPlayerLoader.item.show();
+                Options.desktopLyricsLoader.active = false;
+                Options.desktopPlayerLoader.active = true;
+                if (Options.desktopPlayerLoader.status === Loader.Ready) {
+                    Options.desktopPlayerLoader.item.show();
                 }
                 break;
             case 2:
                 // 歌词栏：暂未实现
-                desktopPlayerLoader.active = false;
-                desktopLyricsLoader.active = true;
+                Options.desktopPlayerLoader.active = false;
+                Options.desktopLyricsLoader.active = true;
                 break;
         }
     }
 
     background: QBlurCard {
         anchors.fill: parent
-        borderRadius: Style.settings.cubeRadius
+        borderRadius: Style.cubeRadius
         clip: false
-        blurSource: mainLayout
+        blurSource: Options.mainLayout
         shadowEffect: true
         rectXy: Qt.rect(desktopPlayer.x, desktopPlayer.y, 360, desktopPlayer.height)
     }
@@ -56,9 +56,9 @@ Popup {
             height: 36
             text: "桌面播放器"
             font.bold: true
-            font.pixelSize: Style.settings.textH2
+            font.pixelSize: Style.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.fontColor
+            color: Theme.fontColor
         }
         SButton {
             iconCharacter: "\uf025"
@@ -67,7 +67,7 @@ Popup {
             width: 36
             height: 36
             radius: 36
-            iconSize: Style.settings.texticon + 2
+            iconSize: Style.texticon + 2
             buttonColor: "transparent"
             shadowEnabled: false
             onClicked: {
@@ -89,15 +89,15 @@ Popup {
                     required property string modelData
                     required property int index
                     width: parent.width
-                    radius: Style.settings.labelRadius
-                    color: desktopPlayer.desktopPlayerMode === index ? Style.themeColor : Style.primaryColor
+                    radius: Style.labelRadius
+                    color: desktopPlayer.desktopPlayerMode === index ? Theme.themeColor : Theme.primaryColor
                     height: 60
                     border.width: 2
-                    border.color: Style.sideColor
+                    border.color: Theme.sideColor
                     Rectangle {
                         radius: parent.radius
                         anchors.fill: parent
-                        color: Style.hoverColor
+                        color: Theme.hoverColor
                         opacity: modeArea.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
@@ -105,18 +105,18 @@ Popup {
                     Text {
                         x: 16
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Style.settings.textH2
+                        font.pixelSize: Style.textH2
                         text: modelData
-                        color: desktopPlayer.desktopPlayerMode === index ? Style.secondaryColor : Style.fontColor
+                        color: desktopPlayer.desktopPlayerMode === index ? Theme.secondaryColor : Theme.fontColor
                     }
                     Text {
                         x: parent.width - 42
                         anchors.verticalCenter: parent.verticalCenter
                         text: "\uf099"
-                        font.pixelSize: Style.settings.texticon
-                        font.family: IconFont.name
+                        font.pixelSize: Style.texticon
+                        font.family: Fonts.icon
                         visible: desktopPlayer.desktopPlayerMode === index
-                        color: Style.secondaryColor
+                        color: Theme.secondaryColor
                     }
                     MouseArea {
                         id: modeArea
@@ -147,18 +147,18 @@ Popup {
 
     // 小窗播放器异步加载完成后自动显示（避免关闭按钮 hide 后无法再次出现）
     Connections {
-        target: desktopPlayerLoader
+        target: Options.desktopPlayerLoader
         function onStatusChanged(): void {
-            if (desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 1) {
-                desktopPlayerLoader.item.show();
+            if (Options.desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 1) {
+                Options.desktopPlayerLoader.item.show();
             }
         }
     }
 
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 450; from: window.width; to: window.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 450; from: desktopPlayer.parent.width; to: desktopPlayer.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 240; to: window.width; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "x"; duration: 240; to: desktopPlayer.parent.width; easing.type: Easing.OutCubic }
     }
 }

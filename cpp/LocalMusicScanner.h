@@ -69,16 +69,16 @@ class LocalMusicScanner : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(QUrl folder READ folder WRITE setFolder NOTIFY folderChanged)
-    Q_PROPERTY(QStringList nameFilters READ nameFilters WRITE setNameFilters NOTIFY nameFiltersChanged)
-    Q_PROPERTY(bool showDirs READ showDirs WRITE setShowDirs NOTIFY showDirsChanged)
-    Q_PROPERTY(int sortField READ sortField WRITE setSortField NOTIFY sortFieldChanged)
-    Q_PROPERTY(bool sortReversed READ sortReversed WRITE setSortReversed NOTIFY sortReversedChanged)
-    Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
-    Q_PROPERTY(bool deleting READ deleting NOTIFY deletingChanged)
-    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
-    Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged)
-    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT)
+    Q_PROPERTY(QUrl folder READ folder WRITE setFolder NOTIFY folderChanged FINAL)
+    Q_PROPERTY(QStringList nameFilters READ nameFilters WRITE setNameFilters NOTIFY nameFiltersChanged FINAL)
+    Q_PROPERTY(bool showDirs READ showDirs WRITE setShowDirs NOTIFY showDirsChanged FINAL)
+    Q_PROPERTY(int sortField READ sortField WRITE setSortField NOTIFY sortFieldChanged FINAL)
+    Q_PROPERTY(bool sortReversed READ sortReversed WRITE setSortReversed NOTIFY sortReversedChanged FINAL)
+    Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged FINAL)
+    Q_PROPERTY(bool deleting READ deleting NOTIFY deletingChanged FINAL)
+    Q_PROPERTY(int count READ rowCount NOTIFY countChanged FINAL)
+    Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged FINAL)
+    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT FINAL)
 public:
     enum Roles {
         FileNameRole = Qt::UserRole + 1,

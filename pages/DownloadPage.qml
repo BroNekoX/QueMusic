@@ -24,11 +24,11 @@ Item {
 
     Connections {
         target: MusicApi.downloader
-        function onCompletedCountChanged(): void { refreshDownloads() }
+        function onCompletedCountChanged(): void { downloadPage.refreshDownloads() }
     }
     Connections {
         target: MusicApi
-        function onDownloadPathChanged(): void { refreshDownloads() }
+        function onDownloadPathChanged(): void { downloadPage.refreshDownloads() }
     }
 
     // 顶部标题
@@ -45,8 +45,8 @@ Item {
             verticalAlignment: Text.AlignVCenter
             text: "下载管理"
             font.weight: Font.DemiBold
-            font.pixelSize: Style.settings.pageTitle
-            color: Style.fontColor
+            font.pixelSize: Style.pageTitle
+            color: Theme.fontColor
         }
     }
 
@@ -63,7 +63,7 @@ Item {
         onTabChange: (index) => {
             downloadChildPage.stack(index);
             if (index === 1)
-                refreshDownloads();
+                downloadPage.refreshDownloads();
         }
     }
 
@@ -77,7 +77,7 @@ Item {
             height: 38
             text: "文件夹中显示"
             iconCharacter: "\uf0fb"
-            buttonColor: favouritePage.setMode === 1 ? Style.containColor : Style.fullColor
+            buttonColor: Theme.primaryColor
             onClicked: {
                 Qt.openUrlExternally(MusicApi.downloader.effectiveDownloadDir());
             }
@@ -103,7 +103,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "没有下载任务"
-                color: Style.textColor
+                color: Theme.textColor
                 font.pixelSize: 14
                 visible: MusicApi.downloader.taskCount === 0
             }
@@ -135,29 +135,29 @@ Item {
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "文件名"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
                     }
                     Text {
                         x: parent.width - 240
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "进度"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
                     }
                     Text {
                         x: parent.width - 100
                         height: 32
                         verticalAlignment: Text.AlignVCenter
                         text: "操作"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
                     }
                     Rectangle {
                         width: parent.width - 16
                         height: 1
-                        color: Style.sideColor
+                        color: Theme.sideColor
                         y: 31
                     }
                 }
@@ -176,8 +176,8 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: Style.settings.labelRadius
-                        color: Style.hoverColor
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
                         opacity: area.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
@@ -189,19 +189,19 @@ Item {
                         width: 48
                         height: 48
                         radius: 10
-                        color: activeDel.status === 0 ? Style.sideColor
-                             : activeDel.status === 1 ? Style.containColor
-                             : Style.sideColor
+                        color: activeDel.status === 0 ? Theme.sideColor
+                             : activeDel.status === 1 ? Theme.containColor
+                             : Theme.sideColor
 
                         Text {
                             anchors.centerIn: parent
                             text: activeDel.status === 0 ? "\ue803"
                                  : activeDel.status === 1 ? "\ue80b"
                                  : "\ue803"
-                            font.family: IconFont.name
+                            font.family: Fonts.icon
                             font.pixelSize: 20
-                            color: activeDel.status === 1 ? Style.themeColor
-                                 : Style.textColor
+                            color: activeDel.status === 1 ? Theme.themeColor
+                                 : Theme.textColor
                         }
                     }
 
@@ -212,8 +212,8 @@ Item {
                         width: parent.width - 340
                         height: 24
                         text: activeDel.fileName
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.fontColor
+                        font.pixelSize: Style.textmain
                         font.bold: true
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
@@ -231,8 +231,8 @@ Item {
                             if (activeDel.status === 3) return "错误: " + activeDel.errorString
                             return ""
                         }
-                        color: activeDel.status === 3 ? "#ff4444" : Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: activeDel.status === 3 ? "#ff4444" : Theme.textColor
+                        font.pixelSize: Style.text
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -251,14 +251,14 @@ Item {
                             height: 6
                             y: 7
                             radius: 3
-                            color: Style.sideColor
+                            color: Theme.sideColor
                         }
                         Rectangle {
                             width: barBg.width * activeDel.progress
                             height: 6
                             y: 7
                             radius: 3
-                            color: Style.themeColor
+                            color: Theme.themeColor
                             Behavior on width { NumberAnimation { duration: 120 } }
                         }
                         Text {
@@ -267,8 +267,8 @@ Item {
                             height: 20
                             verticalAlignment: Text.AlignVCenter
                             text: Math.floor(activeDel.progress * 100) + "%"
-                            color: Style.textColor
-                            font.pixelSize: Style.settings.text
+                            color: Theme.textColor
+                            font.pixelSize: Style.text
                         }
                     }
 
@@ -280,8 +280,8 @@ Item {
                         verticalAlignment: Text.AlignVCenter
                         visible: activeDel.status === 0
                         text: "等待中"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
                     }
 
                     // 错误状态文字
@@ -293,7 +293,7 @@ Item {
                         visible: activeDel.status === 3
                         text: "下载失败"
                         color: "#ff4444"
-                        font.pixelSize: Style.settings.text
+                        font.pixelSize: Style.text
                     }
 
                     // 操作按钮
@@ -311,7 +311,7 @@ Item {
                             height: 36
                             radius: 36
                             buttonColor: "transparent"
-                            hoverColor: Style.hoverColor
+                            hoverColor: Theme.hoverColor
                             shadowEnabled: false
                             onClicked: MusicApi.downloader.removeTask(activeDel.taskId)
                         }
@@ -324,7 +324,7 @@ Item {
                             height: 36
                             radius: 36
                             buttonColor: "transparent"
-                            hoverColor: Style.hoverColor
+                            hoverColor: Theme.hoverColor
                             shadowEnabled: false
                             visible: activeDel.status === 3
                             onClicked: MusicApi.downloader.retryTask(activeDel.taskId)
@@ -351,7 +351,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "没有已下载的文件,去下载几个音乐喵"
-                color: Style.textColor
+                color: Theme.textColor
                 font.pixelSize: 14
                 visible: downloadedModel.count === 0
             }

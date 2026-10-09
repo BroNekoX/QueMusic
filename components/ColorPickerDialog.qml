@@ -4,7 +4,7 @@
 // 颜色选择对话框（继承 QOptionDialog）：二维饱和/明度色板 + HSV 滑块 + 十六进制输入。
 // 色板用分层渐变实现，效果对齐 Qt 自带 ColorDialog 的非原生实现。
 // 用法：openColor(当前色) 打开，onAccepted 里读 selectedColor。
-// 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 mainLayout，跨文件使用需调用方显式设置。
+// 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 Options.mainLayout，跨文件使用需调用方显式设置。
 import QtQuick
 import QueMusic 1.0
 
@@ -66,7 +66,7 @@ QOptionDialog {
             id: picker
             width: parent.width
             height: 170
-            radius: Style.settings.labelRadius
+            radius: Style.labelRadius
             color: Qt.hsva(root.hue, 1, 1, 1)
 
             Rectangle {
@@ -215,10 +215,10 @@ QOptionDialog {
             Rectangle {
                 width: 56
                 height: 36
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 color: root.selectedColor
                 border.width: 1
-                border.color: Style.sideColor
+                border.color: Theme.sideColor
             }
 
             QInput {

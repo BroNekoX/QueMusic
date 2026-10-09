@@ -105,7 +105,7 @@ Item {
 
             function fail(text: string): void {
                 holder.unload();
-                Style.warned("功能插件「" + holder.name + "」加载失败：" + text, 0);
+                Options.warned("功能插件「" + holder.name + "」加载失败：" + text, 0);
                 FunctionPlugins.setEnabled(holder.id, false);
             }
         }

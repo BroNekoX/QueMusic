@@ -44,6 +44,7 @@ constexpr int kSourceNetease = 1;
 constexpr int kSourceBilibili = 2;
 // 超过这么久没有任何平台响应就强制结束加载态
 constexpr int kRequestWatchdogMs = 20000;
+constexpr int kLyricTickMs = 320;
 
 // 取多个候选字段中第一个非空字符串（模拟 JS 的 a || b || c || ""）
 QString firstNonEmpty(const QVariantMap &m, std::initializer_list<const char *> keys)
@@ -180,6 +181,10 @@ MusicApiService::MusicApiService(QObject *parent)
         m_pendingRequests = 0;
         setLoadState(false);
     });
+
+    m_lyricTimer.setInterval(kLyricTickMs);
+    m_lyricTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_lyricTimer, &QTimer::timeout, this, &MusicApiService::advanceLyricIndex);
 }
 
 MusicApiService::~MusicApiService()
@@ -501,7 +506,7 @@ void MusicApiService::getComments(const QString &hash, int page, int pageSize, i
     if (hash.isEmpty())
         return;
     beginRequest();
-    m_comments.setItems(QVariantList()); // 先清空：切歌时不要残留上一首的评论
+    //m_comments.setItems(QVariantList()); 清空个p
     DISPATCH(source, getComments(hash, qMax(1, page), qBound(1, pageSize, 50)));
 }
 
@@ -805,6 +810,8 @@ void MusicApiService::setLyricsData(const QVariant &v)
     if (m_lyricsData == v)
         return;
     m_lyricsData = v;
+    rebuildLyricTimes(v);
+    setLyricIndex(0);
     emit lyricsDataChanged();
 }
 
@@ -814,6 +821,70 @@ void MusicApiService::setLyricsTranslate(const QVariant &v)
         return;
     m_lyricsTranslate = v;
     emit lyricsTranslateChanged();
+}
+
+void MusicApiService::rebuildLyricTimes(const QVariant &v)
+{
+    const QVariantList list = v.toList();
+    m_lyricTimes.clear();
+    m_lyricTimes.reserve(list.size());
+    for (const QVariant &item : list)
+        m_lyricTimes.append(item.toMap().value(QStringLiteral("time")).toLongLong());
+}
+
+void MusicApiService::setLyricIndex(int index)
+{
+    if (m_lyricIndex == index)
+        return;
+    m_lyricIndex = index;
+    emit lyricIndexChanged();
+}
+
+void MusicApiService::advanceLyricIndex()
+{
+    const int count = int(m_lyricTimes.size());
+    if (count == 0) {
+        setLyricIndex(0);
+        return;
+    }
+
+    const qlonglong pos = m_lyricPositionMs + m_lyricOffsetMs + kLyricTickMs;
+    int index = qBound(0, m_lyricIndex, count - 1);
+    while (index + 1 < count && pos >= m_lyricTimes.at(index + 1))
+        ++index;
+    while (index > 0 && pos < m_lyricTimes.at(index))
+        --index;
+    setLyricIndex(index);
+}
+
+void MusicApiService::setLyricFollowActive(bool active)
+{
+    if (m_lyricFollowActive == active)
+        return;
+    m_lyricFollowActive = active;
+    if (active) {
+        m_lyricTimer.start();
+        advanceLyricIndex();
+    } else {
+        m_lyricTimer.stop();
+    }
+    emit lyricFollowActiveChanged();
+}
+
+void MusicApiService::setLyricPositionMs(qlonglong ms)
+{
+    if (m_lyricPositionMs == ms)
+        return;
+    m_lyricPositionMs = ms;
+    emit lyricPositionMsChanged();
+}
+
+void MusicApiService::setLyricOffsetMs(int ms)
+{
+    if (m_lyricOffsetMs == ms)
+        return;
+    m_lyricOffsetMs = ms;
+    emit lyricOffsetMsChanged();
 }
 
 void MusicApiService::setLoadState(bool s)
@@ -981,7 +1052,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
 
     // 评论：直接灌评论模型，不参与歌曲 hash 等后续处理
     if (action == QLatin1String("getComments")) {
-        m_comments.setItems(requestFailed ? QVariantList() : info.toList());
+        m_comments.append(requestFailed ? QVariantList() : info.toList());
         return;
     }
 

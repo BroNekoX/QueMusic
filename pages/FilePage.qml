@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
@@ -46,7 +47,7 @@ Item {
     }
 
     function enqueueLocalEntry(path: string, title: string, artist: string): void {
-        Style.warned(Playback.enqueue({ name: title, path: path, songer: artist, source: -1 })
+        Options.warned(Playback.enqueue({ name: title, path: path, songer: artist, source: -1 })
                      ? "已加入播放列表" : "已在播放列表中", 1)
     }
 
@@ -66,7 +67,7 @@ Item {
         target: Songs
         function onSongsAdded(count: int): void {
             if (count > 0)
-                Style.warned("已导入 " + count + " 首音乐", 1);
+                Options.warned("已导入 " + count + " 首音乐", 1);
         }
     }
 
@@ -107,7 +108,7 @@ Item {
     function addChosenToList(): void {
         const count = filePage.chooseIndex.length;
         if (count === 0) {
-            Style.warned("请先选择歌曲", 0);
+            Options.warned("请先选择歌曲", 0);
             return;
         }
         const rows = [];
@@ -129,13 +130,13 @@ Item {
         }
         // 一次批量追加，逐条 append 会触发 N 次插入与信号
         const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
-        Style.warned(added === 0 ? "所选歌曲都已在播放列表中" : "已加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
+        Options.warned(added === 0 ? "所选歌曲都已在播放列表中" : "已加入播放列表 " + added + " 首", added === 0 ? 0 : 1);
     }
 
     function deleteChosen(): void {
         const count = filePage.chooseIndex.length;
         if (count === 0) {
-            Style.warned(filePage.setMode < 3 ? "请先选择文件夹" : "请先选择歌曲", 0);
+            Options.warned(filePage.setMode < 3 ? "请先选择文件夹" : "请先选择歌曲", 0);
             return;
         }
 
@@ -167,7 +168,7 @@ Item {
         }
 
         filePage.chooseIndex = [];
-        Style.warned("已删除 " + count + (filePage.setMode < 3 ? " 个文件夹" : " 首音乐"), 1);
+        Options.warned("已删除 " + count + (filePage.setMode < 3 ? " 个文件夹" : " 首音乐"), 1);
     }
 
     // 把「我的文件夹」歌曲模型里的歌全部加入播放列表，play=true 时立即播放
@@ -175,7 +176,7 @@ Item {
         const searching = folderMusic.searching;
         const total = searching ? Songs.searchResults.count : Songs.rowCount();
         if (total === 0) {
-            Style.warned("当前文件夹没有歌曲", 0);
+            Options.warned("当前文件夹没有歌曲", 0);
             return;
         }
         const rows = [];
@@ -187,9 +188,9 @@ Item {
         // 批量接口内部去重，并只发一次插入信号
         const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
         if (added === 0) {
-            Style.warned("列表中的歌曲都已在播放列表中", 0);
+            Options.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
-            Style.warned("已加入播放列表 " + added + " 首", 1);
+            Options.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
             Playback.goTo(Options.queue.count - added);
@@ -201,7 +202,7 @@ Item {
         const searching = localFolderMusic.searching;
         const total = searching ? localFileModel.searchResults.count : localFileModel.count;
         if (total === 0) {
-            Style.warned("当前文件夹没有音频文件", 0);
+            Options.warned("当前文件夹没有音频文件", 0);
             return;
         }
         const rows = [];
@@ -214,9 +215,9 @@ Item {
         }
         const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0;
         if (added === 0) {
-            Style.warned("列表中的歌曲都已在播放列表中", 0);
+            Options.warned("列表中的歌曲都已在播放列表中", 0);
         } else {
-            Style.warned("已加入播放列表 " + added + " 首", 1);
+            Options.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
             Playback.goTo(Options.queue.count - added);
@@ -233,7 +234,7 @@ Item {
         if (dir) {
             Qt.openUrlExternally(dir);
         } else {
-            Style.warned("无法定位所在文件夹", 0);
+            Options.warned("无法定位所在文件夹", 0);
         }
     }
 
@@ -260,8 +261,8 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "本地音乐"
                 font.weight: Font.DemiBold
-                font.pixelSize: Style.settings.pageTitle
-                color: Style.fontColor
+                font.pixelSize: Style.pageTitle
+                color: Theme.fontColor
             }
         }
 
@@ -311,7 +312,7 @@ Item {
                         height: 38
                         text: filePage.setMode === 1 ? "取消选择" : "选择"
                         iconCharacter: "\uf09f"
-                        buttonColor: filePage.setMode === 1 ? Style.containColor : Style.primaryColor
+                        buttonColor: filePage.setMode === 1 ? Theme.containColor : Theme.primaryColor
                         onClicked: {
                             if(filePage.setMode === 1) {
                                 filePage.clearChoose();
@@ -333,9 +334,9 @@ Item {
                             onConfirm: {
                                 if(input!=="") {
                                     MyFolders.addFolder(input, "my", "");
-                                    Style.warned("已添加文件夹", 1);
+                                    Options.warned("已添加文件夹", 1);
                                 } else {
-                                    Style.warned("请输入文件名",0);
+                                    Options.warned("请输入文件名",0);
                                 }
                             }
                         }
@@ -370,9 +371,9 @@ Item {
                         onConfirm: {
                             if(input!=="") {
                                 MyFolders.renameFolder(editDialog.folderId, input);
-                                Options.warn.tiped("文件夹已重命名", 1);
+                                Options.warned("文件夹已重命名", 1);
                             } else {
-                                Options.warn.tiped("请输入文件名",0);
+                                Options.warned("请输入文件名",0);
                             }
                         }
                     }
@@ -384,14 +385,14 @@ Item {
                         id: listfolder
                         height: 64
                         width: folderView.width - 16
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         property bool chosen: filePage.setMode === 1 && filePage.chooseIndex.indexOf(listfolder.folderId) !== -1
-                        color: listfolder.chosen ? Style.containColor : "#00000000"
+                        color: listfolder.chosen ? Theme.containColor : "#00000000"
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: Style.settings.labelRadius
-                            color: Style.hoverColor
+                            radius: Style.labelRadius
+                            color: Theme.hoverColor
                             opacity: foldArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -403,30 +404,30 @@ Item {
                             z: 4
                             width: 48
                             height: 48
-                            color: Style.containColor
+                            color: Theme.containColor
                             radius: 10
                             Text {
                                 anchors.fill: parent
                                 text: "\uf0f5"
-                                font.family: IconFont.name
-                                font.pixelSize: Style.settings.texticon
-                                color: Style.fontColor
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticon
+                                color: Theme.fontColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
                         }
 
 
-                        Label {
-                            x: 80
+                        Text {
+                            x: 72
                             y: 0
                             z: 3
                             width: 140
                             height: 64
                             text: listfolder.name
-                            color: Style.fontColor
+                            color: Theme.fontColor
                             font.bold: true
-                            font.pixelSize: Style.settings.textmain
+                            font.pixelSize: Style.textmain
                             verticalAlignment: Text.AlignVCenter
                             visible: true
                             Behavior on color { ColorAnimation { duration: 120 } }
@@ -468,7 +469,7 @@ Item {
                                         if (listfolder.path) {
                                             Qt.openUrlExternally(listfolder.path);
                                         } else {
-                                            Style.warned("「我的文件夹」没有关联的磁盘路径", 0);
+                                            Options.warned("「我的文件夹」没有关联的磁盘路径", 0);
                                         }
                                     }
                                 }
@@ -488,7 +489,7 @@ Item {
                                             editDialog.folderId = listfolder.folderId;
                                             editDialog.open();
                                         } else {
-                                            Style.warned("无法修改默认文件夹名称",0);
+                                            Options.warned("无法修改默认文件夹名称",0);
                                         }
                                     }
                                 }
@@ -506,11 +507,11 @@ Item {
                                             Options.dialog.openSimpleDialog("删除", "这将删除本文件夹，无法恢复，是否删除？",
                                                 function() {
                                                     MyFolders.deleteFolder(listfolder.folderId);
-                                                    Style.warned("已删除「我的文件夹」", 1);
+                                                    Options.warned("已删除「我的文件夹」", 1);
                                                 }
                                             );
                                         } else {
-                                            Style.warned("无法删除默认文件夹",0);
+                                            Options.warned("无法删除默认文件夹",0);
                                         }
                                     }
                                 }
@@ -536,7 +537,7 @@ Item {
                     sortReversed: filePage.localSortReversed
                     onScanFinished: function(count) {
                         if (count > 0)
-                            Options.warn.tiped("已加载 " + count + " 个音频文件", 1);
+                            Options.warned("已加载 " + count + " 个音频文件", 1);
                     }
                 }
 
@@ -549,7 +550,7 @@ Item {
                         const folderPath = folderUrl.toString();
                         const folderName = folderPath.split('/').pop(); // 使用 '/' 分割，取最后一部分
                         LocalFolders.addFolder(folderName, "local", folderPath);
-                        Options.warn.tiped("已定位本地文件夹", 1);
+                        Options.warned("已定位本地文件夹", 1);
 
                     }
                 }
@@ -564,7 +565,7 @@ Item {
                         height: 38
                         text: filePage.setMode === 2 ? "取消选择" : "选择"
                         iconCharacter: "\uf09f"
-                        buttonColor: filePage.setMode === 2 ? Style.containColor : Style.primaryColor
+                        buttonColor: filePage.setMode === 2 ? Theme.containColor : Theme.primaryColor
                         onClicked: {
                             if(filePage.setMode === 2) {
                                 filePage.clearChoose();
@@ -610,7 +611,7 @@ Item {
                             if(input!=="") {
                                 LocalFolders.renameFolder(editLocalDialog.index, input);
                             } else {
-                                Options.warn.opened("请输入文件名",0);
+                                Options.warned("请输入文件名",0);
                             }
                         }
                     }
@@ -621,14 +622,14 @@ Item {
                         id: listLocalfolder
                         height: 64
                         width: localFolderView.width - 16
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         property bool chosen: filePage.setMode === 2 && filePage.chooseIndex.indexOf(listLocalfolder.folderId) !== -1
-                        color: listLocalfolder.chosen ? Style.containColor : "#00000000"
+                        color: listLocalfolder.chosen ? Theme.containColor : "#00000000"
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: Style.settings.labelRadius
-                            color: Style.hoverColor
+                            radius: Style.labelRadius
+                            color: Theme.hoverColor
                             opacity: foldersArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -640,40 +641,40 @@ Item {
                             z: 4
                             width: 48
                             height: 48
-                            color: Style.containColor
+                            color: Theme.containColor
                             radius: 10
                             Text {
                                 anchors.fill: parent
                                 text: "\uf0f5"
-                                font.family: IconFont.name
-                                font.pixelSize: Style.settings.texticon
-                                color: Style.fontColor
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticon
+                                color: Theme.fontColor
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                             }
                         }
 
 
-                        Label {
-                            x: 80
+                        Text {
+                            x: 72
                             z: 3
                             width: parent.width / 2 - 108
                             height: 64
                             text: listLocalfolder.name
-                            color: Style.fontColor
+                            color: Theme.fontColor
                             font.bold: true
                             elide: Text.ElideRight
-                            font.pixelSize: Style.settings.textmain
+                            font.pixelSize: Style.textmain
                             verticalAlignment: Text.AlignVCenter
                         }
-                        Label {
+                        Text {
                             height: 60
                             z: 2
                             x: parent.width / 2 - 24
                             width: parent.width / 2 - 120
                             text: listLocalfolder.path.substring(8)
-                            color: Style.textColor
-                            font.pixelSize: Style.settings.textTip
+                            color: Theme.textColor
+                            font.pixelSize: Style.textTip
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -714,7 +715,7 @@ Item {
                                         if (listLocalfolder.path) {
                                             Qt.openUrlExternally(listLocalfolder.path);
                                         } else {
-                                            Style.warned("无法定位文件夹", 0);
+                                            Options.warned("无法定位文件夹", 0);
                                         }
                                     }
                                 }
@@ -747,7 +748,7 @@ Item {
                                         Options.dialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
                                             function() {
                                                 LocalFolders.deleteFolder(listLocalfolder.folderId);
-                                                Style.warned("已移除本地文件夹", 1);
+                                                Options.warned("已移除本地文件夹", 1);
                                             }
                                         );
                                     }
@@ -837,11 +838,11 @@ Item {
                 spacing: 6
                 QButton {
                     height: 36; width: 96
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf00e"
                     text: "播放"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "播放当前文件夹全部歌曲"
                     onClicked: {
                         filePage.addAllSongModelToList(true);
@@ -850,10 +851,10 @@ Item {
                 SButton {
                     width: 36
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf095"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "全部加入播放列表"
                     onClicked: {
                         filePage.addAllSongModelToList(false);
@@ -862,10 +863,10 @@ Item {
                 SButton {
                     width: 36
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf10c"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "重新解析标签并刷新"
                     onClicked: {
                         Songs.clearSearch();
@@ -874,17 +875,17 @@ Item {
                         // 丢弃 TAG 缓存重读（普通刷新只读库）
                         Songs.rescanTags();
                         fileView.scrollTop();
-                        Style.warned("已刷新当前列表", 1);
+                        Options.warned("已刷新当前列表", 1);
                     }
                 }
                 SButton {
                     id: songSortBtn
                     width: 48
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf10b"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "排序方式（再次点击反向）"
                     onClicked: songSortMenu.popup(songSortBtn, 0, songSortBtn.height + 6)
                 }
@@ -901,7 +902,7 @@ Item {
                     radius: 20
                     text: filePage.setMode === 3 ? "取消选择" : "选择"
                     iconCharacter: "\uf09f"
-                    buttonColor: filePage.setMode === 3 ? Style.containColor : Style.primaryColor
+                    buttonColor: filePage.setMode === 3 ? Theme.containColor : Theme.primaryColor
                     onClicked: {
                         if(filePage.setMode === 3) {
                             filePage.clearChoose();
@@ -931,17 +932,17 @@ Item {
                 leftPadding: 12
                 rightPadding: 38
                 placeholderText: "搜索与过滤"
-                placeholderTextColor: Style.textColor
-                color: Style.textColor
-                font.pixelSize: Style.settings.text
+                placeholderTextColor: Theme.textColor
+                color: Theme.textColor
+                font.pixelSize: Style.text
                 verticalAlignment: Text.AlignVCenter
-                selectionColor: Style.containColor
+                selectionColor: Theme.containColor
                 onTextChanged: filterDebounce1.restart()
                 background: Rectangle {
-                    radius: Style.settings.labelRadius
-                    color: Style.primaryColor
+                    radius: Style.labelRadius
+                    color: Theme.primaryColor
                     border.width: 2
-                    border.color: filterInput1.focus ? Style.themeColor : Style.sideColor
+                    border.color: filterInput1.focus ? Theme.themeColor : Theme.sideColor
                 }
                 SButton {
                     visible: filterInput1.text !== ""
@@ -949,7 +950,7 @@ Item {
                     x: parent.width - 34
                     width: 32
                     height: 32
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf025"
                     iconSize: 15
                     buttonColor: "transparent"
@@ -989,7 +990,7 @@ Item {
                 transform: Translate { y: fileView.transY }
                 populate: Transition {
                     id: localFileLoadAnime2
-                    enabled: Style.settings.premiumAnime
+                    enabled: Style.premiumAnime
                     SequentialAnimation {
                         NumberAnimation {
                             properties: "opacity"
@@ -1024,17 +1025,17 @@ Item {
                         Playback.playItem(item)
                     } else if (choice === 1) {
                         Playback.playNext(item)
-                        Style.warned("已设为下一首播放", 1)
+                        Options.warned("已设为下一首播放", 1)
                     } else if (choice === 2) {
                         const added = Playback.enqueue(item)
-                        Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                        Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                     } else if (choice === 3) {
                         audioInfoDialog.showInfo(r.path)
                     } else if (choice === 4) {
                         metaDialog.edit(r.path, 0)
                     } else if (choice === 5) {
                         Songs.deleteSong(r.songId)
-                        Style.warned("已从文件夹移除", 1)
+                        Options.warned("已从文件夹移除", 1)
                     }
                 }
                 delegate: Rectangle {
@@ -1049,9 +1050,9 @@ Item {
                     id: listfile
                     height: 60
                     width: fileView.width - 16
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     property bool chosen: filePage.setMode === 3 && filePage.chooseIndex.indexOf(listfile.songId) !== -1
-                    color: listfile.chosen || Playback.player.source == listfile.path ? Style.containColor : "transparent"
+                    color: listfile.chosen || Playback.player.source === listfile.path ? Theme.containColor : "transparent"
                     property int transY: 0
                     transform: Translate { y: listfile.transY }
 
@@ -1083,35 +1084,35 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: Style.settings.labelRadius
-                        color: Style.hoverColor
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
                         opacity: fileArea.containsMouse ? 1 : 0
                         z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
 
-                    Label {
+                    Text {
                         height: 60
-                        x: 80
+                        x: 72
                         z: 3
                         width: parent.width / 2 - 108
                         text: listfile.songTitle
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.bold: true
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                         Behavior on color { ColorAnimation { duration: 120 } }
                     }
-                    Label {
+                    Text {
                         height: 60
                         x: parent.width / 2 - 24
                         width: parent.width / 2 - 120
                         z: 2
                         visible: listfile.artistName !== ""
                         text: listfile.artistName
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textTip
+                        color: Theme.textColor
+                        font.pixelSize: Style.textTip
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -1130,7 +1131,7 @@ Item {
                                 filePage.playLocalEntry(listfile.path, listfile.songTitle,
                                                         listfile.artistName);
                             } else {
-                                fileView.menu.index = index;
+                                fileView.menu.index = listfile.index;
                                 filePage.menuRow = { path: listfile.path, title: listfile.songTitle,
                                                      artist: listfile.artistName, songId: listfile.songId };
                                 fileView.menu.popup();
@@ -1182,7 +1183,7 @@ Item {
                                 tipText: "从当前文件夹移除"
                                 onClicked: {
                                     Songs.deleteSong(listfile.songId);
-                                    Style.warned("已从文件夹移除", 1);
+                                    Options.warned("已从文件夹移除", 1);
                                 }
                             }
                         }
@@ -1203,11 +1204,11 @@ Item {
 
             QMenu {
                 id: localSortMenu
-                model: localSortOptions.map(o => o.label)
+                model: filePage.localSortOptions.map(o => o.label)
                 current: filePage.localSortMenuIndex
                 onClicked: (i) => {
-                    filePage.localSortField = localSortOptions[i].field;
-                    filePage.localSortReversed = localSortOptions[i].desc;
+                    filePage.localSortField = filePage.localSortOptions[i].field;
+                    filePage.localSortReversed = filePage.localSortOptions[i].desc;
                     localFileView.scrollTop();
                 }
             }
@@ -1220,11 +1221,11 @@ Item {
                 spacing: 6
                 QButton {
                     height: 36; width: 96
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf00e"
                     text: "播放"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "播放当前文件夹全部歌曲"
                     onClicked: {
                         filePage.addAllLocalFilesToList(true);
@@ -1233,10 +1234,10 @@ Item {
                 SButton {
                     width: 36
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf095"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "全部加入播放列表"
                     onClicked: {
                         filePage.addAllLocalFilesToList(false);
@@ -1245,10 +1246,10 @@ Item {
                 SButton {
                     width: 36
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf10c"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "刷新当前文件夹"
                     onClicked: {
                         localFileModel.clearSearch();
@@ -1256,17 +1257,17 @@ Item {
                         filterInput2.text = "";
                         localFileModel.rescan();
                         localFileView.scrollTop();
-                        Style.warned("已刷新当前列表", 1);
+                        Options.warned("已刷新当前列表", 1);
                     }
                 }
                 SButton {
                     id: localSortBtn
                     width: 48
                     height: 36
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf10b"
                     shadowEnabled: false
-                    buttonColor: Style.sideColor
+                    buttonColor: Theme.sideColor
                     tipText: "排序方式（再次点击反向）"
                     onClicked: localSortMenu.popup(localSortBtn, 0, localSortBtn.height + 6)
                 }
@@ -1283,7 +1284,7 @@ Item {
                     radius: 20
                     text: filePage.setMode === 4 ? "取消选择" : "选择"
                     iconCharacter: "\uf09f"
-                    buttonColor: filePage.setMode === 4 ? Style.containColor : Style.primaryColor
+                    buttonColor: filePage.setMode === 4 ? Theme.containColor : Theme.primaryColor
                     onClicked: {
                         if(filePage.setMode === 4) {
                             filePage.clearChoose();
@@ -1313,17 +1314,17 @@ Item {
                 leftPadding: 12
                 rightPadding: 38
                 placeholderText: "搜索与过滤"
-                placeholderTextColor: Style.textColor
-                color: Style.textColor
-                font.pixelSize: Style.settings.text
+                placeholderTextColor: Theme.textColor
+                color: Theme.textColor
+                font.pixelSize: Style.text
                 verticalAlignment: Text.AlignVCenter
-                selectionColor: Style.containColor
+                selectionColor: Theme.containColor
                 onTextChanged: filterDebounce2.restart()
                 background: Rectangle {
-                    radius: Style.settings.labelRadius
-                    color: Style.primaryColor
+                    radius: Style.labelRadius
+                    color: Theme.primaryColor
                     border.width: 2
-                    border.color: filterInput2.focus ? Style.themeColor : Style.sideColor
+                    border.color: filterInput2.focus ? Theme.themeColor : Theme.sideColor
                 }
                 SButton {
                     visible: filterInput2.text !== ""
@@ -1331,7 +1332,7 @@ Item {
                     x: parent.width - 34
                     width: 32
                     height: 32
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     iconCharacter: "\uf025"
                     iconSize: 15
                     buttonColor: "transparent"
@@ -1369,7 +1370,7 @@ Item {
                 reuseItems: false
                 populate: Transition {
                     id: localFileLoadAnime
-                    enabled: Style.settings.premiumAnime
+                    enabled: Style.premiumAnime
                     SequentialAnimation {
                         NumberAnimation {
                             properties: "opacity"
@@ -1404,10 +1405,10 @@ Item {
                         Playback.playItem(item)
                     } else if (choice === 1) {
                         Playback.playNext(item)
-                        Style.warned("已设为下一首播放", 1)
+                        Options.warned("已设为下一首播放", 1)
                     } else if (choice === 2) {
                         const added = Playback.enqueue(item)
-                        Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                        Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                     } else if (choice === 3) {
                         audioInfoDialog.showInfo(r.path)
                     } else if (choice === 4) {
@@ -1426,9 +1427,9 @@ Item {
                     id: listLocalFile
                     height: 60
                     width: localFileView.width - 16
-                    radius: Style.settings.labelRadius
+                    radius: Style.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(listLocalFile.fileUrl.toString()) !== -1
-                    color: listLocalFile.chosen || Playback.player.source == listLocalFile.fileUrl ? Style.containColor : "transparent"
+                    color: listLocalFile.chosen || Playback.player.source == listLocalFile.fileUrl ? Theme.containColor : "transparent"
                     property int transY: 0
                     transform: Translate { y: listLocalFile.transY }
 
@@ -1462,36 +1463,36 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: Style.settings.labelRadius
-                        color: Style.hoverColor
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
                         opacity: localFileArea.containsMouse ? 1 : 0
                         z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
 
 
-                    Label {
+                    Text {
                         height: 60
-                        x: 80
+                        x: 72
                         z: 3
                         width: parent.width / 2 - 108
                         text: listLocalFile.songTitle
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         font.bold: true
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                         Behavior on color { ColorAnimation { duration: 120 } }
                     }
-                    Label {
+                    Text {
                         x: parent.width / 2 - 24
                         height: 60
                         z: 2
                         width: parent.width / 2 - 120
                         visible: listLocalFile.artistName !== ""
                         text: listLocalFile.artistName
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textTip
+                        color: Theme.textColor
+                        font.pixelSize: Style.textTip
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -1581,10 +1582,10 @@ Item {
         property int total: 0
 
         background: Rectangle {
-            color: Style.primaryColor
-            radius: Style.settings.cubeRadius
+            color: Theme.primaryColor
+            radius: Style.cubeRadius
             border.width: 1
-            border.color: Style.sideColor
+            border.color: Theme.sideColor
         }
 
         contentItem: Column {
@@ -1597,7 +1598,7 @@ Item {
                 text: "正在移入回收站"
                 font.pixelSize: 18
                 font.bold: true
-                color: Style.fontColor
+                color: Theme.fontColor
             }
 
             Text {
@@ -1605,14 +1606,14 @@ Item {
                       ? "已处理 " + deleteProgressDialog.processed + " / " + deleteProgressDialog.total
                       : "正在准备…"
                 font.pixelSize: 13
-                color: Style.fontColor
+                color: Theme.fontColor
             }
 
             Rectangle {
                 width: parent.width
                 height: 8
                 radius: 4
-                color: Style.sideColor
+                color: Theme.sideColor
 
                 Rectangle {
                     width: parent.width * (deleteProgressDialog.total > 0
@@ -1620,7 +1621,7 @@ Item {
                                            : 0)
                     height: parent.height
                     radius: 4
-                    color: Style.themeColor
+                    color: Theme.themeColor
                     Behavior on width { NumberAnimation { duration: 120 } }
                 }
             }
@@ -1629,7 +1630,7 @@ Item {
                 width: parent.width
                 text: "删除过程中请勿关闭程序"
                 font.pixelSize: 12
-                color: Style.fontColor
+                color: Theme.fontColor
                 opacity: 0.7
             }
         }
@@ -1644,9 +1645,9 @@ Item {
         function onDeleteFinished(removed: int, failedCount: int): void {
             deleteProgressDialog.close();
             if (failedCount > 0)
-                Style.warned("已移入回收站 " + removed + " 个，失败 " + failedCount + " 个", 0);
+                Options.warned("已移入回收站 " + removed + " 个，失败 " + failedCount + " 个", 0);
             else
-                Style.warned("已将 " + removed + " 个文件移入回收站", 1);
+                Options.warned("已将 " + removed + " 个文件移入回收站", 1);
         }
     }
 
@@ -1675,7 +1676,7 @@ Item {
         visible: filePage.setMode !== 0
         gradient: Gradient {
             GradientStop { position: 0.0; color: "transparent" }
-            GradientStop { position: 1.0; color: Style.sideColor }
+            GradientStop { position: 1.0; color: Theme.sideColor }
         }
         Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
         QButton {
@@ -1686,8 +1687,8 @@ Item {
             height: 36
             radius: 20
             borderWidth: 1
-            buttonColor: filePage.isAllChosen() ? Style.themeColor : Style.fullColor
-            textColor: filePage.isAllChosen() ? Style.primaryColor : Style.fontColor
+            buttonColor: filePage.isAllChosen() ? Theme.themeColor : Theme.fullColor
+            textColor: filePage.isAllChosen() ? Theme.primaryColor : Theme.fontColor
             text: "全选"
             visible: filePage.setMode >= 3
             onClicked: filePage.toggleAllChoose()
@@ -1698,12 +1699,12 @@ Item {
             width: 92
             height: 36
             radius: 20
-            color: "transparent"//Style.fullColor
+            color: "transparent"//Theme.fullColor
             Text {
                 anchors.centerIn: parent
                 text: "已选择:" + filePage.chooseIndex.length + "项"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
             }
         }
         QButton {
@@ -1714,8 +1715,8 @@ Item {
             height: 36
             radius: 20
             borderWidth: 1
-            buttonColor: Style.themeColor
-            textColor: Style.primaryColor
+            buttonColor: Theme.themeColor
+            textColor: Theme.primaryColor
             text: "加入播放列表"
             visible: filePage.setMode >= 3
             onClicked: filePage.addChosenToList()
@@ -1728,7 +1729,7 @@ Item {
             height: 36
             radius: 20
             buttonColor: "#fa4642"
-            textColor: Style.primaryColor
+            textColor: Theme.primaryColor
             text: "删除"
             borderWidth: 1
             onClicked: {
@@ -1749,8 +1750,8 @@ Item {
             width: 92
             height: 36
             radius: 20
-            buttonColor: Style.themeColor
-            textColor: Style.primaryColor
+            buttonColor: Theme.themeColor
+            textColor: Theme.primaryColor
             borderWidth: 1
             text: "完成"
             onClicked: filePage.clearChoose()
@@ -1806,8 +1807,8 @@ Item {
                         width: 68
                         height: parent.height
                         text: infoRow.label
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.textColor
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         opacity: 0.65
                     }
@@ -1815,8 +1816,8 @@ Item {
                         width: parent.width - 80
                         height: parent.height
                         text: infoRow.value
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.fontColor
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideMiddle
                     }
@@ -1851,7 +1852,7 @@ Item {
             filePath = path
             source = src
             coverPick = ""
-            embeddedCover = path !== "" ? (coverHelper.findEmbeddedCover(path) || "") : ""
+            embeddedCover = path !== "" ? (Options.coverHelper.findEmbeddedCover(path) || "") : ""
             values = {
                 title: info.title || info.fileName.replace(/\.[^.]+$/, ""),
                 artist: info.artist || "",
@@ -1891,8 +1892,8 @@ Item {
                     spacing: 8
                     Text {
                         text: "封面"
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.textColor
+                        font.pixelSize: Style.textmain
                         opacity: 0.65
                     }
                     QButton {
@@ -1924,8 +1925,8 @@ Item {
                         width: 56
                         height: parent.height
                         text: metaRow.label
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.textColor
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         opacity: 0.65
                     }
@@ -1940,22 +1941,22 @@ Item {
             }
             Text {
                 text: "歌词（可带 [mm:ss.xx] 时间轴）"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 opacity: 0.65
             }
             TextArea {
                 id: lyricsArea
                 width: parent.width
-                color: Style.fontColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.fontColor
+                font.pixelSize: Style.textmain
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
                 background: Rectangle {
-                    radius: Style.settings.labelRadius
-                    color: Style.fullColor
+                    radius: Style.labelRadius
+                    color: Theme.fullColor
                     border.width: 1
-                    border.color: Style.sideColor
+                    border.color: Theme.sideColor
                 }
             }
         }
@@ -1972,10 +1973,10 @@ Item {
         target: MusicApi
         function onLocalMetadataSaved(filePath: string, ok: bool): void {
             if (!ok) {
-                Style.warned("元数据保存失败，文件可能只读或格式不支持", 0);
+                Options.warned("元数据保存失败，文件可能只读或格式不支持", 0);
                 return;
             }
-            Style.warned("元数据已保存", 1);
+            Options.warned("元数据已保存", 1);
             // 只让改动的这首重读标签，其余沿用缓存
             if (metaDialog.source === 0)
                 Songs.rescanTags(filePath);

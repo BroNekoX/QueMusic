@@ -47,15 +47,15 @@ Window {
         interval: 240
         running: Playback.player.onMedia && desktopLyricsWindow.visible
         repeat: true
-        onTriggered: updateCurrentIndex()
+        onTriggered: desktopLyricsWindow.updateCurrentIndex()
     }
 
     // 歌词数据变化时重置
     Connections {
         target: MusicApi
         function onLyricsDataChanged(): void {
-            lyricsData = MusicApi.lyricsData || [];
-            updateCurrentIndex();
+            desktopLyricsWindow.lyricsData = MusicApi.lyricsData || [];
+            desktopLyricsWindow.updateCurrentIndex();
         }
     }
 
@@ -71,13 +71,13 @@ Window {
         Text {
             id: currentLineText
             width: parent.width
-            text: (desktopLyricsWindow.currentIndex >= 0 && desktopLyricsWindow.currentIndex < lyricsData.length)
-                  ? lyricsData[desktopLyricsWindow.currentIndex].text || ""
+            text: (desktopLyricsWindow.currentIndex >= 0 && desktopLyricsWindow.currentIndex < desktopLyricsWindow.lyricsData.length)
+                  ? desktopLyricsWindow.lyricsData[desktopLyricsWindow.currentIndex].text || ""
                   : "🎵 纯音乐，请欣赏"
             font.pixelSize: desktopLyricsWindow.lyricSize * 1.2
             font.bold: true
             font.weight: Font.Medium
-            color: Style.themeColor
+            color: Theme.themeColor
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
             layer.enabled: true
@@ -92,8 +92,8 @@ Window {
         Text {
             id: nextLineText
             width: parent.width
-            text: (desktopLyricsWindow.nextIndex >= 0 && desktopLyricsWindow.nextIndex < lyricsData.length)
-                  ? lyricsData[desktopLyricsWindow.nextIndex].text || ""
+            text: (desktopLyricsWindow.nextIndex >= 0 && desktopLyricsWindow.nextIndex < desktopLyricsWindow.lyricsData.length)
+                  ? desktopLyricsWindow.lyricsData[desktopLyricsWindow.nextIndex].text || ""
                   : ""
             font.pixelSize: desktopLyricsWindow.lyricSize
             font.bold: true
@@ -119,7 +119,7 @@ Window {
         z: 1
         cursorShape: {
             const p = Qt.point(mouseX, mouseY);
-            const b = bw + 10; // Increase the corner size slightly
+            const b = desktopLyricsWindow.bw + 10; // Increase the corner size slightly
             if (p.x < b && p.y < b) return Qt.SizeFDiagCursor;
             if (p.x >= width - b && p.y >= height - b) return Qt.SizeFDiagCursor;
             if (p.x >= width - b && p.y < b) return Qt.SizeBDiagCursor;
@@ -136,12 +136,12 @@ Window {
         target: null
         onActiveChanged: if (active) {
                              const p = resizeHandler.centroid.position;
-                             const b = bw + 10; // Increase the corner size slightly
+                             const b = desktopLyricsWindow.bw + 10; // Increase the corner size slightly
                              let e = 0;
                              if (p.x < b) { e |= Qt.LeftEdge }
-                             if (p.x >= width - b) { e |= Qt.RightEdge }
+                             if (p.x >= desktopLyricsWindow.width - b) { e |= Qt.RightEdge }
                              if (p.y < b) { e |= Qt.TopEdge }
-                             if (p.y >= height - b) { e |= Qt.BottomEdge }
+                             if (p.y >= desktopLyricsWindow.height - b) { e |= Qt.BottomEdge }
                              desktopLyricsWindow.startSystemResize(e);
                          }
     }
@@ -151,7 +151,7 @@ Window {
         opacity: desktopLyricArea.containsMouse ? 1 : 0
         anchors.fill: parent
         color: "#88000000"
-        radius: Style.settings.cubeRadius
+        radius: Style.cubeRadius
         z: 2
         Behavior on opacity { NumberAnimation { duration: 120 } }
         Text {
@@ -163,7 +163,7 @@ Window {
             text: Playback.musicTitle + " - " + Playback.musicArtist
             verticalAlignment: Text.AlignVCenter
             color: "#fffafafa"
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.text
         }
         // 拖动区域
         MouseArea {
@@ -191,7 +191,7 @@ Window {
                 spacing: 6
 
                 SButton {
-                    width: 36; height: 36; radius: Style.settings.labelRadius
+                    width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf0dc"
                     iconSize: 15
                     buttonColor: "transparent"
@@ -199,12 +199,12 @@ Window {
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.previous()
-                    QTip { visible: parent.hovered; text: "上一首" }
+                    tipText: "上一首"
                 }
 
                 // 播放/暂停
                 SButton {
-                    width: 36; height: 36; radius: Style.settings.labelRadius
+                    width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
                     iconSize: 16
                     buttonColor: "transparent"
@@ -212,11 +212,11 @@ Window {
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.togglePlay()
-                    QTip { visible: parent.hovered; text: Playback.player.playing ? "暂停" : "播放" }
+                    tipText: Playback.player.playing ? "暂停" : "播放"
                 }
 
                 SButton {
-                    width: 36; height: 36; radius: Style.settings.labelRadius
+                    width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf0d9"
                     iconSize: 15
                     buttonColor: "transparent"
@@ -224,7 +224,7 @@ Window {
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.next(false)
-                    QTip { visible: parent.hovered; text: "下一首" }
+                    tipText: "下一首"
                 }
             }
             // 进度条小提示（时间）
@@ -242,7 +242,7 @@ Window {
                 id: closeButton
                 x: desktopLyricsWindow.width - 54
                 y: 6
-                width: 36; height: 36; radius: Style.settings.labelRadius
+                width: 36; height: 36; radius: Style.labelRadius
                 iconCharacter: "\uf025"
                 iconSize: 15
                 buttonColor: "transparent"
@@ -251,13 +251,9 @@ Window {
                 shadowEnabled: false
                 onClicked: {
                     Options.desktop.desktopPlayerMode = 0;
-                    desktopLyricsLoader.active = false;
+                    Options.desktopLyricsLoader.active = false;
                 }
-
-                QTip {
-                    visible: parent.hovered
-                    text: "关闭"
-                }
+                tipText: "关闭"
             }
         }
     }

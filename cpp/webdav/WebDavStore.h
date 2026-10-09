@@ -16,7 +16,7 @@ class WebDavStore : public QObject
     Q_OBJECT
     QML_NAMED_ELEMENT(WebDav)
     QML_SINGLETON
-    Q_PROPERTY(QVariantList servers READ servers NOTIFY serversChanged)
+    Q_PROPERTY(QVariantList servers READ servers NOTIFY serversChanged FINAL)
 
 public:
     explicit WebDavStore(QObject *parent = nullptr);

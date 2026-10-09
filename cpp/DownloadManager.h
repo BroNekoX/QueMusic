@@ -38,11 +38,11 @@ class DownloadManager : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(int currentTaskId READ currentTaskId NOTIFY currentTaskIdChanged)
-    Q_PROPERTY(bool hasActiveTasks READ hasActiveTasks NOTIFY hasActiveTasksChanged)
-    Q_PROPERTY(int completedCount READ completedCount NOTIFY completedCountChanged)
-    Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged)
-    Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
+    Q_PROPERTY(int currentTaskId READ currentTaskId NOTIFY currentTaskIdChanged FINAL)
+    Q_PROPERTY(bool hasActiveTasks READ hasActiveTasks NOTIFY hasActiveTasksChanged FINAL)
+    Q_PROPERTY(int completedCount READ completedCount NOTIFY completedCountChanged FINAL)
+    Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged FINAL)
+    Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged FINAL)
 
 public:
     enum Roles {

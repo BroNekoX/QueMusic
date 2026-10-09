@@ -7,7 +7,7 @@ import QtQuick.Controls.Basic
     // 毛玻璃对话框主体
 Popup {
     id: dialog
-    property Item blurSource: mainLayout // 使用父内容作为模糊源
+    property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     parent: Overlay.overlay
     x: 226
@@ -32,8 +32,8 @@ Popup {
         //  搜索弹出的内容，等待更新
         Text {
             text: "搜索历史记录"
-            font.pixelSize: Style.settings.textTip
-            color: Style.textColor
+            font.pixelSize: Style.textTip
+            color: Theme.textColor
             x: 16
             y: 12
         }
@@ -46,14 +46,14 @@ Popup {
             anchors.top: parent.top
             anchors.topMargin: 10
             text: "清空"
-            visible: Options.settings.searchList.length > 0
-            font.pixelSize: Style.settings.textTip
-            color: clearArea.containsMouse ? Style.fontColor : Style.textColor
+            visible: Config.searchList.length > 0
+            font.pixelSize: Style.textTip
+            color: clearArea.containsMouse ? Theme.fontColor : Theme.textColor
             MouseArea {
                 id: clearArea
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: Options.settings.searchList = []
+                onClicked: Config.searchList = []
             }
         }
 
@@ -65,21 +65,22 @@ Popup {
             width: parent.width - 32
             clip: true
             Repeater {
-                model: Options.settings.searchList
+                model: Config.searchList
                 delegate: Rectangle {
+                    id: cardDel
                     required property string modelData
                     required property int index
                     //短搜索记录自适应即可，超长时以父容器宽度为上限
                     width: Math.min(searchText.implicitWidth + 20, parent.width)
                     height: searchText.height + 16
-                    color: Style.secondaryColor
-                    radius: Style.settings.labelRadius
-                    border.color: Style.primaryColor
+                    color: Theme.secondaryColor
+                    radius: Style.labelRadius
+                    border.color: Theme.primaryColor
                     border.width: 1
                     Rectangle {
                         radius: parent.radius
                         anchors.fill: parent
-                        color: Style.hoverColor
+                        color: Theme.hoverColor
                         opacity: searchArea.containsMouse ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
@@ -94,15 +95,15 @@ Popup {
                         //超出部分省略号截断，强制单行
                         elide: Text.ElideRight
                         maximumLineCount: 1
-                        text: modelData
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.text
+                        text: cardDel.modelData
+                        color: Theme.fontColor
+                        font.pixelSize: Style.text
                     }
                     MouseArea {
                         id: searchArea
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: dialog.searchIndex(index);
+                        onClicked: dialog.searchIndex(cardDel.index);
                     }
                 }
             }

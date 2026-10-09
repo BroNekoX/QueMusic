@@ -19,8 +19,8 @@ Item {
         width: 100; height: 36
         text: settingItem.label
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: Style.settings.textmain
-        color: Style.fontColor
+        font.pixelSize: Style.textmain
+        color: Theme.fontColor
     }
 
 }

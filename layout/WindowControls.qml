@@ -18,7 +18,7 @@ QtObject {
     signal sessionClosing()
 
     function closeToTray(): bool {
-        return Options.settings.closeToManage && !forceQuit && tray && tray.available
+        return Config.closeToManage && !forceQuit && tray && tray.available
     }
 
     function toClosing(): void {
@@ -37,13 +37,13 @@ QtObject {
             Options.lastSongs.hash = item.path
             Options.lastSongs.source = item.source
         }
-        if (Options.settings.rememberWindow && targetWindow
+        if (Config.rememberWindow && targetWindow
                 && targetWindow.visibility !== Window.Maximized
                 && targetWindow.visibility !== Window.FullScreen) {
-            Options.settings.winX = targetWindow.x
-            Options.settings.winY = targetWindow.y
-            Options.settings.winW = targetWindow.width
-            Options.settings.winH = targetWindow.height
+            Config.winX = targetWindow.x
+            Config.winY = targetWindow.y
+            Config.winW = targetWindow.width
+            Config.winH = targetWindow.height
         }
         Playback.saveQueue()
         Playback.flush()

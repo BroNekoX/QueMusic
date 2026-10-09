@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -26,15 +27,15 @@ Item {
                 required property int index
                 height: parent.height
                 width: root.singleWidth
-                color: root.choice == index ? Style.themeColor : Style.primaryColor
+                color: root.choice == index ? Theme.themeColor : Theme.primaryColor
                 border.width: 2
-                border.color: Style.borderColor
-                radius: Style.settings.labelRadius
+                border.color: Theme.borderColor
+                radius: Style.labelRadius
                 Behavior on color { ColorAnimation { duration: 80 } }
             
                 Rectangle {
                     id: hover
-                    color: Style.hoverColor
+                    color: Theme.hoverColor
                     anchors.fill: parent
                     radius: parent.radius
                     opacity: 0
@@ -46,8 +47,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     x: 20
                     text: del.modelData
-                    font.pixelSize: Style.settings.textmain
-                    color: root.choice == index ? Style.primaryColor : Style.textColor
+                    font.pixelSize: Style.textmain
+                    color: root.choice == del.index ? Theme.primaryColor : Theme.textColor
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -55,7 +56,7 @@ Item {
                     onEntered: hover.opacity = 1
                     onExited: hover.opacity = 0
                     onClicked: {
-                        root.transformed(index)
+                        root.transformed(del.index)
                     }
                 }
             }

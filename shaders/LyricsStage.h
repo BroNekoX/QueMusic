@@ -35,22 +35,22 @@ class LyricsStage : public QQuickItem
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(int preset READ preset WRITE setPreset NOTIFY presetChanged)
-    Q_PROPERTY(int count READ count WRITE setCount NOTIFY countChanged)
-    Q_PROPERTY(qreal time READ time WRITE setTime NOTIFY timeChanged)
-    Q_PROPERTY(qreal mouseX READ mouseX WRITE setMouseX NOTIFY mouseXChanged)
-    Q_PROPERTY(qreal mouseY READ mouseY WRITE setMouseY NOTIFY mouseYChanged)
-    Q_PROPERTY(qreal audioLow READ audioLow WRITE setAudioLow NOTIFY audioLowChanged)
-    Q_PROPERTY(qreal audioMid READ audioMid WRITE setAudioMid NOTIFY audioMidChanged)
-    Q_PROPERTY(qreal audioHigh READ audioHigh WRITE setAudioHigh NOTIFY audioHighChanged)
-    Q_PROPERTY(qreal audioAir READ audioAir WRITE setAudioAir NOTIFY audioAirChanged)
-    Q_PROPERTY(qreal audioLevel READ audioLevel WRITE setAudioLevel NOTIFY audioLevelChanged)
-    Q_PROPERTY(QColor color1 READ color1 WRITE setColor1 NOTIFY color1Changed)
-    Q_PROPERTY(QColor color2 READ color2 WRITE setColor2 NOTIFY color2Changed)
-    Q_PROPERTY(qreal audioGain READ audioGain WRITE setAudioGain NOTIFY audioGainChanged)
-    Q_PROPERTY(qreal camDist READ camDist WRITE setCamDist NOTIFY camDistChanged)
-    Q_PROPERTY(qreal camSens READ camSens WRITE setCamSens NOTIFY camSensChanged)
-    Q_PROPERTY(qreal density READ density WRITE setDensity NOTIFY densityChanged)
+    Q_PROPERTY(int preset READ preset WRITE setPreset NOTIFY presetChanged FINAL)
+    Q_PROPERTY(int count READ count WRITE setCount NOTIFY countChanged FINAL)
+    Q_PROPERTY(qreal time READ time WRITE setTime NOTIFY timeChanged FINAL)
+    Q_PROPERTY(qreal mouseX READ mouseX WRITE setMouseX NOTIFY mouseXChanged FINAL)
+    Q_PROPERTY(qreal mouseY READ mouseY WRITE setMouseY NOTIFY mouseYChanged FINAL)
+    Q_PROPERTY(qreal audioLow READ audioLow WRITE setAudioLow NOTIFY audioLowChanged FINAL)
+    Q_PROPERTY(qreal audioMid READ audioMid WRITE setAudioMid NOTIFY audioMidChanged FINAL)
+    Q_PROPERTY(qreal audioHigh READ audioHigh WRITE setAudioHigh NOTIFY audioHighChanged FINAL)
+    Q_PROPERTY(qreal audioAir READ audioAir WRITE setAudioAir NOTIFY audioAirChanged FINAL)
+    Q_PROPERTY(qreal audioLevel READ audioLevel WRITE setAudioLevel NOTIFY audioLevelChanged FINAL)
+    Q_PROPERTY(QColor color1 READ color1 WRITE setColor1 NOTIFY color1Changed FINAL)
+    Q_PROPERTY(QColor color2 READ color2 WRITE setColor2 NOTIFY color2Changed FINAL)
+    Q_PROPERTY(qreal audioGain READ audioGain WRITE setAudioGain NOTIFY audioGainChanged FINAL)
+    Q_PROPERTY(qreal camDist READ camDist WRITE setCamDist NOTIFY camDistChanged FINAL)
+    Q_PROPERTY(qreal camSens READ camSens WRITE setCamSens NOTIFY camSensChanged FINAL)
+    Q_PROPERTY(qreal density READ density WRITE setDensity NOTIFY densityChanged FINAL)
 
 public:
     explicit LyricsStage(QQuickItem *parent = nullptr);

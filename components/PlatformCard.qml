@@ -5,10 +5,10 @@ Rectangle {
     id: root
     width: 256
     height: 128
-    radius: Style.settings.labelRadius
+    radius: Style.labelRadius
     border.width: 2
-    property color chooseColor: Style.themeColor
-    property color chooseColor1: Style.containColor
+    property color chooseColor: Theme.themeColor
+    property color chooseColor1: Theme.containColor
     property bool choose: false
     property bool isLogin: false
     property bool showLogin: true
@@ -16,15 +16,15 @@ Rectangle {
     property string header: ""
     property string idleText: "未绑定账户"
     property string text: "Music"
-    color: choose ? chooseColor1 : Style.secondaryColor
-    border.color: choose ? chooseColor : Style.sideColor
+    color: choose ? chooseColor1 : Theme.secondaryColor
+    border.color: choose ? chooseColor : Theme.sideColor
     signal clicked()
     signal logined()
     Rectangle {
         anchors.fill: parent
         anchors.margins: 2
         radius: root.radius
-        color: Style.hoverColor
+        color: Theme.hoverColor
         opacity: area.containsMouse ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
     }
@@ -43,7 +43,7 @@ Rectangle {
             radius: 16
             shadowEnabled: false
             buttonColor: root.chooseColor
-            textColor: Style.secondaryColor
+            textColor: Theme.secondaryColor
             onClicked: root.logined();
         }
     }
@@ -61,8 +61,8 @@ Rectangle {
         y: 20
         height: 20
         text: root.text
-        color: Style.fontColor
-        font.pixelSize: Style.settings.textmain
+        color: Theme.fontColor
+        font.pixelSize: Style.textmain
         font.bold: true
         verticalAlignment: Text.AlignVCenter
     }
@@ -80,8 +80,8 @@ Rectangle {
         Text {
             height: 32
             text: root.isLogin ? root.name : root.idleText
-            color: root.isLogin ? Style.fontColor : Style.textColor
-            font.pixelSize: Style.settings.textmain
+            color: root.isLogin ? Theme.fontColor : Theme.textColor
+            font.pixelSize: Style.textmain
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
@@ -92,14 +92,14 @@ Rectangle {
         height: 24
         width: 72
         radius: 12
-        color: root.choose ? root.chooseColor : Style.secondaryColor
+        color: root.choose ? root.chooseColor : Theme.secondaryColor
         border.color: root.chooseColor1
         Text {
             anchors.centerIn: parent
             text: root.choose ? "当前主平台" : "选择此平台"
             font.bold: true
-            font.pixelSize: Style.settings.textTip
-            color: root.choose ? Style.secondaryColor : root.chooseColor
+            font.pixelSize: Style.textTip
+            color: root.choose ? Theme.secondaryColor : root.chooseColor
         }
     }
 }

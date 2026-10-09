@@ -15,8 +15,8 @@ class QueueModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(int count READ count NOTIFY countChanged)
-    Q_PROPERTY(int playListIndex READ playListIndex WRITE setPlayListIndex NOTIFY playListIndexChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged FINAL)
+    Q_PROPERTY(int playListIndex READ playListIndex WRITE setPlayListIndex NOTIFY playListIndexChanged FINAL)
 
 public:
     enum Roles {

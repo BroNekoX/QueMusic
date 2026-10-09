@@ -27,8 +27,8 @@ Item {
             height: 36
             text: manager.compact ? "" : "重新扫描"
             iconCharacter: "\uf021"
-            buttonColor: Style.secondaryColor
-            borderColor: Style.sideColor
+            buttonColor: Theme.secondaryColor
+            borderColor: Theme.sideColor
             borderWidth: 1
             onClicked: manager.store.rescan()
         }
@@ -42,8 +42,8 @@ Item {
             height: 36
             text: manager.compact ? "" : "打开插件目录"
             iconCharacter: "\uf0f5"
-            buttonColor: Style.secondaryColor
-            borderColor: Style.sideColor
+            buttonColor: Theme.secondaryColor
+            borderColor: Theme.sideColor
             borderWidth: 1
             onClicked: manager.store.reveal("")
         }
@@ -55,8 +55,8 @@ Item {
         y: 62
         width: manager.width - 48
         wrapMode: Text.Wrap
-        color: Style.textColor
-        font.pixelSize: Style.settings.textTip
+        color: Theme.textColor
+        font.pixelSize: Style.textTip
         text: "插件目录：" + (manager.store ? manager.store.dir : "")
               + "（每个插件一个文件夹，文件夹名即插件 id，内含 info.json 与入口 QML）。"
               + (manager.multi
@@ -87,10 +87,10 @@ Item {
             required property string version
             width: listView.width
             height: 92
-            radius: Style.settings.cubeRadius
-            color: row.isOn ? Style.containColor : Style.primaryColor
+            radius: Style.cubeRadius
+            color: row.isOn ? Theme.containColor : Theme.primaryColor
             border.width: 1
-            border.color: row.isOn ? Style.themeColor : Style.sideColor
+            border.color: row.isOn ? Theme.themeColor : Theme.sideColor
 
             readonly property bool isOn: manager.store === null ? false
                                         : manager.multi
@@ -113,8 +113,8 @@ Item {
                 width: row.width - 300
                 text: row.name
                 elide: Text.ElideRight
-                color: Style.fontColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.fontColor
+                font.pixelSize: Style.textmain
                 font.bold: true
             }
             Text {
@@ -122,8 +122,8 @@ Item {
                 y: 40
                 width: row.width - 300
                 elide: Text.ElideRight
-                color: Style.textColor
-                font.pixelSize: Style.settings.textTip
+                color: Theme.textColor
+                font.pixelSize: Style.textTip
                 text: (row.builtin ? "内置" : (row.author ? row.author : "未知作者"))
                       + (row.version ? "  v" + row.version : "")
                       + (row.id ? "  " + row.id : "")
@@ -133,8 +133,8 @@ Item {
                 y: 62
                 width: row.width - 300
                 elide: Text.ElideRight
-                color: Style.textColor
-                font.pixelSize: Style.settings.textTip
+                color: Theme.textColor
+                font.pixelSize: Style.textTip
                 opacity: 0.8
                 text: row.description
             }
@@ -186,8 +186,8 @@ Item {
                         Options.dialog.openSimpleDialog("删除插件",
                             "将删除" + manager.pluginKind + "「" + row.name + "」，是否继续？", function() {
                             const err = manager.store.remove(pluginId);
-                            if (err) Style.warned(err, 0);
-                            else Style.warned("已删除插件", 1);
+                            if (err) Options.warned(err, 0);
+                            else Options.warned("已删除插件", 1);
                         });
                     }
                 }
@@ -200,8 +200,8 @@ Item {
         title: "选择" + manager.pluginKind + "文件夹"
         onAccepted: {
             const err = manager.store.install(selectedFolder);
-            if (err) Style.warned(err, 0);
-            else Style.warned(manager.multi ? "插件已安装并启用" : "插件已安装，点「启用」即可使用", 1);
+            if (err) Options.warned(err, 0);
+            else Options.warned(manager.multi ? "插件已安装并启用" : "插件已安装，点「启用」即可使用", 1);
         }
     }
 }

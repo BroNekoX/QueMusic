@@ -3,7 +3,7 @@
 //
 // 字体家族选择对话框（继承 QOptionDialog）：可搜索的家族列表，每行用它自己的字体渲染。
 // 用法：currentFamily 指定初始选中项，openFamily() 打开，onAccepted 里读 selectedFamily。
-// 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 mainLayout，跨文件使用需调用方显式设置。
+// 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 Options.mainLayout，跨文件使用需调用方显式设置。
 import QtQuick
 import QtQuick.Controls.Basic
 import QueMusic 1.0
@@ -88,15 +88,16 @@ QOptionDialog {
             }
 
             delegate: Rectangle {
+                id: familyDel
                 required property int index
                 required property string modelData
 
                 width: familyList.width
                 height: 40
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 color: root.selectedFamily === modelData
-                       ? Style.containColor
-                       : (familyHover.containsMouse ? Style.hoverColor : "transparent")
+                       ? Theme.containColor
+                       : (familyHover.containsMouse ? Theme.hoverColor : "transparent")
 
                 Text {
                     anchors.left: parent.left
@@ -104,12 +105,12 @@ QOptionDialog {
                     anchors.right: parent.right
                     anchors.rightMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    text: modelData === "" ? "系统默认" : modelData
-                    font.family: modelData
-                    font.pixelSize: Style.settings.textmain
-                    color: root.selectedFamily === modelData
-                           ? Style.themeColor
-                           : Style.fontColor
+                    text: familyDel.modelData === "" ? "系统默认" : familyDel.modelData
+                    font.family: familyDel.modelData
+                    font.pixelSize: Style.textmain
+                    color: root.selectedFamily === familyDel.modelData
+                           ? Theme.themeColor
+                           : Theme.fontColor
                     elide: Text.ElideRight
                 }
 
@@ -117,7 +118,7 @@ QOptionDialog {
                     id: familyHover
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: root.selectedFamily = modelData
+                    onClicked: root.selectedFamily = familyDel.modelData
                 }
             }
         }

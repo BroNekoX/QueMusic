@@ -11,6 +11,7 @@
 #include <QVariant>
 #include <QVariantMap>
 #include <QMap>
+#include <QList>
 #include <QTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -31,46 +32,51 @@ class MusicApiService : public QObject
     QML_SINGLETON
 
     // 默认歌曲源（0 酷狗 / 1 网易云），source<0 时使用
-    Q_PROPERTY(int songSource READ songSource WRITE setSongSource NOTIFY songSourceChanged)
+    Q_PROPERTY(int songSource READ songSource WRITE setSongSource NOTIFY songSourceChanged FINAL)
 
     // 音质设置（0 标准 128k / 1 高清 320k / 2+ 无损 flac），由 QML 的 Options.settings.soundQuality 同步
-    Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged)
+    Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged FINAL)
 
     // 在线数据列表模型（QML 侧 .count/.get()/.clear() 与旧 ListModel 一致）
-    Q_PROPERTY(OnlineListModel* searchSongsResults READ searchSongsResults CONSTANT)
-    Q_PROPERTY(OnlineListModel* newSongs READ newSongs CONSTANT)
-    Q_PROPERTY(OnlineListModel* recommendSongs READ recommendSongs CONSTANT)
-    Q_PROPERTY(OnlineListModel* musicPlaylists READ musicPlaylists CONSTANT)
-    Q_PROPERTY(OnlineListModel* playlistSong READ playlistSong CONSTANT)
-    Q_PROPERTY(OnlineListModel* hotPlayLists READ hotPlayLists CONSTANT)
-    Q_PROPERTY(OnlineListModel* getHotlistMenu READ getHotlistMenu CONSTANT)
-    Q_PROPERTY(OnlineListModel* musicToplist READ musicToplist CONSTANT)
-    Q_PROPERTY(OnlineListModel* toplistList READ toplistList CONSTANT)
-    Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT)
-    Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT)
-    Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT)
+    Q_PROPERTY(OnlineListModel* searchSongsResults READ searchSongsResults CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* newSongs READ newSongs CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* recommendSongs READ recommendSongs CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* musicPlaylists READ musicPlaylists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* playlistSong READ playlistSong CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* hotPlayLists READ hotPlayLists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* getHotlistMenu READ getHotlistMenu CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* musicToplist READ musicToplist CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* toplistList READ toplistList CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT FINAL)
     // 歌曲评论（在线音乐才有）
-    Q_PROPERTY(OnlineListModel* comments READ comments CONSTANT)
+    Q_PROPERTY(OnlineListModel* comments READ comments CONSTANT FINAL)
 
     // 非模型数据
-    Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged)
-    Q_PROPERTY(QVariant lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged)
-    Q_PROPERTY(QVariant lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged)
+    Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged FINAL)
+    Q_PROPERTY(QVariant lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
+    Q_PROPERTY(QVariant lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged FINAL)
+
+    Q_PROPERTY(bool lyricFollowActive READ lyricFollowActive WRITE setLyricFollowActive NOTIFY lyricFollowActiveChanged FINAL)
+    Q_PROPERTY(qlonglong lyricPositionMs READ lyricPositionMs WRITE setLyricPositionMs NOTIFY lyricPositionMsChanged FINAL)
+    Q_PROPERTY(int lyricOffsetMs READ lyricOffsetMs WRITE setLyricOffsetMs NOTIFY lyricOffsetMsChanged FINAL)
+    Q_PROPERTY(int lyricIndex READ lyricIndex NOTIFY lyricIndexChanged FINAL)
 
     // 状态与全局变量
-    Q_PROPERTY(bool loadState READ loadState WRITE setLoadState NOTIFY loadStateChanged)
-    Q_PROPERTY(QVariant globalid READ globalid WRITE setGlobalid NOTIFY globalidChanged)
-    Q_PROPERTY(QVariant globaltagid READ globaltagid WRITE setGlobaltagid NOTIFY globaltagidChanged)
-    Q_PROPERTY(QVariant globalinfo READ globalinfo WRITE setGlobalinfo NOTIFY globalinfoChanged)
-    Q_PROPERTY(int nowIndex READ nowIndex WRITE setNowIndex NOTIFY nowIndexChanged)
+    Q_PROPERTY(bool loadState READ loadState WRITE setLoadState NOTIFY loadStateChanged FINAL)
+    Q_PROPERTY(QVariant globalid READ globalid WRITE setGlobalid NOTIFY globalidChanged FINAL)
+    Q_PROPERTY(QVariant globaltagid READ globaltagid WRITE setGlobaltagid NOTIFY globaltagidChanged FINAL)
+    Q_PROPERTY(QVariant globalinfo READ globalinfo WRITE setGlobalinfo NOTIFY globalinfoChanged FINAL)
+    Q_PROPERTY(int nowIndex READ nowIndex WRITE setNowIndex NOTIFY nowIndexChanged FINAL)
 
     // 歌曲列表过滤（分类页「筛选」）：0 全部 / 1 仅免费 / 2 仅 VIP 付费
     // 只作用于歌曲列表（新歌/歌单歌曲/歌手歌曲/榜单歌曲），歌单与歌手列表不受影响
-    Q_PROPERTY(int songFilter MEMBER m_songFilter NOTIFY songFilterChanged)
+    Q_PROPERTY(int songFilter MEMBER m_songFilter NOTIFY songFilterChanged FINAL)
 
     // 下载管理器（DownloadPage 直接绑定 MusicApi.downloader）
-    Q_PROPERTY(DownloadManager* downloader READ downloader CONSTANT)
-    Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged)
+    Q_PROPERTY(DownloadManager* downloader READ downloader CONSTANT FINAL)
+    Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged FINAL)
 
 public:
     // 不能给 parent 默认值：否则引擎走"默认构造"分支、create() 被跳过，
@@ -111,6 +117,14 @@ public:
     void setLyricsData(const QVariant &v);
     QVariant lyricsTranslate() const { return m_lyricsTranslate; }
     void setLyricsTranslate(const QVariant &v);
+
+    bool lyricFollowActive() const { return m_lyricFollowActive; }
+    void setLyricFollowActive(bool active);
+    qlonglong lyricPositionMs() const { return m_lyricPositionMs; }
+    void setLyricPositionMs(qlonglong ms);
+    int lyricOffsetMs() const { return m_lyricOffsetMs; }
+    void setLyricOffsetMs(int ms);
+    int lyricIndex() const { return m_lyricIndex; }
 
     bool loadState() const { return m_loadState; }
     void setLoadState(bool s);
@@ -195,6 +209,10 @@ signals:
     void allPlaylistMenuChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
+    void lyricFollowActiveChanged();
+    void lyricPositionMsChanged();
+    void lyricOffsetMsChanged();
+    void lyricIndexChanged();
     void loadStateChanged();
     void globalidChanged();
     void globaltagidChanged();
@@ -308,6 +326,16 @@ private:
     QVariant m_globaltagid;
     QVariant m_globalinfo;
     int m_nowIndex = 0;
+
+    void setLyricIndex(int index);
+    void rebuildLyricTimes(const QVariant &v);
+    void advanceLyricIndex();
+    QTimer m_lyricTimer;
+    QList<qlonglong> m_lyricTimes;
+    qlonglong m_lyricPositionMs = 0;
+    int m_lyricOffsetMs = 0;
+    int m_lyricIndex = 0;
+    bool m_lyricFollowActive = false;
 
     DownloadManager m_downloader;
 };

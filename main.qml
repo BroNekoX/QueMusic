@@ -14,34 +14,42 @@ Window {
     height: 760
     minimumWidth: 810
     minimumHeight: 540
-    color: Style.primaryColor
+    color: Theme.primaryColor
     title: "QueMusic"
     Component.onCompleted: {
         Options.queue = playListModel
-        Options.warn = mainWarn
         Options.dialog = globalDialog
-        Options.agent = windowAgent
         Options.desktop = desktopPlayer
         Options.smtc = smtc
+        Options.mainLayout = mainLayout
+        Options.getWave = getWave
+        Options.textWatch = textWatch
+        Options.picWatch = picWatch
+        Options.coverHelper = coverHelper
+        Options.desktopPlayerLoader = desktopPlayerLoader
+        Options.desktopLyricsLoader = desktopLyricsLoader
+        Options.openMaxLyric = openMaxLyric
+        Options.settingOutAnime = settingOutAnime
+        Options.mainSearchInput = mainSearchInput
         windowAgent.setup(window);
         // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
-        if(!window.isMacOS) {
+        if(!Options.isMacOS) {
             // dwm-blur acrylic-material mica mica-alt
             windowAgent.setWindowAttribute("dark-mode", false);
-            if(Options.settings.noWindowKit) {
+            if(Config.noWindowKit) {
                 windowAgent.setWindowAttribute("extra-margins", 3);
                 windowAgent.setWindowAttribute("title-bar-height", 40);
             }
         }
-        MusicApi.songSource = Options.settings.mainMusicSource;
-        MusicApi.downloadPath = Options.settings.downloadFolder;
-        MusicApi.soundQuality = Options.settings.soundQuality;
+        MusicApi.songSource = Config.mainMusicSource;
+        MusicApi.downloadPath = Config.downloadFolder;
+        MusicApi.soundQuality = Config.soundQuality;
 
-        if(Options.settings.rememberWindow && Options.settings.winW > 0) {
-            window.x = Options.settings.winX;
-            window.y = Options.settings.winY;
-            window.width = Options.settings.winW;
-            window.height = Options.settings.winH;
+        if(Config.rememberWindow && Config.winW > 0) {
+            window.x = Config.winX;
+            window.y = Config.winY;
+            window.width = Config.winW;
+            window.height = Config.winH;
         }
 
         window.visible = true;
@@ -49,19 +57,19 @@ Window {
         Playback.player = mainMedia;
         Playback.queue = playListModel;
 
-        Style.changeUi();
-        Style.changeTheme();
+        Options.changeUi();
+        Options.changeTheme();
 
         // 会话恢复 / 历史加载 / 封面缓存维护都是磁盘与网络 I/O，全部移出首帧
         Qt.callLater(function() {
             Playback.loadHistory();
             Playback.restoreSession();
 
-            if(Options.settings.cacheUrl)
-                coverHelper.setCacheDir(Options.settings.cacheUrl);
-            coverHelper.pruneCache(Options.settings.cacheSize);
+            if(Config.cacheUrl)
+                coverHelper.setCacheDir(Config.cacheUrl);
+            coverHelper.pruneCache(Config.cacheSize);
 
-            if(Options.settings.autoUpdate)
+            if(Config.autoUpdate)
                 autoUpdateTimer.start();
         });
     }
@@ -69,12 +77,12 @@ Window {
     Binding {
         target: MusicApi
         property: "soundQuality"
-        value: Options.settings.soundQuality
+        value: Config.soundQuality
     }
     Binding {
         target: MusicApi
         property: "downloadPath"
-        value: Options.settings.downloadFolder
+        value: Config.downloadFolder
     }
 
 
@@ -98,9 +106,6 @@ Window {
     }
 
 
-
-    readonly property bool isMacOS: Qt.platform.os === "osx"
-
     // 标题栏是窗口拖拽区：插件挂进去的对象要标记可命中，否则点击会被拖拽吞掉
     function syncTitleBarHitTest(): void {
         const kids = barRightWidgets.children;
@@ -109,22 +114,17 @@ Window {
     }
 
     function doSearch(text: string): void {
+        Options.searchText = text;
         MusicApi.searchSongsResults.clear();
         mainContent.contentIndexed(6);
-        Options.settings.searchList = Options.settings.searchList.filter(value => value !== text);
-        Options.settings.searchList.splice(0, 0, text);
+        Config.searchList = Config.searchList.filter(value => value !== text);
+        Config.searchList.splice(0, 0, text);
         MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
         Options.exitIndex = 1;
     }
 
-    // 首次加载内容临时存储，防止重新加载浪费内存
-    property QtObject completedStart: QtObject {
-        property bool homeLoaded: false
-        property bool playlistLoaded: false
-    }
-
     // 系统级关闭（Alt+F4、任务栏右键"关闭窗口"）与关闭按钮行为保持一致
-    onClosing: function(close) {
+    onClosing: (close) => {
         if(win.closeToTray()) {
             close.accepted = false;
             win.hideToTray();
@@ -144,17 +144,13 @@ Window {
             desktopPlayerLoader.active = false
         }
     }
-    signal getKeys(var keys)
-    signal exit()
-
-    signal message(string title,string text,int type)
 
     Shortcut {
         sequence: "Esc"
         context: Qt.ApplicationShortcut
         enabled: !Options.recordingShortCut
         onActivated: {
-            window.exit();
+            Options.exit();
             console.log("Exit");
             if(Options.exitIndex > 0) {
                 Options.exitIndex -= 1;
@@ -162,11 +158,11 @@ Window {
             mainLayout.forceActiveFocus();
         }
     }
-    // 键位与开关都走设置页（Options.shortCuts / globalShortcut*）
+    // 键位与开关都走设置页（ShortCut / globalShortcut*）
     Instantiator {
         model: [
-            { k: "volumeUp",      a: function() { Playback.stepVolume(Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
-            { k: "volumeDown",    a: function() { Playback.stepVolume(-Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Options.settings.musicVolume * 100) + "%", 0) } },
+            { k: "volumeUp",      a: function() { Playback.stepVolume(Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Config.musicVolume * 100) + "%", 0) } },
+            { k: "volumeDown",    a: function() { Playback.stepVolume(-Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Config.musicVolume * 100) + "%", 0) } },
             { k: "seekBack",      a: function() { Playback.seekBack() } },
             { k: "seekForward",   a: function() { Playback.seekForward() } },
             { k: "mute",          a: function() { Playback.toggleMute(); mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0) } },
@@ -192,20 +188,11 @@ Window {
         ]
         delegate: Shortcut {
             readonly property string flag: "globalShortcut" + modelData.k.charAt(0).toUpperCase() + modelData.k.slice(1)
-            sequence: Options.shortCuts[modelData.k]
+            sequence: ShortCut[modelData.k]
             context: Qt.ApplicationShortcut
-            enabled: Options.settings.openShortCut && Options.shortCuts[flag]
+            enabled: Config.openShortCut && ShortCut[flag]
             onActivated: modelData.a()
         }
-    }
-
-    FontLoader {
-        id: iconFont
-        source: "qrc:/QueMusic/resources/fonts/feather.ttf"
-    }
-    FontLoader {
-        id: textFont
-        source: "qrc:/QueMusic/resources/fonts/poppins.ttf"
     }
 
     WindowAgent {
@@ -247,9 +234,9 @@ Window {
 
             QWKButton {
                 id: returnButton
-                source: Style.darkis ? "qrc:/QueMusic/resources/window-bar/returnd.svg" : "qrc:/QueMusic/resources/window-bar/return.svg"
+                source: Options.darkis ? "qrc:/QueMusic/resources/window-bar/returnd.svg" : "qrc:/QueMusic/resources/window-bar/return.svg"
                 onClicked: {
-                    window.exit()
+                    Options.exit()
                     console.log("Exit")
                     if(Options.exitIndex > 0) {
                         Options.exitIndex -= 1
@@ -266,10 +253,10 @@ Window {
                 width: 160
                 leftPadding: 16
                 placeholderText: "搜索"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
-                selectionColor: Style.containColor
+                selectionColor: Theme.containColor
                 focus: false
                 onReleased: searchCard.open();
                 onAccepted: {
@@ -285,7 +272,7 @@ Window {
                     height: 36
                     width: 201
                     radius: 18
-                    color: Style.primaryColor
+                    color: Theme.primaryColor
                 }
             }
             SButton {
@@ -325,8 +312,8 @@ Window {
                 id: fullScreenButton
                 largeicon: true
                 property int prevVisibility: Window.Maximized
-                buttonColor: window.visibility === Window.FullScreen ? Style.containColor : "transparent"
-                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
+                buttonColor: window.visibility === Window.FullScreen ? Theme.containColor : "transparent"
+                source: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/airplayd.svg" : "qrc:/QueMusic/resources/window-bar/airplay.svg"
                 onClicked: {
                     if (window.visibility === Window.FullScreen) {
                         if (prevVisibility === Window.Maximized)
@@ -344,7 +331,7 @@ Window {
             QWKButton {
                 id: settingButton
                 largeicon: true
-                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/settingd.svg" : "qrc:/QueMusic/resources/window-bar/setting.svg"
+                source: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/settingd.svg" : "qrc:/QueMusic/resources/window-bar/setting.svg"
                 onClicked: {
                     settingsView.active = true;
                 }
@@ -353,10 +340,10 @@ Window {
 
             QWKButton {
                 id: minButton
-                source: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
+                source: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/minimized.svg" : "qrc:/QueMusic/resources/window-bar/minimize.svg"
                 onClicked: window.showMinimized();
                 Component.onCompleted: {
-                    if(window.isMacOS) {
+                    if(Options.isMacOS) {
                         visible = false;
                     } else {
                         windowAgent.setSystemButton(WindowAgent.Minimize, minButton);
@@ -365,8 +352,8 @@ Window {
             }
 
             QWKButton {
-                readonly property string maximized: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/maximized.svg" : "qrc:/QueMusic/resources/window-bar/maximize.svg"
-                readonly property string restored: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/restored.svg" : "qrc:/QueMusic/resources/window-bar/restore.svg"
+                readonly property string maximized: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/maximized.svg" : "qrc:/QueMusic/resources/window-bar/maximize.svg"
+                readonly property string restored: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/restored.svg" : "qrc:/QueMusic/resources/window-bar/restore.svg"
                 id: maxButton
                 source: window.visibility === Window.Maximized ? restored : maximized
                 onClicked: {
@@ -377,7 +364,7 @@ Window {
                     }
                 }
                 Component.onCompleted: {
-                    if(window.isMacOS) {
+                    if(Options.isMacOS) {
                         visible = false;
                     } else {
                         windowAgent.setSystemButton(WindowAgent.Maximize, maxButton);
@@ -386,14 +373,14 @@ Window {
             }
 
             QWKButton {
-                readonly property string hover: Style.darkis ? "qrc:/QueMusic/resources/window-bar/close.svg" : "qrc:/QueMusic/resources/window-bar/closed.svg"
-                readonly property string unhover: Style.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/closed.svg" : "qrc:/QueMusic/resources/window-bar/close.svg"
+                readonly property string hover: Options.darkis ? "qrc:/QueMusic/resources/window-bar/close.svg" : "qrc:/QueMusic/resources/window-bar/closed.svg"
+                readonly property string unhover: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/closed.svg" : "qrc:/QueMusic/resources/window-bar/close.svg"
                 id: closeButton
                 source: closeButton.hovered ? hover : unhover
                 hoverColor: "#ee4848"
                 onClicked: win.toClosing();
                 Component.onCompleted: {
-                    if(window.isMacOS) {
+                    if(Options.isMacOS) {
                         visible = false;
                     } else {
                         windowAgent.setSystemButton(WindowAgent.Close, closeButton);
@@ -410,31 +397,31 @@ Window {
         property int maxLyricType: 0
 
         Connections {
-            target: Style
+            target: Options
             function onChangeTheme(): void {
                 windowAgent.setWindowAttribute("dwm-blur", false);
-                if(Style.settings.backmode === 0) {
+                if(Style.backmode === 0) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.primaryColor;
-                    window.color = Style.primaryColor;
-                    mainContent.color = Style.secondaryColor;
-                } else if(Style.settings.backmode === 1) {
+                    sidebar.baseColor = Theme.primaryColor;
+                    window.color = Theme.primaryColor;
+                    mainContent.color = Theme.secondaryColor;
+                } else if(Style.backmode === 1) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.primaryBlurColor;
-                    window.color = Style.containColor;
-                    mainContent.color = Style.blurOverlayColor;
-                } else if(Style.settings.backmode === 2) {
+                    sidebar.baseColor = Theme.primaryBlurColor;
+                    window.color = Theme.containColor;
+                    mainContent.color = Theme.blurOverlayColor;
+                } else if(Style.backmode === 2) {
                     backGround.visible = true;
-                    sidebar.baseColor = Style.blurOverlayColor;
-                    window.color = Style.primaryColor;
-                    mainContent.color = Style.blurOverlayColor;
+                    sidebar.baseColor = Theme.blurOverlayColor;
+                    window.color = Theme.primaryColor;
+                    mainContent.color = Theme.blurOverlayColor;
                     backGround.source = "qrc:/QueMusic/resources/pic/cloudRainbow.png";
-                } else if(Style.settings.backmode === 3) {
+                } else if(Style.backmode === 3) {
                     backGround.visible = true;
-                    sidebar.baseColor = Style.blurOverlayColor;
-                    window.color = Style.primaryColor;
-                    mainContent.color = Style.blurOverlayColor;
-                    switch(Style.settings.backpic) {
+                    sidebar.baseColor = Theme.blurOverlayColor;
+                    window.color = Theme.primaryColor;
+                    mainContent.color = Theme.blurOverlayColor;
+                    switch(Style.backpic) {
                         case 0:
                             backGround.source = "qrc:/QueMusic/resources/pic/back1.jpg";
                             break;
@@ -442,14 +429,14 @@ Window {
                             backGround.source = "qrc:/QueMusic/resources/pic/back3.jpg";
                             break;
                         case 2:
-                            backGround.source = Style.settings.backgroundImage;
+                            backGround.source = Style.backgroundImage;
                             break;
                     }
-                } else if(Style.settings.backmode === 4) {
+                } else if(Style.backmode === 4) {
                     backGround.visible = false;
-                    sidebar.baseColor = Style.primaryBlurColor;
+                    sidebar.baseColor = Theme.primaryBlurColor;
                     window.color = "transparent";
-                    mainContent.color = Style.primaryBlurColor;
+                    mainContent.color = Theme.primaryBlurColor;
                     windowAgent.setWindowAttribute("dwm-blur", true);
                 }
             }
@@ -474,6 +461,7 @@ Window {
             y: 0
             height: parent.height - 78
             width: 210
+            mainCont: mainContent
         }
 
         MainContent {
@@ -488,9 +476,19 @@ Window {
         PlayerControl {
             id: musicControlMin
             x: 0
-            width: parent.width
+            y: mainLayout.height - 78 + musicControlMax.hideHeight
+            width: mainLayout.width
             height: 78
             z: 4
+            onCenterChange: {
+                if(musicControlMax.visible) {
+                    openMaxLyric.running = false;
+                    closeMaxLyric.running = true;
+                } else {
+                    closeMaxLyric.running = false;
+                    openMaxLyric.running = true;
+                }
+            }
         }
 
         PlayerMaxCenter {
@@ -531,31 +529,20 @@ Window {
             }
         }
 
-        Item {
-            id: coverColor
-            width: 800
-            height: 600
-            property color color1: "#00ee66"
-            property color color2: "#00b1ee"
-            property color color3: "#9d4edd"
-            property bool thirdColors: true
+        // 取色在工作线程完成，结果回填
+        ColorExtractor {
+            id: colorExtractor
+            signal colorExtractFinished()
+            onColorsExtracted: (colors) => {
+                const color1 = colors.length > 0 ? colors[0] : "#00b1ee";
+                const color2 = colors.length > 1 ? colors[1] : "#9d4edd";
+                const color3 = colors.length > 2 ? colors[2] : (colors.length === 2 ? colors[0] : "#00ea64");
+                musicControlMax.changeColor(color1,color2,color3);
+                colorExtractFinished();
+            }
 
-            // 取色在工作线程完成，结果回填
-            ColorExtractor {
-                id: colorExtractor
-                signal colorExtractFinished()
-                onColorsExtracted: (colors) => {
-                    coverColor.color1 = colors.length > 0 ? colors[0] : "#00b1ee";
-                    coverColor.color2 = colors.length > 1 ? colors[1] : "#9d4edd";
-                    coverColor.color3 = colors.length > 2 ? colors[2]
-                                      : (colors.length === 2 ? colors[0] : "#00ea64");
-                    coverColor.thirdColors = colors.length >= 3 || colors.length < 2;
-                    colorExtractFinished();
-                }
-
-                onColorsExtractedAsString: (colors) => {
-                    console.log("颜色字符串:", colors);
-                }
+            onColorsExtractedAsString: (colors) => {
+                console.log("颜色字符串:", colors);
             }
         }
     }
@@ -567,7 +554,11 @@ Window {
         asynchronous: true
         visible: false
         z: 6
-        sourceComponent: SettingsView {}
+        sourceComponent: SettingsView {
+            backSource: backGround.source
+            sidebarColor: sidebar.color
+            mainContentColor: mainContent.color
+        }
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
         onLoaded: {
@@ -577,7 +568,7 @@ Window {
     }
 
     Loader {
-        active: Options.settings.displayFps
+        active: Config.displayFps
         visible: active
         anchors.top: mainLayout.top
         anchors.right: mainLayout.right
@@ -585,22 +576,22 @@ Window {
         anchors.rightMargin: 16
         width: 78
         height: 24
+        z: 99
         sourceComponent: Item {
             id: fpsCounter
-            z: 99
             visible: true
             property int frames: 0
             property real fps: 0
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: Style.shadowColor
+                color: Theme.shadowColor
                 opacity: 0.75
             }
             Text {
                 anchors.centerIn: parent
                 text: fpsCounter.fps.toFixed(0) + " FPS"
-                color: Style.fontColor
+                color: Theme.fontColor
                 font.pixelSize: 11
                 font.bold: true
             }
@@ -614,8 +605,7 @@ Window {
                 }
             }
             Connections {
-                // 关闭帧率显示时不挂每帧回调，避免白耗 JS 调用
-                enabled: Options.settings.displayFps
+                enabled: Config.displayFps
                 target: window
                 function onAfterRendering(): void { fpsCounter.frames++ }
             }
@@ -623,7 +613,7 @@ Window {
     }
 
     Loader {
-        active: Options.settings.debug
+        active: Config.debug
         visible: active
         anchors.top: parent.top
         anchors.left: parent.left
@@ -631,23 +621,23 @@ Window {
         anchors.leftMargin: 220
         width: 260
         height: 92
+        z: 99
         sourceComponent: Item {
             id: debugHud
-            z: 99
             property string info: ""
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: Style.shadowColor
+                color: Theme.shadowColor
                 opacity: 0.75
             }
             Text {
                 anchors.fill: parent
                 anchors.margins: 10
                 text: debugHud.info
-                color: Style.fontColor
+                color: Theme.fontColor
                 font.pixelSize: 11
-                font.family: TextFont.name
+                font.family: Fonts.text
             }
             Timer {
                 interval: 500
@@ -658,7 +648,7 @@ Window {
                             + "\n媒体状态: " + mainMedia.mediaStatus
                             + "\n进度: " + Math.floor(mainMedia.position / 1000) + "s / " + Math.floor(mainMedia.duration / 1000) + "s"
                             + "\n队列: " + playListModel.count + " 首"
-                            + "\n音量: " + Math.round(Options.settings.musicVolume * 100) + "%"
+                            + "\n音量: " + Math.round(Config.musicVolume * 100) + "%"
                 }
             }
         }
@@ -694,12 +684,10 @@ Window {
 
     CoverHelper {
         id: coverHelper
-        // 本次播放 json 给出的封面（空表示这首歌没有 json 封面）
         property string jsonCover: ""
         onLocalCoverReady: (path, coverUrl) => {
             if (path !== Playback.localLyricsRequestPath)
                 return;
-            // 内嵌 > 同目录图片；都取不到时保留 json 封面，确实没有才退回占位图
             const localCover = coverUrl || coverHelper.findLocalCover(path);
             if (localCover) {
                 if (localCover !== mainMedia.urlStr) {
@@ -797,7 +785,7 @@ Window {
         id: getWave
         engine: mainMedia
         renderWindow: window
-        enabled: Style.settings.waveDisplay && musicControlMax.visible
+        enabled: Style.waveDisplay && musicControlMax.visible
         bands: 128
     }
 
@@ -808,8 +796,8 @@ Window {
 
         source: ""
         volume: Playback.outVolume
-        deviceId: Options.settings.useDefaultDevice || musicDevices.audioOutputs.length <= Options.settings.audioDevice
-                  ? "" : String(musicDevices.audioOutputs[Options.settings.audioDevice].id)
+        deviceId: Config.useDefaultDevice || musicDevices.audioOutputs.length <= Config.audioDevice
+                  ? "" : String(musicDevices.audioOutputs[Config.audioDevice].id)
 
         onMetaDataChanged: {
             if (mainMedia.source.toString().startsWith("http"))
@@ -828,7 +816,7 @@ Window {
                     Playback.sleepEnd();
                     return;
                 }
-                switch(Options.settings.cycleIndex) {
+                switch(Config.cycleIndex) {
                     case 0:
                         Playback.next(false);
                         break;
@@ -854,12 +842,12 @@ Window {
             if(playListModel.count < 2) return;
             if (Playback.autoSkipCount >= 2) {
                 Playback.autoSkipCount = 0;
-                Style.warned("连续多首无法播放，已停止自动跳过", 0);
+                Options.warned("连续多首无法播放，已停止自动跳过", 0);
                 return;
             }
             Playback.autoSkipCount += 1;
-            Style.warned("当前歌曲无法播放，已自动跳过",0);
-            if(Options.settings.cycleIndex === 2) {
+            Options.warned("当前歌曲无法播放，已自动跳过",0);
+            if(Config.cycleIndex === 2) {
                 Playback.next(true);
             } else {
                 Playback.next(false);
@@ -919,7 +907,7 @@ Window {
     SearchCard {
         id: searchCard
         onSearchIndex: (index) => {
-            const name = Options.settings.searchList[index];
+            const name = Config.searchList[index];
             mainSearchInput.text = name;
             window.doSearch(name);
             searchCard.close();
@@ -972,7 +960,7 @@ Window {
     QWarn {
         id: mainWarn
         Connections {
-            target: Style
+            target: Options
             function onWarned(text: string, type: int): void {
                 mainWarn.tiped(text,type);
             }
@@ -1041,8 +1029,8 @@ Window {
                         width: parent.width
                         height: 40
                         text: picWatch.fileName
-                        font.pixelSize: Style.settings.textH2
-                        color: Style.textColor
+                        font.pixelSize: Style.textH2
+                        color: Theme.textColor
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                     }

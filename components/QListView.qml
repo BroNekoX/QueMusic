@@ -3,6 +3,7 @@
 //
 // 在线音乐列表：歌曲与歌单共用（isList 区分）。
 // 收藏 / 加入播放列表 / 下一首 / 下载 / 信息弹窗在此内部完成，页面只接 onClicked 与 onEnded。
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
@@ -65,7 +66,7 @@ ListView {
     // 按当前音质取 hash，高档缺档时降级
     function hashOf(it: var): string {
         if (!it) return ""
-        const q = Options.settings.soundQuality
+        const q = Config.soundQuality
         const h = q === 2 ? it.hashsq : q === 1 ? it.hashhq : it.hash
         return h || it.hash || it.favId || it.id || ""
     }
@@ -86,11 +87,11 @@ ListView {
         if (!key) return
         if (favModel.isFavorite(key, favType)) {
             favModel.removeFavorite(key, favType)
-            Style.warned("已取消收藏", 0)
+            Options.warned("已取消收藏", 0)
         } else {
             favModel.addFavorite(key, titleOf(it), artistOf(it), coverOf(it), sourceOf(it),
                                  it.duration || 0, favType)
-            Style.warned("已收藏", 1)
+            Options.warned("已收藏", 1)
         }
     }
     function enqueue(i: int, next: bool): void {
@@ -100,9 +101,9 @@ ListView {
         const row = { name: titleOf(it), path: key, songer: artistOf(it), source: sourceOf(it) }
         if (next) {
             Playback.playNext(row)
-            Style.warned("已设为下一首播放", 1)
+            Options.warned("已设为下一首播放", 1)
         } else {
-            Style.warned(Playback.enqueue(row) ? "已加入播放列表" : "已在播放列表中", 1)
+            Options.warned(Playback.enqueue(row) ? "已加入播放列表" : "已在播放列表中", 1)
         }
     }
     function download(i: int): void {
@@ -110,7 +111,7 @@ ListView {
         const h = hashOf(it)
         if (!h) return
         MusicApi.getMusicInfo(h, 1, sourceOf(it))
-        Style.warned("已开始下载", 1)
+        Options.warned("已开始下载", 1)
     }
     function showInfo(i: int): void {
         const it = itemAt(i)
@@ -140,15 +141,15 @@ ListView {
     }
 
     footer: Item {
-        width: view.width
+        width: ListView.view.width
         height: 32
         visible: view.isEnd
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             text: "没有更多了~"
-            color: Style.textColor
-            font.pixelSize: Style.settings.text
+            color: Theme.textColor
+            font.pixelSize: Style.text
         }
     }
     Menu {
@@ -160,8 +161,8 @@ ListView {
         background: Rectangle {
             implicitWidth: 160
             implicitHeight: 40
-            color: Style.primaryColor
-            radius: Style.settings.labelRadius
+            color: Theme.primaryColor
+            radius: Style.labelRadius
             RectangularShadow {
                 anchors.fill: parent
                 z: -1
@@ -170,7 +171,7 @@ ListView {
                 radius: parent.radius
                 blur: 20
                 spread: 0
-                color: Style.shadowColor
+                color: Theme.shadowColor
             }
         }
 
@@ -187,16 +188,16 @@ ListView {
                     implicitHeight: 36
                     x: 2
                     y: 2
-                    radius: Style.settings.labelRadius - 2
+                    radius: Style.labelRadius - 2
                     width: menuItem.width - 4
                     height: menuItem.height - 4
-                    color: menuItem.down || menuItem.highlighted ? Style.hoverColor : "transparent"
+                    color: menuItem.down || menuItem.highlighted ? Theme.hoverColor : "transparent"
                 }
                 text: modelData
                 contentItem: Text {
                     text: menuItem.text
-                    color: Style.fontColor
-                    font.pixelSize: Style.settings.textmain
+                    color: Theme.fontColor
+                    font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 12
                     elide: Text.ElideRight
@@ -230,7 +231,7 @@ ListView {
             const sec = it.duration || 0
             return [["歌手", view.artistOf(it)], ["专辑", it.album || "—"],
                     ["时长", Math.floor(sec / 60) + ":" + ("0" + Math.floor(sec % 60)).slice(-2)],
-                    ["音质", view.qualityNames[Options.settings.soundQuality] || "标准"], ["来源", src]]
+                    ["音质", view.qualityNames[Config.soundQuality] || "标准"], ["来源", src]]
         }
 
         Column {
@@ -255,14 +256,14 @@ ListView {
                         text: view.titleOf(infoDialog.info)
                         font.pixelSize: 16
                         font.weight: Font.DemiBold
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         elide: Text.ElideRight
                     }
                     Text {
                         width: parent.width
                         text: view.artistOf(infoDialog.info)
                         font.pixelSize: 12
-                        color: Style.textColor
+                        color: Theme.textColor
                         elide: Text.ElideRight
                     }
                 }
@@ -279,7 +280,7 @@ ListView {
                         height: 22
                         text: infoRow.modelData[0]
                         font.pixelSize: 12
-                        color: Style.textColor
+                        color: Theme.textColor
                         verticalAlignment: Text.AlignVCenter
                     }
                     Text {
@@ -287,7 +288,7 @@ ListView {
                         height: 22
                         text: infoRow.modelData[1]
                         font.pixelSize: 12
-                        color: Style.fontColor
+                        color: Theme.fontColor
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -333,11 +334,11 @@ ListView {
         width: view.width
         height: 36
         Text {
-            x: 76
+            x: 72
             height: 36
             text: view.headerModel[0]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
@@ -345,8 +346,8 @@ ListView {
             x: view.artistX
             height: 36
             text: view.headerModel[1]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
@@ -354,15 +355,15 @@ ListView {
             x: view.width - 76
             height: 36
             text: view.headerModel[2]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Rectangle {
             width: parent.width - 16
             height: 1
-            color: Style.sideColor
+            color: Theme.sideColor
             opacity: 0.5
             y: 35
         }
@@ -416,11 +417,10 @@ ListView {
         // 收藏/下载/历史等本地模型的角色里没有 paytype，从 item 兜底读
         readonly property int paytype: listDel.model && listDel.model.paytype !== undefined
                                        ? listDel.model.paytype : 0
-        readonly property QListView vw: ListView.view
         height: 60
-        width: listDel.vw.width - 16
-        color: listDel.vw.selectedSet.has(listDel.index) ? Style.containColor : "#00000000"
-        radius: Style.settings.labelRadius
+        width: ListView.view.width - 16
+        color: view.selectedSet.has(listDel.index) ? Theme.containColor : "#00000000"
+        radius: Style.labelRadius
         property int transY: 0
         transform: Translate { y: listDel.transY }
 
@@ -430,8 +430,8 @@ ListView {
 
         Rectangle {
             anchors.fill: parent
-            radius: Style.settings.labelRadius
-            color: Style.hoverColor
+            radius: Style.labelRadius
+            color: Theme.hoverColor
             opacity: listArea.containsMouse ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
@@ -447,19 +447,19 @@ ListView {
 
         Text {
             id: title
-            x: 76
+            x: 72
             y: 16
-            width: listDel.vw.artistX - 110
+            width: view.artistX - 110
             height: 28
             text: listDel.title || "Unknown"
-            color: Style.fontColor
+            color: Theme.fontColor
             font.weight: Font.DemiBold
             elide: Text.ElideRight
-            font.pixelSize: Style.settings.textmain
+            font.pixelSize: Style.textmain
             verticalAlignment: Text.AlignVCenter
         }
         Rectangle {
-            color: Style.containColor
+            color: Theme.containColor
             x: title.implicitWidth > title.width ? title.width + 75 : title.implicitWidth + 85
             y: 20
             width: 32
@@ -471,35 +471,35 @@ ListView {
             Text {
                 text: "VIP"
                 anchors.centerIn: parent
-                color: Style.themeColor
+                color: Theme.themeColor
                 font.pixelSize: 9
                 font.weight: Font.DemiBold
             }
         }
         Text {
-            x: listDel.vw.artistX
+            x: view.artistX
             y: 16
-            width: listDel.vw.artistX - 128
+            width: view.artistX - 128
             height: 28
             text: listDel.artist || "Unknown"
-            color: Style.textColor
+            color: Theme.textColor
             font.weight: Font.Normal
             elide: Text.ElideRight
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.text
             verticalAlignment: Text.AlignVCenter
         }
         Text {
-            x: listDel.vw.width - 92
+            x: view.width - 92
             y: 16
             width: 60
             height: 28
             // 歌单：duration 存的是曲目数（没拿到就留空，别显示「0 首」）；歌曲：duration 是秒
-            text: listDel.vw.isList ? (listDel.duration > 0 ? listDel.duration + "首" : "")
+            text: view.isList ? (listDel.duration > 0 ? listDel.duration + "首" : "")
                               : Playback.fmt(listDel.duration * 1000)
-            color: Style.textColor
+            color: Theme.textColor
             font.bold: false
             elide: Text.ElideRight
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.text
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
         }
@@ -511,16 +511,16 @@ ListView {
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: (mouse) => {
                 if (mouse.button === Qt.LeftButton) {
-                    listDel.vw.clicked(listDel.index);
+                    view.clicked(listDel.index);
                 } else {
                     menu.index = listDel.index;
-                    listDel.vw.menu.popup();
+                    view.menu.popup();
                 }
                 forceActiveFocus();
             }
 
             Row {
-                x: listDel.vw.toolX
+                x: view.toolX
                 spacing: 2
                 y: 12
                 height: 36
@@ -532,36 +532,36 @@ ListView {
                     height: 36
                     radius: 36
                     buttonColor: "transparent"
-                    hoverColor: Style.hoverColor
+                    hoverColor: Theme.hoverColor
                     shadowEnabled: false
                     tipText: "更多"
                     onClicked: {
                         menu.index = listDel.index
-                        listDel.vw.menu.popup()
+                        view.menu.popup()
                     }
                 }
                 SButton {
                     // 只在悬停时查收藏状态，避免滚动时逐行访问数据库
-                    iconCharacter: listArea.containsMouse ? listDel.vw.favoriteIcon(listDel.index) : listDel.vw.toolText1
+                    iconCharacter: listArea.containsMouse ? view.favoriteIcon(listDel.index) : view.toolText1
                     width: 36
                     height: 36
                     radius: 36
                     buttonColor: "transparent"
-                    hoverColor: Style.hoverColor
+                    hoverColor: Theme.hoverColor
                     shadowEnabled: false
                     tipText: "收藏"
-                    onClicked: listDel.vw.toggleFavorite(listDel.index)
+                    onClicked: view.toggleFavorite(listDel.index)
                 }
                 SButton {
-                    iconCharacter: listDel.vw.toolText0
+                    iconCharacter: view.toolText0
                     width: 36
                     height: 36
                     radius: 36
                     buttonColor: "transparent"
-                    hoverColor: Style.hoverColor
+                    hoverColor: Theme.hoverColor
                     shadowEnabled: false
-                    tipText: listDel.vw.isList ? "歌单信息" : "加入播放列表"
-                    onClicked: listDel.vw.runToolAction(listDel.index, 0)
+                    tipText: view.isList ? "歌单信息" : "加入播放列表"
+                    onClicked: view.runToolAction(listDel.index, 0)
                 }
             }
         }

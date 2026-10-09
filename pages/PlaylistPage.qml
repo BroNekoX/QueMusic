@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QueMusic 1.0
@@ -42,7 +43,7 @@ Item {
 
     function refreshView(): void {
         reloadCurrent();
-        Options.warn.tiped("已刷新", 1);
+        Options.warned("已刷新", 1);
     }
 
     // 分类菜单是 OnlineListModel，只能按下标 get()，不能当数组用
@@ -59,7 +60,7 @@ Item {
             return;
         MusicApi.songFilter = index;
         reloadCurrent();
-        Options.warn.tiped("已筛选： " + filterItems[index], 1);
+        Options.warned("已筛选： " + filterItems[index], 1);
     }
 
     QMenu {
@@ -70,11 +71,11 @@ Item {
     }
 
     Component.onCompleted: {
-        if(!window.completedStart.playlistLoaded) {
+        if(!Options.playlistLoaded) {
             MusicApi.getPlaylistMenu(3);
             MusicApi.getNewSongs(1, 1, 20);
             MusicApi.getAllToplist();
-            window.completedStart.playlistLoaded = true;
+            Options.playlistLoaded = true;
         }
     }
 
@@ -100,8 +101,8 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "分类"
                 font.weight: Font.DemiBold
-                font.pixelSize: Style.settings.pageTitle
-                color: Style.fontColor
+                font.pixelSize: Style.pageTitle
+                color: Theme.fontColor
             }
             QDrop {
                 x: parent.width - 120
@@ -113,7 +114,7 @@ Item {
                 color: MusicApi.songSource == 0 ? "#CDE8FF" : MusicApi.songSource == 1 ? "#FFCDCD" : MusicApi.songSource == 2 ? "#FFD9E6" : MusicApi.songSource == 3 ? "#CDFFCD" : "#FFFFCD"
                 border.color: MusicApi.songSource == 0 ? "#4384F5" : MusicApi.songSource == 1 ? "#F54343" : MusicApi.songSource == 2 ? "#FB7299" : MusicApi.songSource == 3 ? "#4DF543" : "#F5F543"
                 radius: 18
-                cardRadius: Style.settings.labelRadius
+                cardRadius: Style.labelRadius
                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
@@ -163,7 +164,7 @@ Item {
                 height: 38
                 text: ""
                 iconCharacter: "\uf11e"
-                buttonColor: Style.primaryColor
+                buttonColor: Theme.primaryColor
                 tipText: "重新获取当前列表"
                 onClicked: playlistPage.refreshView()
             }
@@ -175,7 +176,7 @@ Item {
                 iconCharacter: "\uf101"
                 enabled: playlistPage.songListActive
                 opacity: enabled ? 1 : 0.45
-                buttonColor: Style.primaryColor
+                buttonColor: Theme.primaryColor
                 tipText: "筛选免费 / VIP 歌曲"
                 onClicked: filterMenu.popup(filterBtn, 0, filterBtn.height + 6)
             }
@@ -192,16 +193,19 @@ Item {
                 Repeater {
                     model: ["华语","欧美","日韩","韩语","日语"]
                     delegate: Rectangle {
+                        id: lanTag
                         width: 64
                         height: 32
                         radius: 16
-                        color: musicsPage.musicMenuIndex === index ? Style.themeColor : Style.primaryColor
-                        border.color: Style.sideColor
+                        color: musicsPage.musicMenuIndex === index ? Theme.themeColor : Theme.primaryColor
+                        border.color: Theme.sideColor
                         border.width: 1
+                        required property string modelData
+                        required property int index
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.hoverColor
+                            color: Theme.hoverColor
                             opacity: musicsMenuArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -209,11 +213,11 @@ Item {
 
                         Text {
                             anchors.fill: parent
-                            text: modelData
+                            text: lanTag.modelData
                             elide: Text.ElideRight
                             z: 2
-                            font.pixelSize: Style.settings.text
-                            color: musicsPage.musicMenuIndex === index ? Style.fullColor : Style.textColor
+                            font.pixelSize: Style.text
+                            color: musicsPage.musicMenuIndex === lanTag.index ? Theme.fullColor : Theme.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -223,9 +227,9 @@ Item {
                             anchors.fill: parent
                             onClicked: {
                                 MusicApi.newSongs.clear();
-                                MusicApi.globalid = index + 1;
-                                musicsPage.musicMenuIndex = index;
-                                MusicApi.getNewSongs(index + 1, 1, 20);
+                                MusicApi.globalid = lanTag.index + 1;
+                                musicsPage.musicMenuIndex = lanTag.index;
+                                MusicApi.getNewSongs(lanTag.index + 1, 1, 20);
                             }
                         }
                     }
@@ -250,9 +254,9 @@ Item {
                     }
                 }
                 onClicked: (index) => {
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
@@ -280,13 +284,13 @@ Item {
                         width: 64
                         height: 32
                         radius: 16
-                        color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Style.themeColor : Style.primaryColor
-                        border.color: Style.sideColor
+                        color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Theme.themeColor : Theme.primaryColor
+                        border.color: Theme.sideColor
                         border.width: 1
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.hoverColor
+                            color: Theme.hoverColor
                             opacity: musiclistMenuArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -297,8 +301,8 @@ Item {
                             text: playlistMenuRow.title
                             elide: Text.ElideRight
                             z: 2
-                            font.pixelSize: Style.settings.text
-                            color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Style.fullColor : Style.textColor
+                            font.pixelSize: Style.text
+                            color: musicMenuPage.musicMenuIndex === playlistMenuRow.index ? Theme.fullColor : Theme.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -380,8 +384,8 @@ Item {
                     required property var model
                     width: 156
                     height: 216
-                    radius: Style.settings.labelRadius
-                    color: Style.primaryColor
+                    radius: Style.labelRadius
+                    color: Theme.primaryColor
                     scale: toplistCardArea.containsMouse ? 1.04 : 1.0
                     Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
                     RectangularShadow {
@@ -389,17 +393,17 @@ Item {
                         z: -1
                         offset.x: 2
                         offset.y: 2
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         blur: toplistCardArea.containsMouse ? 24 : 8
                         spread: 0
-                        color: Style.shadowColor
+                        color: Theme.shadowColor
                         Behavior on blur { NumberAnimation { duration: 200 } }
                     }
                     QPicture {
                         width: 156
                         height: 156
                         source: (toplistCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         radius3: 0
                         radius4: 0
                         sourceSize: Qt.size(128,128)
@@ -426,8 +430,8 @@ Item {
                         width: 132
                         text: toplistCard.title
                         font.bold: true
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.fontColor
+                        font.pixelSize: Style.textmain
                         elide: Text.ElideRight
                     }
                     Text {
@@ -435,8 +439,8 @@ Item {
                         y: 190
                         width: 132
                         text: toplistCard.artist || ""
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.text
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
                         elide: Text.ElideRight
                     }
                     MouseArea {
@@ -501,13 +505,13 @@ Item {
                         width: 76
                         height: 32
                         radius: 16
-                        color: album.singerTypeIndex === singerTypeRow.index ? Style.themeColor : Style.primaryColor
-                        border.color: Style.sideColor
+                        color: album.singerTypeIndex === singerTypeRow.index ? Theme.themeColor : Theme.primaryColor
+                        border.color: Theme.sideColor
                         border.width: 1
                         Rectangle {
                             anchors.fill: parent
                             radius: 16
-                            color: Style.hoverColor
+                            color: Theme.hoverColor
                             opacity: singerTypeArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -517,8 +521,8 @@ Item {
                             text: singerTypeRow.title
                             elide: Text.ElideRight
                             z: 2
-                            font.pixelSize: Style.settings.text
-                            color: album.singerTypeIndex === singerTypeRow.index ? Style.fullColor : Style.textColor
+                            font.pixelSize: Style.text
+                            color: album.singerTypeIndex === singerTypeRow.index ? Theme.fullColor : Theme.textColor
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -556,7 +560,7 @@ Item {
                                 MusicApi.getSingerCategory(area, album.singerPage, 30, MusicApi.songSource);
                             }
                         } else {
-                            Options.warn.tiped("没有更多了",0);
+                            Options.warned("没有更多了",0);
                         }
                     }
                 }
@@ -583,8 +587,8 @@ Item {
                         text: singerCard.title
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: Style.settings.text
-                        color: Style.textColor
+                        font.pixelSize: Style.text
+                        color: Theme.textColor
                     }
                     MouseArea {
                         id: singerArea
@@ -628,9 +632,9 @@ Item {
                 topMargin: 8
                 bottomMargin: 24
                 onClicked: (index) => {
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
@@ -640,7 +644,7 @@ Item {
                     if (MusicApi.loadState)
                         return;
                     if (MusicApi.playlistSong.count % 20 !== 0) {
-                        Options.warn.tiped("没有更多了", 0);
+                        Options.warned("没有更多了", 0);
                         return;
                     }
                     playListSongsWindow.reload(MusicApi.playlistSong.count / 20 + 1);
@@ -665,9 +669,9 @@ Item {
                 topMargin: 8
                 bottomMargin: 24
                 onClicked: (index) => {
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(model.get(index).hashhq);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq);
@@ -677,7 +681,7 @@ Item {
                     if (MusicApi.loadState)
                         return;
                     if (MusicApi.playlistSong.count % 20 !== 0) {
-                        Options.warn.tiped("没有更多了", 0);
+                        Options.warned("没有更多了", 0);
                         return;
                     }
                     MusicApi.getSingerSongs(MusicApi.globalid, MusicApi.playlistSong.count / 20 + 1, 20, MusicApi.songSource);

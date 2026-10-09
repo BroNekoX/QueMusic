@@ -13,8 +13,8 @@ class LyricsPluginStore : public PluginStore
     Q_OBJECT
     QML_NAMED_ELEMENT(LyricsPlugins)
     QML_SINGLETON
-    Q_PROPERTY(QString selectedId READ selectedId WRITE setSelectedId NOTIFY selectedIdChanged)
-    Q_PROPERTY(QString source READ source NOTIFY selectedIdChanged)          // 当前入口，绑给 Loader.source
+    Q_PROPERTY(QString selectedId READ selectedId WRITE setSelectedId NOTIFY selectedIdChanged FINAL)
+    Q_PROPERTY(QString source READ source NOTIFY selectedIdChanged FINAL)          // 当前入口，绑给 Loader.source
 
 public:
     explicit LyricsPluginStore(QObject *parent = nullptr);

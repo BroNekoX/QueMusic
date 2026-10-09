@@ -23,7 +23,7 @@ Item {
     property int originX: 0
     property list<ParallelAnimation> animeOnList: [openAnime0,openAnime1]
     property list<ParallelAnimation> animeOutList: [closeAnime0,closeAnime1]
-    property int animeType: Style.settings.animeType
+    property int animeType: Style.animeType
     transform: Translate { x: root.transX }
     Component.onCompleted: originX = mainTarget.x;
 
@@ -47,9 +47,9 @@ Item {
         root.playcount = info.playcount || 0;
         loadWidget.active = true;
         if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
-            favoriteButton.iconColor = Style.themeColor
+            favoriteButton.iconColor = Theme.themeColor
         } else {
-            favoriteButton.iconColor = Style.textColor
+            favoriteButton.iconColor = Theme.textColor
         }
     }
     function closed(): void {
@@ -59,7 +59,7 @@ Item {
         Options.exitIndex -= 1;
     }
     Connections {
-        target: window
+        target: Options
         enabled: root.visible
         function onExit(): void {
             if(Options.exitIndex <= root.winIndex) {
@@ -239,29 +239,29 @@ Item {
         width: root.width - 48
         height: 160
         z: 10
-        radius: Style.settings.cubeRadius
-        color: Style.primaryColor
+        radius: Style.cubeRadius
+        color: Theme.primaryColor
         RectangularShadow {
             anchors.fill: parent
             z: -1
             offset.x: 3
             offset.y: 3
-            radius: Style.settings.cubeRadius
+            radius: Style.cubeRadius
             blur: 24
             spread: 0
             visible: true
-            color: Style.shadowColor
+            color: Theme.shadowColor
         }
         QPicture {
             y: 16
             x: 16
             width: 128
             height: 128
-            radius: Style.settings.cubeRadius
+            radius: Style.cubeRadius
             source: root.cover
             MouseArea {
                 anchors.fill: parent
-                onClicked: picWatch.dialog(root.cover,root.title);
+                onClicked: Options.picWatch.dialog(root.cover,root.title);
             }
         }
         Text {
@@ -270,10 +270,10 @@ Item {
             width: 300
             height: 32
             elide: Text.ElideRight
-            color: Style.fontColor
+            color: Theme.fontColor
             font.bold: true
             text: root.title
-            font.pixelSize: Style.settings.textH1
+            font.pixelSize: Style.textH1
             verticalAlignment: Text.AlignVCenter
         }
         Text {
@@ -281,9 +281,9 @@ Item {
             x: root.width - width - 64
             y: 24
             height: 32
-            color: Style.textColor
+            color: Theme.textColor
             text: "创建者：" + root.artist
-            font.pixelSize: Style.settings.textmain
+            font.pixelSize: Style.textmain
             verticalAlignment: Text.AlignVCenter
         }
         Text {
@@ -293,10 +293,10 @@ Item {
             height: 44
             maximumLineCount: 3
             elide: Text.ElideRight
-            color: Style.textColor
+            color: Theme.textColor
             text: root.descript
             wrapMode: Text.Wrap
-            font.pixelSize: Style.settings.textmain
+            font.pixelSize: Style.textmain
         }
         Rectangle {
             id: playInfoRectangle
@@ -304,8 +304,8 @@ Item {
             width: playCountRow.implicitWidth + 20
             x: root.width - playCountRow.implicitWidth - 83
             y: 100
-            radius: Style.settings.labelRadius
-            color: Style.sideColor
+            radius: Style.labelRadius
+            color: Theme.sideColor
             Row {
                 id: playCountRow
                 x: 10
@@ -315,23 +315,23 @@ Item {
                 Text {
                     height: 36
                     text: "\uf00e"
-                    font.pixelSize: Style.settings.textmain
-                    font.family: IconFont.name
-                    color: Style.textColor
+                    font.pixelSize: Style.textmain
+                    font.family: Fonts.icon
+                    color: Theme.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
                 Text {
                     height: 36
                     text: Math.floor(root.playcount / 10000) + "万  "
-                    font.pixelSize: Style.settings.textmain
-                    color: Style.textColor
+                    font.pixelSize: Style.textmain
+                    color: Theme.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
                 Text {
                     height: 36
                     text: String(root.duration) + "首"
-                    font.pixelSize: Style.settings.textmain
-                    color: Style.textColor
+                    font.pixelSize: Style.textmain
+                    color: Theme.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
             }
@@ -344,20 +344,20 @@ Item {
             spacing: 8
             QButton {
                 height: 36; width: 96
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 iconCharacter: "\uf00e"
                 text: "播放"
                 shadowEnabled: false
-                buttonColor: Style.themeColor
-                textColor: Style.fullColor
-                iconColor: Style.fullColor
+                buttonColor: Theme.themeColor
+                textColor: Theme.fullColor
+                iconColor: Theme.fullColor
                 onClicked: {
                     const song = MusicApi.playlistSong.get(0);
                     if (!song || !song.hash)
                         return;   // 曲目还没加载出来：别拿 undefined 去请求
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(song.hash);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(song.hashhq);
                     } else {
                         MusicApi.getMusicInfo(song.hashsq);
@@ -367,10 +367,10 @@ Item {
             SButton {
                 width: 36
                 height: 36
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 iconCharacter: "\uf095"
                 shadowEnabled: false
-                buttonColor: Style.sideColor
+                buttonColor: Theme.sideColor
                 onClicked: {
                 }
             }
@@ -378,20 +378,20 @@ Item {
                 id: favoriteButton
                 width: 36
                 height: 36
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 iconCharacter: "\uf0c8"
-                iconColor: Style.textColor
+                iconColor: Theme.textColor
                 shadowEnabled: false
-                buttonColor: Style.sideColor
+                buttonColor: Theme.sideColor
                 onClicked: {
                     if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
                         FavoritePlaylists.removeFavorite(root.id, "playlist");
-                        Options.warn.tiped("已取消收藏", 0);
-                        iconColor = Style.textColor
+                        Options.warned("已取消收藏", 0);
+                        iconColor = Theme.textColor
                     } else {
                         FavoritePlaylists.addFavorite(root.id, root.title, root.artist, root.cover, root.songSource, root.duration, "playlist");
-                        Options.warn.tiped("已收藏", 1);
-                        iconColor = Style.themeColor
+                        Options.warned("已收藏", 1);
+                        iconColor = Theme.themeColor
                     }
                 }
             }

@@ -17,7 +17,7 @@ class SearchResultModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ANONYMOUS
-    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+    Q_PROPERTY(int count READ rowCount NOTIFY countChanged FINAL)
 public:
     enum Role {
         FileNameRole = Qt::UserRole + 1,

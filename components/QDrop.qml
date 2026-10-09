@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
@@ -10,11 +11,11 @@ Rectangle {
     id: root
     width: 160
     height: 36
-    radius: Style.settings.labelRadius
-    property color buttonColor: Style.primaryColor
-    color: Style.primaryColor
+    radius: Style.labelRadius
+    property color buttonColor: Theme.primaryColor
+    color: Theme.primaryColor
     border.width: 2
-    border.color: Style.borderColor
+    border.color: Theme.borderColor
     // useId 模式下文本取自 model[choice].description；对象直接赋给 string 会产生 QML 类型警告
     // 越界下标取到的是 undefined，这里改成显式范围判断，避免和 undefined 做比较
     property string text: (!useId && model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
@@ -23,14 +24,14 @@ Rectangle {
     property var model: ["Click1","Click2"]
     property int choice: 0
     property bool enabled: true
-    property color textColor: Style.textColor
-    property string iconFontFamily: IconFont.name    // 图标字体
+    property color textColor: Theme.textColor
+    property string iconFontFamily: Fonts.icon    // 图标字体
     property int cardRadius: radius
     signal transformed(int choiced)
     clip: false
     Rectangle {
         anchors.fill: parent
-        color: Style.hoverColor
+        color: Theme.hoverColor
         radius: root.radius
         opacity: mouseArea.containsMouse ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -42,7 +43,7 @@ Rectangle {
         height: root.height
         color: root.textColor
         text: root.icon
-        font.pixelSize: Style.settings.texticon
+        font.pixelSize: Style.texticon
         font.family: root.iconFontFamily
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
@@ -57,11 +58,11 @@ Rectangle {
             if (!root.useId)
                 return root.text
             // 设备列表可能为空，直接取 .description 会抛 TypeError
-            const item = root.model ? root.model[choice] : null
+            const item = root.model ? root.model[root.choice] : null
             return (item && item.description) ? String(item.description) : ""
         }
         color: root.textColor
-        font.pixelSize: Style.settings.textmain
+        font.pixelSize: Style.textmain
         font.bold: true
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
@@ -104,7 +105,7 @@ Rectangle {
 
         background: Rectangle {
             id: menuCard
-            color: Style.primaryColor
+            color: Theme.primaryColor
             radius: root.cardRadius
             RectangularShadow {
                 anchors.fill: parent
@@ -114,7 +115,7 @@ Rectangle {
                 radius: root.cardRadius
                 blur: 24
                 spread: 0
-                color: Style.shadowColor
+                color: Theme.shadowColor
             }
         }
 
@@ -129,25 +130,28 @@ Rectangle {
                     id: dropDele
                     width: dropList.width
                     height: 36
-                    color: root.choice == index ? Style.themeColor : "transparent"
+                    color: root.choice == dropDele.index ? Theme.themeColor : "transparent"
                     radius: root.cardRadius
+                    required property string modelData
+                    required property var model
+                    required property int index
                     Text {
                         anchors.fill: parent
                         text: {
                             if (!root.useId)
-                                return modelData
-                            const item = root.model ? root.model[index] : null
+                                return dropDele.modelData
+                            const item = root.model ? root.model[dropDele.index] : null
                             return (item && item.description) ? String(item.description) : ""
                         }
-                        color: root.choice == index ? Style.primaryColor : Style.textColor
-                        font.pixelSize: Style.settings.textmain
+                        color: root.choice == dropDele.index ? Theme.primaryColor : Theme.textColor
+                        font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                     }
                 
                     Rectangle {
                         id: hover
-                        color: Style.hoverColor
+                        color: Theme.hoverColor
                         anchors.fill: parent
                         radius: root.cardRadius
                         opacity: 0
@@ -161,7 +165,7 @@ Rectangle {
                         onEntered: hover.opacity = 1
                         onExited: hover.opacity = 0
                         onClicked: {
-                            root.transformed(index);
+                            root.transformed(dropDele.index);
                             popmenu.close();
                         }
                     }

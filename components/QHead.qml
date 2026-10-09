@@ -14,17 +14,17 @@ Item {
         y: 10
         width: 6
         height: 20
-        color: Style.themeColor
+        color: Theme.themeColor
         radius: 3
     }
     Text {
         x: 12
         y: 10
         height: 20
-        font.pixelSize: Style.settings.textH2
+        font.pixelSize: Style.textH2
         font.bold: true
         text: root.text
-        color: Style.fontColor
+        color: Theme.fontColor
         verticalAlignment: Text.AlignVCenter
     }
 }

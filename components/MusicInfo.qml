@@ -28,7 +28,8 @@ Popup {
     // 只在真正看得见评论页时请求，换歌也会跟着重来
     function refreshComments(): void {
         if (root.visible && tabs.index === 1)
-            root.loadComments()
+            MusicApi.comments.clear();
+            root.loadComments();
     }
 
     onOpened: {
@@ -43,9 +44,9 @@ Popup {
 
     background: QBlurCard {
         anchors.fill: parent
-        borderRadius: Style.settings.cubeRadius
+        borderRadius: Style.cubeRadius
         clip: false
-        blurSource: mainLayout
+        blurSource: Options.mainLayout
         shadowEffect: true
         rectXy: Qt.rect(root.x, root.y, 360, root.height)
     }
@@ -59,9 +60,9 @@ Popup {
             height: 36
             text: "音乐详情"
             font.bold: true
-            font.pixelSize: Style.settings.textH2
+            font.pixelSize: Style.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.fontColor
+            color: Theme.fontColor
         }
         SButton {
             iconCharacter: "\uf025"
@@ -70,7 +71,7 @@ Popup {
             width: 36
             height: 36
             radius: 36
-            iconSize: Style.settings.texticon + 2
+            iconSize: Style.texticon + 2
             buttonColor: "transparent"
             shadowEnabled: false
             onClicked: root.close()
@@ -90,7 +91,7 @@ Popup {
                 height: 112
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: picWatch.dialog(Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
+                    onClicked: Options.picWatch.dialog(Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
                                                Playback.musicTitle)
                 }
             }
@@ -102,7 +103,7 @@ Popup {
                 font.pixelSize: 18
                 font.bold: true
                 elide: Text.ElideRight
-                color: Style.fontColor
+                color: Theme.fontColor
             }
             Text {
                 x: 128
@@ -111,7 +112,7 @@ Popup {
                 text: Playback.musicArtist
                 font.pixelSize: 16
                 elide: Text.ElideRight
-                color: Style.textColor
+                color: Theme.textColor
             }
         }
 
@@ -172,13 +173,13 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.player.noTitle
-                        color: Style.textColor
+                        color: Theme.textColor
                         verticalAlignment: Text.AlignVCenter
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                     }
                 }
                 SettingItem {
@@ -188,12 +189,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.musicTitle
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -204,12 +205,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.musicArtist
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -220,12 +221,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.player.album
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -236,12 +237,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Math.round(Playback.player.bitRate / 1000) + " kbps"
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -252,12 +253,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.player.duration.toString()
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -268,12 +269,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.player.mediaDate
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -284,12 +285,12 @@ Popup {
                     TextInput {
                         height: 36
                         anchors.right: parent.right
-                        font.pixelSize: Style.settings.textmain
+                        font.pixelSize: Style.textmain
                         text: Playback.player.mediaType
-                        color: Style.textColor
+                        color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
-                        selectionColor: Style.themeColor
+                        selectionColor: Theme.themeColor
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -309,10 +310,47 @@ Popup {
             bottomMargin: 12
             reuseItems: true
             boundsBehavior: Flickable.StopAtBounds
+            property int scrollToY: commentView.contentY
+            property bool isEnd: false
             ScrollBar.vertical: ScrollBar {
+                id: viewBar
                 anchors.right: commentView.right
                 anchors.top: commentView.top
                 anchors.bottom: commentView.bottom
+                onPressedChanged: {
+                    commentView.scrollToY = commentView.contentY
+                }
+            }
+            onAtYEndChanged: {
+                if (atYEnd && !MusicApi.loadState && count !== 0) {
+                    if(count % 30 === 0) {
+                        MusicApi.getComments(Playback.musicHash, count / 30 + 1, 30, Playback.musicSource);
+                    } else {
+                        isEnd = true;
+                    }
+                }
+            }
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+                readonly property int scrollBottom: commentView.contentHeight - commentView.height + commentView.bottomMargin + commentView.originY
+                onWheel: (event) => {
+                    listViewAnime.running = false;
+                    commentView.scrollToY = Math.max(commentView.originY - commentView.topMargin, Math.min( commentView.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
+                    viewBar.active = true;
+                    event.accepted = true;
+                    listViewAnime.running = true;
+                }
+            }
+
+            NumberAnimation {
+                id: listViewAnime
+                target: commentView
+                property: "contentY"
+                duration: 240
+                to: commentView.scrollToY
+                easing.type: Easing.OutCubic
+                onFinished: viewBar.active = false
             }
             delegate: Item {
                 id: commentItem
@@ -320,7 +358,7 @@ Popup {
                 required property string avatar
                 required property string content
                 required property int liked
-                width: commentView.width
+                width: ListView.view.width
                 height: Math.max(34, body.height + 6)
                 QPicture {
                     width: 30
@@ -337,17 +375,29 @@ Popup {
                         width: parent.width
                         text: commentItem.user
                               + (commentItem.liked > 0 ? "  ·  " + commentItem.liked + " 赞" : "")
-                        color: Style.textColor
-                        font.pixelSize: Style.settings.textmain - 2
+                        color: Theme.textColor
+                        font.pixelSize: Style.textmain - 2
                         elide: Text.ElideRight
                     }
                     Text {
                         width: parent.width
                         text: commentItem.content
-                        color: Style.fontColor
-                        font.pixelSize: Style.settings.textmain
+                        color: Theme.fontColor
+                        font.pixelSize: Style.textmain
                         wrapMode: Text.Wrap
                     }
+                }
+            }
+            footer: Item {
+                width: ListView.view.width
+                height: 32
+                visible: commentView.isEnd
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    text: "没有更多了~"
+                    color: Theme.textColor
+                    font.pixelSize: Style.text
                 }
             }
             Text {
@@ -358,16 +408,16 @@ Popup {
                 visible: commentView.count === 0
                 // B 站/酷狗要两三次往返才拿到结果，这期间别说成"暂无评论"
                 text: MusicApi.loadState ? "评论加载中…" : "暂无评论"
-                color: Style.textColor
-                font.pixelSize: Style.settings.text
+                color: Theme.textColor
+                font.pixelSize: Style.text
             }
         }
     }
 
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 450; from: window.width; to: window.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 450; from: root.parent.width; to: root.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 240; to: window.width; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "x"; duration: 240; to: root.parent.width; easing.type: Easing.OutCubic }
     }
 }

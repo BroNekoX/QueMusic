@@ -7,7 +7,7 @@ import QtQuick.Controls.Basic
     // 毛玻璃对话框主体
 Popup {
     id: dialog
-    property Item blurSource: mainLayout // 使用父内容作为模糊源
+    property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     property alias message: messageText.text
@@ -26,7 +26,7 @@ Popup {
     height: contentCol.implicitHeight + 40
     onClosed: { input.text = ""; input.focus = false }
     Connections {
-        target: window
+        target: Options
         enabled: dialog.visible
         function onExit(): void {
             dialog.close();
@@ -37,7 +37,7 @@ Popup {
         anchors.fill: parent
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
-        borderRadius: Style.settings.cubeRadius
+        borderRadius: Style.cubeRadius
     }
 
     contentItem: Column {
@@ -51,7 +51,7 @@ Popup {
             text: "Title"
             font.pixelSize: 20
             font.bold: true
-            color: Style.fontColor
+            color: Theme.fontColor
             wrapMode: Text.WordWrap
         }
 
@@ -59,7 +59,7 @@ Popup {
             id: messageText
             text: "Messages"
             font.pixelSize: 13
-            color: Style.fontColor
+            color: Theme.fontColor
             wrapMode: Text.WordWrap
             width: parent.width
         }
@@ -69,15 +69,15 @@ Popup {
             width: parent.width
             implicitHeight: 36
             radius: 12
-            color: Style.primaryColor
+            color: Theme.primaryColor
             border.width: 2
-            border.color: input.focus ? Style.themeColor : Style.secondaryColor
+            border.color: input.focus ? Theme.themeColor : Theme.secondaryColor
             TextInput {
                 id: input
                 anchors.fill: parent
                 anchors.margins: 4
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 onAccepted: {
@@ -96,9 +96,9 @@ Popup {
                 height: 36
                 text: dialog.cancelText
                 iconCharacter: "\uf025" // X 图标
-                radius: Style.settings.labelRadius
-                buttonColor: Style.secondaryColor
-                borderColor: Style.sideColor
+                radius: Style.labelRadius
+                buttonColor: Theme.secondaryColor
+                borderColor: Theme.sideColor
                 borderWidth: 1
                 onClicked: { dialog.cancel(); dialog.close() }
             }
@@ -106,11 +106,11 @@ Popup {
                 width: 108
                 height: 36
                 text: dialog.confirmText
-                buttonColor: Style.themeColor
-                textColor: Style.primaryColor
-                iconColor: Style.primaryColor
-                shadowColor: Style.themeShadowColor
-                radius: Style.settings.labelRadius
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
+                iconColor: Theme.primaryColor
+                shadowColor: Theme.themeShadowColor
+                radius: Style.labelRadius
                 iconCharacter: "\uf0e7" // 继续图标
                 onClicked: { dialog.confirm(); dialog.close() }
             }

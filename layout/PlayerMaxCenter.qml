@@ -25,9 +25,6 @@ Rectangle {
     // 歌词界面：内置界面 + 已安装插件由 LyricsPlugins 统一维护，换界面 = 换 Loader 加载的文件
     readonly property string lyricThemeSource: LyricsPlugins.source
 
-    // 当前歌词行索引
-    property int lyricIndex: 0
-
     // 样式写入口（白名单）
     readonly property var styleAllow: ({
         basicCd: "host", lyricType: "host",        // 宿主自身状态
@@ -40,11 +37,11 @@ Rectangle {
             if (key === "basicCd") musicControlMax.lyricBasicCd = value === true;
             else musicControlMax.lyricThemeMode = Number(value);
         } else if (spec === 1) {
-            Style.settings[key] = value;
+            Style[key] = value;
         } else {
             const v = Number(value);
             if (!Number.isFinite(v)) return;
-            Style.settings[key] = Math.max(spec[0], Math.min(spec[1], v));
+            Style[key] = Math.max(spec[0], Math.min(spec[1], v));
         }
     }
 
@@ -58,7 +55,7 @@ Rectangle {
             mediaActive: () => Playback.player.onMedia,
             lyricsModel: () => MusicApi.lyricsData || [],
             translateModel: () => MusicApi.lyricsTranslate || [],
-            currentIndex: () => musicControlMax.lyricIndex,
+            currentIndex: () => MusicApi.lyricIndex,
             title: () => Playback.musicTitle,
             artist: () => Playback.musicArtist,
             coverUrl: () => Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
@@ -66,7 +63,7 @@ Rectangle {
             secondColor: () => musicControlMax.secondColor,
             thirdColor: () => musicControlMax.thirdColor,
             hideHeight: () => musicControlMax.hideHeight,
-            lyricSize: () => Style.settings.lyricSize,
+            lyricSize: () => Style.lyricSize,
             basicCd: () => musicControlMax.lyricBasicCd,
             lyricType: () => musicControlMax.lyricThemeMode,
             lyricMove: () => musicControlMax.lyricMoveMs,
@@ -78,26 +75,15 @@ Rectangle {
             it.requestStyle = musicControlMax.applyStyleRequest;
     }
 
-    Behavior on hideHeight { enabled: musicControlMax.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
-
-    Connections {
-        target: colorExtractor
-        function onColorExtractFinished(): void {
-            rectcolorAnime.running = false;
-            rectcolorAnime.running = true;
-        }
-    }
-
-    ParallelAnimation {
-        id: rectcolorAnime
-        ColorAnimation { target: musicControlMax; property: "mainColor"; to: coverColor.color1; duration: 320; easing.type: Easing.OutCubic }
-        ColorAnimation { target: musicControlMax; property: "secondColor"; to: coverColor.color2; duration: 320; easing.type: Easing.OutCubic }
-        ColorAnimation { target: musicControlMax; property: "thirdColor"; to: coverColor.color3; duration: 320; easing.type: Easing.OutCubic }
-    }
-
-    Component.onCompleted: {
+    function changeColor(c1: color,c2: color,c3: color): void {
+        rectcolorAnime.running = false;
+        rectcolorAnime.color1 = c1;
+        rectcolorAnime.color2 = c2;
+        rectcolorAnime.color3 = c3;
         rectcolorAnime.running = true;
     }
+
+    Behavior on hideHeight { enabled: musicControlMax.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
 
     MouseArea {
         anchors.fill: parent
@@ -105,7 +91,7 @@ Rectangle {
         propagateComposedEvents: false  // 阻止事件穿透
         acceptedButtons: Qt.AllButtons
         onPositionChanged: {
-            if(Style.settings.lyricHideGui) {
+            if(Style.lyricHideGui) {
                 musicControlMax.hideHeight = 0;
                 hideDelay.running = false;
                 hideDelay.running = true;
@@ -113,12 +99,22 @@ Rectangle {
         }
     }
 
+    ParallelAnimation {
+        id: rectcolorAnime
+        property color color1
+        property color color2
+        property color color3
+        ColorAnimation { target: musicControlMax; property: "mainColor"; to: rectcolorAnime.color1; duration: 320; easing.type: Easing.OutCubic }
+        ColorAnimation { target: musicControlMax; property: "secondColor"; to: rectcolorAnime.color2; duration: 320; easing.type: Easing.OutCubic }
+        ColorAnimation { target: musicControlMax; property: "thirdColor"; to: rectcolorAnime.color3; duration: 320; easing.type: Easing.OutCubic }
+    }
+
     Timer {
         id: hideDelay
         interval: 3000
         running: musicControlMax.y == 0
         onTriggered: {
-            if(Style.settings.lyricHideGui && musicControlMax.y == 0) {
+            if(Style.lyricHideGui && musicControlMax.y == 0) {
                 musicControlMax.hideHeight = 76;
             } else {
                 musicControlMax.hideHeight = 0;
@@ -134,34 +130,23 @@ Rectangle {
         asynchronous: true
         source: musicControlMax.lyricThemeSource
         onLoaded: musicControlMax.inject(lyricLoader.item)
-    }
-
-    // 歌词行索引：宿主遍历列表按播放进度定位，随后驱动模块刷新
-    Timer {
-        id: lyricTimer
-        interval: 320
-        repeat: true
-        running: musicControlMax.visible && Playback.player.onMedia
-        onTriggered: {
-            const data = MusicApi.lyricsData;
-            if (data && data.length > 0) {
-                const pos = Playback.player.position + musicControlMax.lyricMoveMs + 320;
-                let idx = musicControlMax.lyricIndex;
-                while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
-                while (idx > 0 && pos < data[idx].time) idx--;
-                if (idx !== musicControlMax.lyricIndex)
-                    musicControlMax.lyricIndex = idx;
+        function funConnect(): void {
+            if(item) {
+                item.timerFunction();
             }
-            const it = lyricLoader.item;
-            if (it && it.timerFunction)
-                it.timerFunction();
         }
     }
 
-    // 换源/换歌：索引归零（模块自身也会重排）
-    Connections {
-        target: MusicApi
-        function onLyricsDataChanged(): void { musicControlMax.lyricIndex = 0; }
+    Binding { target: MusicApi; property: "lyricFollowActive"; value: musicControlMax.visible && Playback.player.onMedia }
+    Binding { target: MusicApi; property: "lyricPositionMs"; value: Playback.player.position }
+    Binding { target: MusicApi; property: "lyricOffsetMs"; value: musicControlMax.lyricMoveMs }
+
+    // 歌词界面心跳：索引由 MusicApi 计算，这里只驱动模块刷新
+    Timer {
+        interval: 320
+        repeat: true
+        running: musicControlMax.visible && Playback.player.onMedia
+        onTriggered: lyricLoader.funConnect()
     }
 
     SButton {
@@ -175,11 +160,11 @@ Rectangle {
         iconColor: "#eeeeee"
         shadowEnabled: false
         x: 20
-        y: window.isMacOS ? 40 - musicControlMax.hideHeight * 2 : 10 - musicControlMax.hideHeight
+        y: Options.isMacOS ? 40 - musicControlMax.hideHeight * 2 : 10 - musicControlMax.hideHeight
         iconCharacter: "\uf096"
-        iconSize: Style.settings.texticonH
+        iconSize: Style.texticonH
         onClicked: {
-            openMaxLyric.running = false;
+            Options.openMaxLyric.running = false;
             closeMaxLyric.running = true;
         }
     }
@@ -196,7 +181,7 @@ Rectangle {
         x: 62
         y: playerminedButton.y
         iconCharacter: "\uf116"
-        iconSize: Style.settings.texticon
+        iconSize: Style.texticon
         onClicked: maxLyricsThemeDialog.open()
     }
     SButton {
@@ -212,7 +197,7 @@ Rectangle {
         x: 104
         y: playerminedButton.y
         iconCharacter: "\uf005"
-        iconSize: Style.settings.texticon
+        iconSize: Style.texticon
         onClicked: maxLyricsDialog.open()
     }
     SButton {
@@ -229,7 +214,7 @@ Rectangle {
         iconColor: musicControlMax.lyricTranslateOpen ? "#555555" : "#fbfbfb"
         borderColor: "#66ffffff"
         borderWidth: 1
-        iconSize: Style.settings.texticon
+        iconSize: Style.texticon
         shadowEnabled: false
         tipText: "翻译"
         onClicked: {
@@ -256,9 +241,9 @@ Rectangle {
                     required property string version
                     width: parent.width
                     height: 64
-                    radius: Style.settings.labelRadius
-                    color: themeRow.selected ? Style.themeColor
-                           : (themeArea.containsMouse ? Style.hoverColor : "transparent")
+                    radius: Style.labelRadius
+                    color: themeRow.selected ? Theme.themeColor
+                           : (themeArea.containsMouse ? Theme.hoverColor : "transparent")
                     readonly property bool selected: themeRow.id === LyricsPlugins.selectedId
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -284,16 +269,16 @@ Rectangle {
                             width: parent.width
                             text: themeRow.name
                             elide: Text.ElideRight
-                            color: themeRow.selected ? "#ffffff" : Style.fontColor
-                            font.pixelSize: Style.settings.textmain
+                            color: themeRow.selected ? "#ffffff" : Theme.fontColor
+                            font.pixelSize: Style.textmain
                             font.bold: themeRow.selected
                         }
                         Text {
                             width: parent.width
                             elide: Text.ElideRight
                             text: (themeRow.author ? themeRow.author + " · " : "") + (themeRow.version ? "v" + themeRow.version : "内置")
-                            color: themeRow.selected ? "#b3ffffff" : Style.textColor
-                            font.pixelSize: Style.settings.textTip
+                            color: themeRow.selected ? "#b3ffffff" : Theme.textColor
+                            font.pixelSize: Style.textTip
                         }
                     }
 
@@ -303,8 +288,8 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: themeRow.selected
                         text: "\uf099"
-                        font.family: IconFont.name
-                        font.pixelSize: Style.settings.texticon
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.texticon
                         color: "#ffffff"
                     }
 
@@ -340,9 +325,9 @@ Rectangle {
                     height: 36
                     leftText: true
                     valueText: value
-                    value: Style.settings.lyricSize
+                    value: Style.lyricSize
                     onMoved: {
-                        Style.settings.lyricSize = value
+                        Style.lyricSize = value
                     }
                 }
             }
@@ -370,9 +355,9 @@ Rectangle {
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Style.settings.lyricHideGui
+                    switchTrue: Style.lyricHideGui
                     onToggled: {
-                        Style.settings.lyricHideGui = !Style.settings.lyricHideGui;
+                        Style.lyricHideGui = !Style.lyricHideGui;
                         hideDelay.running = false;
                         musicControlMax.hideHeight = 0;
                     }

@@ -72,7 +72,7 @@ Item {
             startX: 0
             startY: waveItem.height
             PathPolyline {
-                path: getWave.wavePath
+                path: Options.getWave.wavePath
             }
         }
     }
@@ -87,7 +87,7 @@ Item {
         blurEnabled: true
         blurMax: 32
         blur: 1.0
-        visible: Style.settings.waveDisplay
+        visible: Style.waveDisplay
     }
 
     MeshGradientItem {
@@ -96,7 +96,7 @@ Item {
         color1: mainLyrics.mainColor
         color2: mainLyrics.secondColor
         color3: mainLyrics.thirdColor
-        algorithm: Style.settings.flowStyle
+        algorithm: Style.flowStyle
         animating: true
         clip: true
     }
@@ -104,7 +104,7 @@ Item {
     // 静态渐变背景（关闭流动时）
     Rectangle {
         anchors.fill: parent
-        visible: Style.settings.flowStyle === 2
+        visible: Style.flowStyle === 2
         gradient: Gradient {
             GradientStop {
                 position: 0.0
@@ -237,7 +237,7 @@ Item {
             property real fadeBottom: 0.3
             property real blurTop: 0.3
             property real blurBottom: 0.5
-            property real blurRadius: Style.settings.maskBlur ? 8 : 0
+            property real blurRadius: Style.maskBlur ? 8 : 0
             property vector2d srcSize: Qt.vector2d(lyricContent.width * Screen.devicePixelRatio, lyricContent.height * Screen.devicePixelRatio)
             fragmentShader: "qrc:/shaders/shaders/lyricfade.frag.qsb"
         }
@@ -290,7 +290,7 @@ Item {
             }
         }
 
-        // 宿主每 320ms 调用（见 PlayerMaxCenter 的 lyricTimer），idx 由宿主遍历列表得出
+        // 宿主每 320ms 调用，idx 由宿主计算
         function tick(idx: int): void {
             const data = mainLyrics.lyricsModel;
             if (!data || data.length === 0 || idx < 0 || idx >= lyricRep.count) return;
@@ -449,9 +449,9 @@ Item {
                 Component.onCompleted: {
                     lyricContent.heights[index] = height;
                     Qt.callLater(lyricContent.rebuild);
-                    if(Style.settings.fontFamily) {
-                        lyricsText.font.family = Style.settings.fontFamily;
-                        lyricTransText.font.family = Style.settings.fontFamily;
+                    if(Style.fontFamily) {
+                        lyricsText.font.family = Style.fontFamily;
+                        lyricTransText.font.family = Style.fontFamily;
 
                     }
                 }
@@ -461,7 +461,7 @@ Item {
                     id: lyricsText
                     width: lyricItem.width - lyricContent.lyricHeight / 4
                     text: lyricItem.modelData.text || ""
-                    font.weight: Style.settings.textWidth
+                    font.weight: Style.textWidth
                     font.pixelSize: lyricContent.lyricHeight
                     color: lyricItem.modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
                     transformOrigin: lyricItem.modelData.isOther ? Item.BottomRight : Item.BottomLeft
@@ -484,7 +484,7 @@ Item {
                     width: parent.width
                     horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
-                    font.weight: Style.settings.textWidth
+                    font.weight: Style.textWidth
                     color: "#ffe8e8e8"
                     opacity: 0.5 + lyricItem.opacityAnime * 0.2
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -535,7 +535,7 @@ Item {
                                 id: lyricFlowText
                                 text: linesText.model[index].text
                                 y: 0//lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent ? -3 : 0
-                                font.weight: Style.settings.textWidth
+                                font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
                                 color: "#ffe8e8e8"
@@ -696,8 +696,8 @@ Item {
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Style.settings.premiumLyricAnime
-                    onToggled: mainLyrics.request("premiumLyricAnime", !Style.settings.premiumLyricAnime)
+                    switchTrue: Style.premiumLyricAnime
+                    onToggled: mainLyrics.request("premiumLyricAnime", !Style.premiumLyricAnime)
                 }
             }
             SettingItem {
@@ -706,8 +706,8 @@ Item {
                 QSwitch {
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Style.settings.waveDisplay
-                    onToggled: mainLyrics.request("waveDisplay", !Style.settings.waveDisplay)
+                    switchTrue: Style.waveDisplay
+                    onToggled: mainLyrics.request("waveDisplay", !Style.waveDisplay)
                 }
             }
         }

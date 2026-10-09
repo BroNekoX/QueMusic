@@ -12,14 +12,14 @@ Item {
 
     property Item blurSource                            // 模糊源
     property real blur: 1.0                             // 模糊强度 0~1
-    property real blurMax: Style.settings.blurSize / 2  // 模糊半径上限（设备像素）
-    property real saturation: 1.4                     // 饱和度倍数
-    property bool highQuality: Style.settings.highQualityBlur
-    property int  borderRadius: Style.settings.cubeRadius
-    property color cardColor: Style.primaryBlurColor
-    property color borderColor: Style.primaryBlurColor
+    property real blurMax: Style.blurSize / 2  // 模糊半径上限（设备像素）
+    property real saturation: 1.2                     // 饱和度倍数
+    property bool highQuality: Style.highQualityBlur
+    property int  borderRadius: Style.cubeRadius
+    property color cardColor: Theme.primaryBlurColor
+    property color borderColor: Theme.primaryColor
     property real borderWidth: 1
-    property color fillColor: Style.secondaryColor  // 源透明/空缺处的补底色
+    property color fillColor: Theme.secondaryColor  // 源透明/空缺处的补底色
     property bool shadowEffect: false
     property bool masked: false                         // 外部接口保留
 
@@ -53,7 +53,7 @@ Item {
         blur: 28
         spread: 0
         visible: root.shadowEffect
-        color: Style.shadowColor
+        color: Theme.shadowColor
     }
 
     ShaderEffect {

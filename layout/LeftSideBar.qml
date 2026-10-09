@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -10,20 +11,21 @@ Rectangle {
     id: sidebar
     width: 210
     property color baseColor: "transparent"
-    property color choiceColor: Style.hoverColor
-    property color choiceTextColor: Style.fontColor
-    color: Style.settings.backmode === 0 ? (Style.settings.sidebarColor ? Style.secondaryColor : Style.primaryColor) : baseColor
+    property color choiceColor: Theme.hoverColor
+    property color choiceTextColor: Theme.fontColor
+    required property MainContent mainCont
+    color: Style.backmode === 0 ? (Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor) : baseColor
     Connections {
-        target: Style
+        target: Options
         function onChangeTheme(): void {
-            if(Style.settings.sidebarStyle === 0) {
-                sidebar.choiceColor = Style.hoverColor;
-                sidebar.choiceTextColor = Style.fontColor;
+            if(Style.sidebarStyle === 0) {
+                sidebar.choiceColor = Theme.hoverColor;
+                sidebar.choiceTextColor = Theme.fontColor;
                 choicebar.x = 18;
                 choicebar.radius = 2;
-            } else if(Style.settings.sidebarStyle === 1) {
-                sidebar.choiceColor = Style.themeColor;
-                sidebar.choiceTextColor = Style.primaryColor;
+            } else if(Style.sidebarStyle === 1) {
+                sidebar.choiceColor = Theme.themeColor;
+                sidebar.choiceTextColor = Theme.primaryColor;
                 choicebar.x = 0;
                 choicebar.radius = 0;
             }
@@ -42,7 +44,7 @@ Rectangle {
             downBar.stop();
             upBar.running = true;
         } else {
-            window.exit();
+            Options.exit();
         }
         choicebar.indexOld = choice;
         switch(choice) {
@@ -55,10 +57,10 @@ Rectangle {
     }
 
     Connections {
-        target: window
+        target: Options
         function onExit(): void {
-            if(mainContent.pageIndex === 6 && Options.exitIndex <= 1 ) {
-                mainContent.contentIndexed(navlistview.choiceIndex)
+            if(sidebar.mainCont.pageIndex === 6 && Options.exitIndex <= 1 ) {
+                sidebar.mainCont.contentIndexed(navlistview.choiceIndex)
                 MusicApi.searchSongsResults.clear()
             }
         }
@@ -70,10 +72,10 @@ Rectangle {
         x: 18
         width: 4
         height: barBottom - y//22
-        radius: 2 //Style.settings.labelRadius
+        radius: 2 //Style.labelRadius
         topRightRadius: 2
         bottomRightRadius: 2
-        color: Style.themeColor
+        color: Theme.themeColor
         y: 80
         property int barBottom: 102
         property int willBarY: 80
@@ -124,7 +126,7 @@ Rectangle {
         y: 10
         width: 180
         height: 40
-        visible: !window.isMacOS
+        visible: !Options.isMacOS
         Image {
             y: 8
             x: 15
@@ -138,25 +140,25 @@ Rectangle {
             x: 51
             height: 18
             text: "QueMusic"
-            font.family: TextFont.name
+            font.family: Fonts.text
             font.pixelSize: 16
             font.bold: true
             verticalAlignment: Text.AlignVCenter
-            color: Style.fontColor
+            color: Theme.fontColor
         }
         Rectangle {
             x: 140
             y: 10
             width: 40
             height: 20
-            color: Style.themeColor
+            color: Theme.themeColor
             radius: 6
             Text {
                 anchors.centerIn: parent
                 text: "Beta"
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                color:  Style.fullColor
+                color:  Theme.fullColor
             }
         }
     }
@@ -166,7 +168,7 @@ Rectangle {
         x: 20
         width: 170
         height: 1
-        color: Style.sideColor
+        color: Theme.sideColor
         y: 173
     }
 
@@ -200,11 +202,12 @@ Rectangle {
                 required property var model
                 width: navlistview.width
                 height: 42
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 Component.onCompleted: {
                     if (index === 2) height = 30
                 }
                 color: isSelected ? sidebar.choiceColor : "transparent"
+                property color choiceTextColor: sidebar.choiceTextColor
 
                 readonly property bool isSelected: navlistview.choiceIndex === index
 
@@ -216,8 +219,8 @@ Rectangle {
                 // Hover Background (fades in/out)
                 Rectangle {
                     anchors.fill: parent
-                    radius: Style.settings.labelRadius
-                    color: Style.hoverColor
+                    radius: Style.labelRadius
+                    color: Theme.hoverColor
                     opacity: barMouse.containsMouse ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                 }
@@ -228,13 +231,13 @@ Rectangle {
                     z: 1
                     width: 42
                     height: 42
-                    text: model.iconChar
-                    font.family: IconFont.name
-                    font.pixelSize: Style.settings.texticon
-                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.textColor
+                    text: navDelegate.model.iconChar
+                    font.family: Fonts.icon
+                    font.pixelSize: Style.texticon
+                    color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    Component.onCompleted: if (index === 2) visible = false
+                    Component.onCompleted: if (navDelegate.index === 2) visible = false
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
@@ -244,12 +247,12 @@ Rectangle {
                     z: 2
                     width: 140
                     height: 42
-                    text: model.display
-                    color: navDelegate.isSelected ? sidebar.choiceTextColor : Style.textColor
+                    text: navDelegate.model.display
+                    color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
                     font.bold: navDelegate.isSelected
-                    font.pixelSize: Style.settings.textmain
+                    font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
-                    Component.onCompleted: if (navDelegate.itemIndex === 2) visible = false
+                    Component.onCompleted: if (navDelegate.index === 2) visible = false
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
@@ -259,14 +262,14 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     Component.onCompleted: {
-                        if(index == 2) visible = false
+                        if(navDelegate.index == 2) visible = false
                     }
                     onPressed: navDelegate.scale = 0.96
                     onReleased: navDelegate.scale = 1.0
                     onCanceled: navDelegate.scale = 1.0
                     onClicked: {
-                        sidebar.indexed(index);
-                        mainContent.contentIndexed(index);
+                        sidebar.indexed(navDelegate.index);
+                        sidebar.mainCont.contentIndexed(navDelegate.index);
                         forceActiveFocus();
                     }
                 }

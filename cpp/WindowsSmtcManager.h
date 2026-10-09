@@ -18,7 +18,7 @@ class WindowsSmtcManager : public QObject
     QML_ELEMENT
 
     // 是否已成功初始化（在 Windows 下才可能为 true）
-    Q_PROPERTY(bool available READ isAvailable NOTIFY availableChanged)
+    Q_PROPERTY(bool available READ isAvailable NOTIFY availableChanged FINAL)
 
 public:
     // 与 Windows.Media.MediaPlaybackStatus 一一对应，供 QML 直接使用

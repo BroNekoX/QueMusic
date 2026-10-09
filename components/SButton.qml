@@ -12,20 +12,20 @@ Button {
 
     // ==== 外部接口 ====
     property string iconCharacter: ""          // 图标字符 (FontAwesome 等)
-    property string iconFontFamily: IconFont.name    // 图标字体
+    property string iconFontFamily: Fonts.icon    // 图标字体
     property string tipText: ""                // 鼠标悬停提示文字（为空则不显示）
 
     // ==== 样式 ====
-    property color iconColor: Style.textColor
+    property color iconColor: Theme.textColor
     property bool shadowEnabled: false              // 是否显示阴影
     property int borderWidth: 0   // 边框大小，0即无
-    property color borderColor: Style.sideColor   // 边框颜色
-    property int radius: Style.settings.noControlRadius ? Style.settings.labelRadius : 20
+    property color borderColor: Theme.sideColor   // 边框颜色
+    property int radius: Style.noControlRadius ? Style.labelRadius : 20
     property real pressedScale: 0.94                 // 按下缩放比例
-    property color shadowColor: Style.shadowColor    // 阴影颜色
-    property color hoverColor: Style.hoverColor
-    property color buttonColor: Style.secondaryColor
-    property int iconSize: Style.settings.texticon
+    property color shadowColor: Theme.shadowColor    // 阴影颜色
+    property color hoverColor: Theme.hoverColor
+    property color buttonColor: Theme.secondaryColor
+    property int iconSize: Style.texticon
 
     // ==== 尺寸控制 ====
     implicitHeight: 40

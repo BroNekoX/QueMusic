@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Effects
@@ -15,10 +16,10 @@ Item {
     property bool dragable: false
     property bool blurMask: true
     property rect rectXy: Qt.rect(root.x, root.y, root.width, root.height)
-    property real blurMax: Style.settings.blurSize / 2
-    property real borderRadius: Style.settings.noControlRadius ? Style.settings.labelRadius : height / 2
-    property color borderColor: "transparent"
-    property real borderWidth: 0
+    property real blurMax: Style.blurSize / 2
+    property real borderRadius: Style.noControlRadius ? Style.labelRadius : height / 2
+    property color borderColor: Theme.sideBlurColor
+    property real borderWidth: 1
     property int tabWidth: 120
     property var model: []
     signal tabChange(int index)
@@ -48,7 +49,7 @@ Item {
         radius: root.borderRadius
         blur: 20
         spread: 0
-        color: Style.shadowColor
+        color: Theme.shadowColor
     }
 
     ShaderEffect {
@@ -59,12 +60,12 @@ Item {
         property var src: effectSource
         property real blur: root.blurAmount
         property real blurMax: root.blurMax
-        property real saturation: 1.4
+        property real saturation: 1.2
         property real corner: root.borderRadius
         property vector2d cardSize: Qt.vector2d(root.width, root.height)
         property vector2d texSize: Qt.vector2d(root._texW, root._texH)
         property real aa: 1.0
-        property color fillColor: Style.secondaryColor
+        property color fillColor: Theme.secondaryColor
 
         fragmentShader: "qrc:/shaders/shaders/cardblur.frag.qsb"
     }
@@ -74,7 +75,7 @@ Item {
         id: topCard
         anchors.fill: root
         radius: root.borderRadius
-        color: Style.sideBlurColor
+        color: Theme.sideBlurColor
         z: 3
         border.color: root.borderColor
         border.width: root.borderWidth
@@ -88,7 +89,7 @@ Item {
         width: root.tabWidth
         height: root.height - 6
         radius: root.borderRadius
-        color: Style.primaryColor
+        color: Theme.primaryColor
         Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
     }
     Row {
@@ -114,16 +115,16 @@ Item {
                     anchors.fill: navMusic
                     radius: root.borderRadius
                     opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
-                    color: Style.hoverColor
+                    color: Theme.hoverColor
                     Behavior on opacity { NumberAnimation { duration: 100 } }
                 }
 
 
                 Text {
                     anchors.fill: parent
-                    text: modelData
-                    color: navMusic.isSelected ? Style.fontColor : Style.textColor
-                    font.pixelSize: Style.settings.text
+                    text: navMusic.modelData
+                    color: navMusic.isSelected ? Theme.fontColor : Theme.textColor
+                    font.pixelSize: Style.text
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     Behavior on color { ColorAnimation { duration: 150 } }
@@ -135,10 +136,10 @@ Item {
                     anchors.fill: navMusic
                     hoverEnabled: true
                     onClicked: {
-                        if(tabView.choiceIndex !== index) {
-                            root.tabChange(index);
+                        if(tabView.choiceIndex !== navMusic.index) {
+                            root.tabChange(navMusic.index);
                         }
-                        tabView.choiceIndex = index;
+                        tabView.choiceIndex = navMusic.index;
                         forceActiveFocus();
                     }
                 }

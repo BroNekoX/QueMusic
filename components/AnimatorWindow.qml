@@ -18,7 +18,7 @@ Item {
     property int originX: 0
     property list<ParallelAnimation> animeOnList: [openAnime0,openAnime1]
     property list<ParallelAnimation> animeOutList: [closeAnime0,closeAnime1]
-    property int animeType: Style.settings.animeType
+    property int animeType: Style.animeType
     transform: Translate { x: root.transX }
     Component.onCompleted: originX = mainTarget.x;
 
@@ -37,7 +37,7 @@ Item {
         Options.exitIndex -= 1;
     }
     Connections {
-        target: window
+        target: Options
         enabled: root.visible
         function onExit(): void {
             if(Options.exitIndex <= root.winIndex) {
@@ -67,9 +67,9 @@ Item {
         y: root.haveControl ? 16 : 34
         width: 200
         height: 60
-        color: Style.fontColor
+        color: Theme.fontColor
         text: root.title
-        font.pixelSize: Style.settings.textH1
+        font.pixelSize: Style.textH1
         verticalAlignment: Text.AlignVCenter
     }
 

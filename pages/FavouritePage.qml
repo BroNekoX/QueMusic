@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -17,6 +18,7 @@ Item {
         { label: "时长 小→大", mode: 3, desc: false },
         { label: "时长 大→小", mode: 3, desc: true }
     ]
+    signal scrollTop
 
     QSortModel {
         id: songSort
@@ -33,15 +35,14 @@ Item {
     }
     QMenu {
         id: sortMenu
-        model: favSortOptions.map(o => o.label)
+        model: favouritePage.favSortOptions.map(o => o.label)
         current: favouriteChildPage.lastIndex === 0 ? songSort.menuIndex : listSort.menuIndex
         onClicked: (i) => {
             const target = favouriteChildPage.lastIndex === 0 ? songSort : listSort;
             target.selectMenu(i);
             favouritePage.setMode = 0;
             favouritePage.chooseIndex = [];
-            songs.scrollTop();
-            lists.scrollTop();
+            favouritePage.scrollTop;
         }
     }
 
@@ -79,7 +80,7 @@ Item {
             x: 0
             y: -44
             height: 40
-            width: favouriteChildPage
+            width: favouriteChildPage.width
             z: 10
             Text {
                 x: 0
@@ -88,8 +89,8 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: "收藏内容"
                 font.weight: Font.DemiBold
-                font.pixelSize: Style.settings.pageTitle
-                color: Style.fontColor
+                font.pixelSize: Style.pageTitle
+                color: Theme.fontColor
             }
         }
 
@@ -120,7 +121,7 @@ Item {
                 height: 38
                 text: "排序"
                 iconCharacter: "\uf10b"
-                buttonColor: Style.primaryColor
+                buttonColor: Theme.primaryColor
                 onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 6)
             }
             QButton {
@@ -131,14 +132,14 @@ Item {
                 onClicked: Options.dialog.openSimpleDialog("清空", "将清空全部播放历史，是否继续？",
                     function() {
                         Playback.clearHistory()
-                        Options.warn.tiped("已清空播放历史", 1)
+                        Options.warned("已清空播放历史", 1)
                     })
             }
             QButton {
                 height: 38
                 text: favouritePage.setMode === 1 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
-                buttonColor: favouritePage.setMode === 1 ? Style.containColor : Style.primaryColor
+                buttonColor: favouritePage.setMode === 1 ? Theme.containColor : Theme.primaryColor
                 onClicked: {
                     if(favouritePage.setMode === 1) {
                         favouritePage.setMode = 0;
@@ -163,6 +164,10 @@ Item {
                 clip: true
                 topMargin: 72
                 selectedIndices: favouritePage.chooseIndex
+                Connections {
+                    target: favouritePage
+                    function onScrollTop(): void { songs.scrollTop() }
+                }
 
                 onClicked: (index) => {
                     if (favouritePage.setMode === 1) {
@@ -181,7 +186,7 @@ Item {
                     anchors.centerIn: parent
                     visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
                     text: "没有收藏的内容？快去收藏一些歌曲吧"
-                    color: Style.textColor
+                    color: Theme.textColor
                     font.pixelSize: 14
                 }
             }
@@ -201,6 +206,10 @@ Item {
                 isList: true
                 topMargin: 72
                 selectedIndices: favouritePage.chooseIndex
+                Connections {
+                    target: favouritePage
+                    function onScrollTop(): void { lists.scrollTop() }
+                }
 
                 onClicked: (index) => {
                     if (favouritePage.setMode === 1) {
@@ -230,7 +239,7 @@ Item {
                     anchors.centerIn: parent
                     visible: !FavoritePlaylists.loading && FavoritePlaylists.count === 0
                     text: "没有收藏的内容？快去收藏一些歌单吧"
-                    color: Style.textColor
+                    color: Theme.textColor
                     font.pixelSize: 14
                 }
             }
@@ -243,7 +252,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "喜欢的歌手"
-                color: Style.textColor
+                color: Theme.textColor
                 font.pixelSize: 14
             }
         }
@@ -267,16 +276,16 @@ Item {
                 function addToQueue(e: var): void {
                     if (Options.queue.indexOfPath(e.path) !== -1) return
                     Options.queue.append({ name: e.title, path: e.path, songer: e.artist, source: e.source })
-                    Options.warn.tiped("已加入播放列表", 1)
+                    Options.warned("已加入播放列表", 1)
                 }
                 function toggleFav(e: var): void {
-                    if (e.source === -1) { Options.warn.tiped("本地歌曲请使用本地收藏", 0); return }
+                    if (e.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
                     if (FavoriteSongs.isFavorite(e.path, "song")) {
                         FavoriteSongs.removeFavorite(e.path, "song")
-                        Options.warn.tiped("已取消收藏", 0)
+                        Options.warned("已取消收藏", 0)
                     } else {
                         FavoriteSongs.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
-                        Options.warn.tiped("已收藏", 1)
+                        Options.warned("已收藏", 1)
                     }
                 }
 
@@ -296,7 +305,7 @@ Item {
                     anchors.centerIn: parent
                     visible: Playback.history.count === 0
                     text: "还没有播放记录，去听点什么吧"
-                    color: Style.textColor
+                    color: Theme.textColor
                     font.pixelSize: 14
                 }
             }
@@ -313,7 +322,7 @@ Item {
             visible: favouritePage.setMode !== 0
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 1.0; color: Style.sideColor }
+                GradientStop { position: 1.0; color: Theme.sideColor }
             }
             Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
             QButton {
@@ -324,8 +333,8 @@ Item {
                 height: 36
                 radius: 20
                 borderWidth: 1
-                buttonColor: favouritePage.isAllChosen() ? Style.themeColor : Style.fullColor
-                textColor: favouritePage.isAllChosen() ? Style.primaryColor : Style.fontColor
+                buttonColor: favouritePage.isAllChosen() ? Theme.themeColor : Theme.fullColor
+                textColor: favouritePage.isAllChosen() ? Theme.primaryColor : Theme.fontColor
                 text: "全选"
                 onClicked: favouritePage.toggleAllChoose()
             }
@@ -335,12 +344,12 @@ Item {
                 width: 92
                 height: 36
                 radius: 20
-                color: "transparent"//Style.fullColor
+                color: "transparent"//Theme.fullColor
                 Text {
                     anchors.centerIn: parent
                     text: "已选择:" + favouritePage.chooseIndex.length + "项"
-                    color: Style.textColor
-                    font.pixelSize: Style.settings.textmain
+                    color: Theme.textColor
+                    font.pixelSize: Style.textmain
                 }
             }
             Row {
@@ -367,7 +376,7 @@ Item {
                                         if (r) FavoriteSongs.removeFavorite(r.id, "song");
                                     }
                                     favouritePage.chooseIndex = [];
-                                    Style.warned("已取消收藏 " + total + " 首歌曲", 1);
+                                    Options.warned("已取消收藏 " + total + " 首歌曲", 1);
                                 }
                             );
                             break;
@@ -381,7 +390,7 @@ Item {
                                         if (r) FavoritePlaylists.removeFavorite(r.id, "playlist");
                                     }
                                     favouritePage.chooseIndex = [];
-                                    Style.warned("已取消收藏 " + total + " 个歌单", 1);
+                                    Options.warned("已取消收藏 " + total + " 个歌单", 1);
                                 }
                             );
                             break;
@@ -405,7 +414,7 @@ Item {
                                     continue;
                                 if (Options.queue.indexOfPath(fav.id) === -1) {
                                     Options.queue.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
-                                    Options.warn.tiped("已加入播放列表", 1);
+                                    Options.warned("已加入播放列表", 1);
                                 }
                             }
                             break;
@@ -420,8 +429,8 @@ Item {
                     height: 36
                     radius: 20
                     borderWidth: 1
-                    buttonColor: Style.themeColor
-                    textColor: Style.primaryColor
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
                     text: "完成"
                     onClicked: {
                         favouritePage.setMode = 0;
@@ -450,9 +459,9 @@ Item {
                 bottomMargin: 24
 
                 onClicked: (index) => {
-                    if(Options.settings.soundQuality === 0) {
+                    if(Config.soundQuality === 0) {
                         MusicApi.getMusicInfo(model.get(index).hash,0,playListSongsWindow.songSource);
-                    } else if(Options.settings.soundQuality === 1) {
+                    } else if(Config.soundQuality === 1) {
                         MusicApi.getMusicInfo(model.get(index).hashhq,0,playListSongsWindow.songSource);
                     } else {
                         MusicApi.getMusicInfo(model.get(index).hashsq,0,playListSongsWindow.songSource);

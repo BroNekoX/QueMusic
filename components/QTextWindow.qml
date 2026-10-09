@@ -3,11 +3,11 @@ import QueMusic 1.0
 
 Window {
     id: root
-    visible: textWatch.active
+    visible: Options.textWatch.active
     width: 800
     height: 600
     onClosing: {
-        textWatch.active = false;
+        Options.textWatch.active = false;
     }
 
     QScrollView {

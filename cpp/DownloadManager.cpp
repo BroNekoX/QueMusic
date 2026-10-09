@@ -20,9 +20,6 @@ DownloadManager::DownloadManager(QObject *parent)
 
 DownloadManager::~DownloadManager()
 {
-    // 析构时先断开回调：abort() 会同步回调 onFinished()，在销毁过程中又去起下一个下载
-    if (m_reply)
-        m_reply->disconnect(this);
     abortCurrentDownload();
 }
 
@@ -261,16 +258,21 @@ void DownloadManager::startNextTask()
 
 void DownloadManager::abortCurrentDownload()
 {
-    if (m_reply) {
-        m_reply->abort();
-        m_reply->deleteLater();
-        m_reply = nullptr;
+    // abort() 会同步触发 finished：先断开回调并清空成员，
+    // 否则 onFinished() 会顺手启动下一个任务，回来后这里又把新任务的 reply/file 删一遍
+    QNetworkReply *reply = m_reply;
+    QFile *file = m_file;
+    m_reply = nullptr;
+    m_file = nullptr;
+
+    if (reply) {
+        reply->disconnect(this);
+        reply->abort();
+        reply->deleteLater();
     }
-    if (m_file) {
-        m_file->close();
-        // 不删除文件 — 保留已下载的部分
-        m_file->deleteLater();
-        m_file = nullptr;
+    if (file) {
+        file->close(); // 不删除文件 — 保留已下载的部分
+        file->deleteLater();
     }
 }
 
@@ -341,13 +343,17 @@ void DownloadManager::writeMetadata(const DownloadTask &task)
 
 void DownloadManager::onReadyRead()
 {
-    if (m_file && m_reply)
-        m_file->write(m_reply->readAll());
+    // 只认当前 reply：旧 reply 的延迟回调不能写进新任务的文件
+    auto *reply = qobject_cast<QNetworkReply *>(sender());
+    if (!reply || reply != m_reply || !m_file)
+        return;
+    m_file->write(reply->readAll());
 }
 
 void DownloadManager::onFinished()
 {
-    if (!m_reply)
+    auto *reply = qobject_cast<QNetworkReply *>(sender());
+    if (!reply || reply != m_reply)
         return;
 
     int taskId = m_currentTaskId;
@@ -363,7 +369,7 @@ void DownloadManager::onFinished()
 
     if (idx >= 0) {
         DownloadTask &task = m_tasks[idx];
-        if (m_reply->error() == QNetworkReply::NoError) {
+        if (reply->error() == QNetworkReply::NoError) {
             task.status = DownloadTask::Completed;
             task.progress = 1.0;
             writeMetadata(task);
@@ -375,8 +381,8 @@ void DownloadManager::onFinished()
         emit completedCountChanged();
     }
 
-    m_reply->deleteLater();
     m_reply = nullptr;
+    reply->deleteLater();
 
     m_currentTaskId = -1;
     emit currentTaskIdChanged();
@@ -407,7 +413,8 @@ void DownloadManager::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal
 void DownloadManager::onErrorOccurred(QNetworkReply::NetworkError code)
 {
     Q_UNUSED(code)
-    if (!m_reply) return;
+    auto *reply = qobject_cast<QNetworkReply *>(sender());
+    if (!reply || reply != m_reply) return;
 
     int taskId = m_currentTaskId;
     int idx = findTaskById(taskId);
@@ -415,7 +422,7 @@ void DownloadManager::onErrorOccurred(QNetworkReply::NetworkError code)
 
     DownloadTask &task = m_tasks[idx];
     task.status = DownloadTask::Error;
-    task.errorString = m_reply->errorString();
+    task.errorString = reply->errorString();
 
     QModelIndex mi = index(idx);
     emit dataChanged(mi, mi, { StatusRole, ErrorStringRole });

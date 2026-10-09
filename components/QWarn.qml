@@ -35,10 +35,10 @@ Popup {
 
     background: Rectangle {
         anchors.fill: parent
-        radius: Style.settings.labelRadius
-        color: Style.fullColor
+        radius: Style.labelRadius
+        color: Theme.fullColor
         border.width: 1
-        border.color: Style.sideColor
+        border.color: Theme.sideColor
 
         RectangularShadow {
             anchors.fill: parent
@@ -48,7 +48,7 @@ Popup {
             radius: 18
             blur: 20
             spread: 0
-            color: Style.shadowColor
+            color: Theme.shadowColor
         }
     }
 
@@ -65,15 +65,15 @@ Popup {
                 height: 20
                 text: "\uf11a"
                 color: dialog.type === 1 ? "#34c759" : dialog.type === 2 ? "#ff453a" : "#ff9f0a"
-                font.pixelSize: Style.settings.texticon
-                font.family: IconFont.name
+                font.pixelSize: Style.texticon
+                font.family: Fonts.icon
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
             }
             Text {
                 id: title
                 height: 20
-                color: Style.fontColor
+                color: Theme.fontColor
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
                 verticalAlignment: Text.AlignVCenter

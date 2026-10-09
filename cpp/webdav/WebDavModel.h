@@ -18,14 +18,14 @@ class WebDavModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(QString serverId READ serverId NOTIFY stateChanged)
-    Q_PROPERTY(QString authHeader READ authHeader WRITE setAuthHeader NOTIFY stateChanged)
-    Q_PROPERTY(QString dirUrl READ dirUrl NOTIFY stateChanged)
-    Q_PROPERTY(QString dirName READ dirName NOTIFY stateChanged)
-    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
-    Q_PROPERTY(QString error READ error NOTIFY errorChanged)
-    Q_PROPERTY(bool canGoUp READ canGoUp NOTIFY stateChanged)
-    Q_PROPERTY(int count READ rowCount NOTIFY stateChanged)
+    Q_PROPERTY(QString serverId READ serverId NOTIFY stateChanged FINAL)
+    Q_PROPERTY(QString authHeader READ authHeader WRITE setAuthHeader NOTIFY stateChanged FINAL)
+    Q_PROPERTY(QString dirUrl READ dirUrl NOTIFY stateChanged FINAL)
+    Q_PROPERTY(QString dirName READ dirName NOTIFY stateChanged FINAL)
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged FINAL)
+    Q_PROPERTY(QString error READ error NOTIFY errorChanged FINAL)
+    Q_PROPERTY(bool canGoUp READ canGoUp NOTIFY stateChanged FINAL)
+    Q_PROPERTY(int count READ rowCount NOTIFY stateChanged FINAL)
 
 public:
     enum Roles {

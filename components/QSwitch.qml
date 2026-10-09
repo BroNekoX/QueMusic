@@ -9,8 +9,8 @@ Rectangle {
     id: root
     width: 160
     height: 36
-    color: isBack ? Style.secondaryColor : "transparent"
-    radius: isBack ? Style.settings.labelRadius : 0
+    color: isBack ? Theme.secondaryColor : "transparent"
+    radius: isBack ? Style.labelRadius : 0
     signal toggled(bool switchTrue)
 
     property string text: switchTrue ? "开" : "关"
@@ -24,8 +24,8 @@ Rectangle {
         width: root.width / 2
         height: root.height
         text: root.text
-        color: Style.textColor
-        font.pixelSize: Style.settings.text
+        color: Theme.textColor
+        font.pixelSize: Style.text
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
     }
@@ -37,7 +37,7 @@ Rectangle {
         width: 44
         height: 24
         radius: 12
-        color: root.switchTrue ? Style.themeColor : Style.sideColor
+        color: root.switchTrue ? Theme.themeColor : Theme.sideColor
         Behavior on color { ColorAnimation { duration: 220 } }
 
         Rectangle {

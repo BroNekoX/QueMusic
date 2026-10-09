@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
-// 通用配置存储（有类型，供 qmlcachegen 做 AOT 编译，详见 StyleSettings.qml 说明）
+// 通用配置存储。
+pragma Singleton
 import QtCore
 
 Settings {

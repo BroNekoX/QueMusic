@@ -15,7 +15,7 @@ ToolTip {
     Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     contentItem: Text {
         text: root.text
-        font.pixelSize: Style.settings.text
+        font.pixelSize: Style.text
         wrapMode: Text.Wrap
         color: "#f5f5f7"
     }

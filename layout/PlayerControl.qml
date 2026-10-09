@@ -9,18 +9,18 @@ import QueMusic 1.0
 //底部控制栏
 Rectangle {
     id: musicControlMin
-    y: parent.height - 78 + musicControlMax.hideHeight
     height: 78
-    color: Style.settings.noOpacityControl ? Style.primaryColor : Style.primaryBlurColor
+    color: Style.noOpacityControl ? Theme.primaryColor : Theme.primaryBlurColor
     clip: false
     property int musicInfoX: 100
+    signal centerChange()
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
     readonly property string mediaTime: {
-        const seconds = Math.floor(Playback.player.position / 1000) % 60;
-        return Math.floor(Playback.player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
+        const seconds = Math.floor(player.position / 1000) % 60;
+        return Math.floor(player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
       }
 
     Connections {
@@ -29,14 +29,14 @@ Rectangle {
             if(Options.queue.playListIndex < 0)
                 return;
             likeButton.iconColor = FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")
-                                   ? Style.themeColor : Style.textColor;
+                                   ? Theme.themeColor : Theme.textColor;
         }
     }
 
     Rectangle {
         width: musicControlMin.width
         height: 1
-        color: Style.sideColor
+        color: Theme.sideColor
     }
 
     function parseArtists(raw: string): var {
@@ -55,7 +55,7 @@ Rectangle {
     // 统一搜索入口
     function doSearchSongsMessage(name: string): void {
         MusicApi.searchSongsResults.clear();
-        mainSearchInput.text = name;
+        Options.mainSearchInput.text = name;
         MusicApi.nowIndex = 0;
         mainContent.contentIndexed(6);
         MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
@@ -83,7 +83,7 @@ Rectangle {
 
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 1.0; color: Style.textColor }
+                GradientStop { position: 1.0; color: Theme.textColor }
             }
 
         }
@@ -111,13 +111,13 @@ Rectangle {
                 x: 0
                 width: musicControlMin.width
                 height: progressSlider.hovered ? 6 : 2
-                color: Style.sideColor
+                color: Theme.sideColor
 
                 // 已完成部分
                 Rectangle {
                     width: progressSlider.visualPosition * sliderControl.width
                     height: parent.height
-                    color: Style.themeColor
+                    color: Theme.themeColor
                 }
             }
 
@@ -130,7 +130,7 @@ Rectangle {
                 implicitHeight: 18
                 radius: 9
                 color: "#ffffff"
-                border.color: Style.themeColor
+                border.color: Theme.themeColor
                 border.width: 2.5
                 ToolTip {
                     visible: parent.visible
@@ -203,7 +203,7 @@ Rectangle {
             font.bold: true
             font.pixelSize: 15
             verticalAlignment: Text.AlignVCenter
-            color: titleDisplayMouse.containsMouse ? Style.themeColor : Style.textColor
+            color: titleDisplayMouse.containsMouse ? Theme.themeColor : Theme.textColor
 
             MouseArea {
                 id: titleDisplayMouse
@@ -218,13 +218,7 @@ Rectangle {
                         titleMenu.popup();
                         return;
                     }
-                    if(musicControlMax.visible) {
-                        openMaxLyric.running = false;
-                        closeMaxLyric.running = true;
-                    } else {
-                        closeMaxLyric.running = false;
-                        openMaxLyric.running = true;
-                    }
+                    musicControlMin.centerChange();
                 }
                 QTip {
                     visible: titleDisplayMouse.containsMouse
@@ -251,7 +245,7 @@ Rectangle {
             font.bold: false
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
-            color: artistDisplayMouse.containsMouse ? Style.themeColor : Style.textColor
+            color: artistDisplayMouse.containsMouse ? Theme.themeColor : Theme.textColor
 
             MouseArea {
                 id: artistDisplayMouse
@@ -268,13 +262,7 @@ Rectangle {
                         artistMenu.popup();
                         return;
                     }
-                    if(musicControlMax.visible) {
-                        openMaxLyric.running = false;
-                        closeMaxLyric.running = true;
-                    } else {
-                        closeMaxLyric.running = false;
-                        openMaxLyric.running = true;
-                    }
+                    musicControlMin.centerChange();
                 }
                 QTip {
                     visible: artistDisplayMouse.containsMouse
@@ -303,20 +291,20 @@ Rectangle {
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
             shadowEnabled: false
             onClicked: {
                 if(Options.queue.get(Options.queue.playListIndex).source !== -1) {
                     console.log("收藏的hash/id:",Options.queue.get(Options.queue.playListIndex).path);
                     if (FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")) {
                         FavoriteSongs.removeFavorite(Options.queue.get(Options.queue.playListIndex).path, "song");
-                        Options.warn.tiped("已取消收藏", 0);
-                        iconColor = Style.textColor;
+                        Options.warned("已取消收藏", 0);
+                        iconColor = Theme.textColor;
                     } else {
 FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr, Options.queue.get(Options.queue.playListIndex).source, Math.floor(Playback.player.duration / 1000), "song");
-                        Options.warn.tiped("已收藏", 1);
-                        iconColor = Style.themeColor;
+                        Options.warned("已收藏", 1);
+                        iconColor = Theme.themeColor;
                     }
                 }
             }
@@ -330,8 +318,8 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
             shadowEnabled: false
             visible: Options.queue.count > 0 && Options.queue.playListIndex >= 0
                      && Options.queue.playListIndex < Options.queue.count
@@ -359,15 +347,15 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
             shadowEnabled: false
-            iconSize: Style.settings.texticon + 1
+            iconSize: Style.texticon + 1
             onClicked: {
-                if(Options.settings.cycleIndex < 3) {
-                    Options.settings.cycleIndex += 1;
+                if(Config.cycleIndex < 3) {
+                    Config.cycleIndex += 1;
                 } else {
-                    Options.settings.cycleIndex = 0;
+                    Config.cycleIndex = 0;
                 }
             }
             tipText: Playback.cycleTip
@@ -378,9 +366,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticonH
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.previous()
             tipText: "上一首"
@@ -390,10 +378,10 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             width: 46
             height: 46
             radius: 46
-            buttonColor: Style.secondaryBlurColor
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticonH
+            buttonColor: Theme.secondaryBlurColor
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.togglePlay()
             tipText: Playback.player.playing ? "暂停" : "播放"
@@ -404,9 +392,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticonH
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.next(false)
             tipText: "下一首"
@@ -417,9 +405,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 46
             radius: 46
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticon + 1
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticon + 1
             shadowEnabled: false
             onClicked: musicControlMin.openPlayerOptions()
             tipText: "播放器控制"
@@ -449,7 +437,7 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
-            color: Style.textColor
+            color: Theme.textColor
         }
         SButton {
             iconCharacter: "\uf0b6"
@@ -457,9 +445,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticon + 1
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticon + 1
             shadowEnabled: false
             onClicked: {
                 if(musicInfo.visible) {
@@ -476,9 +464,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticon + 2
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticon + 2
             shadowEnabled: false
             onHoveredChanged: {
                 if(hovered) {
@@ -511,10 +499,10 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
             shadowEnabled: false
-            iconSize: Style.settings.texticon + 1
+            iconSize: Style.texticon + 1
             onClicked: {
                 if(Options.desktop.visible) {
                     Options.desktop.close()
@@ -530,9 +518,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 40
             radius: 40
             buttonColor: "transparent"
-            hoverColor: Style.hoverColor
-            iconColor: Style.textColor
-            iconSize: Style.settings.texticon + 2
+            hoverColor: Theme.hoverColor
+            iconColor: Theme.textColor
+            iconSize: Style.texticon + 2
             shadowEnabled: false
             onClicked: {
                 if(playList.visible) {
@@ -549,13 +537,7 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
         z: 0
         anchors.fill: parent
         onClicked: {
-            if(musicControlMax.visible) {
-                openMaxLyric.running = false;
-                closeMaxLyric.running = true;
-            } else {
-                closeMaxLyric.running = false;
-                openMaxLyric.running = true;
-            }
+            musicControlMin.centerChange();
         }
     }
 
@@ -565,18 +547,18 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
         if(i < 0 || i >= Options.queue.count) return;
         const e = Options.queue.get(i);
         if(e.source === -1) {
-            Options.warn.tiped("本地歌曲请使用本地收藏", 0);
+            Options.warned("本地歌曲请使用本地收藏", 0);
             return;
         }
         if(FavoriteSongs.isFavorite(e.path, "song")) {
             FavoriteSongs.removeFavorite(e.path, "song");
-            likeButton.iconColor = Style.textColor;
-            Options.warn.tiped("已取消收藏", 0);
+            likeButton.iconColor = Theme.textColor;
+            Options.warned("已取消收藏", 0);
         } else {
             FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr,
                                       e.source, Math.floor(Playback.player.duration / 1000), "song");
-            likeButton.iconColor = Style.themeColor;
-            Options.warn.tiped("已收藏", 1);
+            likeButton.iconColor = Theme.themeColor;
+            Options.warned("已收藏", 1);
         }
     }
 
@@ -600,7 +582,7 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             clip: false
             blurMax: 48
             borderRadius: 23
-            blurSource: mainLayout
+            blurSource: Options.mainLayout
             shadowEffect: true
             rectXy: Qt.rect(volumeControl.x, volumeControl.y, 180, 40)
         }
@@ -610,9 +592,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             implicitWidth: 130
             implicitHeight: 36
             valueText: Math.floor(value)
-            value: Options.settings.musicVolume * 100
+            value: Config.musicVolume * 100
             onMoved: {
-                Options.settings.musicVolume = value / 100
+                Config.musicVolume = value / 100
             }
         }
         enter: Transition {
@@ -656,7 +638,7 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             height: 870
             controlWidth: parent.width
             display: eqTab.index + 1
-            engine: player
+            engine: musicControlMin.player
         }
     }
 }

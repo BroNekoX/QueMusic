@@ -5,11 +5,11 @@ import QueMusic 1.0
 
 Rectangle {
     id: root
-    width: settingStack.standWidth / 2 - 12
+    width: 300
     height: 88
     radius: 16
-    color: cardArea.containsMouse ? Style.containColor : Style.primaryColor
-    border.color: Style.secondaryColor
+    color: cardArea.containsMouse ? Theme.containColor : Theme.primaryColor
+    border.color: Theme.secondaryColor
     border.width: 2
     property url source: "qrc:/QueMusic/resources/app/header.png"
     property string title: "Account"
@@ -31,17 +31,17 @@ Rectangle {
         anchors.verticalCenter: root.verticalCenter
         Text {
             text: root.title
-            color: Style.fontColor
+            color: Theme.fontColor
             verticalAlignment: Text.AlignVCenter
             font.bold: true
-            font.pixelSize: Style.settings.textH2
+            font.pixelSize: Style.textH2
         }
         Text {
             text: root.text
             width: root.width - 96
-            color: Style.textColor
+            color: Theme.textColor
             verticalAlignment: Text.AlignVCenter
-            font.pixelSize: Style.settings.text
+            font.pixelSize: Style.text
             wrapMode: Text.Wrap
         }
     }

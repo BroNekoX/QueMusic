@@ -115,11 +115,13 @@ endif()
 
 set_source_files_properties(
     components/Style.qml
+    components/Theme.qml
+    components/Config.qml
+    components/ShortCut.qml
     components/Options.qml
     components/Playback.qml
     components/PluginSlots.qml
-    components/IconFont.qml
-    components/TextFont.qml
+    components/Fonts.qml
     lyricsui/LyricsFreeConfig.qml
     lyricsui/Lyrics3DConfig.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)

@@ -15,7 +15,7 @@ class FunctionPluginStore : public PluginStore
     Q_OBJECT
     QML_NAMED_ELEMENT(FunctionPlugins)
     QML_SINGLETON
-    Q_PROPERTY(QStringList enabledIds READ enabledIds NOTIFY enabledChanged)
+    Q_PROPERTY(QStringList enabledIds READ enabledIds NOTIFY enabledChanged FINAL)
 
 public:
     explicit FunctionPluginStore(QObject *parent = nullptr);

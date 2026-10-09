@@ -12,7 +12,7 @@ Item {
 
     property url source
     property int radius: width / 2
-    property bool cache: Options.settings.picCache ? true : false
+    property bool cache: Config.picCache ? true : false
     property alias radius1: mask.topLeftRadius
     property alias radius2: mask.topRightRadius
     property alias radius3: mask.bottomLeftRadius

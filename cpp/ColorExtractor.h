@@ -28,9 +28,9 @@ class ColorExtractor : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(QUrl imageSource READ imageSource WRITE setImageSource NOTIFY imageSourceChanged)
-    Q_PROPERTY(QVector<QColor> dominantColors READ dominantColors NOTIFY colorsExtracted)
-    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(QUrl imageSource READ imageSource WRITE setImageSource NOTIFY imageSourceChanged FINAL)
+    Q_PROPERTY(QVector<QColor> dominantColors READ dominantColors NOTIFY colorsExtracted FINAL)
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged FINAL)
 
 public:
     explicit ColorExtractor(QObject *parent = nullptr);

@@ -45,7 +45,7 @@ class FolderModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ANONYMOUS
-    Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged)
+    Q_PROPERTY(QString filterType READ filterType WRITE setFilterType NOTIFY filterTypeChanged FINAL)
 
 public:
     enum Roles {
@@ -88,9 +88,9 @@ class SongModel : public QAbstractListModel
 {
     Q_OBJECT
     QML_ANONYMOUS
-    Q_PROPERTY(int folderId READ folderId WRITE setFolderId NOTIFY folderIdChanged)
-    Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged)
-    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT)
+    Q_PROPERTY(int folderId READ folderId WRITE setFolderId NOTIFY folderIdChanged FINAL)
+    Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged FINAL)
+    Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT FINAL)
 
 public:
     enum Roles {

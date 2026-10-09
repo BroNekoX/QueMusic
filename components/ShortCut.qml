@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
-// 快捷键配置（有类型，供 qmlcachegen 做 AOT 编译）
+// 快捷键配置。
+pragma Singleton
 import QtCore
 
 Settings {

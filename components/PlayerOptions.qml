@@ -18,7 +18,7 @@ QOptionDialog {
     readonly property var seekSteps: [3, 5, 10, 15, 30]
 
     onCancel: {
-optionsEQ.open();
+        optionsEQ.open();
     }
 
     options: Column {
@@ -33,10 +33,10 @@ optionsEQ.open();
                 height: 36
                 anchors.right: parent.right
                 width: 160
-                choice: Options.settings.playerRateIndex
+                choice: Config.playerRateIndex
                 model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                 onTransformed: (choiced) => {
-                    Options.settings.playerRateIndex = choiced
+                    Config.playerRateIndex = choiced
                     if (choiced !== 6) Playback.player.playbackRate = options.rates[choiced]
                 }
             }
@@ -46,7 +46,7 @@ optionsEQ.open();
             label: "自定义倍速"
             controlWidth: 160
             width: parent.width
-            opacity: Options.settings.playerRateIndex === 6 ? 1 : 0.5
+            opacity: Config.playerRateIndex === 6 ? 1 : 0.5
             QSlider {
                 height: 36
                 width: 160
@@ -58,7 +58,7 @@ optionsEQ.open();
                 valueText: value.toFixed(1) + "x"
                 value: Playback.player.playbackRate
                 onMoved: {
-                    if (Options.settings.playerRateIndex === 6)
+                    if (Config.playerRateIndex === 6)
                         Playback.player.playbackRate = value
                 }
             }
@@ -86,9 +86,9 @@ optionsEQ.open();
                 height: 36
                 width: 160
                 anchors.right: parent.right
-                choice: Options.settings.soundQuality
+                choice: Config.soundQuality
                 model: ["标准-128k","高清-320k","无损-500+k"]
-                onTransformed: (choiced) => Options.settings.soundQuality = choiced
+                onTransformed: (choiced) => Config.soundQuality = choiced
             }
         }
 
@@ -101,8 +101,8 @@ optionsEQ.open();
                 width: 160
                 anchors.right: parent.right
                 letRight: true
-                switchTrue: Options.settings.useDefaultDevice
-                onToggled: Options.settings.useDefaultDevice = !Options.settings.useDefaultDevice
+                switchTrue: Config.useDefaultDevice
+                onToggled: Config.useDefaultDevice = !Config.useDefaultDevice
             }
         }
 
@@ -110,15 +110,15 @@ optionsEQ.open();
             label: "自定输出设备"
             controlWidth: 160
             width: parent.width
-            opacity: Options.settings.useDefaultDevice ? 0.5 : 1
+            opacity: Config.useDefaultDevice ? 0.5 : 1
             QDrop {
                 height: 36
                 width: 160
                 anchors.right: parent.right
                 useId: true
-                choice: Options.settings.audioDevice
+                choice: Config.audioDevice
                 model: musicDevices.audioOutputs
-                onTransformed: (choiced) => Options.settings.audioDevice = choiced
+                onTransformed: (choiced) => Config.audioDevice = choiced
             }
         }
 
@@ -132,25 +132,25 @@ optionsEQ.open();
                 anchors.right: parent.right
                 QButton {
                     height: 36; radius: 18; shadowEnabled: false
-                    fontSize: Style.settings.text
+                    fontSize: Style.text
                     text: Playback.abA >= 0 ? Playback.fmt(Playback.abA) : "设 A"
                     tipText: "在当前位置设为起点"
-                    buttonColor: Playback.abA >= 0 ? Style.themeColor : Style.secondaryColor
-                    textColor: Playback.abA >= 0 ? Style.primaryColor : Style.fontColor
+                    buttonColor: Playback.abA >= 0 ? Theme.themeColor : Theme.secondaryColor
+                    textColor: Playback.abA >= 0 ? Theme.primaryColor : Theme.fontColor
                     onClicked: Playback.setAbPoint(0)
                 }
                 QButton {
                     height: 36; radius: 18; shadowEnabled: false
-                    fontSize: Style.settings.text
+                    fontSize: Style.text
                     text: Playback.abArmed ? Playback.fmt(Playback.abB) : "设 B"
                     tipText: "在当前位置设为终点"
-                    buttonColor: Playback.abArmed ? Style.themeColor : Style.secondaryColor
-                    textColor: Playback.abArmed ? Style.primaryColor : Style.fontColor
+                    buttonColor: Playback.abArmed ? Theme.themeColor : Theme.secondaryColor
+                    textColor: Playback.abArmed ? Theme.primaryColor : Theme.fontColor
                     onClicked: Playback.setAbPoint(1)
                 }
                 QButton {
                     height: 36; radius: 18; shadowEnabled: false
-                    fontSize: Style.settings.text
+                    fontSize: Style.text
                     text: "清除"
                     onClicked: Playback.clearAb()
                 }
@@ -167,7 +167,7 @@ optionsEQ.open();
                 anchors.right: parent.right
                 choice: Playback.sleepMode
                 model: ["关闭","倒计时","播完本首"]
-                onTransformed: (choiced) => Playback.armSleep(choiced, Options.settings.sleepMinutes)
+                onTransformed: (choiced) => Playback.armSleep(choiced, Config.sleepMinutes)
             }
         }
 
@@ -185,8 +185,8 @@ optionsEQ.open();
                 stepSize: 1
                 leftText: true
                 valueText: value.toString() + "分"
-                value: Options.settings.sleepMinutes
-                onMoved: Options.settings.sleepMinutes = value
+                value: Config.sleepMinutes
+                onMoved: Config.sleepMinutes = value
             }
         }
 
@@ -199,8 +199,8 @@ optionsEQ.open();
                 width: 160
                 anchors.right: parent.right
                 letRight: true
-                switchTrue: Options.settings.fadeEnabled
-                onToggled: Options.settings.fadeEnabled = !Options.settings.fadeEnabled
+                switchTrue: Config.fadeEnabled
+                onToggled: Config.fadeEnabled = !Config.fadeEnabled
             }
         }
 
@@ -208,7 +208,7 @@ optionsEQ.open();
             label: "淡变时长"
             controlWidth: 160
             width: parent.width
-            opacity: Options.settings.fadeEnabled ? 1 : 0.5
+            opacity: Config.fadeEnabled ? 1 : 0.5
             QSlider {
                 height: 36
                 width: 160
@@ -218,8 +218,8 @@ optionsEQ.open();
                 stepSize: 50
                 leftText: true
                 valueText: value.toString() + "ms"
-                value: Options.settings.fadeMs
-                onMoved: Options.settings.fadeMs = value
+                value: Config.fadeMs
+                onMoved: Config.fadeMs = value
             }
         }
 
@@ -231,9 +231,9 @@ optionsEQ.open();
                 height: 36
                 width: 160
                 anchors.right: parent.right
-                choice: options.seekSteps.indexOf(Options.settings.seekStep)
+                choice: options.seekSteps.indexOf(Config.seekStep)
                 model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
-                onTransformed: (choiced) => Options.settings.seekStep = options.seekSteps[choiced]
+                onTransformed: (choiced) => Config.seekStep = options.seekSteps[choiced]
             }
         }
 
@@ -250,8 +250,8 @@ optionsEQ.open();
                 stepSize: 1
                 leftText: true
                 valueText: value.toString() + "首"
-                value: Options.settings.shuffleAvoid
-                onMoved: Options.settings.shuffleAvoid = value
+                value: Config.shuffleAvoid
+                onMoved: Config.shuffleAvoid = value
             }
         }
 
@@ -264,8 +264,8 @@ optionsEQ.open();
                 width: 160
                 anchors.right: parent.right
                 letRight: true
-                switchTrue: Options.settings.autoPlay
-                onToggled: Options.settings.autoPlay = !Options.settings.autoPlay
+                switchTrue: Config.autoPlay
+                onToggled: Config.autoPlay = !Config.autoPlay
             }
         }
     }

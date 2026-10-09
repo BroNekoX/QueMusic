@@ -75,6 +75,6 @@ QtObject {
 
     Component.onDestruction: destroyAll()
 
-    function toast(text: string, type: int): void { Style.warned(text, type); }
+    function toast(text: string, type: int): void { Options.warned(text, type); }
     function warn(text: string): void { console.warn("[插件 " + api.pluginId + "] " + text); }
 }

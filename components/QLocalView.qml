@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
@@ -50,8 +51,8 @@ ListView {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             text: "没有更多了~"
-            color: Style.textColor
-            font.pixelSize: Style.settings.text
+            color: Theme.textColor
+            font.pixelSize: Style.text
         }
     }
     Menu {
@@ -63,8 +64,8 @@ ListView {
         background: Rectangle {
             implicitWidth: 160
             implicitHeight: 40
-            color: Style.primaryColor
-            radius: Style.settings.labelRadius
+            color: Theme.primaryColor
+            radius: Style.labelRadius
             RectangularShadow {
                 anchors.fill: parent
                 z: -1
@@ -73,7 +74,7 @@ ListView {
                 radius: parent.radius
                 blur: 20
                 spread: 0
-                color: Style.shadowColor
+                color: Theme.shadowColor
             }
         }
 
@@ -88,16 +89,16 @@ ListView {
                     implicitHeight: 36
                     x: 2
                     y: 2
-                    radius: Style.settings.labelRadius - 2
+                    radius: Style.labelRadius - 2
                     width: menuItem.width - 4
                     height: menuItem.height - 4
-                    color: menuItem.down || menuItem.highlighted ? Style.hoverColor : "transparent"
+                    color: menuItem.down || menuItem.highlighted ? Theme.hoverColor : "transparent"
                 }
                 text: modelData
                 contentItem: Text {
                     text: menuItem.text
-                    color: Style.fontColor//使用项目主题文字色，深浅色主题下都可读
-                    font.pixelSize: Style.settings.textmain
+                    color: Theme.fontColor//使用项目主题文字色，深浅色主题下都可读
+                    font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 12
                     elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
@@ -154,11 +155,11 @@ ListView {
         width: view.width
         height: 36
         Text {
-            x: 76
+            x: 72
             height: 36
             text: view.headerModel[0]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
@@ -166,8 +167,8 @@ ListView {
             x: view.artistX
             height: 36
             text: view.headerModel[1]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
@@ -175,15 +176,15 @@ ListView {
             x: view.width - 76
             height: 36
             text: view.headerModel[2]
-            color: Style.textColor
-            font.pixelSize: Style.settings.textTip
+            color: Theme.textColor
+            font.pixelSize: Style.textTip
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
         Rectangle {
             width: parent.width - 16
             height: 1
-            color: Style.sideColor
+            color: Theme.sideColor
             opacity: 0.5
             y: 35
         }

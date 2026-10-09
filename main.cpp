@@ -153,7 +153,6 @@ int main(int argc, char *argv[])
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
     // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
     engine.rootContext()->setContextProperty("configDir", configPath);
-    engine.rootContext()->setContextProperty("qtRuntimeVersion", QLibraryInfo::version().toString());
 
     QWK::registerTypes(&engine);
     engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));

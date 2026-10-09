@@ -3,7 +3,7 @@
 //
 // 3d 歌词主题，三层：① 背景着色器（按预设换文件）② 点云舞台 LyricsStage（C++，GPU 算点位置）
 // ③ 歌词平面 lyricplane.frag（固定 LOD 0 保持字清晰 + 字体发光）。
-// 本主题的设置全部落在模块自己的 Settings（category "Lyrics3D"），不写宿主 StyleSettings、不走白名单。
+// 本主题的设置全部落在模块自己的 Settings（category "Lyrics3D"），不写宿主 Style、不走白名单。
 import QtQuick
 import QtCore
 import QueMusic 1.0
@@ -96,7 +96,7 @@ Item {
 
     // wavePath 首尾各一个哨兵点、y ∈ 0..80；采样 32 点折算四段，40ms 一次
     function updateSpectrum(): void {
-        const p = getWave.wavePath;
+        const p = Options.getWave.wavePath;
         const inner = p ? p.length - 2 : 0;
         if (inner < 8) {
             root.uLow = root.uMid = root.uHigh = root.uAir = root.uLevel = 0;
@@ -208,7 +208,7 @@ Item {
                     opacity: parent.parent.active ? 1.0 : 0.72
                     font.pixelSize: root.bigFont
                     font.weight: parent.parent.active ? Font.DemiBold : Font.Normal
-                    font.family: Style.settings.fontFamily
+                    font.family: Style.fontFamily
                     Behavior on opacity { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
                 }
                 Text {
@@ -221,7 +221,7 @@ Item {
                     color: root.textColor
                     opacity: 0.60
                     font.pixelSize: root.bigFont * 0.42
-                    font.family: Style.settings.fontFamily
+                    font.family: Style.fontFamily
                 }
             }
         }
@@ -320,7 +320,7 @@ Item {
         radius: 18
         iconCharacter: "\uf013"
         iconColor: diyPanel.visible ? "#555555" : "#fbfbfb"
-        iconSize: Style.settings.texticon
+        iconSize: Style.texticon
         buttonColor: diyPanel.visible ? "#88ffffff" : "#55e1e1e1"
         hoverColor: "#42000000"
         borderColor: "#66ffffff"
@@ -337,9 +337,9 @@ Item {
         width: 360
         height: Math.min(root.height * 0.66, 470)
         radius: 18
-        color: Style.primaryColor
+        color: Theme.primaryColor
         border.width: 1
-        border.color: Style.sideColor
+        border.color: Theme.sideColor
         anchors.right: diyButton.right
         anchors.bottom: diyButton.top
         anchors.bottomMargin: 12
@@ -361,7 +361,7 @@ Item {
                     text: "背景预设"
                     color: "#7f8ea3"
                     font.pixelSize: 12
-                    font.family: Style.settings.fontFamily
+                    font.family: Style.fontFamily
                 }
                 Grid {
                     width: parent.width
@@ -373,15 +373,15 @@ Item {
                             width: (panelCol.width - 24) / 4
                             height: 38
                             radius: 10
-                            color: index === root.presetIndex ? root.mainColor : Style.primaryColor
+                            color: index === root.presetIndex ? root.mainColor : Theme.primaryColor
                             border.width: 1
-                            border.color: index === root.presetIndex ? root.mainColor : Style.sideColor
+                            border.color: index === root.presetIndex ? root.mainColor : Theme.sideColor
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData.n
-                                color: Style.textColor
+                                color: Theme.textColor
                                 font.pixelSize: 11
-                                font.family: Style.settings.fontFamily
+                                font.family: Style.fontFamily
                             }
                             MouseArea {
                                 anchors.fill: parent

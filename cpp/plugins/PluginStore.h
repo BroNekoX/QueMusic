@@ -14,8 +14,8 @@ class PluginStore : public QObject
     Q_OBJECT
     // 只作为两个插件单例的基类：登记为匿名类型，QML 工具链才认得出派生类继承来的 plugins / dir
     QML_ANONYMOUS
-    Q_PROPERTY(QVariantList plugins READ plugins NOTIFY pluginsChanged)   // 内置 + 已安装
-    Q_PROPERTY(QString dir READ dir NOTIFY pluginsChanged)                // 安装目录
+    Q_PROPERTY(QVariantList plugins READ plugins NOTIFY pluginsChanged FINAL)   // 内置 + 已安装
+    Q_PROPERTY(QString dir READ dir NOTIFY pluginsChanged FINAL)                // 安装目录
 
 public:
     const QVariantList &plugins() const { return m_plugins; }

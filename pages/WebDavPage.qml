@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 // WebDAV 分页：服务器列表 + 目录浏览（视觉与「我的文件夹 / 本地文件夹」一致）
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QueMusic 1.0
@@ -36,7 +37,7 @@ Item {
     function submitForm(): void {
         const url = fieldUrl.inputText.trim()
         if (!url) {
-            Style.warned("请填写服务器地址", 0)
+            Options.warned("请填写服务器地址", 0)
             serverDialog.open();         // 校验不过就留在弹窗里
             return
         }
@@ -50,7 +51,7 @@ Item {
     function deleteServer(server: var): void {
         Options.dialog.openSimpleDialog("删除", "将移除该 WebDAV 服务器，是否删除？", function() {
             WebDav.removeServer(server.id)
-            Style.warned("已移除服务器", 1)
+            Options.warned("已移除服务器", 1)
         })
     }
 
@@ -132,21 +133,21 @@ Item {
             id: listServer
             height: 64
             width: serverView.width - 16
-            radius: Style.settings.labelRadius
+            radius: Style.labelRadius
             color: "#00000000"
 
-            readonly property var server: modelData
+            required property var modelData
             // 没填名称时用主机名占位，避免与地址列重复
             readonly property string title: {
-                if (listServer.server.name && listServer.server.name !== listServer.server.url)
-                    return listServer.server.name;
-                return listServer.server.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+                if (listServer.modelData.name && listServer.modelData.name !== listServer.modelData.url)
+                    return listServer.modelData.name;
+                return listServer.modelData.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
             }
 
             Rectangle {
                 anchors.fill: parent
-                radius: Style.settings.labelRadius
-                color: Style.hoverColor
+                radius: Style.labelRadius
+                color: Theme.hoverColor
                 opacity: serverArea.containsMouse ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -158,14 +159,14 @@ Item {
                 z: 4
                 width: 48
                 height: 48
-                color: Style.containColor
+                color: Theme.containColor
                 radius: 10
                 Text {
                     anchors.fill: parent
                     text: "\uf0c2"
-                    font.family: IconFont.name
-                    font.pixelSize: Style.settings.texticon
-                    color: Style.fontColor
+                    font.family: Fonts.icon
+                    font.pixelSize: Style.texticon
+                    color: Theme.fontColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -177,10 +178,10 @@ Item {
                 width: parent.width / 2 - 108
                 height: 64
                 text: listServer.title
-                color: Style.fontColor
+                color: Theme.fontColor
                 font.bold: true
                 elide: Text.ElideRight
-                font.pixelSize: Style.settings.textmain
+                font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
             }
             Label {
@@ -188,9 +189,9 @@ Item {
                 z: 2
                 width: parent.width / 2 - 120
                 height: 60
-                text: listServer.server.url
-                color: Style.textColor
-                font.pixelSize: Style.settings.textTip
+                text: listServer.modelData.url
+                color: Theme.textColor
+                font.pixelSize: Style.textTip
                 elide: Text.ElideMiddle
                 verticalAlignment: Text.AlignVCenter
             }
@@ -199,7 +200,7 @@ Item {
                 id: serverArea
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: root.openServer(listServer.server)
+                onClicked: root.openServer(listServer.modelData)
 
                 Row {
                     anchors.right: parent.right
@@ -217,7 +218,7 @@ Item {
                         hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                         shadowEnabled: false
                         tipText: "编辑服务器"
-                        onClicked: root.openForm(listServer.server)
+                        onClicked: root.openForm(listServer.modelData)
                     }
                     SButton {
                         iconCharacter: "\uf08e"
@@ -228,7 +229,7 @@ Item {
                         hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
                         shadowEnabled: false
                         tipText: "删除服务器"
-                        onClicked: root.deleteServer(listServer.server)
+                        onClicked: root.deleteServer(listServer.modelData)
                     }
                 }
             }
@@ -238,8 +239,8 @@ Item {
             anchors.centerIn: parent
             visible: WebDav.servers.length === 0
             text: "还没有 WebDAV 服务器，点右上角「新建服务器」接入网盘音乐目录"
-            color: Style.textColor
-            font.pixelSize: Style.settings.textmain
+            color: Theme.textColor
+            font.pixelSize: Style.textmain
             opacity: 0.65
         }
     }
@@ -265,10 +266,10 @@ Item {
                 Playback.playItem(item)
             } else if (choice === 1) {
                 Playback.playNext(item)
-                Style.warned("已设为下一首播放", 1)
+                Options.warned("已设为下一首播放", 1)
             } else if (choice === 2) {
                 const added = Playback.enqueue(item)
-                Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
             }
         }
 
@@ -284,8 +285,8 @@ Item {
             required property int index
             height: 60
             width: dirView.width - 16
-            radius: Style.settings.labelRadius
-            color: !listDir.isDir && Playback.player.source == listDir.fileUrl ? Style.containColor : "transparent"
+            radius: Style.labelRadius
+            color: !listDir.isDir && Playback.player.source === listDir.fileUrl ? Theme.containColor : "transparent"
             Behavior on color { ColorAnimation { duration: 120 } }
 
             QPicture {
@@ -311,14 +312,14 @@ Item {
                 width: 44
                 height: 44
                 visible: listDir.isDir
-                color: Style.containColor
+                color: Theme.containColor
                 radius: 10
                 Text {
                     anchors.fill: parent
                     text: "\uf0f5"
-                    font.family: IconFont.name
-                    font.pixelSize: Style.settings.texticon
-                    color: Style.fontColor
+                    font.family: Fonts.icon
+                    font.pixelSize: Style.texticon
+                    color: Theme.fontColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -326,8 +327,8 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: Style.settings.labelRadius
-                color: Style.hoverColor
+                radius: Style.labelRadius
+                color: Theme.hoverColor
                 opacity: dirArea.containsMouse ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -339,9 +340,9 @@ Item {
                 z: 3
                 width: parent.width / 2 - 108
                 text: listDir.title || listDir.fileName
-                color: Style.fontColor
+                color: Theme.fontColor
                 font.bold: true
-                font.pixelSize: Style.settings.textmain
+                font.pixelSize: Style.textmain
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -353,8 +354,8 @@ Item {
                 text: listDir.isDir ? "文件夹"
                                   : (listDir.artist !== "" ? listDir.artist
                                                          : (listDir.fileSize > 0 ? (listDir.fileSize / 1048576).toFixed(1) + " MB" : ""))
-                color: Style.textColor
-                font.pixelSize: Style.settings.textTip
+                color: Theme.textColor
+                font.pixelSize: Style.textTip
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -398,7 +399,7 @@ Item {
                             if (!row.url) return
                             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
                             const added = Playback.enqueue({ name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav })
-                            Style.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+                            Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                         }
                     }
                 }
@@ -409,8 +410,8 @@ Item {
             anchors.centerIn: parent
             visible: !browser.busy && browser.count === 0
             text: browser.error !== "" ? browser.error : "该目录下没有音频"
-            color: Style.textColor
-            font.pixelSize: Style.settings.textmain
+            color: Theme.textColor
+            font.pixelSize: Style.textmain
             opacity: 0.65
         }
     }
@@ -429,8 +430,8 @@ Item {
 
             Text {
                 text: "名称（可留空）"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 opacity: 0.65
             }
             QInput {
@@ -441,8 +442,8 @@ Item {
 
             Text {
                 text: "服务器地址"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 opacity: 0.65
             }
             QInput {
@@ -453,8 +454,8 @@ Item {
 
             Text {
                 text: "账号"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 opacity: 0.65
             }
             QInput {
@@ -465,8 +466,8 @@ Item {
 
             Text {
                 text: root.editingId ? "密码（留空表示不改）" : "密码"
-                color: Style.textColor
-                font.pixelSize: Style.settings.textmain
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
                 opacity: 0.65
             }
             QInput {

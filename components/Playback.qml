@@ -24,12 +24,12 @@ QtObject {
     readonly property int count: queue ? queue.count : 0
 
     // 循环模式（列表循环/单曲循环/随机播放/暂停操作）：持久化的值可能越界，统一钳到 0..3
-    readonly property int cycleIndex: Math.max(0, Math.min(3, Options.settings.cycleIndex))
+    readonly property int cycleIndex: Math.max(0, Math.min(3, Config.cycleIndex))
     readonly property string cycleIcon: ["\uf118", "\uf115", "\uf0e2", "\uf03b"][root.cycleIndex]
     readonly property string cycleTip: ["列表循环", "单曲循环", "随机播放", "暂停操作"][root.cycleIndex]
 
     property bool muted: false
-    readonly property real outVolume: muted ? 0 : Options.settings.musicVolume
+    readonly property real outVolume: muted ? 0 : Config.musicVolume
 
     // 唯一出口：设索引 + 记录播放历史 + 直接起播
     function goTo(i: int): void {
@@ -153,7 +153,7 @@ cover: player.urlStr || "",
 
     function nextShuffle(): int {
         if (count < 2) return 0
-        const keep = Math.max(0, Options.settings.shuffleAvoid)
+        const keep = Math.max(0, Config.shuffleAvoid)
         if (bag.length === 0) {
             const skip = recent.slice(recent.length - keep)
             const cur = queue ? queue.playListIndex : -1
@@ -172,14 +172,14 @@ cover: player.urlStr || "",
 
     function notePlayed(i: int): void {
         recent.push(i)
-        const keep = Math.max(0, Options.settings.shuffleAvoid)
+        const keep = Math.max(0, Config.shuffleAvoid)
         if (recent.length > keep) recent = recent.slice(recent.length - keep)
     }
 
     readonly property int fadeOutMs: 120
     readonly property int fadeInMs: 220
     readonly property int guardMs: 1500
-    readonly property bool fadeOn: Options.settings.fadeEnabled && Options.settings.fadeMs > 0
+    readonly property bool fadeOn: Config.fadeEnabled && Config.fadeMs > 0
 
     property bool armed: false          // 已静音，等待新音轨起播后淡回
     property var nextAction: null       // 静音后要执行的动作
@@ -197,9 +197,9 @@ cover: player.urlStr || "",
     // 通用淡变：暂停/睡眠等即时过渡
     function fadeTo(v: real, then: var): void {
         afterFade = then || null
-        if (player) player.fadeTo(v, fadeOn ? Options.settings.fadeMs : 0)
+        if (player) player.fadeTo(v, fadeOn ? Config.fadeMs : 0)
         if (then) {
-            fadeTimer.interval = fadeOn ? Options.settings.fadeMs : 0
+            fadeTimer.interval = fadeOn ? Config.fadeMs : 0
             fadeTimer.restart()
         }
     }
@@ -260,9 +260,9 @@ cover: player.urlStr || "",
         onTriggered: root.armFadeIn()
     }
 
-    readonly property real volumeStep: Options.settings.volumeStep / 100
-    function setVolume(v: real): void { Options.settings.musicVolume = Math.max(0, Math.min(1, v)) }
-    function stepVolume(d: real): void { setVolume(Options.settings.musicVolume + d) }
+    readonly property real volumeStep: Config.volumeStep / 100
+    function setVolume(v: real): void { Config.musicVolume = Math.max(0, Math.min(1, v)) }
+    function stepVolume(d: real): void { setVolume(Config.musicVolume + d) }
     function toggleMute(): void { muted = !muted }
 
     // 跳转
@@ -270,8 +270,8 @@ cover: player.urlStr || "",
         if (!player) return
         player.position = Math.max(0, Math.min(player.duration, player.position + ms))
     }
-    function seekBack(): void { seekBy(-Options.settings.seekStep * 1000) }
-    function seekForward(): void { seekBy(Options.settings.seekStep * 1000) }
+    function seekBack(): void { seekBy(-Config.seekStep * 1000) }
+    function seekForward(): void { seekBy(Config.seekStep * 1000) }
 
     // A-B 循环
     property int abA: -1
@@ -308,14 +308,14 @@ cover: player.urlStr || "",
 
     function armSleep(mode: int, minutes: var): void {
         sleepMode = mode
-        sleepRemain = mode === 1 ? Math.max(1, minutes || Options.settings.sleepMinutes) * 60 : 0
+        sleepRemain = mode === 1 ? Math.max(1, minutes || Config.sleepMinutes) * 60 : 0
     }
     function stopSleep(): void { sleepMode = 0; sleepRemain = 0 }
 
     function sleepEnd(): void {
         stopSleep()
         fadeTo(0, function() { if (player) player.pause() })
-        Style.warned("睡眠定时：已停止播放", 1)
+        Options.warned("睡眠定时：已停止播放", 1)
     }
 
     property Timer sleepTimer: Timer {
@@ -341,7 +341,7 @@ cover: player.urlStr || "",
             if (history.get(i).path === e.path) { history.remove(i, 1); break }
         }
         history.insert(0, e)
-        const limit = Math.max(20, Options.settings.historyLimit)
+        const limit = Math.max(20, Config.historyLimit)
         if (history.count > limit) history.remove(limit, history.count - limit)
         queueSave()
     }
@@ -352,15 +352,15 @@ cover: player.urlStr || "",
             const e = queue.get(i)
             out.push({ name: e.name, path: e.path, songer: e.songer, source: e.source })
         }
-        Options.settings.lastQueue = JSON.stringify(out)
-        Options.settings.lastQueueIndex = queue.playListIndex
+        Config.lastQueue = JSON.stringify(out)
+        Config.lastQueueIndex = queue.playListIndex
     }
     function restoreSession(): void {
-        if (!Options.settings.autoRestoreQueue) return
+        if (!Config.autoRestoreQueue) return
         try {
-            const arr = JSON.parse(Options.settings.lastQueue || "[]")
+            const arr = JSON.parse(Config.lastQueue || "[]")
             for (let i = 0; i < arr.length; i++) queue.append(arr[i])
-            const idx = Options.settings.lastQueueIndex
+            const idx = Config.lastQueueIndex
             if (idx < 0 || idx >= count) return
             queue.playListIndex = idx
         } catch (err) {}
@@ -370,7 +370,7 @@ cover: player.urlStr || "",
     function loadHistory(): void {
         history.clear()
         try {
-            const arr = JSON.parse(Options.settings.playHistory || "[]")
+            const arr = JSON.parse(Config.playHistory || "[]")
             for (let i = 0; i < arr.length; i++) history.append(arr[i])
         } catch (err) {}
     }
@@ -386,7 +386,7 @@ cover: player.urlStr || "",
             out.push({ title: e.title, artist: e.artist, path: e.path, source: e.source,
                        cover: e.cover, duration: e.duration, time: e.time })
         }
-        Options.settings.playHistory = JSON.stringify(out)
+        Config.playHistory = JSON.stringify(out)
     }
 
     property Timer saveTimer: Timer {

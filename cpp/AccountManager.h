@@ -3,15 +3,12 @@
 //
 // AccountManager — 在线音乐账号登录态管理（网易云 / 酷狗）
 //
-// 设计目标（与 NeriPlayer 的"账号即能力"思路一致）：
-//  - 不构建公共云端服务，用户用自己账号通过官方 App 扫码授权
-//  - 登录态（Cookie / Token）只保存在本机，请求都带上用户自己的身份
-//  - 退出登录即删除本地登录态
 #ifndef ACCOUNTMANAGER_H
 #define ACCOUNTMANAGER_H
 
 #include <QNetworkCookieJar>
 #include <QObject>
+#include <QThreadPool>
 #include <QTimer>
 
 class QNetworkAccessManager;
@@ -34,21 +31,23 @@ class AccountManager : public QObject
     QML_ELEMENT
     QML_SINGLETON
     // 网易云
-    Q_PROPERTY(bool neteaseLoggedIn READ isNeteaseLoggedIn NOTIFY neteaseLoginChanged)
-    Q_PROPERTY(QString neteaseNickname READ neteaseNickname NOTIFY neteaseLoginChanged)
-    Q_PROPERTY(QString neteaseAvatar READ neteaseAvatar NOTIFY neteaseLoginChanged)
-    Q_PROPERTY(QString neteaseCookie READ neteaseCookie NOTIFY neteaseLoginChanged)
-    Q_PROPERTY(QString neteaseQrText READ neteaseQrText NOTIFY neteaseQrChanged)
-    Q_PROPERTY(int neteaseQrState READ neteaseQrState NOTIFY neteaseQrChanged)
-    Q_PROPERTY(QString neteaseQrMessage READ neteaseQrMessage NOTIFY neteaseQrChanged)
+    Q_PROPERTY(bool neteaseLoggedIn READ isNeteaseLoggedIn NOTIFY neteaseLoginChanged FINAL)
+    Q_PROPERTY(QString neteaseNickname READ neteaseNickname NOTIFY neteaseLoginChanged FINAL)
+    Q_PROPERTY(QString neteaseAvatar READ neteaseAvatar NOTIFY neteaseLoginChanged FINAL)
+    Q_PROPERTY(QString neteaseCookie READ neteaseCookie NOTIFY neteaseLoginChanged FINAL)
+    Q_PROPERTY(QString neteaseQrText READ neteaseQrText NOTIFY neteaseQrChanged FINAL)
+    Q_PROPERTY(int neteaseQrState READ neteaseQrState NOTIFY neteaseQrChanged FINAL)
+    Q_PROPERTY(QString neteaseQrMessage READ neteaseQrMessage NOTIFY neteaseQrChanged FINAL)
+    // 账号安全风险拦截时网易云返回的验证页（需用官方 App 扫码完成验证）
+    Q_PROPERTY(QString neteaseVerifyUrl READ neteaseVerifyUrl NOTIFY neteaseQrChanged FINAL)
     // 酷狗
-    Q_PROPERTY(bool kugouLoggedIn READ isKugouLoggedIn NOTIFY kugouLoginChanged)
-    Q_PROPERTY(QString kugouNickname READ kugouNickname NOTIFY kugouLoginChanged)
-    Q_PROPERTY(QString kugouAvatar READ kugouAvatar NOTIFY kugouLoginChanged)
-    Q_PROPERTY(QString kugouCookie READ kugouCookie NOTIFY kugouLoginChanged)
-    Q_PROPERTY(QString kugouQrText READ kugouQrText NOTIFY kugouQrChanged)
-    Q_PROPERTY(int kugouQrState READ kugouQrState NOTIFY kugouQrChanged)
-    Q_PROPERTY(QString kugouQrMessage READ kugouQrMessage NOTIFY kugouQrChanged)
+    Q_PROPERTY(bool kugouLoggedIn READ isKugouLoggedIn NOTIFY kugouLoginChanged FINAL)
+    Q_PROPERTY(QString kugouNickname READ kugouNickname NOTIFY kugouLoginChanged FINAL)
+    Q_PROPERTY(QString kugouAvatar READ kugouAvatar NOTIFY kugouLoginChanged FINAL)
+    Q_PROPERTY(QString kugouCookie READ kugouCookie NOTIFY kugouLoginChanged FINAL)
+    Q_PROPERTY(QString kugouQrText READ kugouQrText NOTIFY kugouQrChanged FINAL)
+    Q_PROPERTY(int kugouQrState READ kugouQrState NOTIFY kugouQrChanged FINAL)
+    Q_PROPERTY(QString kugouQrMessage READ kugouQrMessage NOTIFY kugouQrChanged FINAL)
 
 public:
     // QML 单例工厂。main.cpp 会提前调用一次以保证账号初始化时序；
@@ -86,6 +85,7 @@ public:
     QString neteaseQrText() const { return m_neteaseQrText; }
     int neteaseQrState() const { return m_neteaseQrState; }
     QString neteaseQrMessage() const { return m_neteaseQrMessage; }
+    QString neteaseVerifyUrl() const { return m_neteaseVerifyUrl; }
 
     bool isKugouLoggedIn() const { return m_kugouLoggedIn; }
     QString kugouNickname() const { return m_kugouNickname; }
@@ -103,6 +103,7 @@ public slots:
     void startNeteaseQrLogin();
     void cancelNeteaseQrLogin();
     void logoutNetease();
+    Q_INVOKABLE void openNeteaseVerifyUrl();
 
     void startKugouQrLogin();
     void cancelKugouQrLogin();
@@ -182,6 +183,7 @@ private:
     QString m_neteaseQrText;
     int m_neteaseQrState = QrWaiting;
     QString m_neteaseQrMessage;
+    QString m_neteaseVerifyUrl;
     QString m_kugouQrText;
     int m_kugouQrState = QrWaiting;
     QString m_kugouQrMessage;
@@ -196,6 +198,7 @@ private:
 
     // 网易云登录走 QCloudMusicApi（login_qr_* 接口），由其内部维护 cookie
     ApiHelper *m_api = nullptr;
+    QThreadPool m_pool;               // 登录任务专用池：析构等它即可，不必等全局池
     QAtomicInt m_neteaseBusy{0};      // 防止并发调用阻塞的 invoke
     QAtomicInt m_neteaseCancelled{0}; // 取消/退出登录时置位
 

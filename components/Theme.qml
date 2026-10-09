@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
-// 主题色板类型。
+// 主题色板单例。
+pragma Singleton
 import QtQuick
 
 QtObject {

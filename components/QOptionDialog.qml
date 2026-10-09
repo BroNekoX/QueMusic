@@ -6,7 +6,7 @@ import QueMusic 1.0
 import QtQuick.Controls.Basic
 Popup {
     id: dialog
-    property Item blurSource: mainLayout // 使用父内容作为模糊源
+    property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     property alias options: content.children
@@ -33,7 +33,7 @@ Popup {
     }
 
     Connections {
-        target: window
+        target: Options
         enabled: dialog.visible
         function onExit(): void {
             dialog.close();
@@ -45,7 +45,7 @@ Popup {
         blurSource: dialog.blurSource
         rectXy: dialog.rectXy
         shadowEffect: true
-        borderRadius: Style.settings.cubeRadius
+        borderRadius: Style.cubeRadius
     }
 
     contentItem: Column {
@@ -61,14 +61,14 @@ Popup {
             font.pixelSize: 20
             height: dialog.headerHeight
             font.bold: true
-            color: Style.fontColor
+            color: Theme.fontColor
             wrapMode: Text.WordWrap
         }
 
         Flickable {
             id: dialogContent
             width: contentCol.width + 10
-            height: contentHeight > window.height - 320 ? window.height - 320 : contentHeight
+            height: dialog.visible ? (contentHeight > window.height - 320 ? window.height - 320 : contentHeight) : 0
             contentHeight: contentItem.childrenRect.height
             contentWidth: width - 10
             boundsBehavior: Flickable.StopAtBounds
@@ -97,23 +97,23 @@ Popup {
                 text: dialog.cancelText
                 visible: dialog.cancelText !== ""
                 iconCharacter: dialog.cancelIcon // X 图标
-                radius: Style.settings.labelRadius
-                buttonColor: Style.secondaryColor
-                borderColor: Style.sideColor
+                radius: Style.labelRadius
+                buttonColor: Theme.secondaryColor
+                borderColor: Theme.sideColor
                 borderWidth: 1
-                iconSize: Style.settings.texticon - 2
+                iconSize: Style.texticon - 2
                 onClicked: { dialog.cancel(); if (dialog.cancelCloses) dialog.close() }
             }
             QButton {
                 width: 108
                 height: 36
                 text: dialog.confirmText
-                buttonColor: Style.themeColor
-                textColor: Style.primaryColor
-                iconColor: Style.primaryColor
-                shadowColor: Style.themeShadowColor
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
+                iconColor: Theme.primaryColor
+                shadowColor: Theme.themeShadowColor
                 iconCharacter: "\uf0e7" // 勾图标
-                radius: Style.settings.labelRadius
+                radius: Style.labelRadius
                 onClicked: { dialog.confirm(); dialog.close() }
             }
         }

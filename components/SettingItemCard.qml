@@ -22,8 +22,8 @@ Item {
         width: 100; height: 20
         text: settingItem.label
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: Style.settings.textmain + 1
-        color: Style.fontColor
+        font.pixelSize: Style.textmain + 1
+        color: Theme.fontColor
     }
     Text {
         id: tip
@@ -31,8 +31,8 @@ Item {
         width: 100; height: 20
         text: settingItem.tip
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: Style.settings.textTip
-        color: Style.textColor
+        font.pixelSize: Style.textTip
+        color: Theme.textColor
     }
 
     Item {
@@ -50,7 +50,7 @@ Item {
         x: 18
         y: settingItem.height - 1
         height: 1
-        color: Style.sideColor
+        color: Theme.sideColor
     }
 
 }

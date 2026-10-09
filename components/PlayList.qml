@@ -21,9 +21,9 @@ Popup {
     y: 80
     background: QBlurCard {
         anchors.fill: parent
-        borderRadius: Style.settings.cubeRadius
+        borderRadius: Style.cubeRadius
         clip: false
-        blurSource: mainLayout
+        blurSource: Options.mainLayout
         shadowEffect: true
         rectXy: Qt.rect(playList.x, playList.y, 360, playList.height)
     }
@@ -43,23 +43,23 @@ Popup {
             height: 36
             text: "播放列表"
             font.bold: true
-            font.pixelSize: Style.settings.textH2
+            font.pixelSize: Style.textH2
             verticalAlignment: Text.AlignVCenter
-            color: Style.fontColor
+            color: Theme.fontColor
             Rectangle {
                 y: 6
                 x: parent.width + 8
                 height: 24
                 radius: 8
-                color: Style.themeColor
+                color: Theme.themeColor
                 width: songCountTag.width + 16
                 Text {
                     id: songCountTag
                     anchors.centerIn: parent
                     font.bold: true
-                    font.pixelSize: Style.settings.textmain
+                    font.pixelSize: Style.textmain
                     text: Options.queue.count + "首"
-                    color: Style.primaryColor
+                    color: Theme.primaryColor
                 }
             }
         }
@@ -95,7 +95,7 @@ Popup {
             shadowEnabled: false
             onClicked: {
                 Options.dialog.openSimpleDialog("删除", "这将移除播放列表其他歌曲，是否继续？",
-                    function(): void {
+                    function() {
                         // 空队列 / 无当前曲时下标为 -1：那就只清空，不留一条空条目
                         const i = Options.queue.playListIndex;
                         const cur = (i >= 0 && i < Options.queue.count) ? Options.queue.get(i) : null;
@@ -106,7 +106,7 @@ Popup {
                         } else {
                             Options.queue.playListIndex = -1;
                         }
-                        Style.warned("已清空播放列表",1);
+                        Options.warned("已清空播放列表",1);
                     }
                 );
             }
@@ -118,7 +118,7 @@ Popup {
             width: 36
             height: 36
             radius: 18
-            iconSize: Style.settings.texticon + 2
+            iconSize: Style.texticon + 2
             buttonColor: "transparent"
             shadowEnabled: false
             onClicked: {
@@ -183,8 +183,8 @@ Popup {
                 readonly property bool isCurrent: Options.queue.playListIndex === listfile.index
                 height: 60
                 width: ListView.view.width - 12
-                radius: Style.settings.labelRadius
-                color: isCurrent ? Style.containColor : "transparent"
+                radius: Style.labelRadius
+                color: isCurrent ? Theme.containColor : "transparent"
 
                 Text {
                     y: 10
@@ -193,7 +193,7 @@ Popup {
                     z: 5
                     width: 40
                     height: 40
-                    color: isCurrent ? Style.themeColor : Style.textColor
+                    color: isCurrent ? Theme.themeColor : Theme.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -206,8 +206,8 @@ Popup {
                     height: 20
                     text: songName
                     elide: Text.ElideRight
-                    color: Style.fontColor
-                    font.pixelSize: Style.settings.text
+                    color: Theme.fontColor
+                    font.pixelSize: Style.text
                     verticalAlignment: Text.AlignVCenter
                 }
                 Text {
@@ -217,9 +217,9 @@ Popup {
                     width: 200
                     height: 20
                     text: songArtist
-                    color: Style.textColor
+                    color: Theme.textColor
                     elide: Text.ElideRight
-                    font.pixelSize: Style.settings.textTip
+                    font.pixelSize: Style.textTip
                     verticalAlignment: Text.AlignVCenter
                     visible: songArtist !== ""
                 }
@@ -236,11 +236,11 @@ Popup {
                     Text {
                         width: 56
                         height: 40
-                        color: Style.textColor
+                        color: Theme.textColor
                         text: Playback.sourceText(listfile.source)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: Style.settings.text
+                        font.pixelSize: Style.text
                     }
                 }
 
@@ -260,7 +260,7 @@ Popup {
                     Rectangle {
                         id: listHover
                         anchors.fill: parent
-                        radius: Style.settings.labelRadius
+                        radius: Style.labelRadius
                         color: Qt.rgba(0.5, 0.5, 0.5, 0.2)
                         opacity: 0
                         visible: opacity > 0
@@ -283,7 +283,7 @@ Popup {
                                 if (listfile.index === cur) return
                                 Options.queue.move(listfile.index, cur + 1, 1)
                                 if (listfile.index < cur) Options.queue.playListIndex = cur - 1
-                                Options.warn.tiped("已设为下一首", 1)
+                                Options.warned("已设为下一首", 1)
                             }
                         }
                         SButton {
@@ -299,13 +299,13 @@ Popup {
                             shadowEnabled: false
                             tipText: "收藏"
                             onClicked: {
-                                if (listfile.source === -1) { Options.warn.tiped("本地歌曲请使用本地收藏", 0); return }
+                                if (listfile.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
                                 if (FavoriteSongs.isFavorite(listfile.path, "song")) {
                                     FavoriteSongs.removeFavorite(listfile.path, "song")
-                                    Options.warn.tiped("已取消收藏", 0)
+                                    Options.warned("已取消收藏", 0)
                                 } else {
                                     FavoriteSongs.addFavorite(listfile.path, listfile.name, listfile.songer, "", listfile.source, 0, "song")
-                                    Options.warn.tiped("已收藏", 1)
+                                    Options.warned("已收藏", 1)
                                 }
                             }
                         }
@@ -334,9 +334,9 @@ Popup {
         }
     }
     enter: Transition {
-        NumberAnimation { property: "x"; duration: 450; from: window.width; to: window.width - 380; easing.type: Easing.OutExpo }
+        NumberAnimation { property: "x"; duration: 450; from: playList.parent.width; to: playList.parent.width - 380; easing.type: Easing.OutExpo }
     }
     exit: Transition {
-        NumberAnimation { property: "x"; duration: 240; to: window.width; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "x"; duration: 240; to: playList.parent.width; easing.type: Easing.OutCubic }
     }
 }
