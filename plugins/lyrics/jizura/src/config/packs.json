@@ -1,0 +1,28 @@
+{
+  "_comment": "Which JIZURA sources are bundled. Edit this, then re-run tools/build_bundle.py. The original JIZURA checkout is never modified.",
+  "core_excluded": {
+    "02_fonts.js": "replaced by src/runtime/30_fonts.js - the browser font loader uses async/await, which the Qt QML JS engine cannot parse",
+    "10_audio.js": "browser AudioContext decode + IndexedDB; the plugin gets beats from the host instead",
+    "11_export.js": "WebCodecs MP4 export",
+    "12_ui.js": "the browser editor UI"
+  },
+  "tiers": {
+    "core": [],
+    "recommended": [
+      "11p_enter.js",
+      "11p_exit.js",
+      "11p_decor.js",
+      "11p_layoutsA.js",
+      "11p_layoutsB.js",
+      "11p_typo1.js",
+      "11p_kinetic1.js",
+      "11p_looks.js",
+      "11p_treattrans.js",
+      "11p_bgcamB.js",
+      "11p_fxB.js",
+      "11p_styles.js"
+    ],
+    "full": ["11p_*.js"]
+  },
+  "default_tier": "recommended"
+}

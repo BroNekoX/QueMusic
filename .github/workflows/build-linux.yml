@@ -340,12 +340,12 @@ jobs:
             done
             return 1
           }
-          for lib in libwayland-client.so.0 libwayland-cursor.so.0; do
+          for lib in libwayland-cursor.so.0; do
             if f="$(find_host_lib "$lib")"; then
               cp -aL "$f" AppDir/usr/lib/
               echo "✅ 已带上宿主 $lib"
             else
-              echo "⚠️ 未找到宿主 $lib（构建机缺 libwayland-client0/libwayland-cursor0？）"
+              echo "⚠️ 未找到宿主 $lib（构建机缺 libwayland-cursor0？）"
             fi
           done
 
@@ -367,7 +367,7 @@ jobs:
           # 允许随包带走的宿主库白名单（协议/解码/输入法框架，ABI 稳定）
           allowed() {
             case "$(basename "$1")" in
-              libwayland-client.so.*|libwayland-cursor.so.*|libxkbcommon.so.*) return 0 ;;
+              libwayland-cursor.so.*|libxkbcommon.so.*) return 0 ;;
               libFcitx5*.so.*) return 0 ;;
               libavcodec.so.*|libavformat.so.*|libavutil.so.*|libswresample.so.*|libswscale.so.*) return 0 ;;
               *) return 1 ;;
@@ -496,6 +496,7 @@ jobs:
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
             --plugin qt \
             --custom-apprun AppRun.sh \
+            --exclude-library libwayland-client.so.0 \
             --exclude-library libwayland-egl.so.1 \
             --exclude-library libvulkan.so.1 \
             --output appimage
@@ -543,7 +544,6 @@ jobs:
           warn  "ibus 输入法插件（可选）"                  "$R/usr/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so"
           check "SQLite 驱动"                            "$R/usr/plugins/sqldrivers/libqsqlite.so"
           check "Wayland 客户端库"                        "$R/usr/lib/libQt6WaylandClient.so*"
-          check "Wayland 协议库"                          "$R/usr/lib/libwayland-client.so*"
           check "Qt OpenGL 模块"                         "$R/usr/lib/libQt6OpenGL.so*"
           # 说明：Qt5 时代的 libQt6WaylandEglClientHwIntegration.so.6 在 Qt6 已并入
           # libQt6WaylandClient，不再作为校验项（EGL 能力由上面的 wayland-egl 缓冲集成插件提供）。
@@ -554,7 +554,8 @@ jobs:
           absent "宿主图形驱动库" \
             "$R/usr/lib/libGL.so*"  "$R/usr/lib/libEGL.so*" \
             "$R/usr/lib/libGLX.so*" "$R/usr/lib/libOpenGL.so*" \
-            "$R/usr/lib/libgbm.so*" "$R/usr/lib/libwayland-egl.so*"
+            "$R/usr/lib/libgbm.so*" "$R/usr/lib/libwayland-egl.so*" \
+            "$R/usr/lib/libwayland-client.so*"
 
           # Quick Controls 只该有 Basic 一套风格（其余在裁剪步骤已从 Qt 目录删除）。
           # 这些 QML 资源或 style 插件一旦又进包，说明裁剪步骤失效了。

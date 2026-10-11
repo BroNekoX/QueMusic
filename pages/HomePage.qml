@@ -67,24 +67,38 @@ Item {
                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
-                    recommendView.scrollTop();
+                    homeView.scrollTop();
                     MusicApi.hotPlayLists.clear();
                 }
             }
         }
 
-        QScrollView {
+        QGridView {
             id: homeView
             x: 0
             y: 68
-            width: homePage.width
+            width: homePage.width - 8
             height: homePage.height - 68
             property int standWidth: homePage.width - 52
+            model: MusicApi.hotPlayLists
+            cellWidth: 172
+            cellHeight: 280
+            leftMargin: 24
 
-            Column {
+            onAtYEndChanged: {
+                if (atYEnd && !MusicApi.loadState && homeView.count !== 0) {
+                    if (MusicApi.hotPlayLists.count % 20 === 0) {
+                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                    } else {
+                        Options.warned("没有更多了",0);
+                    }
+                }
+            }
+
+            header: Column {
                 id: homeContent
                 spacing: 16
-                padding: 24
+                height: implicitHeight + 16
                 Rectangle {
                     width: homeView.standWidth
                     height: warnText.implicitHeight + 40
@@ -632,141 +646,116 @@ Item {
 
                 QHead { text: "热门歌单" }
 
-                QGridView {
-                    id: recommendView
-                    width: homeView.standWidth
-                    height: homeView.height - 64
-                    model: MusicApi.hotPlayLists
-                    cellWidth: 172
-                    cellHeight: 280
-                    rightMargin: -8
-                    leftMargin: 8
-                    topMargin: 8
-                    enabled: homeView.scrollToY === homeView.contentHeight - homeView.height
-                    interactive: enabled
-                    onTopScroll: {
-                        homeView.contentY -= 2
-                        homeView.scrollToY -= 2
-                    }
 
-                    onAtYEndChanged: {
-                        if (atYEnd && !MusicApi.loadState && recommendView.count !== 0) {
-                            if (MusicApi.hotPlayLists.count % 20 === 0) {
-                                MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
-                            } else {
-                                Options.warned("没有更多了",0);
-                            }
-                        }
+            }
+
+            delegate: Rectangle {
+                id: hotPlayRow
+                required property string hash
+                required property string cover
+                required property string title
+                required property string album
+                required property real playcount
+                required property real duration
+                required property var model
+                width: 148
+                height: 256
+                radius: Style.labelRadius
+                color: Theme.primaryColor
+                scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
+                Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                RectangularShadow {
+                    anchors.fill: parent
+                    z: -1
+                    offset.x: 0
+                    offset.y: hotPlayListsArea.containsMouse ? 10 : 4
+                    radius: Style.labelRadius
+                    blur: hotPlayListsArea.containsMouse ? 32 : 14
+                    spread: 0
+                    visible: true
+                    color: Theme.shadowColor
+                    Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                    Behavior on offset.y { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                }
+                MouseArea {
+                    id: hotPlayListsArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        hotlistsWindow.mainTarget = homeMain;
+                        MusicApi.playlistSong.clear();
+                        MusicApi.globalid = hotPlayRow.hash;
+                        MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
+                        hotlistsWindow.opened(hotPlayRow.model);
+                        Options.exitIndex = 1;
                     }
-                    delegate: Rectangle {
-                        id: hotPlayRow
-                        required property string hash
-                        required property string cover
-                        required property string title
-                        required property string album
-                        required property real playcount
-                        required property real duration
-                        required property var model
-                        width: 148
-                        height: 256
-                        radius: Style.labelRadius
-                        color: Theme.primaryColor
-                        scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                        RectangularShadow {
-                            anchors.fill: parent
-                            z: -1
-                            offset.x: 0
-                            offset.y: hotPlayListsArea.containsMouse ? 10 : 4
-                            radius: Style.labelRadius
-                            blur: hotPlayListsArea.containsMouse ? 32 : 14
-                            spread: 0
-                            visible: true
-                            color: Theme.shadowColor
-                            Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                            Behavior on offset.y { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                        }
-                        MouseArea {
-                            id: hotPlayListsArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                hotlistsWindow.mainTarget = homeMain;
-                                MusicApi.playlistSong.clear();
-                                MusicApi.globalid = hotPlayRow.hash;
-                                MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
-                                hotlistsWindow.opened(hotPlayRow.model);
-                                Options.exitIndex = 1;
-                            }
-                        }
-                        QPicture {
-                            width: 148
-                            height: 148
-                            source: (hotPlayRow.cover || "").replace("{size}", "128")
-                            radius: Style.labelRadius
-                            sourceSize: Qt.size(128,128)
-                            radius3: 0
-                            radius4: 0
-                        }
-                        Text {
-                            x: 16
-                            y: 160
-                            width: 116
-                            text: hotPlayRow.title
-                            font.bold: true
-                            color: Theme.fontColor
-                            font.pixelSize: Style.textmain
-                            wrapMode: Text.Wrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            x: 16
-                            y: 200
-                            width: 116
-                            height: 18
-                            text: hotPlayRow.album
-                            color: Theme.textColor
-                            font.pixelSize: Style.text
-                            elide: Text.ElideRight
-                        }
-                        Rectangle {
-                            x: 0
-                            y: 224
-                            height: 32
-                            width: 148
-                            color: Theme.sideColor
-                            bottomLeftRadius: Style.labelRadius
-                            bottomRightRadius: Style.labelRadius
-                            Text {
-                                id: playIcon
-                                x: 16
-                                height: 32
-                                text: "\uf00e"
-                                font.pixelSize: Style.text
-                                font.family: Fonts.icon
-                                color: Theme.textColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            Text {
-                                x: 20 + playIcon.width
-                                height: 32
-                                text: Math.floor(hotPlayRow.playcount / 10000) + "万"
-                                visible: hotPlayRow.playcount >= 10000
-                                font.pixelSize: Style.textTip
-                                color: Theme.textColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            Text {
-                                x: parent.width - width - 16
-                                height: 32
-                                text: hotPlayRow.duration + "首"
-                                visible: hotPlayRow.duration > 0
-                                font.pixelSize: Style.textTip
-                                color: Theme.textColor
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
+                }
+                QPicture {
+                    width: 148
+                    height: 148
+                    source: (hotPlayRow.cover || "").replace("{size}", "128")
+                    radius: Style.labelRadius
+                    sourceSize: Qt.size(128,128)
+                    radius3: 0
+                    radius4: 0
+                }
+                Text {
+                    x: 16
+                    y: 160
+                    width: 116
+                    text: hotPlayRow.title
+                    font.bold: true
+                    color: Theme.fontColor
+                    font.pixelSize: Style.textmain
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                }
+                Text {
+                    x: 16
+                    y: 200
+                    width: 116
+                    height: 18
+                    text: hotPlayRow.album
+                    color: Theme.textColor
+                    font.pixelSize: Style.text
+                    elide: Text.ElideRight
+                }
+                Rectangle {
+                    x: 0
+                    y: 224
+                    height: 32
+                    width: 148
+                    color: Theme.sideColor
+                    bottomLeftRadius: Style.labelRadius
+                    bottomRightRadius: Style.labelRadius
+                    Text {
+                        id: playIcon
+                        x: 16
+                        height: 32
+                        text: "\uf00e"
+                        font.pixelSize: Style.text
+                        font.family: Fonts.icon
+                        color: Theme.textColor
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Text {
+                        x: 20 + playIcon.width
+                        height: 32
+                        text: Math.floor(hotPlayRow.playcount / 10000) + "万"
+                        visible: hotPlayRow.playcount >= 10000
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Text {
+                        x: parent.width - width - 16
+                        height: 32
+                        text: hotPlayRow.duration + "首"
+                        visible: hotPlayRow.duration > 0
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

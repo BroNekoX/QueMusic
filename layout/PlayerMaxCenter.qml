@@ -123,7 +123,6 @@ Rectangle {
         }
     }
 
-    // 歌词界面模块：换主题 = 换加载的文件；宿主不可见时卸载（active: false）
     Loader {
         id: lyricLoader
         anchors.fill: parent

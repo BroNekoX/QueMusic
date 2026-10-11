@@ -133,6 +133,19 @@ file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPEND
 # 歌词界面预设目录（可整体替换的歌词界面）
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
+# JIZURA 歌词 PV：既是内置歌词主题，源码同时保留为可外置安装的插件目录。
+# 必须进 QML_FILES 而不是 RESOURCES —— 只有这样 qmlcachegen 才会在构建期把它连同
+# 1.2 MB 的 JS 库一起编译成字节码嵌入二进制；否则运行时要现场编译约一秒，
+# 而宿主若在这段时间里卸载 Loader，Qt 6.10.3 会破坏 V4 堆
+# （崩溃落在 Qt6Qml.dll 的 QV4::Value::sameValueZero，详见该插件 README）。
+# 只取运行时真正加载的文件：src/runtime/*.js 是打包输入、tools/*.js 是 Node 脚本、
+# tests/ 是命令行测试脚手架，三者都不能进 QML 模块（会被 qmlcachegen 当 QML JS 编译）。
+file(GLOB LYRICS_JIZURA_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
+    "plugins/lyrics/jizura/jizura.qml"
+    "plugins/lyrics/jizura/qml/*.qml")
+file(GLOB LYRICS_JIZURA_JS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
+    "plugins/lyrics/jizura/js/*.js")
+
 # 模块内全部 QML/JS；qmltc 跳过清单须在 qt6_add_qml_module() 解析参数前备好，故先统一为变量
 set(QUE_MUSIC_QML_FILES
     main.qml
@@ -140,6 +153,8 @@ set(QUE_MUSIC_QML_FILES
     api/qrcode.js
     ${LAYOUT_QML}
     ${LYRICS_UI_QML}
+    ${LYRICS_JIZURA_QML}
+    ${LYRICS_JIZURA_JS}
     ${PAGE_QML}
     ${QML_COMPONENTS}
     )

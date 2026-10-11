@@ -37,10 +37,10 @@ GridView {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: view.enabled
         readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
-        readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin
+        readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin + view.originY
         onWheel: (event) => {
             listViewAnime.running = false;
-            view.scrollToY = Math.max(- view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
+            view.scrollToY = Math.max(view.originY - view.topMargin, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
             viewBar.active = true;
             event.accepted = true;
             listViewAnime.running = true;
