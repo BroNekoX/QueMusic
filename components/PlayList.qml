@@ -281,7 +281,8 @@ Popup {
                             onClicked: {
                                 const cur = Options.queue.playListIndex
                                 if (listfile.index === cur) return
-                                // 已在队列里就走移动：当前播放行跟着走，不会串到别人身上
+                                // 已在队列里就走移动：moveTo 内部会收紧越界下标，
+                                // 当前播放行跟着走，高亮不会串到别人身上
                                 Options.queue.moveTo(listfile.index, cur + 1)
                                 Options.warned("已设为下一首", 1)
                             }

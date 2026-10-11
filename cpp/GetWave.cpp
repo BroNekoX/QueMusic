@@ -52,7 +52,7 @@ void GetWave::setBands(int b)
 
 void GetWave::setEnabled(bool e)
 {
-    m_enabled = e;
+    m_enabled.store(e, std::memory_order_relaxed);
     emit enabledChanged();
 
     m_dataReady.storeRelease(0);
@@ -105,7 +105,7 @@ QVector<QPointF> GetWave::wavePath() const
 // 音频线程调用：降混成单声道写入无锁环，不取锁、不分配
 void GetWave::pushSamples(const float *interleaved, int frames, int channels, int sampleRate)
 {
-    if (!m_enabled || frames <= 0 || channels <= 0)
+    if (!m_enabled.load(std::memory_order_relaxed) || frames <= 0 || channels <= 0)
         return;
 
     const int n = qMin(frames, kMaxPushFrames);
@@ -136,7 +136,7 @@ void GetWave::pushSamples(const float *interleaved, int frames, int channels, in
 
 void GetWave::updateSpectrum()
 {
-    if (!m_enabled)
+    if (!m_enabled.load(std::memory_order_relaxed))
         return;
     if (!m_dataReady.loadAcquire())
         return;
@@ -278,7 +278,8 @@ void GetWave::computeSpectrumFromFFT(const float *samples, int n, float sampleRa
 
 void GetWave::rebuildWavePath(int bands, qreal width, qreal height)
 {
-    if (bands < 0 || width <= 0 || height <= 0) return;
+    // bands < 2 时 barW = width / (bands - 1) 会除零
+    if (bands < 2 || width <= 0 || height <= 0) return;
 
     qreal barW = width / (bands - 1);
 

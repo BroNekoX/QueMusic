@@ -338,7 +338,8 @@ KugouApi::KugouApi(QObject *parent)
     m_nam = new QNetworkAccessManager(this);
 }
 
-// 通用 GET 请求（带 UA / Cookie，清理 KG_TAG 包裹后解析 JSON）
+// 通用 GET 请求（带 UA / Cookie，清理 KG_TAG 包裹后解析 JSON）。
+// 传输失败时在解析结果里补 "error" 键，供上层区分「网络失败」与「业务成功但空数据」。
 void KugouApi::getComments(const QString &hash, int page, int pageSize)
 {
     // 评论网关要数字 mixsongid（播放信息接口返回的 album_audio_id），按安卓端规则签名
@@ -368,7 +369,7 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
         QUrl url(QStringLiteral("https://gateway.kugou.com/mcomment/v1/cmtlist"));
         url.setQuery(query);
 
-        get(url.toString(), [this](const QJsonObject &json) {
+        get(url.toString(), [this, pageSize](const QJsonObject &json) {
             QVariantList info;
             for (const QJsonValue &value : json.value(QStringLiteral("list")).toArray()) {
                 const QJsonObject c = value.toObject();
@@ -382,7 +383,12 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
                     c.value(QStringLiteral("like")).toObject().value(QStringLiteral("count")).toInt(),
                     c.value(QStringLiteral("reply_num")).toInt());
             }
-            emit resultReady(QStringLiteral("getComments"), ApiCommon::listResult(info), Source);
+            QVariantMap result = ApiCommon::listResult(info);
+            // 一页拿满就认为可能还有下一页；拿不满就没有更多了
+            result.insert(QStringLiteral("hasMore"), info.size() >= pageSize);
+            if (json.contains(QStringLiteral("error")))
+                result.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
+            emit resultReady(QStringLiteral("getComments"), result, Source);
         });
     };
 
@@ -407,11 +413,14 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
 void KugouApi::get(const QString &url, const Callback &cb)
 {
     ApiHttp::get(m_nam, this, QUrl(url), kUa, "https://www.kugou.com/", m_cookie.toUtf8(),
-                 [cb](const QByteArray &body) {
+                 [cb](const QByteArray &body, QNetworkReply::NetworkError error) {
                      // 部分接口的 JSON 被 KG_TAG 注释包裹，先剥掉再解析
                      QByteArray data = body;
                      data.replace("<!--KG_TAG_RES_START-->", "").replace("<!--KG_TAG_RES_END-->", "");
-                     cb(QJsonDocument::fromJson(data).object());
+                     QJsonObject object = QJsonDocument::fromJson(data).object();
+                     if (error != QNetworkReply::NoError)
+                         object.insert(QStringLiteral("error"), int(error));
+                     cb(object);
                  });
 }
 
@@ -1170,6 +1179,9 @@ void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPoint
                         ? d.value(QStringLiteral("timeLength")).toDouble()
                         : d.value(QStringLiteral("duration")).toDouble());
         data.insert(QStringLiteral("fileName"), fileName);
+        // 传输失败：让上层按「网络错误」提示，而不是回退到旧的 128k 地址
+        if (json.contains(QStringLiteral("error")))
+            data.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
 
         st->meta = data;
         st->metaUrl = playUrl;
@@ -1324,6 +1336,8 @@ void KugouApi::requestSignedPlayInfo(const QString &hash, int type, const QStrin
             fail.insert(QStringLiteral("type"), type);
             fail.insert(QStringLiteral("errReason"),
                         reason.isEmpty() ? QStringLiteral("unavailable") : reason);
+            if (json.contains(QStringLiteral("error")))
+                fail.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
             emit resultReady(QStringLiteral("getMusicInfo"), fail, Source);
             return;
         }
@@ -1373,6 +1387,9 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
             empty.insert(QStringLiteral("info"), QVariantList{});
             empty.insert(QStringLiteral("translate"), QVariantList{});
             empty.insert(QStringLiteral("hash"), hash);
+            // 请求失败不能当成「这首歌没有歌词」，否则界面会显示成纯音乐
+            if (json.contains(QStringLiteral("error")))
+                empty.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
             emit resultReady(QStringLiteral("getLyricInfo"), empty, Source);
             return;
         }
@@ -1403,6 +1420,8 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
                 qWarning() << "[lyric] content 为空，歌词下载失败";
                 data.insert(QStringLiteral("info"), QVariantList{});
                 data.insert(QStringLiteral("translate"), QVariantList{});
+                if (json2.contains(QStringLiteral("error")))
+                    data.insert(QStringLiteral("error"), json2.value(QStringLiteral("error")));
             }
             data.insert(QStringLiteral("hash"), hash);
             emit resultReady(QStringLiteral("getLyricInfo"), data, Source);

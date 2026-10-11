@@ -19,7 +19,8 @@ namespace ApiHttp {
 
 inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                 const QByteArray &userAgent, const QByteArray &referer,
-                const QByteArray &cookie, std::function<void(const QByteArray &)> done)
+                const QByteArray &cookie,
+                std::function<void(const QByteArray &, QNetworkReply::NetworkError)> done)
 {
     QNetworkRequest request(url);
     request.setRawHeader("User-Agent", userAgent);
@@ -32,25 +33,30 @@ inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
 
     QNetworkReply *reply = nam->get(request);
     QObject::connect(reply, &QNetworkReply::finished, context, [reply, done = std::move(done)] {
-        if (reply->error() != QNetworkReply::NoError) {
+        const QNetworkReply::NetworkError error = reply->error();
+        const QByteArray body = error != QNetworkReply::NoError ? QByteArray() : reply->readAll();
+        if (error != QNetworkReply::NoError) {
             // 只记 scheme://host/path：查询串里可能带 token
             QUrl clean = reply->url();
             clean.setQuery(QString());
             qWarning() << "[api] 请求失败:" << reply->errorString() << clean.toString();
         }
-        const QByteArray body = reply->error() != QNetworkReply::NoError ? QByteArray() : reply->readAll();
         reply->deleteLater();
-        done(body);
+        done(body, error);
     });
 }
 
+// JSON 版：传输失败时在对象里补一个 "error" 键，让上层与「业务成功但空数据」区分开。
 inline void getJson(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                     const QByteArray &userAgent, const QByteArray &referer,
                     const QByteArray &cookie, std::function<void(const QJsonObject &)> done)
 {
     get(nam, context, url, userAgent, referer, cookie,
-        [done = std::move(done)](const QByteArray &body) {
-            done(QJsonDocument::fromJson(body).object());
+        [done = std::move(done)](const QByteArray &body, QNetworkReply::NetworkError error) {
+            QJsonObject object = QJsonDocument::fromJson(body).object();
+            if (error != QNetworkReply::NoError)
+                object.insert(QStringLiteral("error"), int(error));
+            done(object);
         });
 }
 
