@@ -21,15 +21,19 @@ Popup {
     // 本地音乐没有在线评论，直接不显示分页
     readonly property bool isLocal: !String(Playback.player.source).startsWith("http")
     readonly property real bodyY: isLocal ? 176 : 216
+    // 评论页码：首页可能带热评，不能用「总条数 / 30」反推下一页
+    property int commentPage: 1
 
     function loadComments(): void {
+        commentPage = 1
         MusicApi.getComments(Playback.musicHash, 1, 30, Playback.musicSource)
     }
     // 只在真正看得见评论页时请求，换歌也会跟着重来
     function refreshComments(): void {
-        if (root.visible && tabs.index === 1)
-            MusicApi.comments.clear();
-            root.loadComments();
+        if (!root.visible || tabs.index !== 1)
+            return
+        MusicApi.comments.clear()
+        root.loadComments()
     }
 
     onOpened: {
@@ -323,8 +327,9 @@ Popup {
             }
             onAtYEndChanged: {
                 if (atYEnd && !MusicApi.loadState && count !== 0) {
-                    if(count % 30 === 0) {
-                        MusicApi.getComments(Playback.musicHash, count / 30 + 1, 30, Playback.musicSource);
+                    if (MusicApi.commentsHasMore) {
+                        root.commentPage += 1;
+                        MusicApi.getComments(Playback.musicHash, root.commentPage, 30, Playback.musicSource);
                     } else {
                         isEnd = true;
                     }

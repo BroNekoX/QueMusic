@@ -19,7 +19,8 @@ namespace ApiHttp {
 
 inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                 const QByteArray &userAgent, const QByteArray &referer,
-                const QByteArray &cookie, std::function<void(const QByteArray &)> done)
+                const QByteArray &cookie,
+                std::function<void(const QByteArray &, QNetworkReply::NetworkError)> done)
 {
     QNetworkRequest request(url);
     request.setRawHeader("User-Agent", userAgent);
@@ -31,20 +32,26 @@ inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
 
     QNetworkReply *reply = nam->get(request);
     QObject::connect(reply, &QNetworkReply::finished, context, [reply, done = std::move(done)] {
+        const QNetworkReply::NetworkError error = reply->error();
+        const QByteArray body = error != QNetworkReply::NoError ? QByteArray() : reply->readAll();
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError)
+        if (error != QNetworkReply::NoError)
             qWarning() << "[api] 请求失败:" << reply->errorString() << reply->url().toString();
-        done(reply->error() != QNetworkReply::NoError ? QByteArray() : reply->readAll());
+        done(body, error);
     });
 }
 
+// JSON 版：传输失败时在对象里补一个 "error" 键，让上层与「业务成功但空数据」区分开。
 inline void getJson(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                     const QByteArray &userAgent, const QByteArray &referer,
                     const QByteArray &cookie, std::function<void(const QJsonObject &)> done)
 {
     get(nam, context, url, userAgent, referer, cookie,
-        [done = std::move(done)](const QByteArray &body) {
-            done(QJsonDocument::fromJson(body).object());
+        [done = std::move(done)](const QByteArray &body, QNetworkReply::NetworkError error) {
+            QJsonObject object = QJsonDocument::fromJson(body).object();
+            if (error != QNetworkReply::NoError)
+                object.insert(QStringLiteral("error"), int(error));
+            done(object);
         });
 }
 

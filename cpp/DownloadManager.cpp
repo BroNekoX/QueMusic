@@ -11,6 +11,36 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QRegularExpression>
+
+namespace {
+
+// 远端标题可能带路径分隔符、Windows 非法字符或超长内容，落盘前统一清洗
+QString sanitizeFileName(const QString &raw)
+{
+    QString name = QFileInfo(raw).fileName().trimmed();
+    // Windows 上 QFileInfo 会同时处理两种分隔符，这里再兜一层，确保没有残留目录成分
+    name = name.section(QLatin1Char('/'), -1).section(QLatin1Char('\\'), -1);
+    static const QRegularExpression illegal(QStringLiteral("[<>:\"/\\\\|?*\\x00-\\x1F]"));
+    name.replace(illegal, QStringLiteral("_"));
+    // Windows 不允许文件名以点或空格结尾
+    while (name.endsWith(QLatin1Char('.')) || name.endsWith(QLatin1Char(' ')))
+        name.chop(1);
+    if (name.isEmpty() || name == QLatin1String(".") || name == QLatin1String(".."))
+        return QStringLiteral("unknown");
+
+    constexpr int kMaxNameLength = 120;
+    if (name.size() > kMaxNameLength) {
+        const QFileInfo fi(name);
+        const QString suffix = fi.suffix();
+        const int keep = qMax(1, kMaxNameLength - (suffix.isEmpty() ? 0 : suffix.size() + 1));
+        const QString base = fi.completeBaseName().left(keep);
+        name = suffix.isEmpty() ? base : base + QLatin1Char('.') + suffix;
+    }
+    return name;
+}
+
+} // namespace
 
 DownloadManager::DownloadManager(QObject *parent)
     : QAbstractListModel(parent)
@@ -107,7 +137,7 @@ void DownloadManager::addDownload(const QString &url, const QString &fileName,
     DownloadTask task;
     task.id = id;
     task.url = url;
-    task.fileName = fileName;
+    task.fileName = sanitizeFileName(fileName);
     task.title = meta.value(QStringLiteral("title")).toString();
     task.artist = meta.value(QStringLiteral("artist")).toString();
     task.cover = meta.value(QStringLiteral("cover")).toString();
@@ -201,37 +231,48 @@ void DownloadManager::startNextTask()
     emit hasActiveTasksChanged();
 
     // 准备保存路径
-    QString downloadDir = effectiveDownloadDir();
+    const QString downloadDir = effectiveDownloadDir();
     QDir().mkpath(downloadDir);
+    const QString rootDir = QDir(downloadDir).absolutePath();
 
     // 如果文件已存在，添加数字后缀避免覆盖
-    QString basePath = downloadDir + "/" + task.fileName;
+    QString basePath = rootDir + QLatin1Char('/') + task.fileName;
     QString savePath = basePath;
     int counter = 1;
     while (QFile::exists(savePath)) {
-        QFileInfo fi(basePath);
-        savePath = fi.completeBaseName() + QString("(%1)").arg(counter);
+        const QFileInfo fi(basePath);
+        QString name = fi.completeBaseName() + QString("(%1)").arg(counter);
         if (!fi.suffix().isEmpty())
-            savePath += "." + fi.suffix();
-        savePath = downloadDir + "/" + savePath;
+            name += QLatin1Char('.') + fi.suffix();
+        savePath = rootDir + QLatin1Char('/') + name;
         counter++;
+    }
+
+    const auto failTask = [&](const QString &message) {
+        task.status = DownloadTask::Error;
+        task.errorString = message;
+        emit dataChanged(mi, mi, { StatusRole, ErrorStringRole });
+        if (m_file) {
+            m_file->deleteLater();
+            m_file = nullptr;
+        }
+        m_currentTaskId = -1;
+        emit currentTaskIdChanged();
+        emit hasActiveTasksChanged();
+        // 继续下一个
+        startNextTask();
+    };
+
+    // 文件名已在 addDownload() 清洗；这里再校验最终路径仍在下载目录内
+    if (!QFileInfo(savePath).absoluteFilePath().startsWith(rootDir + QLatin1Char('/'))) {
+        failTask(tr("Invalid file name: %1").arg(task.fileName));
+        return;
     }
     task.filePath = savePath;
 
     m_file = new QFile(savePath, this);
     if (!m_file->open(QIODevice::WriteOnly)) {
-        task.status = DownloadTask::Error;
-        task.errorString = tr("Cannot open file: %1").arg(m_file->errorString());
-        emit dataChanged(mi, mi, { StatusRole, ErrorStringRole });
-
-        m_file->deleteLater();
-        m_file = nullptr;
-        m_currentTaskId = -1;
-        emit currentTaskIdChanged();
-        emit hasActiveTasksChanged();
-
-        // 继续下一个
-        startNextTask();
+        failTask(tr("Cannot open file: %1").arg(m_file->errorString()));
         return;
     }
 

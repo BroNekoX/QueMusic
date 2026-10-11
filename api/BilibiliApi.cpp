@@ -136,9 +136,10 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
         getSigned(QStringLiteral("/x/v2/reply/wbi/main"), params,
                   [this, hash](const QJsonObject &obj) {
                       const QJsonObject data = obj.value(QStringLiteral("data")).toObject();
-                      m_commentCursors.insert(hash, data.value(QStringLiteral("cursor")).toObject()
-                                                        .value(QStringLiteral("next"))
-                                                        .toVariant().toLongLong());
+                      const QJsonObject cursor = data.value(QStringLiteral("cursor")).toObject();
+                      m_commentCursors.insert(hash,
+                                              cursor.value(QStringLiteral("next"))
+                                                  .toVariant().toLongLong());
                       QVariantList info;
                       for (const QJsonValue &value : data.value(QStringLiteral("replies")).toArray()) {
                           const QJsonObject c = value.toObject();
@@ -152,7 +153,13 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
                               c.value(QStringLiteral("like")).toInt(),
                               c.value(QStringLiteral("rcount")).toInt());
                       }
-                      emitList(QStringLiteral("getComments"), info);
+                      QVariantMap result = ApiCommon::listResult(info);
+                      // B 站游标自带 is_end，直接透出给上层判断还有没有下一页
+                      result.insert(QStringLiteral("hasMore"),
+                                    !cursor.value(QStringLiteral("is_end")).toBool());
+                      if (obj.contains(QStringLiteral("error")))
+                          result.insert(QStringLiteral("error"), obj.value(QStringLiteral("error")));
+                      emit resultReady(QStringLiteral("getComments"), result, Source);
                   },
                   !m_loginCookie.isEmpty());
     };
@@ -306,13 +313,14 @@ void BilibiliApi::emitList(const QString &action, const QVariantList &info)
     emit resultReady(action, ApiCommon::listResult(info), Source);
 }
 
-void BilibiliApi::emitLyrics(const QString &hash, const QVariantList &lyrics)
+void BilibiliApi::emitLyrics(const QString &hash, const QVariantList &lyrics, int error)
 {
-    emit resultReady(QStringLiteral("getLyricInfo"),
-                     QVariantMap{{QStringLiteral("info"), lyrics},
-                                 {QStringLiteral("translate"), QVariantList()},
-                                 {QStringLiteral("hash"), hash}},
-                     Source);
+    QVariantMap data{{QStringLiteral("info"), lyrics},
+                     {QStringLiteral("translate"), QVariantList()},
+                     {QStringLiteral("hash"), hash}};
+    if (error != 0)
+        data.insert(QStringLiteral("error"), error);
+    emit resultReady(QStringLiteral("getLyricInfo"), data, Source);
 }
 
 void BilibiliApi::searchVideos(const QString &keyword, int tid, int page, const QString &action,
@@ -640,12 +648,13 @@ void BilibiliApi::getSingerSongs(const QString &singerid, int page, int pageSize
 // type: 0 播放 / 1 下载
 void BilibiliApi::getMusicInfo(const QString &hash, int type)
 {
-    const auto fail = [this, hash, type] {
-        emit resultReady(QStringLiteral("getMusicInfo"),
-                         QVariantMap{{QStringLiteral("hash"), hash},
-                                     {QStringLiteral("type"), type},
-                                     {QStringLiteral("errReason"), QStringLiteral("unavailable")}},
-                         Source);
+    const auto fail = [this, hash, type](int error = 0) {
+        QVariantMap data{{QStringLiteral("hash"), hash},
+                         {QStringLiteral("type"), type},
+                         {QStringLiteral("errReason"), QStringLiteral("unavailable")}};
+        if (error != 0)
+            data.insert(QStringLiteral("error"), error);
+        emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
     };
     if (hash.isEmpty()) {
         fail();
@@ -654,6 +663,10 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
 
     get(kApi + QStringLiteral("/x/web-interface/view?bvid=") + hash,
         [this, hash, type, fail](const QJsonObject &j) {
+            if (j.contains(QStringLiteral("error"))) {
+                fail(j.value(QStringLiteral("error")).toInt());
+                return;
+            }
             const QJsonObject d = j.value(QStringLiteral("data")).toObject();
             const QString cid = d.value(QStringLiteral("cid")).toVariant().toString();
             if (cid.isEmpty()) {
@@ -663,10 +676,15 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
             get(kApi + QStringLiteral("/x/player/playurl?bvid=%1&cid=%2&fnval=16&fourk=1")
                           .arg(hash, cid),
                 [this, hash, type, d, fail](const QJsonObject &pj) {
+                    if (pj.contains(QStringLiteral("error"))) {
+                        fail(pj.value(QStringLiteral("error")).toInt());
+                        return;
+                    }
                     const QJsonObject pd = pj.value(QStringLiteral("data")).toObject();
                     const QJsonArray audios = pd.value(QStringLiteral("dash")).toObject()
                                                   .value(QStringLiteral("audio")).toArray();
                     QString url;
+                    bool fromDurl = false; // durl 是音视频合流，扩展名不能用 .m4a
                     if (!audios.isEmpty()) {
                         const QJsonObject best = pickAudio(audios, m_quality);
                         url = httpsUrl(best.value(QStringLiteral("baseUrl")).toString());
@@ -675,9 +693,11 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
                     }
                     if (url.isEmpty()) { // 少数稿件只有 durl（音视频合流）
                         const QJsonArray durl = pd.value(QStringLiteral("durl")).toArray();
-                        if (!durl.isEmpty())
+                        if (!durl.isEmpty()) {
                             url = httpsUrl(durl.first().toObject()
                                                .value(QStringLiteral("url")).toString());
+                            fromDurl = !url.isEmpty();
+                        }
                     }
                     if (url.isEmpty()) {
                         fail();
@@ -700,7 +720,8 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
                              httpsUrl(d.value(QStringLiteral("pic")).toString())},
                             {QStringLiteral("timeLength"),
                              d.value(QStringLiteral("duration")).toInt()},
-                            {QStringLiteral("fileName"), title + QStringLiteral(".m4a")},
+                            {QStringLiteral("fileName"),
+                             title + (fromDurl ? QStringLiteral(".mp4") : QStringLiteral(".m4a"))},
                             {QStringLiteral("hash"), hash},
                             {QStringLiteral("type"), type}},
                         Source);
@@ -718,14 +739,16 @@ void BilibiliApi::getLyricInfo(const QString &hash, int duration)
     }
     get(kApi + QStringLiteral("/x/web-interface/view?bvid=") + hash,
         [this, hash](const QJsonObject &j) {
+            const int viewError = j.value(QStringLiteral("error")).toInt();
             const QJsonObject d = j.value(QStringLiteral("data")).toObject();
             const QString cid = d.value(QStringLiteral("cid")).toVariant().toString();
             if (cid.isEmpty()) {
-                emitLyrics(hash, {});
+                emitLyrics(hash, {}, viewError);
                 return;
             }
             get(kApi + QStringLiteral("/x/player/v2?bvid=%1&cid=%2").arg(hash, cid),
                 [this, hash](const QJsonObject &pj) {
+                    const int playerError = pj.value(QStringLiteral("error")).toInt();
                     const QJsonArray subs = pj.value(QStringLiteral("data")).toObject()
                                                 .value(QStringLiteral("subtitle")).toObject()
                                                 .value(QStringLiteral("subtitles")).toArray();
@@ -739,7 +762,7 @@ void BilibiliApi::getLyricInfo(const QString &hash, int duration)
                         }
                     }
                     if (subUrl.isEmpty()) {
-                        emitLyrics(hash, {});
+                        emitLyrics(hash, {}, playerError);
                         return;
                     }
                     get(subUrl, [this, hash](const QJsonObject &sj) {
@@ -755,7 +778,7 @@ void BilibiliApi::getLyricInfo(const QString &hash, int duration)
                                  int(l.value(QStringLiteral("from")).toDouble() * 1000)},
                                 {QStringLiteral("text"), text}};
                         }
-                        emitLyrics(hash, lyrics);
+                        emitLyrics(hash, lyrics, sj.value(QStringLiteral("error")).toInt());
                     });
                 });
         });

@@ -15,6 +15,7 @@
 #include <QImage>
 #include <QtMath>
 #include <algorithm>
+#include <atomic>
 #include <complex>
 #include <memory>
 #include <vector>
@@ -55,7 +56,7 @@ public:
 
     int bands() const { return m_bands; }
     void setBands(int b);
-    bool enabled() const { return m_enabled; }
+    bool enabled() const { return m_enabled.load(std::memory_order_relaxed); }
     void setEnabled(bool e);
 
     QQuickWindow* renderWindow() const { return m_renderWindow; }
@@ -90,7 +91,8 @@ private:
 
     int                 m_bands = 96;
     int                 m_fftSize = 4096;
-    bool                m_enabled = true;
+    // GUI 线程写、音频回调线程读，必须是原子量
+    std::atomic<bool>   m_enabled{true};
 
     // 复用缓冲区，避免每次分配
     QVector<Complex>    m_fftData;

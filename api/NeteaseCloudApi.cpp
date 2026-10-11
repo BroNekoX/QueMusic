@@ -155,15 +155,22 @@ public slots:
         const QString member = call.value(QStringLiteral("member")).toString();
         const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
         const QVariantMap raw = helper()->invoke(member, arg);
+        // QCloudMusicApi 把 HTTP 层错误收敛成 status >= 500；补一个 error 键，
+        // 让上层能区分「网络失败」与「业务成功但空数据」
+        const bool transportFailed = raw.value(QStringLiteral("status")).toInt() >= 500;
 
         // 播放信息：song_detail 之后追加 song_url_v1 拿真实播放链接，
         // 免登录可得 128k，带登录态 Cookie 可得 exhigh(320k) 及以上
         QVariantMap effective = raw;
+        if (transportFailed)
+            effective.insert(QStringLiteral("error"), raw.value(QStringLiteral("status")));
         if (action == QLatin1String("getMusicInfo")) {
             QVariantMap urlArg;
             urlArg.insert(QStringLiteral("id"), arg.value(QStringLiteral("id")));
             urlArg.insert(QStringLiteral("level"), QStringLiteral("exhigh"));
             const QVariantMap urlRaw = helper()->invoke(QStringLiteral("song_url_v1"), urlArg);
+            if (urlRaw.value(QStringLiteral("status")).toInt() >= 500)
+                effective.insert(QStringLiteral("error"), urlRaw.value(QStringLiteral("status")));
             const QVariantList urlData = urlRaw.value(QStringLiteral("body")).toMap()
                                               .value(QStringLiteral("data")).toList();
             if (!urlData.isEmpty()) {
@@ -199,16 +206,20 @@ private:
     static QVariant mapResult(const QString &action, const QVariantMap &raw,
                               const QVariantMap &call)
     {
+        const bool transportFailed = raw.contains(QStringLiteral("error"));
+        const QVariant transportError = raw.value(QStringLiteral("error"));
         // QCloudMusicApi 的 invoke() 返回 { status, body, cookie }，真正的业务
         // 数据在 body 里（顶层还有 code 等）。这里统一解包，后续一律从 body 读。
         const QVariantMap body = raw.value(QStringLiteral("body")).toMap();
         const QVariantMap &data = body.isEmpty() ? raw : body;
         QVariantList info;
+        bool commentsHasMore = false;
 
         if (action == QLatin1String("getComments")) {
             // 首屏会有 hotComments，翻页后只有 comments
             info = parseComments(data.value(QStringLiteral("hotComments")).toList());
             info += parseComments(data.value(QStringLiteral("comments")).toList());
+            commentsHasMore = data.value(QStringLiteral("more")).toBool();
         } else if (action == QLatin1String("searchSongs")) {
             const QVariantMap result = data.value(QStringLiteral("result")).toMap();
             const int ntype = call.value(QStringLiteral("ntype")).toInt();
@@ -370,9 +381,11 @@ private:
             const int type = call.value(QStringLiteral("type")).toInt();
             // 优先 song_url_v1 真实链接（登录后可拿更高音质）；
             // 服务端明确不给地址（版权/VIP）时保持为空由上层提示；
-            // 仅在请求本身失败时回退公开外链
+            // 仅在请求本身成功时才回退公开外链 —— 传输失败时回退会让上层
+            // 把网络错误当成可播地址，解码失败后再触发自动跳歌
             QString playUrl = data.value(QStringLiteral("play_url")).toString();
-            if (playUrl.isEmpty() && !data.value(QStringLiteral("url_unavailable")).toBool())
+            if (!transportFailed && playUrl.isEmpty()
+                && !data.value(QStringLiteral("url_unavailable")).toBool())
                 playUrl = QStringLiteral("http://music.163.com/song/media/outer/url?id=")
                           + hash + QStringLiteral(".mp3");
 
@@ -410,6 +423,8 @@ private:
             d.insert(QStringLiteral("fileName"), fileNameBase + QStringLiteral(".mp3"));
             d.insert(QStringLiteral("hash"), hash);
             d.insert(QStringLiteral("type"), type);
+            if (transportFailed)
+                d.insert(QStringLiteral("error"), transportError);
             return d;
         }
         else if (action == QLatin1String("getLyricInfo")) {
@@ -441,13 +456,20 @@ private:
             d.insert(QStringLiteral("hash"),
                      call.value(QStringLiteral("arg")).toMap()
                          .value(QStringLiteral("id")).toString());
+            if (transportFailed)
+                d.insert(QStringLiteral("error"), transportError);
             return d;
         }
         else {
             qWarning() << "[NeteaseCloudApi] 未知 action:" << action;
         }
 
-        return ApiCommon::listResult(info);
+        QVariantMap result = ApiCommon::listResult(info);
+        if (action == QLatin1String("getComments"))
+            result.insert(QStringLiteral("hasMore"), commentsHasMore);
+        if (transportFailed)
+            result.insert(QStringLiteral("error"), transportError);
+        return result;
     }
 
     ApiHelper *m_api = nullptr;

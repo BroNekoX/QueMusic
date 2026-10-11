@@ -125,7 +125,10 @@ void QueueModel::move(int from, int to, int count)
     if (from < 0 || to < 0 || count <= 0 || from >= m_items.size())
         return;
     count = qMin(count, int(m_items.size() - from));
-    if (to == from || to + count > m_items.size())
+    // to 语义：移动后块首行的目标下标。越界时收紧到最靠后的合法位置，
+    // 否则「移到末曲之后」（to == count）会被整条丢弃
+    to = qBound(0, to, int(m_items.size()) - count);
+    if (to == from)
         return;
     const int dest = to > from ? to + count : to;
     if (!beginMoveRows(QModelIndex(), from, from + count - 1, QModelIndex(), dest))
