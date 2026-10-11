@@ -26,15 +26,21 @@ inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
     request.setRawHeader("Referer", referer);
     request.setRawHeader("Accept-Encoding", "identity");
     request.setTransferTimeout(15000);
-    if (!cookie.isEmpty())
+    // 明文端点不携带凭证：酷狗等仍有个别 http:// 域名，凭证不能随明文出网
+    if (!cookie.isEmpty() && url.scheme() == QLatin1String("https"))
         request.setRawHeader("Cookie", cookie);
 
     QNetworkReply *reply = nam->get(request);
     QObject::connect(reply, &QNetworkReply::finished, context, [reply, done = std::move(done)] {
+        if (reply->error() != QNetworkReply::NoError) {
+            // 只记 scheme://host/path：查询串里可能带 token
+            QUrl clean = reply->url();
+            clean.setQuery(QString());
+            qWarning() << "[api] 请求失败:" << reply->errorString() << clean.toString();
+        }
+        const QByteArray body = reply->error() != QNetworkReply::NoError ? QByteArray() : reply->readAll();
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError)
-            qWarning() << "[api] 请求失败:" << reply->errorString() << reply->url().toString();
-        done(reply->error() != QNetworkReply::NoError ? QByteArray() : reply->readAll());
+        done(body);
     });
 }
 

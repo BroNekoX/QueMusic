@@ -3,6 +3,7 @@
 //
 // 歌词界面模块（默认主题）：流体背景 / 封面 / 歌曲文本 / 歌词。
 // 数据由宿主经下方注入属性提供，改样式一律经 request（宿主白名单），因此可用同接口插件替换。
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Shapes
@@ -124,7 +125,7 @@ Item {
         height: mainLyrics.piclong
         clip: false
         visible: !mainLyrics.basicCd
-        x: mainLyrics.lyricType == 0 ? mainLyrics.width * 0.23 - mainLyrics.piclong * 0.5 : mainLyrics.lyricType == 1 ? mainLyrics.width * 0.5 - mainLyrics.piclong * 0.5 : -100 - mainLyrics.piclong
+        x: mainLyrics.lyricType === 0 ? mainLyrics.width * 0.23 - mainLyrics.piclong * 0.5 : mainLyrics.lyricType === 1 ? mainLyrics.width * 0.5 - mainLyrics.piclong * 0.5 : -100 - mainLyrics.piclong
         y: mainLyrics.height * 0.6 - mainLyrics.piclong
         scale: mainLyrics.playing ? 1.0 : 0.84
         Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.BezierSpline; easing.bezierCurve: [ 0.20, 0.04, 0.00, 1.64, 1, 1 ] } }
@@ -179,7 +180,7 @@ Item {
         visible: x !== -400 && !mainLyrics.basicCd
         font.pixelSize: mainLyrics.standHeight / 2
         verticalAlignment: Text.AlignVCenter
-        horizontalAlignment: mainLyrics.lyricType == 1 ? Text.AlignHCenter : Text.AlignLeft
+        horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
 
         color: Qt.rgba(1,1,1,1)
         layer.enabled: true
@@ -201,7 +202,7 @@ Item {
         text: mainLyrics.artist
         width: mainLyrics.piclong
         elide: Text.ElideRight
-        horizontalAlignment: mainLyrics.lyricType == 1 ? Text.AlignHCenter : Text.AlignLeft
+        horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
         font.bold: false
         font.pixelSize: mainLyrics.standHeight / 3.6
         verticalAlignment: Text.AlignVCenter
@@ -225,13 +226,14 @@ Item {
     // 歌词内容。定位与逐字进度在此计算（320ms 定时器），模块随宿主不可见而整体卸载。
     Item {
         id: lyricContent
-        x: mainLyrics.lyricType == 0 ? mainLyrics.width * 0.46 : mainLyrics.lyricType == 1 ? mainLyrics.width : mainLyrics.width * 0.2
+        x: mainLyrics.lyricType === 0 ? mainLyrics.width * 0.46 : mainLyrics.lyricType === 1 ? mainLyrics.width : mainLyrics.width * 0.2
         y: 60
         Behavior on x { enabled: mainLyrics.typeChangeXAnime; NumberAnimation { duration: 360; easing.type: Easing.BezierSpline; easing.bezierCurve: [ 0.30, 0.08, 0.00, 1.00, 1, 1 ] } }
-        width: mainLyrics.lyricType == 2 ? mainLyrics.width * 0.6 : mainLyrics.width * 0.48
+        width: mainLyrics.lyricType === 2 ? mainLyrics.width * 0.6 : mainLyrics.width * 0.48
         height: parent.height - 120
         visible: mainLyrics.lyricType !== 1
-        layer.enabled: true
+        // 关掉模糊时整个 Item 只是整行染色，不必走 FBO
+        layer.enabled: Style.maskBlur
         layer.effect: ShaderEffect {
             property real fadeTop: 0.15
             property real fadeBottom: 0.3
@@ -385,7 +387,7 @@ Item {
                 height: lyricsText.implicitHeight + lyricTransText.height + lyricContent.lineSpacing
 
                 readonly property bool isCurrent: index === lyricContent.currentLine
-                readonly property bool isFlowActive: modelData.info ? (index == lyricContent.currentLine || index == lyricContent.currentLine - 1) : false
+                readonly property bool isFlowActive: modelData.info ? (index === lyricContent.currentLine || index === lyricContent.currentLine - 1) : false
                 readonly property int nowPosition: isFlowActive ? lyricContent.currentPlayTime - modelData.time : 0
                 property real opacityAnime: isCurrent && !waitAnimeSection.visible ? 1.0 : 0.0
                 Behavior on opacityAnime { NumberAnimation { duration: 320 } }
@@ -418,7 +420,7 @@ Item {
                     // 不使用弹簧动画的外部区域（非index>-3至7)，使用融合动画：绑定至统一的动画值，提升性能喵~
                     if(d < -3) {
                         // 检测防止动画乱跑，检测稳定即融合
-                        if(ty - lyricItem.standY - fixedAnime.to == 0) {
+                        if(ty - lyricItem.standY - fixedAnime.to === 0) {
                             const nowY = lyricItem.standY;
                             lyricItem.standY = Qt.binding(function(): real { return (lyricContent.fixedH + nowY) });
                             return;
@@ -426,7 +428,7 @@ Item {
                             durationMs = 0;
                         }
                     } else if(d > 7) {
-                        if(ty - lyricItem.standY - fixedAnime.to == 0) {
+                        if(ty - lyricItem.standY - fixedAnime.to === 0) {
                             const nowY = lyricItem.standY;
                             lyricItem.standY = Qt.binding(function(): real { return (lyricContent.finalH + nowY) });
                             return;
@@ -511,7 +513,7 @@ Item {
                             height: lyricFlowText.height
                             required property int index
                             required property var modelData
-                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent
+                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > modelData.offset && lyricItem.isCurrent
                             onToTextAnimeValueChanged: {
                                 if(toTextAnimeValue) {
                                     outFlowText.running = false;
@@ -524,7 +526,7 @@ Item {
 
                             ParallelAnimation {
                                 id: toFlowText
-                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + linesText.model[index].duration * 10; easing.type: Easing.OutExpo }
+                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + modelData.duration * 10; easing.type: Easing.OutExpo }
                             }
                             ParallelAnimation {
                                 id: outFlowText
@@ -533,8 +535,9 @@ Item {
 
                             Text {
                                 id: lyricFlowText
-                                text: linesText.model[index].text
-                                y: 0//lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isCurrent ? -3 : 0
+                                text: modelData.text
+                                textFormat: Text.PlainText
+                                y: 0
                                 font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
@@ -542,8 +545,8 @@ Item {
                                 opacity: 0.5
                             }
                             LinearGradient {
-                                property int countToWidth: lyricItem.nowPosition > linesText.model[index].offset && lyricItem.isFlowActive ? width + 16 : 0
-                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = linesText.model[index].duration / mainLyrics.playbackRate * (width + 16) / width } }
+                                property int countToWidth: lyricItem.nowPosition > modelData.offset && lyricItem.isFlowActive ? width + 16 : 0
+                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = modelData.duration / mainLyrics.playbackRate * (width + 16) / width } }
                                 width: parent.width
                                 height: parent.height
                                 y: lyricFlowText.y

@@ -18,9 +18,12 @@ Rectangle {
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
+    // 秒级中间层：position 以 20Hz 刷新，直接绑到文本会每秒重建字符串 20 次
+    readonly property int posSec: Math.floor(player.position / 1000)
+
     readonly property string mediaTime: {
-        const seconds = Math.floor(player.position / 1000) % 60;
-        return Math.floor(player.position / 60000) + ':' + (seconds < 10 ? '0' + seconds : seconds);
+        const seconds = posSec % 60;
+        return Math.floor(posSec / 60) + ':' + (seconds < 10 ? '0' + seconds : seconds);
       }
 
     Connections {
@@ -57,7 +60,7 @@ Rectangle {
         MusicApi.searchSongsResults.clear();
         Options.mainSearchInput.text = name;
         MusicApi.nowIndex = 0;
-        mainContent.contentIndexed(6);
+        mainContent.contentIndexed(5);
         MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
         Options.exitIndex = 1;
     }

@@ -4,6 +4,7 @@
 // 3d 歌词主题，三层：① 背景着色器（按预设换文件）② 点云舞台 LyricsStage（C++，GPU 算点位置）
 // ③ 歌词平面 lyricplane.frag（固定 LOD 0 保持字清晰 + 字体发光）。
 // 本主题的设置全部落在模块自己的 Settings（category "Lyrics3D"），不写宿主 Style、不走白名单。
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtCore
 import QueMusic 1.0
@@ -94,7 +95,7 @@ Item {
         }
     }
 
-    // wavePath 首尾各一个哨兵点、y ∈ 0..80；采样 32 点折算四段，40ms 一次
+    // wavePath 首尾各一个哨兵点、y ∈ 0..80；采样 32 点折算四段
     function updateSpectrum(): void {
         const p = Options.getWave.wavePath;
         const inner = p ? p.length - 2 : 0;
@@ -119,7 +120,7 @@ Item {
     }
 
     Timer {
-        interval: 40
+        interval: 60
         running: root.visible
         repeat: true
         onTriggered: root.updateSpectrum()
@@ -232,9 +233,21 @@ Item {
         sourceItem: lyricList
         hideSource: true
         recursive: false
-        live: root.lyricsModel.length > 0
+        // live 常开会让整张歌词纹理每帧重采样；只在行切换与滚动落定时手动刷新
+        live: false
         mipmap: false
         smooth: true
+    }
+
+    // 行切换瞬间刷新一次，滚动动画结束后再刷新一次（否则纹理停在旧行）
+    onCurrentIndexChanged: {
+        lyricTex.scheduleUpdate();
+        refreshTimer.restart();
+    }
+    Timer {
+        id: refreshTimer
+        interval: 460
+        onTriggered: lyricTex.scheduleUpdate()
     }
 
     // ── 3) 歌词平面（字体发光在这里做）──

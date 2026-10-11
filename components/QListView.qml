@@ -32,8 +32,6 @@ ListView {
     readonly property string favType: isList ? "playlist" : "song"
     readonly property var favModel: isList ? FavoritePlaylists : FavoriteSongs
     readonly property var localDriveRe: /^[a-zA-Z]:[\\/]/
-    readonly property var sourceNames: ["酷狗音乐", "网易云音乐", "哔哩哔哩", "QQ音乐", "自定义源"]
-    readonly property var qualityNames: ["标准", "无损", "Hi-Res"]
     contentWidth: view.width - 16
     synchronousDrag: true
     reuseItems: true
@@ -76,23 +74,23 @@ ListView {
         const k = keyOf(it)
         return (k.indexOf("file:") === 0 || localDriveRe.test(k)) ? -1 : MusicApi.songSource
     }
-    function favoriteIcon(i: int): string {
+    // 收藏状态来自内存 id 集合（FavoritesModel 在 DB 线程预先填好），可放心逐行绑定
+    function isFav(i: int): bool {
         const it = itemAt(i)
-        return it && favModel.isFavorite(keyOf(it), favType) ? "\uf09f" : view.toolText1
+        return !!it && favModel.isFavorite(keyOf(it), favType)
     }
 
     function toggleFavorite(i: int): void {
         const it = itemAt(i)
         const key = keyOf(it)
         if (!key) return
-        if (favModel.isFavorite(key, favType)) {
+        // 成败由 FavoritesModel 的 favoriteStateChanged / errorOccurred 决定，
+        // 这里不抢先提示「已收藏」——写库失败时必须让用户看见
+        if (isFav(i))
             favModel.removeFavorite(key, favType)
-            Options.warned("已取消收藏", 0)
-        } else {
+        else
             favModel.addFavorite(key, titleOf(it), artistOf(it), coverOf(it), sourceOf(it),
                                  it.duration || 0, favType)
-            Options.warned("已收藏", 1)
-        }
     }
     function enqueue(i: int, next: bool): void {
         const it = itemAt(i)
@@ -116,8 +114,7 @@ ListView {
     function showInfo(i: int): void {
         const it = itemAt(i)
         if (!it) return
-        infoDialog.info = it
-        infoDialog.open()
+        Options.songInfo.show(it, view.isList)
     }
 
     // 菜单索引：歌单 0 收藏 / 1 信息；歌曲 0 下载 / 1 下一首 / 2 加入列表 / 3 收藏 / 4 信息
@@ -214,87 +211,11 @@ ListView {
         }
     }
 
-    // 歌曲 / 歌单信息，打开时才构建内容
-    QOptionDialog {
-        id: infoDialog
-        title: view.isList ? "歌单信息" : "歌曲信息"
-        confirmText: "关闭"
-        property var info: null
-
-        function rows(): var {
-            const it = info
-            if (!it) return []
-            const src = view.sourceNames[it.source] || "未知来源"
-            if (view.isList)
-                return [["名称", view.titleOf(it)], ["创建者", view.artistOf(it)],
-                        ["曲目", it.duration > 0 ? it.duration + " 首" : "—"], ["来源", src]]
-            const sec = it.duration || 0
-            return [["歌手", view.artistOf(it)], ["专辑", it.album || "—"],
-                    ["时长", Math.floor(sec / 60) + ":" + ("0" + Math.floor(sec % 60)).slice(-2)],
-                    ["音质", view.qualityNames[Config.soundQuality] || "标准"], ["来源", src]]
-        }
-
-        Column {
-            width: parent.width
-            spacing: 14
-            Row {
-                width: parent.width
-                spacing: 14
-                QPicture {
-                    width: 72
-                    height: 72
-                    radius: 14
-                    source: view.coverOf(infoDialog.info)
-                    sourceSize: Qt.size(160, 160)
-                }
-                Column {
-                    width: parent.width - 86
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6
-                    Text {
-                        width: parent.width
-                        text: view.titleOf(infoDialog.info)
-                        font.pixelSize: 16
-                        font.weight: Font.DemiBold
-                        color: Theme.fontColor
-                        elide: Text.ElideRight
-                    }
-                    Text {
-                        width: parent.width
-                        text: view.artistOf(infoDialog.info)
-                        font.pixelSize: 12
-                        color: Theme.textColor
-                        elide: Text.ElideRight
-                    }
-                }
-            }
-            Repeater {
-                model: infoDialog.rows()
-                delegate: Row {
-                    id: infoRow
-                    required property string modelData
-                    width: infoDialog.width - 40
-                    height: 22
-                    Text {
-                        width: 72
-                        height: 22
-                        text: infoRow.modelData[0]
-                        font.pixelSize: 12
-                        color: Theme.textColor
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    Text {
-                        width: parent.width - 72
-                        height: 22
-                        text: infoRow.modelData[1]
-                        font.pixelSize: 12
-                        color: Theme.fontColor
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-        }
+    // 收藏结果由模型回执：成功才提示已收藏，失败直接把原因显示出来
+    Connections {
+        target: FavoriteSongs
+        function onFavoriteStateChanged(): void { Options.warned("收藏已更新", 1) }
+        function onErrorOccurred(message: string): void { Options.warned(message, 0) }
     }
 
     ScrollBar.vertical: ScrollBar {
@@ -541,8 +462,10 @@ ListView {
                     }
                 }
                 SButton {
-                    // 只在悬停时查收藏状态，避免滚动时逐行访问数据库
-                    iconCharacter: listArea.containsMouse ? view.favoriteIcon(listDel.index) : view.toolText1
+                    // 收藏表的全局版本号驱动重算：增删收藏后各列表图标同步刷新
+                    iconCharacter: view.toolText1 // 图标固定
+                    iconColor: FavoriteSongs.favoriteRevision >= 0 && view.isFav(listDel.index)
+                               ? Theme.themeColor : Theme.textColor
                     width: 36
                     height: 36
                     radius: 36

@@ -3,6 +3,7 @@
 //
 #include "WebDavCache.h"
 #include "DbService.h"
+#include "MediaTypes.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -20,18 +21,6 @@ namespace {
 
 constexpr qint64 kCacheLimitBytes = 1024LL * 1024 * 1024;   // 上限 1GB
 constexpr qint64 kProtectMs = 5 * 60 * 1000;                // 最近 5 分钟用过的不清理
-
-bool isAudioSuffix(const QString &suffix)
-{
-    static const QStringList list = { QStringLiteral("mp3"),  QStringLiteral("flac"),
-                                      QStringLiteral("m4a"),  QStringLiteral("aac"),
-                                      QStringLiteral("wav"),  QStringLiteral("ogg"),
-                                      QStringLiteral("opus"), QStringLiteral("wma"),
-                                      QStringLiteral("ape"),  QStringLiteral("aiff"),
-                                      QStringLiteral("dsf"),  QStringLiteral("dff"),
-                                      QStringLiteral("mp4"),  QStringLiteral("m4b") };
-    return list.contains(suffix);
-}
 
 } // namespace
 
@@ -70,7 +59,7 @@ QString WebDavCache::cachedAudioFor(const QString &url)
     if (!dir.exists())
         return {};
     for (const QFileInfo &file : dir.entryInfoList(QDir::Files, QDir::Time)) {
-        if (isAudioSuffix(file.suffix().toLower()))
+        if (MediaTypes::isAudioFile(file))
             return file.absoluteFilePath();
     }
     return {};

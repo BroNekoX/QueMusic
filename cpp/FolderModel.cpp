@@ -209,18 +209,26 @@ void FolderModel::deleteFolder(int folderId)
 
 void FolderModel::deleteFolders(const QVariantList &folderIds)
 {
-    mutate([folderIds](QSqlDatabase &db, QString &error) {
+    QStringList placeholders;
+    QVariantList ids;
+    for (const QVariant &value : folderIds) {
+        bool ok = false;
+        const int id = value.toInt(&ok);
+        if (!ok)
+            continue;
+        placeholders.append(QStringLiteral("?"));
+        ids.append(id);
+    }
+    if (ids.isEmpty())
+        return;
+
+    mutate([placeholders, ids](QSqlDatabase &db, QString &error) {
         QSqlQuery query(db);
-        query.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id"));
-        for (const QVariant &value : folderIds) {
-            bool ok = false;
-            const int id = value.toInt(&ok);
-            if (!ok)
-                continue;
-            query.bindValue(QStringLiteral(":id"), id);
-            if (!query.exec())
-                error = QStringLiteral("删除文件夹失败: ") + query.lastError().text();
-        }
+        query.prepare(QStringLiteral("DELETE FROM folders WHERE id IN (%1)").arg(placeholders.join(QLatin1Char(','))));
+        for (const QVariant &id : ids)
+            query.addBindValue(id);
+        if (!query.exec())
+            error = QStringLiteral("删除文件夹失败: ") + query.lastError().text();
     });
 }
 
@@ -407,6 +415,7 @@ void SongModel::startEnrichment()
         if (!item.tagged || coverStale)
             m_enrichPending.append(i);
     }
+    m_enriching = false;
     if (m_enrichPending.isEmpty())
         return;
 
@@ -434,8 +443,8 @@ void SongModel::enrichBatch()
     auto *watcher = new QFutureWatcher<QList<EnrichResult>>(this);
     connect(watcher, &QFutureWatcher<QList<EnrichResult>>::finished, this, [this, watcher, generation, slice] {
         watcher->deleteLater();
+        m_enriching = false;
         if (generation != m_loadGeneration.load()) {
-            m_enriching = false;
             m_enrichPending.clear();
             return;
         }
@@ -494,6 +503,7 @@ void SongModel::persistTags(const QList<int> &ids, const QStringList &titles,
         query.prepare(QStringLiteral(
             "UPDATE songs SET tag_title = :title, tag_artist = :artist, tag_cover = :cover, tagged = 1 "
             "WHERE id = :id"));
+        db.transaction();
         for (int i = 0; i < ids.size(); ++i) {
             query.bindValue(QStringLiteral(":title"), titles.value(i));
             query.bindValue(QStringLiteral(":artist"), artists.value(i));
@@ -501,6 +511,7 @@ void SongModel::persistTags(const QList<int> &ids, const QStringList &titles,
             query.bindValue(QStringLiteral(":id"), ids.at(i));
             query.exec();
         }
+        db.commit();
     });
 }
 
@@ -573,18 +584,26 @@ void SongModel::deleteSong(int songId)
 
 void SongModel::deleteSongs(const QVariantList &songIds)
 {
-    mutate([songIds](QSqlDatabase &db, QString &error) {
+    QStringList placeholders;
+    QVariantList ids;
+    for (const QVariant &value : songIds) {
+        bool ok = false;
+        const int id = value.toInt(&ok);
+        if (!ok)
+            continue;
+        placeholders.append(QStringLiteral("?"));
+        ids.append(id);
+    }
+    if (ids.isEmpty())
+        return;
+
+    mutate([placeholders, ids](QSqlDatabase &db, QString &error) {
         QSqlQuery query(db);
-        query.prepare(QStringLiteral("DELETE FROM songs WHERE id = :id"));
-        for (const QVariant &value : songIds) {
-            bool ok = false;
-            const int id = value.toInt(&ok);
-            if (!ok)
-                continue;
-            query.bindValue(QStringLiteral(":id"), id);
-            if (!query.exec())
-                error = QStringLiteral("删除歌曲失败: ") + query.lastError().text();
-        }
+        query.prepare(QStringLiteral("DELETE FROM songs WHERE id IN (%1)").arg(placeholders.join(QLatin1Char(','))));
+        for (const QVariant &id : ids)
+            query.addBindValue(id);
+        if (!query.exec())
+            error = QStringLiteral("删除歌曲失败: ") + query.lastError().text();
     });
 }
 

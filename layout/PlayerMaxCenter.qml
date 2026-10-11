@@ -3,6 +3,7 @@
 //
 // 沉浸播放页宿主框架：页面壳（沉浸偏移、自动隐藏控件、控制按钮、主题色动画）+ 歌词界面加载。
 // 歌词界面是 layout/MainLyric.qml 或 lyricsui/*（见 lyricThemes），只依赖下方注入契约，可整包替换。
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -112,9 +113,9 @@ Rectangle {
     Timer {
         id: hideDelay
         interval: 3000
-        running: musicControlMax.y == 0
+        running: musicControlMax.y === 0
         onTriggered: {
-            if(Style.lyricHideGui && musicControlMax.y == 0) {
+            if(Style.lyricHideGui && musicControlMax.y === 0) {
                 musicControlMax.hideHeight = 76;
             } else {
                 musicControlMax.hideHeight = 0;

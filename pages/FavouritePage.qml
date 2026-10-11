@@ -371,7 +371,7 @@ Item {
                                 function() {
                                     // 先记下数量：下面清空 chooseIndex 后就读不到了
                                     const total = favouritePage.chooseIndex.length;
-                                    for(var i = 0; i < total; i++) {
+                                    for(let i = 0; i < total; i++) {
                                         const r = songSort.at(favouritePage.chooseIndex[i]);
                                         if (r) FavoriteSongs.removeFavorite(r.id, "song");
                                     }
@@ -385,7 +385,7 @@ Item {
                                 "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 个歌单",
                                 function() {
                                     const total = favouritePage.chooseIndex.length;
-                                    for(var i = 0; i < total; i++) {
+                                    for(let i = 0; i < total; i++) {
                                         const r = listSort.at(favouritePage.chooseIndex[i]);
                                         if (r) FavoritePlaylists.removeFavorite(r.id, "playlist");
                                     }

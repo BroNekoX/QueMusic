@@ -27,7 +27,7 @@ Window {
     property int currentIndex: 0
     property int nextIndex: 1
 
-    // 更新歌词索引
+    // 播放时下标只会前进，从上次位置增量推进，避免每 tick 全表扫描
     function updateCurrentIndex(): void {
         const pos = Playback.player.position || 0;
         const data = lyricsData;
@@ -36,13 +36,14 @@ Window {
             nextIndex = -1;
             return;
         }
-        let idx = 0;
+        let idx = currentIndex;
+        if (idx < 0 || idx >= data.length || data[idx].time > pos)
+            idx = 0;   // 换歌或往回跳转才从头扫
         while (idx + 1 < data.length && pos >= data[idx + 1].time) idx++;
         currentIndex = idx;
         nextIndex = Math.min(idx + 1, data.length - 1);
     }
 
-    // 定时更新
     Timer {
         interval: 240
         running: Playback.player.onMedia && desktopLyricsWindow.visible
@@ -50,7 +51,6 @@ Window {
         onTriggered: desktopLyricsWindow.updateCurrentIndex()
     }
 
-    // 歌词数据变化时重置
     Connections {
         target: MusicApi
         function onLyricsDataChanged(): void {
@@ -59,7 +59,6 @@ Window {
         }
     }
 
-    // 歌词文本容器（两行）
     Column {
         id: lyricsColumn
         y: 60
@@ -165,7 +164,6 @@ Window {
             color: "#fffafafa"
             font.pixelSize: Style.text
         }
-        // 拖动区域
         MouseArea {
             id: desktopLyricArea
             anchors.fill: parent
@@ -184,7 +182,6 @@ Window {
             }
             hoverEnabled: true
 
-            // 控制按钮组
             Row {
                 y: 6
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -202,7 +199,6 @@ Window {
                     tipText: "上一首"
                 }
 
-                // 播放/暂停
                 SButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
@@ -227,7 +223,6 @@ Window {
                     tipText: "下一首"
                 }
             }
-            // 进度条小提示（时间）
             Text {
                 x: desktopLyricsWindow.width - 68 - width
                 y: 6
@@ -237,7 +232,6 @@ Window {
                 verticalAlignment: Text.AlignVCenter
                 color: "#fffdfdfd"
             }
-            // 关闭按钮
             SButton {
                 id: closeButton
                 x: desktopLyricsWindow.width - 54
@@ -263,7 +257,6 @@ Window {
 
     Component.onCompleted: {
         updateCurrentIndex();
-        // 默认显示
         active = true;
     }
 }

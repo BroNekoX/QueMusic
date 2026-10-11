@@ -5,26 +5,13 @@
 
 #include "CoverHelper.h"
 #include "DbService.h"
+#include "MediaTypes.h"
 #include "WebDavCache.h"   // 已落地的封面按缓存的同一规则查
 
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrentRun>
 
 namespace {
-
-// 只列目录与常见音频，其余（图片/歌词/文档）一期不上列表
-bool isAudio(const QString &name)
-{
-    static const QStringList extensions = {
-        QStringLiteral("mp3"),  QStringLiteral("flac"), QStringLiteral("m4a"),
-        QStringLiteral("aac"),  QStringLiteral("wav"),  QStringLiteral("ogg"),
-        QStringLiteral("opus"), QStringLiteral("wma"),  QStringLiteral("ape"),
-        QStringLiteral("aiff"), QStringLiteral("dsf"),  QStringLiteral("dff"),
-        QStringLiteral("mp4"),  QStringLiteral("m4b")
-    };
-    const int dot = name.lastIndexOf(QLatin1Char('.'));
-    return dot > 0 && extensions.contains(name.mid(dot + 1).toLower());
-}
 
 QString stripTrailingSlashes(QString path)
 {
@@ -271,7 +258,7 @@ void WebDavModel::apply(const QList<WebDavClient::Entry> &entries, const QString
     m_entries.clear();
     m_sidecars.clear();
     for (const WebDavClient::Entry &entry : entries) {
-        if (!entry.isDir && !isAudio(entry.name))
+        if (!entry.isDir && !MediaTypes::isAudioName(entry.name))
             continue;
         m_entries.append(entry);
         if (entry.isDir)
@@ -317,13 +304,18 @@ void WebDavModel::warmCovers()
     const quint64 generation = m_generation;
     auto *watcher = new QFutureWatcher<QHash<QString, QString>>(this);
     connect(watcher, &QFutureWatcher<QHash<QString, QString>>::finished, this,
-            [this, watcher, generation]() {
+            [this, watcher, generation, pending]() {
         watcher->deleteLater();
+        // 本批已尘埃落定：无论成功与否都要出队，否则这批 URL 永远不会再被检查
+        for (const QString &url : pending)
+            m_coverPending.remove(url);
         const QHash<QString, QString> found = watcher->result();
         if (generation != m_generation || found.isEmpty() || m_entries.isEmpty())
             return;   // 已经翻到别的目录了，结果作废
         for (auto it = found.constBegin(); it != found.constEnd(); ++it)
             m_coverCache.insert(it.key(), it.value());
+        if (m_coverCache.size() > 512)   // 跨目录累积无上限，宁可丢掉重算
+            m_coverCache.clear();
         emit dataChanged(index(0), index(int(m_entries.size()) - 1), { LocalCoverRole });
     });
     watcher->setFuture(QtConcurrent::run([pending]() {

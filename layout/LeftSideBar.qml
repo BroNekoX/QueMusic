@@ -13,6 +13,7 @@ Rectangle {
     property color baseColor: "transparent"
     property color choiceColor: Theme.hoverColor
     property color choiceTextColor: Theme.fontColor
+    property int choiceIndex: 0
     required property MainContent mainCont
     color: Style.backmode === 0 ? (Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor) : baseColor
     Connections {
@@ -33,8 +34,8 @@ Rectangle {
     }
 
     function indexed(choice: int): void {
-        choicebar.willBarY = choice > 2 ? 44 * choice + 68 : 44 * choice + 80;
-        navlistview.choiceIndex = choice;
+        choicebar.willBarY = choice > 1 ? 44 * choice + 110 : 44 * choice + 80;
+        sidebar.choiceIndex = choice;
         if(choice > choicebar.indexOld) {
             downBar.stop();
             upBar.stop();
@@ -59,8 +60,8 @@ Rectangle {
     Connections {
         target: Options
         function onExit(): void {
-            if(sidebar.mainCont.pageIndex === 6 && Options.exitIndex <= 1 ) {
-                sidebar.mainCont.contentIndexed(navlistview.choiceIndex)
+            if(sidebar.mainCont.pageIndex === 5 && Options.exitIndex <= 1 ) {
+                sidebar.mainCont.contentIndexed(sidebar.choiceIndex)
                 MusicApi.searchSongsResults.clear()
             }
         }
@@ -177,101 +178,89 @@ Rectangle {
         id: navModel
         ListElement { display: "推荐"; iconChar: "\uf0bf" } // tj
         ListElement { display: "分类"; iconChar: "\uf044" }  // fl
-        ListElement { display: ""; iconChar: "" }     // empty
         ListElement { display: "收藏"; iconChar: "\uf0c1" }  // sc
         ListElement { display: "本地"; iconChar: "\uf0f5" }   // bd
         ListElement { display: "下载"; iconChar: "\uf00f" }   // xz
     }
 
-    Column {
-        id: navlistview
-        x: 15
-        y: 70
-        width: 180
-        height: sidebar.height - 78
-        property int choiceIndex: 0
+    Repeater {
+        model: navModel
 
-        spacing: 2
-        z: 10
-        Repeater {
-            model: navModel
+        delegate: Rectangle {
+            id: navDelegate
+            required property int index
+            required property var model
+            x: 15
+            width: 180
+            height: 42
+            radius: Style.labelRadius
+            Component.onCompleted: {
+                if(index > 1) {
+                    y = 100 + index * 44
+                } else {
+                    y = 70 + index * 44
+                }
+            }
+            color: isSelected ? sidebar.choiceColor : "transparent"
+            property color choiceTextColor: sidebar.choiceTextColor
 
-            delegate: Rectangle {
-                id: navDelegate
-                required property int index
-                required property var model
-                width: navlistview.width
-                height: 42
+            readonly property bool isSelected: sidebar.choiceIndex === index
+
+            scale: 1.0
+            Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+
+
+            // Hover Background (fades in/out)
+            Rectangle {
+                anchors.fill: parent
                 radius: Style.labelRadius
-                Component.onCompleted: {
-                    if (index === 2) height = 30
-                }
-                color: isSelected ? sidebar.choiceColor : "transparent"
-                property color choiceTextColor: sidebar.choiceTextColor
+                color: Theme.hoverColor
+                opacity: barMouse.containsMouse ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 80 } }
+            }
 
-                readonly property bool isSelected: navlistview.choiceIndex === index
+            Text {
+                x: 8
+                y: 0
+                z: 1
+                width: 42
+                height: 42
+                text: navDelegate.model.iconChar
+                font.family: Fonts.icon
+                font.pixelSize: Style.texticon
+                color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                Behavior on color { ColorAnimation { duration: 120 } }
+            }
 
-                scale: 1.0
-                Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
-
-
-                // Hover Background (fades in/out)
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Style.labelRadius
-                    color: Theme.hoverColor
-                    opacity: barMouse.containsMouse ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 80 } }
-                }
-
-                Text {
-                    x: 8
-                    y: 0
-                    z: 1
-                    width: 42
-                    height: 42
-                    text: navDelegate.model.iconChar
-                    font.family: Fonts.icon
-                    font.pixelSize: Style.texticon
-                    color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    Component.onCompleted: if (navDelegate.index === 2) visible = false
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
-
-                Text {
-                    x: 56
-                    y: 0
-                    z: 2
-                    width: 140
-                    height: 42
-                    text: navDelegate.model.display
-                    color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
-                    font.bold: navDelegate.isSelected
-                    font.pixelSize: Style.textmain
-                    verticalAlignment: Text.AlignVCenter
-                    Component.onCompleted: if (navDelegate.index === 2) visible = false
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
+            Text {
+                x: 56
+                y: 0
+                z: 2
+                width: 140
+                height: 42
+                text: navDelegate.model.display
+                color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
+                font.bold: navDelegate.isSelected
+                font.pixelSize: Style.textmain
+                verticalAlignment: Text.AlignVCenter
+                Behavior on color { ColorAnimation { duration: 120 } }
+            }
 
 
-                MouseArea {
-                    id: barMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    Component.onCompleted: {
-                        if(navDelegate.index == 2) visible = false
-                    }
-                    onPressed: navDelegate.scale = 0.96
-                    onReleased: navDelegate.scale = 1.0
-                    onCanceled: navDelegate.scale = 1.0
-                    onClicked: {
-                        sidebar.indexed(navDelegate.index);
-                        sidebar.mainCont.contentIndexed(navDelegate.index);
-                        forceActiveFocus();
-                    }
+            MouseArea {
+                id: barMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onPressed: navDelegate.scale = 0.96
+                onReleased: navDelegate.scale = 1.0
+                onCanceled: navDelegate.scale = 1.0
+                onClicked: {
+                    sidebar.indexed(navDelegate.index);
+                    sidebar.mainCont.contentIndexed(navDelegate.index);
+                    forceActiveFocus();
                 }
             }
         }

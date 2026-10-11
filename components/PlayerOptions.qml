@@ -14,8 +14,8 @@ QOptionDialog {
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
-    readonly property var rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-    readonly property var seekSteps: [3, 5, 10, 15, 30]
+    readonly property list<double> rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+    readonly property list<int> seekSteps: [3, 5, 10, 15, 30]
 
     onCancel: {
         optionsEQ.open();

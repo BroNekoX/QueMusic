@@ -16,8 +16,7 @@ Rectangle {
     color: Theme.primaryColor
     border.width: 2
     border.color: Theme.borderColor
-    // useId 模式下文本取自 model[choice].description；对象直接赋给 string 会产生 QML 类型警告
-    // 越界下标取到的是 undefined，这里改成显式范围判断，避免和 undefined 做比较
+    // useId 模式取 model[choice].description；越界下标是 undefined，故显式判范围
     property string text: (!useId && model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
     property bool useId: false
     property string icon: "\uf096"
@@ -130,7 +129,7 @@ Rectangle {
                     id: dropDele
                     width: dropList.width
                     height: 36
-                    color: root.choice == dropDele.index ? Theme.themeColor : "transparent"
+                    color: root.choice === dropDele.index ? Theme.themeColor : "transparent"
                     radius: root.cardRadius
                     required property string modelData
                     required property var model
@@ -143,7 +142,7 @@ Rectangle {
                             const item = root.model ? root.model[dropDele.index] : null
                             return (item && item.description) ? String(item.description) : ""
                         }
-                        color: root.choice == dropDele.index ? Theme.primaryColor : Theme.textColor
+                        color: root.choice === dropDele.index ? Theme.primaryColor : Theme.textColor
                         font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter

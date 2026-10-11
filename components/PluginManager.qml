@@ -3,6 +3,7 @@
 
 // 插件管理页：歌词界面插件（单选）与功能插件（可多选）共用。
 // store 传插件单例：plugins / dir / selectedId / enabledIds / rescan() / install() / remove() / reveal()
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Dialogs
 import QueMusic 1.0

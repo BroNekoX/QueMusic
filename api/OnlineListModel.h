@@ -42,6 +42,7 @@ private:
 
     QList<QVariantMap> m_items;
     QHash<int, QByteArray> m_roleNames; // role id → 字段名
+    QHash<int, QString> m_roleKeys;     // role id → 字段名，data() 热路径免二次转换
     QHash<QByteArray, int> m_roleIndex; // 字段名 → role id
     int m_nextRole = Qt::UserRole + 1;
 };

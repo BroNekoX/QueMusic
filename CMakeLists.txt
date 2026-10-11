@@ -193,6 +193,7 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         shaders/LyricsStage.cpp
         shaders/LyricsStage.h
         cpp/AppModels.h
+        cpp/MediaTypes.h
         cpp/PlayerDatabase.cpp
         cpp/PlayerDatabase.h
         cpp/DbService.cpp

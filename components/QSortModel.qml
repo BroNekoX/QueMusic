@@ -9,7 +9,7 @@ SortFilterProxyModel {
     id: root
     property int sortMode: 0
     property bool sortDesc: false
-    property var options: []            // [{label, mode, desc}]，供菜单展示与回显
+    property list<var> options: []       // [{label, mode, desc}]，供菜单展示与回显
     property string nameRole: "name"
     property string artistRole: "artist"
     // 以 var 持有源模型，才能探测它的取行接口

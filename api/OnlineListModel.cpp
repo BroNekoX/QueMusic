@@ -27,18 +27,17 @@ OnlineListModel::OnlineListModel(QObject *parent)
 
 int OnlineListModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
-    return m_items.size();
+    return parent.isValid() ? 0 : int(m_items.size());
 }
 
 QVariant OnlineListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
         return {};
-    const QByteArray name = m_roleNames.value(role);
-    if (name.isEmpty())
+    const auto key = m_roleKeys.constFind(role);
+    if (key == m_roleKeys.constEnd())
         return {};
-    return m_items.at(index.row()).value(QString::fromLatin1(name));
+    return m_items.at(index.row()).value(key.value());
 }
 
 QHash<int, QByteArray> OnlineListModel::roleNames() const
@@ -54,6 +53,7 @@ void OnlineListModel::collectRoles(const QVariantMap &map)
             const int role = m_nextRole++;
             m_roleIndex.insert(key, role);
             m_roleNames.insert(role, key);
+            m_roleKeys.insert(role, it.key());
         }
     }
 }
@@ -99,13 +99,11 @@ void OnlineListModel::append(const QVariant &items)
 
 void OnlineListModel::remove(int index, int count)
 {
-    if (index < 0 || index >= m_items.size())
+    if (count <= 0 || index < 0 || index >= m_items.size())
         return;
-    const int end = static_cast<int>(
-        std::min<qsizetype>(index + count - 1, m_items.size() - 1));
+    const int end = std::min(index + count, int(m_items.size())) - 1;
     beginRemoveRows(QModelIndex(), index, end);
-    for (int i = end; i >= index; --i)
-        m_items.removeAt(i);
+    m_items.remove(index, end - index + 1);
     endRemoveRows();
     emit countChanged();
 }

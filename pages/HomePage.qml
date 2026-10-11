@@ -59,9 +59,9 @@ Item {
                 height: 36; width: 120
                 anchors.right: parent.right
                 choice: MusicApi.songSource
-                textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#7A1C3C" : MusicApi.songSource == 3 ? "#16750F" : "#756F0F"
-                color: MusicApi.songSource == 0 ? "#CDE8FF" : MusicApi.songSource == 1 ? "#FFCDCD" : MusicApi.songSource == 2 ? "#FFD9E6" : MusicApi.songSource == 3 ? "#CDFFCD" : "#FFFFCD"
-                border.color: MusicApi.songSource == 0 ? "#4384F5" : MusicApi.songSource == 1 ? "#F54343" : MusicApi.songSource == 2 ? "#FB7299" : MusicApi.songSource == 3 ? "#4DF543" : "#F5F543"
+                textColor: MusicApi.songSource === 0 ? "#0F3975" : MusicApi.songSource === 1 ? "#750F0F" : MusicApi.songSource === 2 ? "#7A1C3C" : MusicApi.songSource === 3 ? "#16750F" : "#756F0F"
+                color: MusicApi.songSource === 0 ? "#CDE8FF" : MusicApi.songSource === 1 ? "#FFCDCD" : MusicApi.songSource === 2 ? "#FFD9E6" : MusicApi.songSource === 3 ? "#CDFFCD" : "#FFFFCD"
+                border.color: MusicApi.songSource === 0 ? "#4384F5" : MusicApi.songSource === 1 ? "#F54343" : MusicApi.songSource === 2 ? "#FB7299" : MusicApi.songSource === 3 ? "#4DF543" : "#F5F543"
                 radius: 18
                 cardRadius: Style.labelRadius
                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]

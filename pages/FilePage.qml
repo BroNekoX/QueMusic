@@ -15,10 +15,10 @@ Item {
 
     property int folderNumber: 0
     property int setMode: 0
-    property var chooseIndex: []
+    property list<var> chooseIndex: []            // 混合存 folderId(int) 与 fileUrl(string)
     property int localSortField: FolderListModel.Unsorted
     property bool localSortReversed: false
-    property var localSortOptions: [
+    readonly property list<var> localSortOptions: [
         { label: "默认顺序", field: FolderListModel.Unsorted, desc: false },
         { label: "文件名 A→Z", field: FolderListModel.Name, desc: false },
         { label: "文件名 Z→A", field: FolderListModel.Name, desc: true },
@@ -527,8 +527,6 @@ Item {
                 width: fileChildPage.width
                 height: fileChildPage.height
                 visible: false
-                //用于存储本地文件夹目录
-                //用于存放文件夹内显示音频文件
                 LocalMusicScanner {
                     id: localFileModel
                     nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4","*.m4a"]
@@ -1429,7 +1427,7 @@ Item {
                     width: localFileView.width - 16
                     radius: Style.labelRadius
                     property bool chosen: filePage.setMode === 4 && filePage.chooseIndex.indexOf(listLocalFile.fileUrl.toString()) !== -1
-                    color: listLocalFile.chosen || Playback.player.source == listLocalFile.fileUrl ? Theme.containColor : "transparent"
+                    color: listLocalFile.chosen || Playback.player.source === listLocalFile.fileUrl ? Theme.containColor : "transparent"
                     property int transY: 0
                     transform: Translate { y: listLocalFile.transY }
 

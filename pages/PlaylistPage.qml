@@ -14,7 +14,7 @@ Item {
     readonly property int tabIndex: playlistChildPage.lastIndex
     readonly property bool songListActive: inSongWindow || tabIndex === 0
 
-    readonly property var filterItems: ["全部", "仅免费", "仅 VIP（付费）"]
+    readonly property list<string> filterItems: ["全部", "仅免费", "仅 VIP（付费）"]
 
     function reloadCurrent(): void {
         if (inSongWindow) {
@@ -110,9 +110,9 @@ Item {
                 height: 36; width: 120
                 anchors.right: parent.right
                 choice: MusicApi.songSource
-                textColor: MusicApi.songSource == 0 ? "#0F3975" : MusicApi.songSource == 1 ? "#750F0F" : MusicApi.songSource == 2 ? "#7A1C3C" : MusicApi.songSource == 3 ? "#16750F" : "#756F0F"
-                color: MusicApi.songSource == 0 ? "#CDE8FF" : MusicApi.songSource == 1 ? "#FFCDCD" : MusicApi.songSource == 2 ? "#FFD9E6" : MusicApi.songSource == 3 ? "#CDFFCD" : "#FFFFCD"
-                border.color: MusicApi.songSource == 0 ? "#4384F5" : MusicApi.songSource == 1 ? "#F54343" : MusicApi.songSource == 2 ? "#FB7299" : MusicApi.songSource == 3 ? "#4DF543" : "#F5F543"
+                textColor: MusicApi.songSource === 0 ? "#0F3975" : MusicApi.songSource === 1 ? "#750F0F" : MusicApi.songSource === 2 ? "#7A1C3C" : MusicApi.songSource === 3 ? "#16750F" : "#756F0F"
+                color: MusicApi.songSource === 0 ? "#CDE8FF" : MusicApi.songSource === 1 ? "#FFCDCD" : MusicApi.songSource === 2 ? "#FFD9E6" : MusicApi.songSource === 3 ? "#CDFFCD" : "#FFFFCD"
+                border.color: MusicApi.songSource === 0 ? "#4384F5" : MusicApi.songSource === 1 ? "#F54343" : MusicApi.songSource === 2 ? "#FB7299" : MusicApi.songSource === 3 ? "#4DF543" : "#F5F543"
                 radius: 18
                 cardRadius: Style.labelRadius
                 model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]
@@ -348,8 +348,6 @@ Item {
                     MusicApi.globalid = model.get(index).hash;
                     MusicApi.getPlaylistSongs(model.get(index).hash,1,20);
                     playListSongsWindow.listType = 0;
-                    //var image = model.get(index).cover.replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
-                    //var title = model.get(index).title;
                     playListSongsWindow.opened(model.get(index));
                     Options.exitIndex = 2;
                 }
@@ -469,7 +467,7 @@ Item {
             property int singerTypeIndex: 0
             property int singerPage: 1
             // 歌手类型入口：area 按平台映射（酷狗 / 网易云）
-            property var singerTypes: [
+            property list<var> singerTypes: [
                 { title: "华语", kg: 1, ne: 7 },
                 { title: "欧美", kg: 2, ne: 96 },
                 { title: "日本", kg: 5, ne: 8 },
@@ -500,7 +498,7 @@ Item {
                     model: album.singerTypes
                     delegate: Rectangle {
                         id: singerTypeRow
-                        required property string title
+                        required property var modelData
                         required property int index
                         width: 76
                         height: 32
@@ -518,7 +516,7 @@ Item {
                         }
                         Text {
                             anchors.fill: parent
-                            text: singerTypeRow.title
+                            text: singerTypeRow.modelData.title
                             elide: Text.ElideRight
                             z: 2
                             font.pixelSize: Style.text

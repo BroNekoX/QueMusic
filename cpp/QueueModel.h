@@ -39,8 +39,9 @@ public:
     // 返回实际加入数；追加在队尾，故首条下标 = count() - 返回值。
     Q_INVOKABLE int appendBatch(const QVariantList &items);
     Q_INVOKABLE void insert(int index, const QVariantMap &item);
+    // 把已在队列里的 from 行挪到 to 行；当前播放行跟着走，高亮不会跑偏
+    Q_INVOKABLE void moveTo(int from, int to);
     Q_INVOKABLE void remove(int index, int count = 1);
-    Q_INVOKABLE void move(int from, int to, int count = 1);
     Q_INVOKABLE void clear();
     Q_INVOKABLE int indexOfPath(const QString &path) const;
 

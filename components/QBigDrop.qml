@@ -30,7 +30,7 @@ Rectangle {
                 required property int index
                 height: parent.height
                 width: root.singleWidth
-                color: root.choice == index ? Theme.themeColor : Theme.primaryColor
+                color: root.choice === index ? Theme.themeColor : Theme.primaryColor
                 border.width: 2
                 border.color: Theme.secondaryColor
                 radius: Style.labelRadius
@@ -63,7 +63,7 @@ Rectangle {
                     y: 80
                     text: dropDel.modelData
                     font.pixelSize: Style.textmain
-                    color: root.choice == dropDel.index ? Theme.primaryColor : Theme.textColor
+                    color: root.choice === dropDel.index ? Theme.primaryColor : Theme.textColor
                     verticalAlignment: Text.AlignVCenter
                     horizontalAlignment: Text.AlignHCenter
                 }

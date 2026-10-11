@@ -1,41 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import 'qrc:/QueMusic/pages'
 
-// 主体内容区域
 Rectangle {
     id: mainContent
-    color: Theme.secondaryColor //Theme.blurOverlayColor
+    color: Theme.secondaryColor
     readonly property int pageHeight: height - 60
-    signal reLoad6()
 
-    // 页面数组，便于管理
-    property list<Item> pages: [
-        homePage,   // 0: 首页
-        playlistPage,  // 1: 歌单页
-        null,     // 2: 空页面
-        favouritePage, // 3: 收藏页
-        filePage,      // 4: 本地文件页
-        downloadPage,   // 5: 下载页
-        searchPage    // 6: 搜索页
-    ]
-
+    // 页面顺序 = 侧边栏导航下标：首页 0 / 分类 1 / 收藏 2 / 本地 3 / 下载 4 / 搜索 5
+    property list<Item> pages: [homePage, playlistPage, favouritePage, filePage, downloadPage, searchPage]
     property int pageIndex: 0
+
     function contentIndexed(choice: int): void {
-        reLoad6();
-        if(choice !== mainContent.pageIndex) {
-            mainContent.pages[mainContent.pageIndex].visible = false;
-            mainContent.pages[mainContent.pageIndex].active = false;
-            mainContent.pages[choice].active = true;
-            mainContent.pageIndex = choice;
-        }
+        if (choice < 0 || choice >= pages.length || choice === pageIndex)
+            return;
+        pages[pageIndex].visible = false;
+        pages[pageIndex].active = false;
+        pages[choice].active = true;
+        pageIndex = choice;
     }
+
+    // 页面加载完成后淡入 + 上滑；位移写 shiftY，由各 Loader 的 Translate 消费
     function finishedLoaderPage(choice: int): void {
         pageAnine.stop();
-        pageAnine.target = mainContent.pages[choice];
+        pageAnine.target = pages[choice];
         pageAnine.start();
     }
 
@@ -50,7 +42,6 @@ Rectangle {
             duration: 320
             easing.type: Easing.OutCubic
         }
-        // 位移写 shiftY，由各 Loader 的 Translate 消费；直接动画 y 会逐帧重排整页
         NumberAnimation {
             property: "shiftY"
             target: pageAnine.target
@@ -61,7 +52,6 @@ Rectangle {
         }
     }
 
-    // Home
     Loader {
         id: homePage
         x: 0
@@ -77,7 +67,6 @@ Rectangle {
         onLoaded: { visible = true; mainContent.finishedLoaderPage(0) }
     }
 
-    // 分类
     Loader {
         id: playlistPage
         x: 0
@@ -93,7 +82,6 @@ Rectangle {
         onLoaded: { visible = true; mainContent.finishedLoaderPage(1) }
     }
 
-    // 收藏
     Loader {
         id: favouritePage
         x: 0
@@ -106,11 +94,9 @@ Rectangle {
         property real shiftY: 0
         transform: Translate { y: favouritePage.shiftY }
         sourceComponent: FavouritePage {}
-        onLoaded: { visible = true; mainContent.finishedLoaderPage(3) }
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(2) }
     }
 
-
-    // 本地文件
     Loader {
         id: filePage
         x: 0
@@ -123,10 +109,9 @@ Rectangle {
         property real shiftY: 0
         transform: Translate { y: filePage.shiftY }
         sourceComponent: FilePage {}
-        onLoaded: { visible = true; mainContent.finishedLoaderPage(4) }
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(3) }
     }
 
-    // 下载
     Loader {
         id: downloadPage
         x: 0
@@ -139,10 +124,9 @@ Rectangle {
         property real shiftY: 0
         transform: Translate { y: downloadPage.shiftY }
         sourceComponent: DownloadPage {}
-        onLoaded: { visible = true; mainContent.finishedLoaderPage(5) }
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(4) }
     }
 
-    // 搜索页
     Loader {
         id: searchPage
         x: 0
@@ -156,6 +140,6 @@ Rectangle {
         property real shiftY: 0
         transform: Translate { y: searchPage.shiftY }
         sourceComponent: SearchPage {}
-        onLoaded: { visible = true; mainContent.finishedLoaderPage(6) }
+        onLoaded: { visible = true; mainContent.finishedLoaderPage(5) }
     }
 }

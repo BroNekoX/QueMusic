@@ -16,6 +16,7 @@
 #include <utility>
 
 class QObject;
+class QSqlError;
 
 class DbService
 {
@@ -28,6 +29,10 @@ public:
     // FIFO 执行，天然串行
     void submit(Job job);
 
+    // 写操作失败时调用：让工作线程重开连接并重试本轮任务。
+    // SQLite 的 readonly 是连接级粘性状态，不重开的话后续所有写都会一直失败。
+    static void markWriteFailed(const QSqlError &error);
+
     // 投递到 target 所属线程；已销毁则丢弃
     template <typename F>
     static void post(QObject *target, F &&fn)
@@ -38,6 +43,12 @@ public:
     }
 
     static QString dataDir();
+
+    // 真建一条连接试写一次（光看目录权限不够，安全软件会在 SQLite 写入时拦）
+    static bool dbWritable(const QString &dbPath);
+
+    // 换了数据目录后把旧库搬过去，避免用户看到空收藏
+    static void migrateFrom(const QString &oldDbPath, const QString &newDbPath);
 
     // 封面等缓存目录（已确保存在）
     static QString cacheDir();

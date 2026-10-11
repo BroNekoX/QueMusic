@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic

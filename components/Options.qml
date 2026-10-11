@@ -18,6 +18,7 @@ QtObject {
     property GetWave getWave
     property Loader textWatch
     property QOptionDialog picWatch
+    property SongInfoDialog songInfo
     property CoverHelper coverHelper
     property Loader desktopPlayerLoader
     property Loader desktopLyricsLoader
@@ -43,6 +44,7 @@ QtObject {
     signal changeUi()
     signal changeTheme()
     signal warned(string text, int type)
+    signal reSearch()
 
     readonly property bool darkis: Style.theme === 0 ? false : Style.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
     onDarkisChanged: Options.changeTheme()

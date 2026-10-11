@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtCore
@@ -25,6 +26,7 @@ Window {
         Options.getWave = getWave
         Options.textWatch = textWatch
         Options.picWatch = picWatch
+        Options.songInfo = songInfo
         Options.coverHelper = coverHelper
         Options.desktopPlayerLoader = desktopPlayerLoader
         Options.desktopLyricsLoader = desktopLyricsLoader
@@ -116,10 +118,11 @@ Window {
     function doSearch(text: string): void {
         Options.searchText = text;
         MusicApi.searchSongsResults.clear();
-        mainContent.contentIndexed(6);
+        mainContent.contentIndexed(5);
         Config.searchList = Config.searchList.filter(value => value !== text);
         Config.searchList.splice(0, 0, text);
         MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
+        Options.reSearch();
         Options.exitIndex = 1;
     }
 
@@ -187,6 +190,7 @@ Window {
             } }
         ]
         delegate: Shortcut {
+            required property var modelData
             readonly property string flag: "globalShortcut" + modelData.k.charAt(0).toUpperCase() + modelData.k.slice(1)
             sequence: ShortCut[modelData.k]
             context: Qt.ApplicationShortcut
@@ -260,7 +264,7 @@ Window {
                 focus: false
                 onReleased: searchCard.open();
                 onAccepted: {
-                    if(text.trim() == "") {
+                    if(text.trim() === "") {
                         mainWarn.tiped("请输入搜索内容", 0);
                         return;
                     }
@@ -283,7 +287,7 @@ Window {
                 iconCharacter: "\uf100"
                 buttonColor: "transparent"
                 onClicked: {
-                    if(mainSearchInput.text.trim() == "") {
+                    if(mainSearchInput.text.trim() === "") {
                         mainWarn.tiped("请输入搜索内容", 0);
                         return;
                     }
@@ -922,14 +926,14 @@ Window {
         id: desktopPlayerLoader
         active: false
         asynchronous: true
-        visible: status == Loader.Ready
+        visible: status === Loader.Ready
         source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
     }
     Loader {
         id: desktopLyricsLoader
         active: false
         asynchronous: true
-        visible: status == Loader.Ready
+        visible: status === Loader.Ready
         source: "qrc:/QueMusic/components/DesktopLyrics.qml"
     }
     QAlertDialog {
@@ -1036,12 +1040,17 @@ Window {
                     }
                 }
     }
+    // 歌曲 / 歌单信息：全应用共用一个弹窗，各列表调 Options.songInfo.show(item, isList)
+    SongInfoDialog {
+        id: songInfo
+    }
+
     Loader {
         id: textWatch
         anchors.fill: parent
         active: false
         asynchronous: true
-        visible: status == Loader.Ready
+        visible: status === Loader.Ready
         source: "qrc:/QueMusic/components/QTextWindow.qml"
     }
 

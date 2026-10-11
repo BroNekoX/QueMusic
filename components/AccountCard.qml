@@ -50,7 +50,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         onClicked: {
-            if(root.openUrl != "") {
+            if(root.openUrl !== "") {
                 Qt.openUrlExternally(root.openUrl);
             }
         }

@@ -27,7 +27,7 @@ Item {
                 required property int index
                 height: parent.height
                 width: root.singleWidth
-                color: root.choice == index ? Theme.themeColor : Theme.primaryColor
+                color: root.choice === index ? Theme.themeColor : Theme.primaryColor
                 border.width: 2
                 border.color: Theme.borderColor
                 radius: Style.labelRadius
@@ -48,7 +48,7 @@ Item {
                     x: 20
                     text: del.modelData
                     font.pixelSize: Style.textmain
-                    color: root.choice == del.index ? Theme.primaryColor : Theme.textColor
+                    color: root.choice === del.index ? Theme.primaryColor : Theme.textColor
                 }
                 MouseArea {
                     anchors.fill: parent

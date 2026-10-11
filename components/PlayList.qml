@@ -281,8 +281,8 @@ Popup {
                             onClicked: {
                                 const cur = Options.queue.playListIndex
                                 if (listfile.index === cur) return
-                                Options.queue.move(listfile.index, cur + 1, 1)
-                                if (listfile.index < cur) Options.queue.playListIndex = cur - 1
+                                // 已在队列里就走移动：当前播放行跟着走，不会串到别人身上
+                                Options.queue.moveTo(listfile.index, cur + 1)
                                 Options.warned("已设为下一首", 1)
                             }
                         }
@@ -322,10 +322,9 @@ Popup {
                             shadowEnabled: false
                             tipText: "移除"
                             onClicked: {
-                                if (Options.queue.playListIndex !== listfile.index) {
-                                    if (Options.queue.playListIndex > listfile.index) Options.queue.playListIndex -= 1;
+                                // 下标由模型自己维护，这里不再手动加减
+                                if (Options.queue.playListIndex !== listfile.index)
                                     Options.queue.remove(listfile.index, 1);
-                                }
                             }
                         }
                     }

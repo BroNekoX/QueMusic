@@ -73,7 +73,6 @@ Window {
         }
     }
 
-    // 卡片主体
     Rectangle {
         id: playerCard
         anchors.fill: parent
@@ -108,7 +107,6 @@ Window {
             color: Theme.fontColor
         }
 
-        // 艺术家
         Text {
             id: playerArtist
             x: 102
@@ -122,7 +120,6 @@ Window {
             color: Theme.textColor
         }
 
-        // 进度条
         Slider {
             id: seekSlider
             x: 102
@@ -161,7 +158,6 @@ Window {
             }
         }
 
-        // 时间
         Text {
             id: timeText
             x: 102
@@ -263,7 +259,6 @@ Window {
             }
         }
 
-        // 关闭按钮
         SButton {
             id: closeButton
             x: playerCard.width - 44

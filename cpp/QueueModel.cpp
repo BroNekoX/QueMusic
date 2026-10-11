@@ -104,7 +104,44 @@ void QueueModel::insert(int index, const QVariantMap &item)
     // 缓存永远与 m_items 行号一致：插入会让 index 及其后每一行的行号整体 +1，
     // 只记录新行会让后续行的缓存索引全部失效，所以统一在模型变更信号之后整体重建。
     rebuildIndex();
+    // 当前播放行被顶到下一行：下标跟着挪，否则高亮会落到刚插入的这首上
+    if (index <= m_playListIndex) {
+        m_playListIndex += 1;
+        emit playListIndexChanged();
+    }
     emit countChanged();
+}
+
+// to 是「想要占据的最终下标」，与 from 的相对关系直觉一致：
+// 向前挪（to < from）落点就是 to；向后挪（to > from）因为先抽走了自己，模型下标要 -1。
+void QueueModel::moveTo(int from, int to)
+{
+    if (from < 0 || from >= m_items.size())
+        return;
+    const int last = int(m_items.size()) - 1;
+    const int dest = qBound(0, to > from ? to - 1 : to, last);
+    if (dest == from)
+        return;
+    // beginMoveRows 的目的行是「移动后占据的下标」：向后移要 +1
+    if (!beginMoveRows(QModelIndex(), from, from, QModelIndex(), dest > from ? dest + 1 : dest))
+        return;
+    m_items.move(from, dest);
+    endMoveRows();
+    rebuildIndex();
+
+    if (m_playListIndex >= 0) {
+        int moved = m_playListIndex;
+        if (moved == from)
+            moved = dest;
+        else if (from < moved && dest >= moved)
+            moved -= 1;
+        else if (from > moved && dest <= moved)
+            moved += 1;
+        if (moved != m_playListIndex) {
+            m_playListIndex = moved;
+            emit playListIndexChanged();
+        }
+    }
 }
 
 void QueueModel::remove(int index, int count)
@@ -115,29 +152,15 @@ void QueueModel::remove(int index, int count)
     beginRemoveRows(QModelIndex(), index, index + count - 1);
     m_items.remove(index, count);
     endRemoveRows();
-    // 与 insert()/move() 同一套策略：删除后 index 之后的行号整体前移，统一整体重建。
+    // 与 insert() 同一套策略：删除后 index 之后的行号整体前移，统一整体重建。
     rebuildIndex();
+    if (m_playListIndex >= index) {
+        m_playListIndex = qMax(0, qMin(m_playListIndex - count, int(m_items.size()) - 1));
+        if (m_items.isEmpty())
+            m_playListIndex = -1;
+        emit playListIndexChanged();
+    }
     emit countChanged();
-}
-
-void QueueModel::move(int from, int to, int count)
-{
-    if (from < 0 || to < 0 || count <= 0 || from >= m_items.size())
-        return;
-    count = qMin(count, int(m_items.size() - from));
-    if (to == from || to + count > m_items.size())
-        return;
-    const int dest = to > from ? to + count : to;
-    if (!beginMoveRows(QModelIndex(), from, from + count - 1, QModelIndex(), dest))
-        return;
-    const QVector<Track> block = m_items.mid(from, count);
-    m_items.remove(from, count);
-    for (int i = 0; i < block.size(); ++i)
-        m_items.insert(to + i, block.at(i));
-    endMoveRows();
-    // 缓存永远与 m_items 行号一致：前移与后移会改动 [from, ...] 到目标区间之间所有行的行号，
-    // 分段增量修正很容易漏改，这里同样统一整体重建，保证每种修改操作只走一套索引维护策略。
-    rebuildIndex();
 }
 
 void QueueModel::clear()
@@ -148,6 +171,10 @@ void QueueModel::clear()
     m_items.clear();
     m_indexOfPath.clear();
     endResetModel();
+    if (m_playListIndex != -1) {
+        m_playListIndex = -1;
+        emit playListIndexChanged();
+    }
     emit countChanged();
 }
 

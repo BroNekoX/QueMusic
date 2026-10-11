@@ -17,7 +17,7 @@ Item {
     property bool highQuality: Style.highQualityBlur
     property int  borderRadius: Style.cubeRadius
     property color cardColor: Theme.primaryBlurColor
-    property color borderColor: Theme.primaryColor
+    property color borderColor: Theme.primaryBlurColor
     property real borderWidth: 1
     property color fillColor: Theme.secondaryColor  // 源透明/空缺处的补底色
     property bool shadowEffect: false

@@ -506,7 +506,6 @@ void MusicApiService::getComments(const QString &hash, int page, int pageSize, i
     if (hash.isEmpty())
         return;
     beginRequest();
-    //m_comments.setItems(QVariantList()); 清空个p
     DISPATCH(source, getComments(hash, qMax(1, page), qBound(1, pageSize, 50)));
 }
 
@@ -805,7 +804,7 @@ void MusicApiService::setAllPlaylistMenu(const QVariant &v)
     emit allPlaylistMenuChanged();
 }
 
-void MusicApiService::setLyricsData(const QVariant &v)
+void MusicApiService::setLyricsData(const QVariantList &v)
 {
     if (m_lyricsData == v)
         return;
@@ -815,7 +814,7 @@ void MusicApiService::setLyricsData(const QVariant &v)
     emit lyricsDataChanged();
 }
 
-void MusicApiService::setLyricsTranslate(const QVariant &v)
+void MusicApiService::setLyricsTranslate(const QVariantList &v)
 {
     if (m_lyricsTranslate == v)
         return;
@@ -823,9 +822,8 @@ void MusicApiService::setLyricsTranslate(const QVariant &v)
     emit lyricsTranslateChanged();
 }
 
-void MusicApiService::rebuildLyricTimes(const QVariant &v)
+void MusicApiService::rebuildLyricTimes(const QVariantList &list)
 {
-    const QVariantList list = v.toList();
     m_lyricTimes.clear();
     m_lyricTimes.reserve(list.size());
     for (const QVariant &item : list)
@@ -1202,7 +1200,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
                 onlineLyrics << line;
             }
             setLyricsData(onlineLyrics);
-            setLyricsTranslate(d.value(QStringLiteral("translate")));
+            setLyricsTranslate(d.value(QStringLiteral("translate")).toList());
 
             if (!lyricHash.isEmpty() && m_pendingLocalLyrics.contains(lyricHash)) {
                 const LocalLyricsRequest request = m_pendingLocalLyrics.take(lyricHash);

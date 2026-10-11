@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 // 均衡器与音频处理面板：10 段参数均衡 + 声道工具 + ReplayGain + 限幅喵~
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QueMusic 1.0
@@ -17,7 +18,7 @@ Column {
     readonly property int faderHeight: 148
     readonly property int trackTop: 6
     readonly property int trackHeight: faderHeight - 40
-    readonly property var sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
+    readonly property list<int> sampleRates: [0, 44100, 48000, 88200, 96000, 192000]
     property color cardColor: Theme.primaryColor
     property int display: 0
     property int controlWidth
@@ -29,7 +30,7 @@ Column {
         height: statusRow.height + 20
         color: panel.cardColor
         radius: Style.cubeRadius
-        visible: panel.display == 0 || panel.display == 1
+        visible: panel.display === 0 || panel.display === 1
 
         Row {
             id: statusRow
@@ -75,7 +76,7 @@ Column {
         color: panel.cardColor
         radius: Style.cubeRadius
         height: eqColumn.height
-        visible: panel.display == 0 || panel.display == 1
+        visible: panel.display === 0 || panel.display === 1
 
         Column {
             id: eqColumn
@@ -380,7 +381,7 @@ Column {
         color: panel.cardColor
         radius: Style.cubeRadius
         height: soundRoadColumn.height
-        visible: panel.display == 0 || panel.display == 2
+        visible: panel.display === 0 || panel.display === 2
         Column {
             id: soundRoadColumn
             width: parent.width
@@ -502,7 +503,7 @@ Column {
         height: premiumSoundColumn.height
         color: panel.cardColor
         radius: Style.cubeRadius
-        visible: panel.display == 0 || panel.display == 3
+        visible: panel.display === 0 || panel.display === 3
         Column {
             id: premiumSoundColumn
             width: parent.width

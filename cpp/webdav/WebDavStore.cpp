@@ -81,6 +81,22 @@ QString normalizeUrl(const QString &url)
     return out;
 }
 
+// 加密失败必须让调用方中止落盘：以前静默写成空串，等于把密码丢了还当成有效配置
+bool encryptPassword(const QString &password, QString *out)
+{
+    if (password.isEmpty()) {
+        out->clear();
+        return true;
+    }
+    const QString cipher = encryptText(password);
+    if (cipher.isEmpty()) {
+        qWarning() << "[webdav] 密码加密失败，已放弃保存该服务器";
+        return false;
+    }
+    *out = cipher;
+    return true;
+}
+
 } // namespace
 
 WebDavStore::WebDavStore(QObject *parent)
@@ -140,7 +156,10 @@ void WebDavStore::addServer(const QString &name, const QString &url, const QStri
     server.insert(QStringLiteral("name"), name.trimmed());
     server.insert(QStringLiteral("url"), root);
     server.insert(QStringLiteral("user"), user);
-    server.insert(QStringLiteral("password"), encryptText(password));
+    QString cipher;
+    if (!encryptPassword(password, &cipher))
+        return;
+    server.insert(QStringLiteral("password"), cipher);
     m_servers.append(server);
     save();
     emit serversChanged();
@@ -157,8 +176,12 @@ void WebDavStore::updateServer(const QString &id, const QString &name, const QSt
     server.insert(QStringLiteral("name"), name.trimmed());
     server.insert(QStringLiteral("url"), root);
     server.insert(QStringLiteral("user"), user);
-    if (!password.isEmpty())
-        server.insert(QStringLiteral("password"), encryptText(password));
+    if (!password.isEmpty()) {   // 留空表示沿用原密码
+        QString cipher;
+        if (!encryptPassword(password, &cipher))
+            return;
+        server.insert(QStringLiteral("password"), cipher);
+    }
     m_servers[index] = server;
     save();
     emit serversChanged();
@@ -191,10 +214,18 @@ QString WebDavStore::authHeader(const QString &id) const
 
 QString WebDavStore::authHeaderOfUrl(const QString &url) const
 {
+    const QUrl target(url);
+    if (target.host().isEmpty())
+        return {};
+    // 必须按 QUrl 分段比较：纯字符串前缀会让 dav-attacker/ 也命中 dav/ 的凭据
+    const QString targetPath = target.path().isEmpty() ? QStringLiteral("/") : target.path();
     for (const QVariant &item : m_servers) {
         const QVariantMap server = item.toMap();
-        const QString root = field(server, "url");
-        if (!root.isEmpty() && url.startsWith(root))
+        const QUrl root(field(server, "url"));
+        if (root.host().isEmpty() || root.host().compare(target.host(), Qt::CaseInsensitive) != 0)
+            continue;
+        const QString rootPath = root.path().isEmpty() ? QStringLiteral("/") : root.path();
+        if (targetPath.startsWith(rootPath))
             return authHeader(field(server, "id"));
     }
     return {};

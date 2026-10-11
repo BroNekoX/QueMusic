@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 // 播放中枢：切歌 / 淡变防爆音 / 音量 / 跳转 / A-B 循环 / 睡眠定时 / 播放历史 / 真随机
+pragma ComponentBehavior: Bound
 pragma Singleton
 import QtQuick
 import QueMusic 1.0
@@ -58,9 +59,14 @@ QtObject {
         return true
     }
 
-    // 插到当前曲目之后；没有当前曲目时追加到队尾
+    // 插到当前曲目之后；已在队列里则直接挪过去。队列自己会把当前播放行跟着挪，高亮不会跑
     function playNext(item: var): void {
         if (!queue || !item || !item.path) return
+        const existing = indexOfPath(item.path)
+        if (existing !== -1) {
+            queue.moveTo(existing, queue.playListIndex + 1)
+            return
+        }
         const at = queue.playListIndex + 1
         queue.insert(at <= 0 ? count : at,
                      { name: item.name, path: item.path, songer: item.songer, source: item.source })
@@ -82,7 +88,7 @@ QtObject {
 
     // source 文案：本地文件与 WebDAV（播的是本地缓存）都算本地
     function sourceText(source: int): string {
-        return source < 0 || source == kSourceWebDav ? "本地" : "在线"
+        return source < 0 || source === kSourceWebDav ? "本地" : "在线"
     }
 
     // WebDAV：已缓存则直接播本地；否则带鉴权头直连，同时后台缓存（落地后回填元数据/封面/歌词）
@@ -113,16 +119,15 @@ QtObject {
 
 
     function startTrack(index: int): void {
+        if (index < 0 || index >= count) return
         const e = queue.get(index)
-        // 用 == 而非 ===，且不要对 e 取反：AOT 下这两种写法会导致切歌闪退
-        if (e.path == undefined) return
-        if (e.source == kSourceWebDav) playWebDav(e.path, e.name, e.songer)
+        if (e.source === kSourceWebDav) playWebDav(e.path, e.name, e.songer)
         else if (e.source < 0) playLocalSong(e.path, e.name)
         else MusicApi.getMusicInfo(e.path, 0, e.source)
     }
 
     function noteNowPlaying(): void {
-        if (queue.playListIndex < 0 || count === 0 || !musicTitle) return
+        if (count === 0 || queue.playListIndex < 0 || !musicTitle) return
         const e = queue.get(queue.playListIndex)
         pushHistory({ title: musicTitle, artist: musicArtist, path: e.path, source: e.source,
 cover: player.urlStr || "",
@@ -147,8 +152,8 @@ cover: player.urlStr || "",
     function indexOfPath(p: string): int { return queue ? queue.indexOfPath(p) : -1 }
 
     // 真随机：洗牌牌堆一轮不重复，并避开最近播放
-    property var bag: []
-    property var recent: []
+    property list<int> bag: []
+    property list<int> recent: []
     onCountChanged: bag = []
 
     function nextShuffle(): int {

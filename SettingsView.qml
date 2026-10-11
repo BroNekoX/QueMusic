@@ -802,7 +802,7 @@ Item {
                         SettingItemCard {
                             label: "选择背景图片"
                             tip: "设置应用背景壁纸显示的图片"
-                            visible: Style.backmode == 3
+                            visible: Style.backmode === 3
                             height: visible ? 64 : 0
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {

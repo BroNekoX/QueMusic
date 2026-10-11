@@ -11,6 +11,24 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QRegularExpression>
+
+namespace {
+
+// 远端元数据来的文件名：剥掉目录与 :: 越界成分，再剔除非法/控制字符并限长，
+// 否则 "../x" 之类能写出下载目录外
+QString safeFileName(QString name)
+{
+    name = QFileInfo(name).fileName();
+    static const QRegularExpression illegal(QStringLiteral("[\\\\/:*?\"<>|\\x00-\\x1f]"));
+    name.replace(illegal, QStringLiteral("_"));
+    name = name.trimmed();
+    if (name.isEmpty())
+        return QStringLiteral("download");
+    return name.size() > 120 ? name.left(120) : name;
+}
+
+} // namespace
 
 DownloadManager::DownloadManager(QObject *parent)
     : QAbstractListModel(parent)
@@ -44,8 +62,7 @@ QString DownloadManager::effectiveDownloadDir() const
 
 int DownloadManager::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent)
-    return m_tasks.size();
+    return parent.isValid() ? 0 : int(m_tasks.size());
 }
 
 QVariant DownloadManager::data(const QModelIndex &index, int role) const
@@ -107,7 +124,7 @@ void DownloadManager::addDownload(const QString &url, const QString &fileName,
     DownloadTask task;
     task.id = id;
     task.url = url;
-    task.fileName = fileName;
+    task.fileName = safeFileName(fileName);
     task.title = meta.value(QStringLiteral("title")).toString();
     task.artist = meta.value(QStringLiteral("artist")).toString();
     task.cover = meta.value(QStringLiteral("cover")).toString();
@@ -195,28 +212,26 @@ void DownloadManager::startNextTask()
     task.status = DownloadTask::Downloading;
     m_currentTaskId = task.id;
 
-    QModelIndex mi = index(nextIdx);
-    emit dataChanged(mi, mi, { StatusRole });
-    emit currentTaskIdChanged();
-    emit hasActiveTasksChanged();
-
-    // 准备保存路径
-    QString downloadDir = effectiveDownloadDir();
+    // 准备保存路径（先定 filePath 再发 dataChanged，否则 QML 拿到空的 filePath）
+    const QString downloadDir = effectiveDownloadDir();
     QDir().mkpath(downloadDir);
 
     // 如果文件已存在，添加数字后缀避免覆盖
-    QString basePath = downloadDir + "/" + task.fileName;
+    const QString basePath = downloadDir + QLatin1Char('/') + task.fileName;
     QString savePath = basePath;
-    int counter = 1;
-    while (QFile::exists(savePath)) {
-        QFileInfo fi(basePath);
-        savePath = fi.completeBaseName() + QString("(%1)").arg(counter);
+    for (int counter = 1; QFile::exists(savePath); ++counter) {
+        const QFileInfo fi(basePath);
+        savePath = fi.completeBaseName() + QStringLiteral("(%1)").arg(counter);
         if (!fi.suffix().isEmpty())
-            savePath += "." + fi.suffix();
-        savePath = downloadDir + "/" + savePath;
-        counter++;
+            savePath += QLatin1Char('.') + fi.suffix();
+        savePath = downloadDir + QLatin1Char('/') + savePath;
     }
     task.filePath = savePath;
+
+    const QModelIndex mi = index(nextIdx);
+    emit dataChanged(mi, mi, { StatusRole, FilePathRole });
+    emit currentTaskIdChanged();
+    emit hasActiveTasksChanged();
 
     m_file = new QFile(savePath, this);
     if (!m_file->open(QIODevice::WriteOnly)) {
