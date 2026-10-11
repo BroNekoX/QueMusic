@@ -281,7 +281,9 @@ Popup {
                             onClicked: {
                                 const cur = Options.queue.playListIndex
                                 if (listfile.index === cur) return
-                                Options.queue.move(listfile.index, cur + 1, 1)
+                                // 末曲时 cur + 1 == count：目标收紧到最后一个合法下标
+                                Options.queue.move(listfile.index,
+                                                    Math.min(cur + 1, Options.queue.count - 1), 1)
                                 if (listfile.index < cur) Options.queue.playListIndex = cur - 1
                                 Options.warned("已设为下一首", 1)
                             }

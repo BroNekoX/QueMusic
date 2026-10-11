@@ -753,8 +753,11 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
 {
     const int channels = qMax(1, m_outChannels.load(std::memory_order_relaxed));
     const int rate = qMax(8000, m_outSampleRate.load(std::memory_order_relaxed));
-    const bool floatFormat = (m_format.sampleFormat() == QAudioFormat::Float);
-    const int bytesPerSample = floatFormat ? 4 : 2;
+    const QAudioFormat::SampleFormat sampleFormat = m_format.sampleFormat();
+    const bool floatFormat = (sampleFormat == QAudioFormat::Float);
+    // 设备首选格式可能是 Int32/UInt8 等：帧长按真实格式计算，写出时再分支转换，
+    // 否则帧数会被算成两倍、缓冲区只写一半（表现为噪声）
+    const int bytesPerSample = int(qMax<qsizetype>(1, m_format.bytesPerSample()));
     const int frameBytes = channels * bytesPerSample;
 
     int frames = int(maxlen / frameBytes);
@@ -846,11 +849,25 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
             handle->push(buf, got, channels, rate);
 
         if (!direct) {
+            const int samples = got * channels;
             if (floatFormat) {
-                std::memcpy(dst, buf, size_t(got) * channels * sizeof(float));
+                std::memcpy(dst, buf, size_t(samples) * sizeof(float));
+            } else if (sampleFormat == QAudioFormat::Int32) {
+                auto *out = reinterpret_cast<qint32 *>(dst);
+                for (int i = 0; i < samples; ++i) {
+                    out[i] = qint32(qBound(-2147483648.0,
+                                           double(buf[i]) * 2147483647.0,
+                                           2147483647.0));
+                }
+            } else if (sampleFormat == QAudioFormat::UInt8) {
+                auto *out = reinterpret_cast<quint8 *>(dst);
+                for (int i = 0; i < samples; ++i) {
+                    const double v = qBound(-1.0, double(buf[i]), 1.0);
+                    out[i] = quint8(qBound(0.0, (v * 127.5) + 127.5, 255.0));
+                }
             } else {
                 auto *out = reinterpret_cast<qint16 *>(dst);
-                for (int i = 0, n = got * channels; i < n; ++i) {
+                for (int i = 0; i < samples; ++i) {
                     const float v = buf[i];
                     out[i] = qint16(qBound(-32768.0f, v * 32767.0f, 32767.0f));
                 }
@@ -977,7 +994,12 @@ void AudioEngine::decodeLoop()
             if (m_decoder.targetSampleRate() != targetRate)
                 m_decoder.setTargetFormat(targetRate, channels);
             m_decodeRate.store(targetRate, std::memory_order_relaxed);
-            m_decoder.seekTo(seek);
+            if (!m_decoder.seekTo(seek)) {
+                // seek 失败还发布新代次会让进度条跳到没播到的地方
+                qWarning() << "[audio] seek 失败，保持当前播放位置:" << seek;
+                m_pendingSeekMs.store(-1, std::memory_order_release);
+                continue;
+            }
             beginGeneration(seek);
             m_lastSeekDoneMs.store(steadyMs(), std::memory_order_relaxed);
             m_decodeEof.store(false, std::memory_order_relaxed);

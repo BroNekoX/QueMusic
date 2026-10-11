@@ -85,7 +85,7 @@ private:
     void rankingUsers(const QString &action, int limit);
     QStringList upMids(const QJsonArray &items, int limit); // 去重的 UP 主 mid，并记下昵称
     void emitList(const QString &action, const QVariantList &info);
-    void emitLyrics(const QString &hash, const QVariantList &lyrics);
+    void emitLyrics(const QString &hash, const QVariantList &lyrics, int error = 0);
     // 稿件 → 统一歌曲字段；合集条目不含作者，需调用方补
     QVariantMap toSong(const QJsonObject &v, const QString &fallbackArtist = QString());
 

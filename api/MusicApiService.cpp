@@ -387,7 +387,9 @@ void MusicApiService::getMusicPlaylists(const QString &tagid, int page, int page
 // 分类页的歌单（酷狗走 category/special，与首页热门分类卡片的 tag 体系不同源）
 void MusicApiService::getCategoryPlaylists(const QString &id, int page, int pageSize, int source)
 {
-    setLoadState(true);
+    // 必须走统一入口：否则平台结果回来时的 endRequest() 会偷别的请求的计数，
+    // 而本请求挂起时又没有任何看门狗兜底
+    beginRequest();
     const int resolved = resolve(source);
     syncSource(resolved);
     if (resolved == kSourceKugou)
@@ -840,6 +842,14 @@ void MusicApiService::setLyricIndex(int index)
     emit lyricIndexChanged();
 }
 
+void MusicApiService::setCommentsHasMore(bool hasMore)
+{
+    if (m_commentsHasMore == hasMore)
+        return;
+    m_commentsHasMore = hasMore;
+    emit commentsHasMoreChanged();
+}
+
 void MusicApiService::advanceLyricIndex()
 {
     const int count = int(m_lyricTimes.size());
@@ -1053,6 +1063,7 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     // 评论：直接灌评论模型，不参与歌曲 hash 等后续处理
     if (action == QLatin1String("getComments")) {
         m_comments.append(requestFailed ? QVariantList() : info.toList());
+        setCommentsHasMore(!requestFailed && d.value(QStringLiteral("hasMore")).toBool());
         return;
     }
 
