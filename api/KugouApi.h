@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QSharedPointer>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QVariantMap>
 #include <functional>
@@ -69,11 +70,17 @@ signals:
 private:
     using Callback = std::function<void(const QJsonObject &)>;
     void get(const QString &url, const Callback &cb); // GET 请求 + JSON 回调
-    QString cookieValue(const QString &key) const;
+    // 按候选键名依次查 cookie（扫码登录写 token/userid，网页 cookie 可能是 t/KugooID）
+    QString cookieValue(const QStringList &keys) const;
     // 评论网关的安卓端签名：算法与 kugouWebSignature 相同，盐不同
     static QByteArray kugouAndroidSignature(const QVariantMap &params);
     // 登录态取 VIP 播放地址；reason 为无地址原因（"vip" 需要会员/购买，供上层提示）
     void requestSignedPlayInfo(const QString &hash, int type, const QString &reason = QString());
+    // play/songinfo 的公共参数（设备 + 登录态），hash/encode_album_audio_id 由调用方补
+    QJsonObject songInfoBaseParams() const;
+    // 两步取址：hash → encode_album_audio_id → play_url（VIP 曲只走这一步）
+    void requestSongInfo(const QJsonObject &params, const QString &hash, int type,
+                         const QString &reason, const QJsonObject &metaFallback = QJsonObject());
 
     // getMusicInfo 两路并行请求的合并状态：
     //   meta    → getSongInfo.php（歌名/歌手/封面/时长 + 128k 兜底地址）
