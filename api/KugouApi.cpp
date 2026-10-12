@@ -199,6 +199,22 @@ QByteArray inflateSmart(const QByteArray &data)
         qWarning() << "[krc] 歌词解压失败";
     return out;
 }
+
+// play/songinfo 取址结果：新版是 play_url/play_backup_url，老版 backup_url 可能是数组
+QString playUrlOf(const QJsonObject &data, QString *backup)
+{
+    if (backup) {
+        QString b = data.value(QStringLiteral("play_backup_url")).toString();
+        if (b.isEmpty()) {
+            const QJsonValue bv = data.value(QStringLiteral("backup_url"));
+            b = bv.isArray() ? (bv.toArray().isEmpty() ? QString()
+                                                       : bv.toArray().first().toString())
+                             : bv.toString();
+        }
+        *backup = b;
+    }
+    return data.value(QStringLiteral("play_url")).toString();
+}
 } // namespace
 
 namespace {
@@ -1260,8 +1276,8 @@ void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointe
         // trackercdn status=2 说明该曲对该账号无权限（会员/购买），用于给出准确提示
         const QString reason = st->trackerStatus == 2 ? QStringLiteral("vip")
                                                      : QStringLiteral("unavailable");
-        if (!cookieValue(QStringLiteral("token")).isEmpty()) {
-            qDebug() << "[kugou] 免费通道无地址，转登录签名接口重试 hash:" << hash.left(8);
+        if (!cookieValue({QStringLiteral("token"), QStringLiteral("t")}).isEmpty()) {
+            qInfo() << "[kugou] 免费通道无地址，转登录签名接口 hash:" << hash.left(8);
             requestSignedPlayInfo(hash, type, reason);
             return;
         }
@@ -1271,96 +1287,132 @@ void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointe
     emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
 }
 
-QString KugouApi::cookieValue(const QString &key) const
+QString KugouApi::cookieValue(const QStringList &keys) const
 {
     const QStringList pairs = m_cookie.split(QLatin1Char(';'), Qt::SkipEmptyParts);
     for (const QString &p : pairs) {
         const int i = p.indexOf(QLatin1Char('='));
-        if (i > 0 && p.left(i).trimmed() == key)
-            return p.mid(i + 1).trimmed();
+        if (i <= 0)
+            continue;
+        const QString name = p.left(i).trimmed();
+        for (const QString &key : keys) {
+            if (name.compare(key, Qt::CaseInsensitive) == 0)
+                return p.mid(i + 1).trimmed();
+        }
     }
     return QString();
 }
 
-// wwwapi 播放接口（web 签名 + 登录 token），有会员/已购买的账号可取到完整播放地址
-void KugouApi::requestSignedPlayInfo(const QString &hash, int type, const QString &reason)
+QJsonObject KugouApi::songInfoBaseParams() const
 {
+    // 参数集与 web 端一致：多余参数会参与签名，反而可能被判非法
     const QString mid = m_mid.isEmpty() ? kugouMidFromGuid(randomGuid()) : m_mid;
     QJsonObject params;
     params.insert(QStringLiteral("appid"), 1014);
-    params.insert(QStringLiteral("area_code"), 1);
-    params.insert(QStringLiteral("clienttime"),
-                  QString::number(QDateTime::currentMSecsSinceEpoch()));
-    params.insert(QStringLiteral("clientver"), 20000);
-    params.insert(QStringLiteral("dfid"), m_dfid.isEmpty() ? QStringLiteral("-") : m_dfid);
-    params.insert(QStringLiteral("hash"), hash);
-    params.insert(QStringLiteral("mid"), mid);
-    params.insert(QStringLiteral("page"), 1);
     params.insert(QStringLiteral("platid"), 4);
     params.insert(QStringLiteral("srcappid"), 2919);
-    params.insert(QStringLiteral("token"), cookieValue(QStringLiteral("token")));
-    params.insert(QStringLiteral("type"), 1);
-    params.insert(QStringLiteral("userid"),
-                  cookieValue(QStringLiteral("userid")).isEmpty()
-                      ? QStringLiteral("0")
-                      : cookieValue(QStringLiteral("userid")));
+    params.insert(QStringLiteral("clientver"), 20000);
+    params.insert(QStringLiteral("clienttime"),
+                  QString::number(QDateTime::currentMSecsSinceEpoch()));
+    params.insert(QStringLiteral("mid"), mid);
     params.insert(QStringLiteral("uuid"), mid);
-    params.insert(QStringLiteral("signature"),
-                  QString::fromLatin1(kugouWebSignature(params)));
+    params.insert(QStringLiteral("dfid"), m_dfid.isEmpty() ? QStringLiteral("-") : m_dfid);
+    params.insert(QStringLiteral("token"),
+                  cookieValue({QStringLiteral("token"), QStringLiteral("t")}));
+    const QString userid = cookieValue({QStringLiteral("userid"), QStringLiteral("user_id"),
+                                        QStringLiteral("KugooID")});
+    params.insert(QStringLiteral("userid"),
+                  userid.isEmpty() ? QStringLiteral("0") : userid);
+    return params;
+}
+
+// wwwapi 播放接口（web 签名 + 登录 token）：VIP/付费曲要到第二步才给 play_url
+void KugouApi::requestSignedPlayInfo(const QString &hash, int type, const QString &reason)
+{
+    QJsonObject params = songInfoBaseParams();
+    params.insert(QStringLiteral("hash"), hash);
+    requestSongInfo(params, hash, type, reason);
+}
+
+void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, int type,
+                               const QString &reason, const QJsonObject &metaFallback)
+{
+    const bool secondStep = params.contains(QStringLiteral("encode_album_audio_id"));
+    QJsonObject signedParams = params;
+    signedParams.insert(QStringLiteral("signature"),
+                        QString::fromLatin1(kugouWebSignature(params)));
 
     QUrlQuery q;
-    const QStringList keys = params.keys();
+    const QStringList keys = signedParams.keys();
     for (const QString &k : keys)
-        q.addQueryItem(k, params.value(k).toVariant().toString());
+        q.addQueryItem(k, signedParams.value(k).toVariant().toString());
     QUrl url(QStringLiteral("https://wwwapi.kugou.com/play/songinfo"));
     url.setQuery(q);
 
-    get(url.toString(), [this, hash, type, reason](const QJsonObject &json) {
-        const QJsonObject d = json.value(QStringLiteral("data")).toObject();
-        const QString playUrl = d.value(QStringLiteral("play_url")).toString();
-        const QJsonArray backupArr = d.value(QStringLiteral("backup_url")).toArray();
-        const QString backup = backupArr.isEmpty() ? QString() : backupArr.first().toString();
-        qDebug() << "[kugou] 签名播放接口 url:" << (playUrl.isEmpty() ? backup : playUrl)
-                 << "err:" << json.value(QStringLiteral("err_code"));
-        if (playUrl.isEmpty() && backup.isEmpty()) {
-            // 无权限/风控：必须回传结果，否则上层 loadState 一直为 true（界面卡在加载中）
-            QVariantMap fail;
-            fail.insert(QStringLiteral("url"), QString());
-            fail.insert(QStringLiteral("songName"), d.value(QStringLiteral("song_name")).toString());
-            fail.insert(QStringLiteral("author_name"),
-                        d.value(QStringLiteral("author_name")).toString());
-            fail.insert(QStringLiteral("album_img"), d.value(QStringLiteral("img")).toString());
-            fail.insert(QStringLiteral("timeLength"),
-                        int(d.value(QStringLiteral("timelength")).toDouble() / 1000));
-            fail.insert(QStringLiteral("hash"), hash);
-            fail.insert(QStringLiteral("type"), type);
-            fail.insert(QStringLiteral("errReason"),
-                        reason.isEmpty() ? QStringLiteral("unavailable") : reason);
-            if (json.contains(QStringLiteral("error")))
-                fail.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
-            emit resultReady(QStringLiteral("getMusicInfo"), fail, Source);
-            return;
-        }
+    get(url.toString(),
+        [this, hash, type, reason, secondStep, metaFallback](const QJsonObject &json) {
+            const QJsonObject d = json.value(QStringLiteral("data")).toObject();
+            // 第二步的响应可能少字段，缺失时回落到第一步
+            const auto pick = [&](const char *key) {
+                const QString v = d.value(QLatin1String(key)).toString();
+                return v.isEmpty() ? metaFallback.value(QLatin1String(key)).toString() : v;
+            };
+            double tl = d.value(QStringLiteral("timelength")).toDouble();
+            if (tl <= 0)
+                tl = metaFallback.value(QStringLiteral("timelength")).toDouble();
+            const int timeLength = int(tl / 1000);
 
-        const QString songName = d.value(QStringLiteral("song_name")).toString();
-        QString fileName = d.value(QStringLiteral("audio_name")).toString();
-        if (fileName.isEmpty())
-            fileName = songName + QStringLiteral(".mp3");
-        const int tl = int(d.value(QStringLiteral("timelength")).toDouble() / 1000);
+            QString backup;
+            const QString playUrl = playUrlOf(d, &backup);
+            if (playUrl.isEmpty() && backup.isEmpty()) {
+                const QString encodeId =
+                    d.value(QStringLiteral("encode_album_audio_id")).toString();
+                if (!secondStep && !encodeId.isEmpty()) {
+                    // 第一步只给 encode_album_audio_id，要再请求一次才拿得到播放地址
+                    qInfo() << "[kugou] songinfo 第一步返回 encode_album_audio_id，继续取址"
+                            << hash.left(8);
+                    QJsonObject next = songInfoBaseParams();
+                    next.insert(QStringLiteral("encode_album_audio_id"), encodeId);
+                    requestSongInfo(next, hash, type, reason, d);
+                    return;
+                }
+                qWarning() << "[kugou] 签名取址无播放地址 step:" << (secondStep ? 2 : 1)
+                           << "err_code:" << json.value(QStringLiteral("err_code")).toInt();
+                // 必须回传结果，否则上层 loadState 一直为 true（界面卡在加载中）
+                QVariantMap fail;
+                fail.insert(QStringLiteral("url"), QString());
+                fail.insert(QStringLiteral("songName"), pick("song_name"));
+                fail.insert(QStringLiteral("author_name"), pick("author_name"));
+                fail.insert(QStringLiteral("album_img"), pick("img"));
+                fail.insert(QStringLiteral("timeLength"), timeLength);
+                fail.insert(QStringLiteral("hash"), hash);
+                fail.insert(QStringLiteral("type"), type);
+                fail.insert(QStringLiteral("errReason"),
+                            reason.isEmpty() ? QStringLiteral("unavailable") : reason);
+                if (json.contains(QStringLiteral("error")))
+                    fail.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
+                emit resultReady(QStringLiteral("getMusicInfo"), fail, Source);
+                return;
+            }
 
-        QVariantMap data;
-        data.insert(QStringLiteral("backup_url"), playUrl.isEmpty() ? backup : playUrl);
-        data.insert(QStringLiteral("url"), playUrl.isEmpty() ? backup : playUrl);
-        data.insert(QStringLiteral("songName"), songName);
-        data.insert(QStringLiteral("author_name"), d.value(QStringLiteral("author_name")).toString());
-        data.insert(QStringLiteral("singer_img"), d.value(QStringLiteral("img")).toString());
-        data.insert(QStringLiteral("album_img"), d.value(QStringLiteral("img")).toString());
-        data.insert(QStringLiteral("timeLength"), tl);
-        data.insert(QStringLiteral("fileName"), fileName);
-        data.insert(QStringLiteral("hash"), hash);
-        data.insert(QStringLiteral("type"), type);
-        emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
-    });
+            const QString songName = pick("song_name");
+            QString fileName = pick("audio_name");
+            if (fileName.isEmpty())
+                fileName = songName + QStringLiteral(".mp3");
+
+            QVariantMap data;
+            data.insert(QStringLiteral("backup_url"), playUrl.isEmpty() ? backup : playUrl);
+            data.insert(QStringLiteral("url"), playUrl.isEmpty() ? backup : playUrl);
+            data.insert(QStringLiteral("songName"), songName);
+            data.insert(QStringLiteral("author_name"), pick("author_name"));
+            data.insert(QStringLiteral("singer_img"), pick("img"));
+            data.insert(QStringLiteral("album_img"), pick("img"));
+            data.insert(QStringLiteral("timeLength"), timeLength);
+            data.insert(QStringLiteral("fileName"), fileName);
+            data.insert(QStringLiteral("hash"), hash);
+            data.insert(QStringLiteral("type"), type);
+            emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+        });
 }
 
 // 歌词（两步：搜索候选 → 下载 KRC → 解码）
