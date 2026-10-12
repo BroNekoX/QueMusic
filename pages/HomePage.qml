@@ -10,65 +10,129 @@ Item {
     id: homePage
     property real toolsWindow: 0
 
+    // 页面留白：左右合起来就是 homeView.standWidth 之外的 52
+    readonly property int pagePadding: 24
+    readonly property int pagePaddingRight: 28
+
+    // 平台品牌色集中一处：tint 底色 / line 描边 / ink 文字
+    readonly property var sourceStyle: [
+        { ink: "#0F3975", tint: "#CDE8FF", line: "#4384F5" },
+        { ink: "#750F0F", tint: "#FFCDCD", line: "#F54343" },
+        { ink: "#7A1C3C", tint: "#FFD9E6", line: "#FB7299" },
+        { ink: "#16750F", tint: "#CDFFCD", line: "#4DF543" },
+        { ink: "#756F0F", tint: "#FFFFCD", line: "#F5F543" }
+    ]
+    readonly property var sourceSkin: sourceStyle[Math.max(0, Math.min(MusicApi.songSource, sourceStyle.length - 1))]
+
+    property string greeting: homePage.greetingText()
+    property var roamTitles: []   // 分类名，QBlurTapBar 只接受字符串数组
+    property int roamIndex: 0     // 当前分类下标，与窗口内 tabbar 的选中项同步
+    onVisibleChanged: if (visible) greeting = greetingText()
+
+    function greetingText(): string {
+        const hour = new Date().getHours()
+        if (hour < 5 || hour >= 23) return "夜深了"
+        if (hour < 9) return "早上好"
+        if (hour < 12) return "上午好"
+        if (hour < 14) return "中午好"
+        if (hour < 18) return "下午好"
+        return "晚上好"
+    }
+
+    function playLastSong(): void {
+        if (Options.lastSongs.hash === "") return
+        MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source)
+    }
+
+    function queueLastSong(): void {
+        if (Options.lastSongs.hash === "" || Options.queue.indexOfPath(Options.lastSongs.hash) !== -1) return
+        Options.queue.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source })
+        Options.warned("已加入播放列表", 1)
+    }
+
+    // 每日推荐：数据走私人雷达
+    function openDaily(): void {
+        MusicApi.personalRadar.clear()
+        MusicApi.getPersonalRadar(1, 20, MusicApi.songSource)
+        dailyWindow.opened("每日推荐", "qrc:/QueMusic/resources/app/musicpic.png")
+        Options.exitIndex = 1
+    }
+
+    // 分类歌单：index 是 getHotlistMenu 下标，歌单漫游卡与窗口 tabbar 共用
+    function openCategory(index: int): void {
+        const menu = MusicApi.getHotlistMenu
+        if (index < 0 || index >= menu.count) {
+            Options.warned("歌单分类还在加载，稍后再试", 1)
+            return
+        }
+        const titles = []
+        for (let i = 0; i < menu.count; ++i) titles.push(menu.get(i).title)
+        roamTitles = titles
+        roamIndex = index
+
+        const tag = menu.get(index)
+        MusicApi.globaltagid = tag.tagid
+        MusicApi.musicPlaylists.clear()
+        MusicApi.getMusicPlaylists(tag.tagid, 1, 20)
+        recommendWindow.opened(tag.title, (tag.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png")
+        Options.exitIndex = 1
+    }
+
+    function openHotList(row: var): void {
+        hotlistsWindow.mainTarget = homeMain
+        MusicApi.playlistSong.clear()
+        MusicApi.globalid = row.hash
+        MusicApi.getPlaylistSongs(row.hash, 1, 20)
+        hotlistsWindow.opened(row.model)
+        Options.exitIndex = 1
+    }
 
     Component.onCompleted: {
-        if(!Options.homeLoaded) {
-            MusicApi.getHotlistMenu.clear();
-            MusicApi.getHotPlaylistMenu(3);
-            MusicApi.getHotPlaylists(1);
-            const date = new Date();
-            const timeHour = date.getHours();
-            if(timeHour > 3 && timeHour < 9) {
-                homeText.text = "早上好"
-            } else if(timeHour > 8 && timeHour < 13) {
-                homeText.text = "上午好"
-            } else if(timeHour > 12 && timeHour < 19) {
-                homeText.text = "下午好"
-            } else if(timeHour > 18 && timeHour < 23) {
-                homeText.text = "晚上好"
-            } else {
-            }
-            Options.homeLoaded = true;
-        }
+        if (Options.homeLoaded) return
+        MusicApi.getHotlistMenu.clear()
+        MusicApi.getHotPlaylistMenu(3)
+        MusicApi.getHotPlaylists(1)
+        Options.homeLoaded = true
     }
     
     Item {
         id: homeMain
         anchors.fill: parent
-        // 顶部标题
+        // 顶部标题 + 平台切换
         Item {
-            x: 24
-            y: 24
+            id: homeTopBar
+            x: homePage.pagePadding
+            y: homePage.pagePadding
+            width: homeView.standWidth
             height: 40
-            width: parent.width - 48
             z: 10
+
             Text {
                 id: homeText
-                x: 0
-                y: 0
-                height: 40
-                verticalAlignment: Text.AlignVCenter
-                text: "推荐"
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: homePage.greeting
                 font.pixelSize: Style.pageTitle
                 font.weight: Font.DemiBold
                 color: Theme.fontColor
             }
             QDrop {
-                x: parent.width - 96
-                y: 0
-                height: 36; width: 120
+                width: 128
+                height: 36
                 anchors.right: parent.right
-                choice: MusicApi.songSource
-                textColor: MusicApi.songSource === 0 ? "#0F3975" : MusicApi.songSource === 1 ? "#750F0F" : MusicApi.songSource === 2 ? "#7A1C3C" : MusicApi.songSource === 3 ? "#16750F" : "#756F0F"
-                color: MusicApi.songSource === 0 ? "#CDE8FF" : MusicApi.songSource === 1 ? "#FFCDCD" : MusicApi.songSource === 2 ? "#FFD9E6" : MusicApi.songSource === 3 ? "#CDFFCD" : "#FFFFCD"
-                border.color: MusicApi.songSource === 0 ? "#4384F5" : MusicApi.songSource === 1 ? "#F54343" : MusicApi.songSource === 2 ? "#FB7299" : MusicApi.songSource === 3 ? "#4DF543" : "#F5F543"
+                anchors.verticalCenter: parent.verticalCenter
                 radius: 18
                 cardRadius: Style.labelRadius
-                model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐(x)","自定义源(x)"]
+                choice: MusicApi.songSource
+                color: homePage.sourceSkin.tint
+                textColor: homePage.sourceSkin.ink
+                border.color: homePage.sourceSkin.line
+                model: ["酷狗音乐", "网易云音乐", "哔哩哔哩", "QQ音乐(x)", "自定义源(x)"]
                 onTransformed: (choiced) => {
                     MusicApi.songSource = choiced;
                     homeView.scrollTop();
                     MusicApi.hotPlayLists.clear();
+                    MusicApi.getHotPlaylists(1);
                 }
             }
         }
@@ -77,13 +141,19 @@ Item {
             id: homeView
             x: 0
             y: 68
-            width: homePage.width - 8
+            width: homePage.width - 10
             height: homePage.height - 68
-            property int standWidth: homePage.width - 52
+            readonly property int standWidth: homePage.width - 52
+            // 列数与卡片宽度按页面留白均分：卡片首尾与 header 左右边界严格对齐，右侧不再留空
+            readonly property int cardGutter: 20
+            readonly property int columnCount: Math.max(2, Math.floor((standWidth + cardGutter) / (168 + cardGutter)))
+            readonly property real cardWidth: (standWidth + cardGutter) / columnCount - cardGutter
             model: MusicApi.hotPlayLists
-            cellWidth: 172
-            cellHeight: 280
-            leftMargin: 24
+            cellWidth: (standWidth + cardGutter) / columnCount
+            cellHeight: cardWidth + 122
+            leftMargin: homePage.pagePadding
+            // 末尾 0.5 是取整补偿：可用宽度略大于整列宽度，避免浮点误差少算一列
+            rightMargin: homePage.pagePaddingRight - cardGutter - 10.5
 
             onAtYEndChanged: {
                 if (atYEnd && !MusicApi.loadState && homeView.count !== 0) {
@@ -99,553 +169,302 @@ Item {
                 id: homeContent
                 spacing: 16
                 height: implicitHeight + 16
+                // Beta 提示：单行、弱底色，只占一条的高度
                 Rectangle {
                     width: homeView.standWidth
-                    height: warnText.implicitHeight + 40
-                    color: Theme.containColor
+                    height: 48
                     radius: Style.cubeRadius
-                    border.color: Theme.sideColor
+                    color: Theme.containColor
                     border.width: 1
+                    border.color: Theme.themeColor
                     Text {
-                        x: 20
+                        id: warnIcon
+                        x: 24
                         anchors.verticalCenter: parent.verticalCenter
-                        font.family: Fonts.icon
-                        height: warnText.implicitHeight
                         text: "\uf11a"
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.textmain
                         color: Theme.themeColor
-                        font.pixelSize: Style.texticon
                     }
                     Text {
-                        id: warnText
-                        x: 48
-                        y: 20
-                        width: parent.width - 108
-                        text: "该版本属于开发中Beta版本，是未正式发布的开发中测试版本，部分功能仍未有效，并且稳定性欠佳，非最终质量"
-                        wrapMode: Text.Wrap
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: 56
+                        text: "开发中 Beta 版本：部分功能尚未完善，稳定性欠佳"
                         color: Theme.fontColor
-                        font.bold: false
-                        font.pixelSize: Style.textmain
+                        font.pixelSize: Style.text
+                        elide: Text.ElideRight
                     }
                     SButton {
-                        iconCharacter: "\uf025"
+                        id: bannerClose
                         x: parent.width - 52
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 36
-                        height: 36
-                        radius: 18
-                        iconSize: Style.texticon
+                        width: 28
+                        height: 28
+                        radius: 14
+                        iconCharacter: "\uf025"
+                        iconSize: Style.textmain
                         buttonColor: "transparent"
+                        hoverColor: Theme.hoverColor
                         shadowEnabled: false
-                        onClicked: {
-                            parent.visible = false;
-                        }
+                        tipText: "关闭提示"
+                        onClicked: parent.visible = false
                     }
                 }
-                // 首页头部部分
+
                 Item {
-                    id: headerRow
-                    readonly property int layout: Style.homeLayout
-                    height: layout === 0 ? 256 : layout === 1 ? 528 : 408
+                    id: headerMain
                     width: homeView.standWidth
-                    readonly property int leftWidth: homeView.standWidth * 0.6
-                    readonly property int rightWidth: homeView.standWidth * 0.4
+                    // 竖向布局或窗口偏窄时自动叠成三行
+                    readonly property bool stacked: width < 700
+                    readonly property real heroWidth: stacked ? width : width * 0.52 - 8
+                    readonly property real sideWidth: stacked ? width : width * 0.48 - 8
+                    readonly property int sideCardHeight: 76
+                    height: stacked ? 168 + 16 * 2 + sideCardHeight * 2 : 168
 
-                    // 每日推荐大卡片
                     QFloatCard {
-                        width: headerRow.layout === 0 ? headerRow.leftWidth - 8 : headerRow.width
-                        height: 256
+                        id: dailyCard
+                        x: 0
+                        y: 0
+                        width: headerMain.heroWidth
+                        height: 168
+                        color: "transparent"
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: Qt.rgba(Theme.containColor.r + 0.1, Theme.containColor.g + 0.1, Theme.containColor.b + 0.1, 1.0) }
+                            GradientStop { position: 1.0; color: Theme.containColor }
+                        }
+                        border.width: 1
+                        border.color: Theme.containColor
+                        onClicked: homePage.openDaily()
 
-                        // 大标题
-                        Text {
-                            x: 16
-                            y: 50
-                            text: "DAILY RECOMMEND"
-                            width: parent.width
-                            font.pixelSize: Style.textmain
-                            font.bold: true
-                            elide: Text.ElideRight
-                            color: Theme.themeColor
-                        }
-                        Text {
-                            x: 16
-                            y: 88
-                            text: "每日推荐"
-                            width: parent.width
-                            elide: Text.ElideRight
-                            font.pixelSize: 32
-                            font.bold: true
-                            color: Theme.fontColor
-                        }
-                        Text {
-                            x: 16
-                            y: 152
-                            text: "那些你反复循环的节奏，长成了今天的模样。"
-                            width: parent.width
-                            wrapMode: Text.Wrap
-                            font.pixelSize: Style.textmain
-                            color: Theme.textColor
-                        }
                         Rectangle {
-                            x: parent.width - 152
-                            y: 64
-                            width: 128
-                            height: 128
-                            radius: Style.cubeRadius
-                            color: Theme.secondaryColor
-                            QPicture {
-                                anchors.fill: parent
-                                anchors.margins: 8
-                                sourceSize: Qt.size(128,128)
-                                source: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
-                                radius: Style.cubeRadius - 2
-                            }
-
-                            RectangularShadow {
-                                anchors.fill: parent
-                                z: -1
-                                offset.x: 0
-                                offset.y: 8
-                                radius: Style.cubeRadius
-                                blur: 28
-                                color: Theme.shadowColor
+                            id: dailyBadge
+                            x: 32
+                            y: 32
+                            width: 30
+                            height: 30
+                            radius: 9
+                            color: Qt.rgba(Theme.themeColor.r, Theme.themeColor.g, Theme.themeColor.b, 0.22)
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uf109"
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticon
+                                color: Theme.themeColor
                             }
                         }
 
-                        onClicked: {
-                            MusicApi.recommendSongs.clear();
-                            MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
-                            const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
-                            const title = "每日推荐";
-                            dailyRecomWindow.opened(title,image);
-                            Options.exitIndex = 1;
+                        Text {
+                            x: 72
+                            anchors.verticalCenter: dailyBadge.verticalCenter
+                            text: "每日推荐"
+                            color: Theme.fontColor
+                            font.pixelSize: Style.textH1
+                            font.bold: true
+                            elide: Text.ElideRight
                         }
-                        controlItem: QButton {
-                            x: 16
-                            y: 192
-                            height: 32
-                            radius: 16
+
+                        Text {
+                            x: 32
+                            y: 72
+                            text: "最新发行高赞潮流流行歌曲"
+                            color: Theme.textColor
+                            font.pixelSize: Style.text
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+
+                        QButton {
+                            x: 32
+                            y: 108
+                            height: 30
+                            radius: 15
                             iconCharacter: "\uf0e7"
-                            text: "前往查看"
+                            text: "去听听"
                             shadowEnabled: false
                             buttonColor: Theme.themeColor
                             textColor: Theme.fullColor
                             iconColor: Theme.fullColor
-                            onClicked: {
-                                MusicApi.recommendSongs.clear();
-                                MusicApi.getRecommendSongs(1, 20, MusicApi.songSource);
-                                const image = "qrc:/QueMusic/resources/app/rainbowMusicIcon.png";
-                                const title = "每日推荐";
-                                dailyRecomWindow.opened(title,image);
-                                Options.exitIndex = 1;
+                            onClicked: homePage.openDaily()
+                        }
+
+                        Rectangle {
+                            x: dailyCard.width - 142
+                            y: 26
+                            width: 116
+                            height: 116
+                            radius: Style.cubeRadius
+                            color: Theme.fullColor
+                            QPicture {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                radius: Style.labelRadius
+                                sourceSize: Qt.size(192, 192)
+                                source: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
+                            }
+                            RectangularShadow {
+                                anchors.fill: parent
+                                z: -1
+                                offset.y: 8
+                                radius: Style.cubeRadius
+                                blur: 24
+                                color: Theme.shadowColor
                             }
                         }
                     }
 
                     QFloatCard {
-                        x: headerRow.layout === 0 ? headerRow.leftWidth + 8 : 0
-                        y: headerRow.layout === 0 ? 0 : 272
-                        width: headerRow.layout === 0 ? headerRow.rightWidth - 8
-                              : headerRow.layout === 1 ? headerRow.width
-                              : headerRow.width * 0.5 - 8
-                        height: 120
+                        id: lastPlayedCard
+                        x: headerMain.stacked ? 0 : headerMain.heroWidth + 16
+                        y: headerMain.stacked ? 184 : 0
+                        width: headerMain.sideWidth
+                        height: headerMain.sideCardHeight
+                        onClicked: homePage.playLastSong()
 
-                        Text {
-                            x: 16; y: 16
-                            height: 20
-                            text: "上次听到"
-                            font.bold: true
-                            font.pixelSize: Style.textH2
-                            color: Theme.fontColor
-                            verticalAlignment: Text.AlignVCenter
-                        }
                         Text {
                             anchors.centerIn: parent
                             visible: Options.lastSongs.name === ""
                             text: "还没有播放记录"
-                            font.pixelSize: Style.text
                             color: Theme.textColor
+                            font.pixelSize: Style.text
                         }
-                        onClicked: {
-                            if(Options.lastSongs.hash !== "") {
-                                MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
-                            }
+
+                        QPicture {
+                            id: lastCover
+                            x: 14
+                            y: 14
+                            width: 48
+                            height: 48
+                            radius: Style.labelRadius
+                            sourceSize: Qt.size(64, 64)
+                            source: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
                         }
-                        controlItem: [
-                            QPicture {
-                                y: 56
-                                x: 16
-                                width: 52; height: 52
-                                radius: 12
-                                source: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
-                            },
-                            Text {
-                                x: 78
-                                y: 60
-                                width: parent.width - 78
-                                height: 23
-                                text: Options.lastSongs.name
-                                font.bold: true
-                                font.pixelSize: Style.textmain
-                                color: Theme.fontColor
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                            },
-                            Text {
-                                x: 78
-                                y: 83
-                                width: parent.width - 78
-                                height: 21
-                                text: Options.lastSongs.artist
-                                font.pixelSize: Style.text
-                                color: Theme.textColor
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                            },
-                            QButton {
-                                x: parent.width - 84
-                                y: 10
-                                height: 32; width: 68
-                                radius: 18
-                                iconCharacter: "\uf00e"
-                                text: "播放"
-                                shadowEnabled: false
-                                buttonColor: Theme.themeColor
-                                textColor: Theme.fullColor
-                                iconColor: Theme.fullColor
-                                onClicked: {
-                                    if(Options.lastSongs.hash !== "") {
-                                        MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source);
-                                    }
-                                }
-                            },
-                            SButton {
-                                x: parent.width - 120
-                                y: 10
-                                width: 32
-                                height: 32
-                                radius: 16
-                                iconCharacter: "\uf075"
-                                shadowEnabled: false
-                                buttonColor: Theme.sideColor
-                                onClicked: {
-                                }
-                            },
-                            //  加入播放列表
-                            SButton {
-                                x: parent.width - 52
-                                y: 64
-                                iconCharacter: "\uf095"
-                                width: 36
-                                height: 36
-                                radius: 36
-                                buttonColor: "transparent"
-                                hoverColor: Theme.hoverColor
-                                shadowEnabled: false
-                                onClicked: {
-                                    const indexHash = Options.lastSongs.hash;
-                                    if (Options.queue.indexOfPath(indexHash) === -1) {
-                                        Options.queue.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source });
-                                        Options.warned("已加入播放列表", 1);
-                                    }
-                                }
-                            }
-                        ]
-                    }
 
-                    // 我的收藏歌单
-                    QFloatCard {
-                        x: headerRow.layout === 0 ? headerRow.leftWidth + 8
-                              : headerRow.layout === 2 ? headerRow.width * 0.5 + 8 : 0
-                        y: headerRow.layout === 0 ? 136 : headerRow.layout === 1 ? 408 : 272
-                        width: headerRow.layout === 0 ? headerRow.rightWidth - 8
-                              : headerRow.layout === 1 ? headerRow.width
-                              : headerRow.width * 0.5 - 8
-                        height: 120
-                        color: Theme.containColor
-
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 12
-                            Text {
-                                text: "\uf0c1"
-                                font.family: Fonts.icon
-                                font.pixelSize: 32
-                                color: Theme.themeColor
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Column {
-                                spacing: 2
-                                Text {
-                                    text: "我的收藏歌单"
-                                    font.bold: true
-                                    font.pixelSize: Style.textH1
-                                    color: Theme.fontColor
-                                }
-                                Text {
-                                    text: FavoritePlaylists.count + " 个歌单"
-                                    font.pixelSize: Style.textmain
-                                    color: Theme.textColor
-                                }
-                            }
-                        }
-                        onClicked: {
-                            sidebar.indexed(3);
-                            mainContent.contentIndexed(3);
-                        }
-                    }
-                }
-
-                QHead { text: "私人专属" }
-
-                Item {
-                    id: privateRow
-                    readonly property int layout: Style.homeLayout
-                    height: layout === 0 ? 180 : layout === 1 ? 376 : 294
-                    width: homeView.standWidth
-                    readonly property int leftWidth: homeView.standWidth * 0.5 - 8
-                    readonly property int rightWidth: homeView.standWidth * 0.5 - 8
-                    Rectangle {
-                        x: 0
-                        y: 0
-                        width: privateRow.layout === 0 ? privateRow.leftWidth : privateRow.width
-                        height: 180
-                        color: Theme.primaryColor
-                        radius: Style.cubeRadius
                         Text {
-                            x: 12
-                            y: 16
-                            height: 24
-                            text: "歌单分类"
-                            font.pixelSize: Style.textH2
+                            text: "继续播放"
+                            x: 76
+                            y: 14
+                            color: Theme.themeColor
+                            font.pixelSize: Style.textTip
                             font.bold: true
-                            color: Theme.fontColor
                             verticalAlignment: Text.AlignVCenter
                         }
-                        RectangularShadow {
-                            anchors.fill: parent
-                            z: -1
-                            offset.x: 0
-                            offset.y: 6
-                            radius: Style.cubeRadius
-                            blur: 18
-                            spread: 0
-                            color: Theme.shadowColor
+                        Text {
+                            width: parent.width - 160
+                            x: 76
+                            y: 29
+                            text: Options.lastSongs.name
+                            color: Theme.fontColor
+                            font.pixelSize: Style.textmain
+                            font.bold: true
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            width: parent.width - 160
+                            x: 76
+                            y: 48
+                            text: Options.lastSongs.artist
+                            color: Theme.textColor
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: Style.textTip
+                            elide: Text.ElideRight
                         }
 
-                        ListView {
-                            id: categoryList
-                            y: 56
-                            width: parent.width
-                            height: 96
-                            orientation: ListView.Horizontal
-                            spacing: 20
-                            leftMargin: 16
-                            rightMargin: 16
-                            clip: true
-                            model: MusicApi.getHotlistMenu
+                        SButton {
+                            id: lastPlayButton
+                            x: lastPlayedCard.width - 88
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 32
+                            radius: 16
+                            iconCharacter: "\uf00e"
+                            iconSize: Style.textmain
+                            iconColor: Theme.fullColor
+                            buttonColor: Theme.themeColor
+                            hoverColor: Qt.rgba(Theme.themeColor.r, Theme.themeColor.g, Theme.themeColor.b, 0.82)
+                            shadowEnabled: false
+                            tipText: "继续播放"
+                            onClicked: homePage.playLastSong()
+                        }
+                        SButton {
+                            id: lastQueueButton
+                            x: lastPlayedCard.width - 46
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 32
+                            radius: 16
+                            iconCharacter: "\uf095"
+                            iconSize: Style.textmain
+                            buttonColor: Theme.sideColor
+                            hoverColor: Theme.hoverColor
+                            shadowEnabled: false
+                            tipText: "加入播放列表"
+                            onClicked: homePage.queueLastSong()
+                        }
+                    }
 
-                            // 隐藏系统滚动条，用惯性和鼠标拖拽
-                            interactive: true
-                            boundsBehavior: Flickable.DragOverBounds
+                    // 歌单漫游
+                    QFloatCard {
+                        id: fmCard
+                        x: headerMain.stacked ? 0 : headerMain.heroWidth + 16
+                        y: headerMain.stacked ? 276 : 92
+                        width: headerMain.sideWidth
+                        height: headerMain.sideCardHeight
+                        onClicked: homePage.openCategory(homePage.roamIndex)
 
-                            delegate: Item {
-                                id: catDel
-                                required property string cover
-                                required property string title
-                                required property string tagid
-                                width: 96
-                                height: 96
-                                property int radius: Style.cubeRadius
-
-                                QPicture {
-                                    id: card
-                                    anchors.fill: parent
-                                    radius: catDel.radius
-                                    source: (catDel.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png"
-                                    sourceSize: Qt.size(256,256)
-
-                                    // 底部渐变遮罩 —— 保证标题永远可读
-                                    Rectangle {
-                                        anchors.left: parent.left
-                                        anchors.right: parent.right
-                                        anchors.bottom: parent.bottom
-                                        height: 48
-                                        radius: catDel.radius
-                                        gradient: Gradient {
-                                            GradientStop { position: 0.0; color: "transparent" }
-                                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.72) }
-                                        }
-                                    }
-
-                                    // 分类标题
-                                    Text {
-                                        y: 60
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: catDel.title || ""
-                                        font.pixelSize: 16
-                                        font.weight: Font.Bold
-                                        color: "#FFFFFF"
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 1
-                                    }
-
-                                    // hover 时浮现的箭头
-                                    Text {
-                                        anchors.right: parent.right
-                                        anchors.top: parent.top
-                                        anchors.margins: 14
-                                        text: "\uf0e7"
-                                        font.family: Fonts.icon
-                                        font.pixelSize: 18
-                                        color: "#FFFFFF"
-                                        opacity: catMouse.containsMouse ? 1 : 0
-                                        Behavior on opacity { NumberAnimation { duration: 200 } }
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: catMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onPressed: catDel.scale = 0.96
-                                    onReleased: catDel.scale = 1.0
-                                    onCanceled: catDel.scale = 1.0
-
-                                    onClicked: {
-                                        MusicApi.musicPlaylists.clear();
-                                        MusicApi.globaltagid = catDel.tagid;
-                                        MusicApi.getMusicPlaylists(catDel.tagid, 1, 20);
-                                        const image = (catDel.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png";
-                                        recommendWindow.opened(catDel.title, image);
-                                        Options.exitIndex = 1;
-                                    }
-                                }
+                        Rectangle {
+                            id: fmBadge
+                            x: 14
+                            y: 14
+                            width: 48
+                            height: 48
+                            radius: Style.labelRadius
+                            color: Qt.rgba(Theme.themeColor.r, Theme.themeColor.g, Theme.themeColor.b, 0.12)
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uf098"
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticonH
+                                color: Theme.themeColor
                             }
                         }
-                    }
-                    QFloatCard {
-                        x: privateRow.layout === 0 ? privateRow.leftWidth + 16 : 0
-                        y: privateRow.layout === 0 ? 0 : 196
-                        width: privateRow.layout === 0 ? privateRow.rightWidth
-                              : privateRow.layout === 1 ? privateRow.width
-                              : privateRow.width * 0.5 - 8
-                        height: 82
                         Text {
-                            x: 20
-                            y: 20
-                            width: 42
-                            height: 42
-                            text: "\uf104"
-                            font.family: Fonts.icon
-                            font.pixelSize: 32
-                            color: Theme.themeColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        Text {
-                            x: 70
-                            y: 20
-                            height: 22
-                            text: "私人漫游"
+                            x: 76
+                            y: 15
+                            height: 24
+                            width: parent.width - 100
+                            text: "歌单漫游"
                             color: Theme.fontColor
                             font.pixelSize: Style.textmain
+                            font.bold: true
                             verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
                         }
                         Text {
-                            x: 70
-                            y: 42
-                            height: 20
-                            text: "全网播放量最高的热门单曲合集"
+                            x: 76
+                            y: 39
+                            height: 21
+                            width: parent.width - 100
+                            text: "全网热门歌单分类快速预览"
                             color: Theme.textColor
-                            font.pixelSize: Style.text
                             verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: Style.text
+                            elide: Text.ElideRight
                         }
-                        onClicked: {
-                            MusicApi.personalFm.clear();
-                            personalWindow.page = 1;
-                            personalWindow.mode = "fm";
-                            MusicApi.getPersonalFm(1, 20, MusicApi.songSource);
-                            personalWindow.currentModel = MusicApi.personalFm;
-                            personalWindow.opened("私人漫游", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
-                            Options.exitIndex = 1;
-                        }
-                        controlItem: SButton {
-                            x: parent.width - 50
-                            y: 23
-                            iconCharacter: "\uf0e7"
-                            width: 36
-                            height: 36
-                            radius: 18
-                            buttonColor: "transparent"
-                            shadowEnabled: false
-                            onClicked: parent.clicked()
-                        }
-                    }
-                    QFloatCard {
-                        x: privateRow.layout === 0 ? privateRow.leftWidth + 16
-                              : privateRow.layout === 2 ? privateRow.width * 0.5 + 8 : 0
-                        y: privateRow.layout === 0 ? 98 : privateRow.layout === 2 ? 196 : 294
-                        width: privateRow.layout === 0 ? privateRow.rightWidth
-                              : privateRow.layout === 1 ? privateRow.width
-                              : privateRow.width * 0.5 - 8
-                        height: 82
                         Text {
-                            x: 20
-                            y: 20
-                            width: 42
-                            height: 42
-                            text: "\uf109"
+                            id: fmArrow
+                            x: fmCard.width - 32
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\uf0e7"
                             font.family: Fonts.icon
-                            font.pixelSize: 32
-                            color: Theme.themeColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        Text {
-                            x: 70
-                            y: 20
-                            height: 22
-                            text: "私人雷达"
-                            color: Theme.fontColor
                             font.pixelSize: Style.textmain
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        Text {
-                            x: 70
-                            y: 42
-                            height: 20
-                            text: "最新发行高赞潮流流行歌曲"
                             color: Theme.textColor
-                            font.pixelSize: Style.text
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        onClicked: {
-                            MusicApi.personalRadar.clear();
-                            personalWindow.page = 1;
-                            personalWindow.mode = "radar";
-                            MusicApi.getPersonalRadar(1, 20, MusicApi.songSource);
-                            personalWindow.currentModel = MusicApi.personalRadar;
-                            personalWindow.opened("私人雷达", "qrc:/QueMusic/resources/app/rainbowMusicIcon.png");
-                            Options.exitIndex = 1;
-                        }
-                        controlItem: SButton {
-                            x: parent.width - 50
-                            y: 23
-                            iconCharacter: "\uf0e7"
-                            width: 36
-                            height: 36
-                            radius: 18
-                            buttonColor: "transparent"
-                            shadowEnabled: false
-                            onClicked: parent.clicked()
                         }
                     }
                 }
 
 
                 QHead { text: "热门歌单" }
-
 
             }
 
@@ -658,51 +477,70 @@ Item {
                 required property real playcount
                 required property real duration
                 required property var model
-                width: 148
-                height: 256
+
+                readonly property bool hovered: hotPlayListsArea.containsMouse
+                readonly property string playcountText: hotPlayRow.playcount >= 10000
+                    ? (hotPlayRow.playcount / 10000).toFixed(1) + "万"
+                    : Math.round(hotPlayRow.playcount).toString()
+                readonly property string durationText: hotPlayRow.duration > 0 ? Math.round(hotPlayRow.duration) + " 首" : ""
+
+                // 封面为正方形，高度随列宽自适应；106 = 标题 10+38 + 歌手 + 间距 + 底栏 30
+                width: homeView.cardWidth
+                height: width + 106
                 radius: Style.labelRadius
                 color: Theme.primaryColor
-                scale: hotPlayListsArea.containsMouse ? 1.05 : 1.0
-                Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
+                Accessible.role: Accessible.ListItem
+                Accessible.name: hotPlayRow.title
+                Accessible.description: hotPlayRow.album
+
+                // 悬停只做位移，不改 scale/blur，避免整块卡片重绘
+                transform: Translate {
+                    y: hotPlayRow.hovered ? -4 : 0
+                    Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                }
                 RectangularShadow {
                     anchors.fill: parent
                     z: -1
                     offset.x: 0
-                    offset.y: hotPlayListsArea.containsMouse ? 10 : 4
+                    offset.y: 6
                     radius: Style.labelRadius
-                    blur: hotPlayListsArea.containsMouse ? 32 : 14
+                    blur: 18
                     spread: 0
-                    visible: true
                     color: Theme.shadowColor
-                    Behavior on blur { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-                    Behavior on offset.y { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
                 }
                 MouseArea {
                     id: hotPlayListsArea
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: {
-                        hotlistsWindow.mainTarget = homeMain;
-                        MusicApi.playlistSong.clear();
-                        MusicApi.globalid = hotPlayRow.hash;
-                        MusicApi.getPlaylistSongs(hotPlayRow.hash,1,20);
-                        hotlistsWindow.opened(hotPlayRow.model);
-                        Options.exitIndex = 1;
-                    }
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: homePage.openHotList(hotPlayRow)
                 }
                 QPicture {
-                    width: 148
-                    height: 148
-                    source: (hotPlayRow.cover || "").replace("{size}", "128")
+                    id: hotPlayCover
+                    width: parent.width
+                    height: width
+                    source: (hotPlayRow.cover || "").replace("{size}", "256")
+                    sourceSize: Qt.size(256, 256)
                     radius: Style.labelRadius
-                    sourceSize: Qt.size(128,128)
                     radius3: 0
                     radius4: 0
                 }
+                // 悬停遮罩：淡入 + 播放图标轻微放大
+                Rectangle {
+                    anchors.fill: hotPlayCover
+                    topLeftRadius: Style.labelRadius
+                    topRightRadius: Style.labelRadius
+                    color: "#00000030"
+                    opacity: hotPlayRow.hovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                }
+                // 标题固定占两行，同一行卡片的信息区始终对齐
                 Text {
-                    x: 16
-                    y: 160
-                    width: 116
+                    id: hotPlayTitle
+                    width: hotPlayRow.width - 24
+                    x: 12
+                    y: hotPlayCover.height + 10
+                    height: 38
                     text: hotPlayRow.title
                     font.bold: true
                     color: Theme.fontColor
@@ -710,145 +548,97 @@ Item {
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
                     elide: Text.ElideRight
+                    verticalAlignment: Text.AlignTop
                 }
                 Text {
-                    x: 16
-                    y: 200
-                    width: 116
-                    height: 18
+                    width: hotPlayRow.width - 24
+                    x: 12
+                    anchors.top: hotPlayTitle.bottom
                     text: hotPlayRow.album
                     color: Theme.textColor
                     font.pixelSize: Style.text
                     elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
+                // 底栏：播放量 + 曲目数
                 Rectangle {
-                    x: 0
-                    y: 224
-                    height: 32
-                    width: 148
-                    color: Theme.sideColor
+                    width: hotPlayRow.width
+                    anchors.bottom: parent.bottom
+                    height: 30
+                    color: Theme.secondaryColor
                     bottomLeftRadius: Style.labelRadius
                     bottomRightRadius: Style.labelRadius
                     Text {
-                        id: playIcon
-                        x: 16
-                        height: 32
-                        text: "\uf00e"
-                        font.pixelSize: Style.text
+                        x: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf0cb"
                         font.family: Fonts.icon
-                        color: Theme.textColor
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    Text {
-                        x: 20 + playIcon.width
-                        height: 32
-                        text: Math.floor(hotPlayRow.playcount / 10000) + "万"
-                        visible: hotPlayRow.playcount >= 10000
                         font.pixelSize: Style.textTip
                         color: Theme.textColor
-                        verticalAlignment: Text.AlignVCenter
                     }
                     Text {
-                        x: parent.width - width - 16
-                        height: 32
-                        text: hotPlayRow.duration + "首"
-                        visible: hotPlayRow.duration > 0
+                        x: 32
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: hotPlayRow.playcountText
                         font.pixelSize: Style.textTip
                         color: Theme.textColor
-                        verticalAlignment: Text.AlignVCenter
+                    }
+                    Text {
+                        x: parent.width - dtText.width - 32
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf098"
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                    }
+                    Text {
+                        id: dtText
+                        x: parent.width - width - 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: hotPlayRow.durationText
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
                     }
                 }
-            }
-        }
-    }
-    AnimatorWindow {
-        id: dailyRecomWindow
-        mainTarget: homeMain
-        haveControl: false
-        content: Item {
-
-            QListView {
-                id: dailyRecomView
-                x: 24
-                y: 128
-                width: hotlistsWindow.width - 32
-                height: hotlistsWindow.height - 128
-                model: MusicApi.recommendSongs
-                clip: true
-                topMargin: 8
-                bottomMargin: 24
-
-                onClicked: (index) => {
-                               if(Config.soundQuality === 0) {
-                                   MusicApi.getMusicInfo(model.get(index).hash);
-                               } else if(Config.soundQuality === 1) {
-                                   MusicApi.getMusicInfo(model.get(index).hashhq);
-                               } else {
-                                   MusicApi.getMusicInfo(model.get(index).hashsq);
-                               }
-                           }
-
-                onEnded: {
-                    if(MusicApi.recommendSongs.count % 20 === 0 && MusicApi.recommendSongs.count !== 0) {
-                        MusicApi.getRecommendSongs(MusicApi.recommendSongs.count / 20 + 1, 20, MusicApi.songSource);
-                        isEnd = false;
-                    } else {
-                        if(MusicApi.recommendSongs.count !== 0) {
-                            isEnd = true;
-                        }
-                    }
+                // 悬停描边画在最上层，不会被封面盖住
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Style.labelRadius
+                    color: "transparent"
+                    border.width: 2
+                    border.color: Theme.themeColor
+                    opacity: hotPlayRow.hovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
             }
         }
     }
 
-    // 私人漫游 / 私人雷达
+    // 每日推荐
     AnimatorWindow {
-        id: personalWindow
+        id: dailyWindow
         mainTarget: homeMain
         haveControl: false
-        property var currentModel: MusicApi.personalFm
-        property string mode: "fm"   // "fm" 私人漫游 / "radar" 私人雷达
-        property int page: 1         // 当前页码
-        property int pageSize: 20    // 每页数量
-        content: Item {
-            QListView {
-                id: personalView
-                x: 24
-                y: 128
-                width: personalWindow.width - 32
-                height: personalWindow.height - 128
-                model: personalWindow.currentModel
-                clip: true
-                topMargin: 8
-                bottomMargin: 24
+        content: QListView {
+            id: dailyView
+            x: 24
+            y: 128
+            width: dailyWindow.width - 32
+            height: dailyWindow.height - 128
+            model: MusicApi.personalRadar
+            onCountChanged: if (count === 0) scrollTop()   // 重新打开时回到顶部
+            clip: true
+            topMargin: 8
+            bottomMargin: 24
 
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
-
-                onEnded: {
-                    if(personalWindow.currentModel.count % personalWindow.pageSize === 0 && MusicApi.playlistSong.count !== 0) {
-                        personalWindow.page += 1;
-                        if(personalWindow.mode === "fm") {
-                            MusicApi.getPersonalFm(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
-                        } else {
-                            MusicApi.getPersonalRadar(personalWindow.page, personalWindow.pageSize, MusicApi.songSource);
-                        }
-                        isEnd = false;
-                    } else {
-                        if(MusicApi.playlistSong.count !== 0) {
-                            isEnd = true;
-                        }
-                    }
-                }
+            onClicked: (index) => {
+                const song = model.get(index)
+                const hash = Config.soundQuality === 0 ? song.hash : Config.soundQuality === 1 ? song.hashhq : song.hashsq
+                MusicApi.getMusicInfo(hash)
             }
+
+            // 私人雷达只有一页（page > 1 直接回空表），不翻页
+            onEnded: isEnd = true
         }
     }
 
@@ -863,10 +653,21 @@ Item {
             width: recommendWindow.width - 32
             height: recommendWindow.height - 128
             model: MusicApi.musicPlaylists
+            onCountChanged: if (count === 0) scrollTop()   // 换分类清空后回到顶部
             clip: true
-            topMargin: 8
+            topMargin: 56   // 给上方分类 tabbar 让位
             bottomMargin: 24
             isList: true
+
+            QBlurTapBar {
+                x: 0
+                y: 10
+                z: 12
+                model: homePage.roamTitles
+                tabWidth: 100
+                width: model.length * 100 + 6
+                onTabChange: (index) => homePage.openCategory(index)
+            }
 
             onEnded: {
                 if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {

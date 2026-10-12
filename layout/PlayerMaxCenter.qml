@@ -127,6 +127,7 @@ Rectangle {
         id: lyricLoader
         anchors.fill: parent
         active: musicControlMax.visible
+        clip: true
         asynchronous: true
         source: musicControlMax.lyricThemeSource
         onLoaded: musicControlMax.inject(lyricLoader.item)

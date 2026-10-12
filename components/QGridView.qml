@@ -19,8 +19,8 @@ GridView {
     signal topScroll()
     function scrollTop(): void {
         listViewAnime.stop();
-        scrollToY = - view.topMargin;
-        contentY = - view.topMargin;
+        scrollToY = view.originY - view.topMargin;
+        contentY = view.originY - view.topMargin;
     }
 
     ScrollBar.vertical: ScrollBar {

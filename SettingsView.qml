@@ -781,6 +781,20 @@ Item {
                         }
 
                         SettingItemCard {
+                            label: "配色方案"
+                            tip: "设置通过主题色来改变整个应用色调的方法"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: Style.colorStyle
+                                model: ["默认","Material","FluentUI","QuietUI","Material You"]
+                                onTransformed: (choiced) => {
+                                    Style.colorStyle = choiced;
+                                    Options.changeTheme();
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
                             label: "应用背景"
                             tip: "设置在背景显示的样式"
                             isBigItem: true
@@ -1135,7 +1149,7 @@ Item {
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Style.sidebarStyle
-                                model: ["Basic","SquiwaUI"]
+                                model: ["Basic","Fancy"]
                                 onTransformed: (choiced) => {
                                     Style.sidebarStyle = choiced;
                                     Options.changeTheme();

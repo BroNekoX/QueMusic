@@ -59,7 +59,7 @@ Button {
             color: root.hoverColor
             radius: root.radius
             opacity: root.hovered ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 80 } }
+            Behavior on opacity { NumberAnimation { duration: 88 } }
         }
     }
     

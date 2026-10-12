@@ -112,8 +112,7 @@ void QueueModel::insert(int index, const QVariantMap &item)
     emit countChanged();
 }
 
-// to 是「想要占据的最终下标」，与 from 的相对关系直觉一致：
-// 向前挪（to < from）落点就是 to；向后挪（to > from）因为先抽走了自己，模型下标要 -1。
+// to 是移动后想占据的下标：向前挪落点即 to；向后挪因先抽走自己，模型下标要 -1。
 void QueueModel::moveTo(int from, int to)
 {
     if (from < 0 || from >= m_items.size())

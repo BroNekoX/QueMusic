@@ -570,7 +570,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 
 | 文件 | 行数 | 职责 | 主要数据来源 | 关键子组件 | `exitIndex` 写入 |
 |---|---|---|---|---|---|
-| `pages/HomePage.qml` | 944 | 首页/推荐：banner、每日推荐、热门歌单、分类歌单、歌手、私人 FM/雷达、热门榜单 | `MusicApi.getHotPlaylistMenu/getHotPlaylists/getRecommendSongs/getMusicPlaylists/getPersonalFm/getPersonalRadar/getMusicToplist/getHotSingers/getSingerCategory`；`FavoritePlaylists.count`；`Options.lastSongs`（继续播放） | `QDrop`(音乐源 5 项) / `QScrollView` / `QBlurTapBar` / `QListView` / `QGridView` / `AnimatorWindow` / `PlayListWindow`(winIndex 2) | 1（每日推荐/歌手等）、2（热门歌单详情） |
+| `pages/HomePage.qml` | 746 | 首页/推荐：Beta 提示、每日推荐主卡（数据走私人雷达）、继续播放、歌单漫游（窗口内 tabbar 切分类 → 分类歌单列表）、热门歌单（滚动到底自动翻页） | `MusicApi.getHotlistMenu/getHotPlaylistMenu/getHotPlaylists/getPersonalRadar/getMusicPlaylists`；`Options.lastSongs`（继续播放）、`Options.queue`（加入播放列表） | `QDrop`(音乐源 5 项) / `QGridView` / `QBlurTapBar`(分类 tabbar) / `AnimatorWindow`（dailyWindow、recommendWindow、hotlistsWindow） / `PlayListWindow`(winIndex 2) | 1（每日推荐/歌单漫游）、2（分类歌单详情） |
 | `pages/SearchPage.qml` | 245 | 搜索结果四页签：歌曲 / 歌单 / 专辑 / 歌词 | `MusicApi.searchSongsResults`、`MusicApi.playlistSong`、`Options.searchText`、`MusicApi.songSource` | `QPages pageList:[searchSong,searchLists,searchAlbum,searchLyrics]` / `QBlurTapBar` / `QDrop` / `QListView` / `QLoadSign` / `PlayListWindow`(winIndex 2) | 1（切源）、2（专辑详情） |
 | `pages/PlaylistPage.qml` | 690 | 分类/歌单详情：新歌、分类歌单、榜单、歌手、专辑 | `MusicApi.newSongs` / `musicPlaylists` / `toplistList` / `allPlaylistMenu` / `singerList` / `playlistSong`；`MusicApi.songFilter` | `QMenu filterMenu`（全部/仅免费/仅 VIP）/ `QPages:[musicsPage,musicMenuPage,cloud,album]` / `QGridView` / `Album`(内联 id `album`) / `PlayListWindow`(winIndex 2 ×2) | 2 |
 | `pages/FavouritePage.qml` | 486 | 收藏：歌曲 / 歌单 / 歌手 / 播放历史；排序与多选 | `FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`（未确认是否使用）、`MusicApi.playlistSong`、`Playback` 历史 | `QSortModel songSort/listSort` + `QMenu sortMenu`(7 种排序) / `QPages:[songsLoader,listsLoader,singer,historyLoader]` / `PlayListWindow`(winIndex 1) | 1 |
@@ -597,7 +597,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | `layout/WindowControls.qml` | `SystemTrayManager`(+`Information`)、`Config`、`Playback`、`Options` |
 | `layout/LeftSideBar.qml` · `components/AnimatorWindow.qml` · `components/QLocalView.qml` · `components/QLoadSign.qml` | 仅 `MusicApi`（`recommendSongs/getRecommendSongs/searchSongsResults/songSource/loadState`） |
 | `layout/MainContent.qml` | 无直接触点（只 `import 'qrc:/QueMusic/pages'`） |
-| `pages/HomePage.qml` | `MusicApi`（20+ 动作：`getHotPlaylistMenu/getHotPlaylists/getRecommendSongs/getMusicPlaylists/getPersonalFm/getPersonalRadar/getMusicToplist/getHotSingers/getSingerCategory/getPlaylistSongs/getMusicInfo` 等）、`FavoritePlaylists` |
+| `pages/HomePage.qml` | `MusicApi`（`getHotlistMenu/getHotPlaylistMenu/getHotPlaylists/getPersonalRadar/getMusicPlaylists/getPlaylistSongs/getMusicInfo` 等）、`Options.lastSongs`、`Options.queue` |
 | `pages/SearchPage.qml` | `MusicApi`（`songSource/searchSongs/searchSongsResults/playlistSong/nowIndex/getMusicInfo/getPlaylistSongs/loadState`） |
 | `pages/PlaylistPage.qml` | `MusicApi`（`playlistSong/newSongs/musicPlaylists/toplistList/allPlaylistMenu/singerList/songFilter/globalid/globaltagid/get*`） |
 | `pages/FavouritePage.qml` | `FavoriteSongs`、`FavoritePlaylists`、`MusicApi`（`getMusicInfo/getPlaylistSongs/playlistSong/globalid`） |
@@ -634,7 +634,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | `DownloadedMusicModel` | `cpp/DownloadedMusicModel.h` | ✅ 普通类型 | `pages/DownloadPage.qml:14` |
 | `FavoritesModel` | `cpp/Favorites.h`（基类） | ❌ 无 `QML_ELEMENT` | 只在注释里被提及（`components/QListView.qml:77,87`）；实际用三个子类单例 |
 | `FavoriteSongs` | `cpp/AppModels.h:56` | ✅ 单例（filter `"song"`） | `layout/PlayerControl.qml`、`pages/FavouritePage.qml`、`components/PlayList.qml`、`components/QListView.qml`、`PlayListWindow.qml` |
-| `FavoritePlaylists` | `cpp/AppModels.h:57` | ✅ 单例（`"playlist"`） | `pages/FavouritePage.qml`、`pages/HomePage.qml`、`components/PlayListWindow.qml`、`components/QListView.qml` |
+| `FavoritePlaylists` | `cpp/AppModels.h:57` | ✅ 单例（`"playlist"`） | `pages/FavouritePage.qml`、`components/PlayListWindow.qml`、`components/QListView.qml` |
 | `FavoriteArtists` | `cpp/AppModels.h:58` | ✅ 单例（`"artist"`） | 全项目 QML **未见引用**（`pages/FavouritePage.qml` 的「歌手」子页未确认是否使用） |
 | `FolderModel` | `cpp/FolderModel.h`（基类） | ❌ 无 `QML_ELEMENT` | 经 `MyFolders` / `LocalFolders` 使用 |
 | `MyFolders` | `cpp/AppModels.h:38` | ✅ 单例（`"my"`） | `pages/FilePage.qml` |

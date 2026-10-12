@@ -207,7 +207,7 @@ void resultReady(const QString &action, const QVariant &data, int source);
 | 3 | `getMusicPlaylists` | 0/1/2（1、2 也用于「分类歌单」） | `m_musicPlaylists.append(...)` | `pages/HomePage.qml:876`、`pages/PlaylistPage.qml:330` |
 | 4 | `getCategoryPlaylists` | **仅 0（酷狗）** | `m_musicPlaylists.append(...)` | `pages/PlaylistPage.qml:330` |
 | 5 | `getPlaylistSongs` | 0/1/2 | `m_playlistSong.append(songList(info))`（走 paytype 过滤） | `PlaylistPage`、`HomePage:915`、`SearchPage:216`、`FavouritePage:456`、`components/PlayListWindow.qml` |
-| 6 | `getRecommendSongs` | 0/1/2 | `m_recommendSongs.append(...)` | `HomePage:787`、`layout/LeftSideBar.qml:55` |
+| 6 | `getRecommendSongs` | 0/1/2 | `m_recommendSongs.append(...)` | `layout/LeftSideBar.qml:55`（首页每日推荐卡已改为走 `getPersonalRadar`） |
 | 7 | `getHotPlaylistMenu` | 0/1/2 | **先 `m_getHotlistMenu.clear()`** 再 append | `HomePage:431` |
 | 8 | `getHotPlaylists` | 0/1/2 | `m_hotPlayLists.append(...)` | `HomePage:639` |
 | 9 | `getNewSongs` | 0/1/2 | `m_newSongs.append(songList(info))` | `pages/PlaylistPage.qml:243` |
@@ -216,8 +216,8 @@ void resultReady(const QString &action, const QVariant &data, int source);
 | 12 | `getHotSingers` | 0/1/2 | `m_singerList.append(...)`（分页累积，首页由 UI 侧 clear） | `pages/PlaylistPage.qml:565` |
 | 13 | `getSingerCategory` | 0/1/2 | `m_singerList.append(...)`（与 12 同模型） | `pages/PlaylistPage.qml:565` |
 | 14 | `getSingerSongs` | 0/1/2 | `m_playlistSong.append(songList(info))` | `pages/PlaylistPage.qml:665` |
-| 15 | `getPersonalFm` | 0/1/2 | 空表且非失败 → `warned("私人漫游需要先在设置中登录账号", 2)`；否则 `m_personalFm.append(...)` | `pages/HomePage.qml:821`（`personalWindow.currentModel`） |
-| 16 | `getPersonalRadar` | 0/1/2 | 同上，提示文案「私人雷达需要先在设置中登录账号」，模型 `m_personalRadar` | `pages/HomePage.qml:821` |
+| 15 | `getPersonalFm` | 0/1/2 | 空表且非失败 → `warned("私人漫游需要先在设置中登录账号", 2)`；否则 `m_personalFm.append(...)` | 暂无 UI 入口（首页歌单漫游已改为分类歌单，模型与接口保留） |
+| 16 | `getPersonalRadar` | 0/1/2 | 同上，提示文案「私人雷达需要先在设置中登录账号」，模型 `m_personalRadar` | `pages/HomePage.qml`（`dailyWindow`，每日推荐主卡；只有一页，窗口不翻页） |
 | 17 | `getMusicInfo` | 0/1/2 | `handleMusicInfo(d, source)` → `urlplay` 信号（type 0）或暂存待下载（type 1） | 所有 `QListView`/`QGridView` 委托；`main.qml` 的 `onUrlplay` |
 | 18 | `getLyricInfo` | 0/1/2 | 代次校验 → `setLyricsData/setLyricsTranslate` 或本地歌词回传；末尾触发待下载 | 所有歌词视图（`layout/PlayerMaxCenter.qml`、`components/DesktopLyrics.qml`） |
 | 19 | `getComments` | 0/1/2 | **提前 return**：`m_comments.append(...)`，不参与 hash/音质逻辑 | `components/MusicInfo.qml:308` |
@@ -342,7 +342,7 @@ getPersonalFm(int, int)                             getPersonalRadar(int, int)
   - `getMusicInfo` 产出：`backup_url`+`url`、`songName`、`author_name`（`ar[0].name`）、`singer_img`（`img1v1Url` 回退 `picUrl`）、`album_img`（`al.picUrl`）、`timeLength`（秒）、`fileName`（`<歌名>.mp3`）、`hash`（**回传入参 hash 原值**，不取请求结果里的 id）、`type`；出错时 `error` 键存在。
   - `getLyricInfo` 产出 `info`（`{time,text,info}`，`info` 恒为无效 `QVariant`）、`translate`（按时间戳对齐的字符串数组）、`hash`（来自 `call.arg.id`）。
   - `getComments`：`hotComments + comments` 拼接，`time/1000`、`likedCount`、`beReplied.size()`。
-- 分页特例：`getPersonalFm` 忽略 page/pageSize；`getPersonalRadar` 在 `page > 1` 时**直接 emit 空表**；`getMusicToplist` 因 `top_list` 不支持服务端分页，按 `offset/limit` 在客户端 `mid()` 切片；`getSingerSongs` 忽略 page/pageSize。
+- 分页特例：`getPersonalFm` 忽略 page/pageSize；`getPersonalRadar` 在 `page > 1` 时**直接 emit 空表**（所以首页每日推荐窗口收到 `ended` 只置 `isEnd`，不翻页）；`getMusicToplist` 因 `top_list` 不支持服务端分页，按 `offset/limit` 在客户端 `mid()` 切片；`getSingerSongs` 忽略 page/pageSize。
 
 ### 4.5.2 酷狗 `KugouApi`
 
@@ -477,7 +477,7 @@ getComments / getPersonalFm / getPersonalRadar
 |---|---|
 | `searchSongsResults` | `pages/SearchPage.qml`、`main.qml`、`layout/LeftSideBar.qml`、`layout/PlayerControl.qml` |
 | `newSongs` | `pages/PlaylistPage.qml` |
-| `recommendSongs` | `pages/HomePage.qml`、`layout/LeftSideBar.qml` |
+| `recommendSongs` | `layout/LeftSideBar.qml`（首页每日推荐卡已改为走 `personalRadar`） |
 | `musicPlaylists` | `pages/HomePage.qml`、`pages/PlaylistPage.qml` |
 | `playlistSong` | `pages/PlaylistPage.qml`、`pages/HomePage.qml`、`pages/SearchPage.qml`、`pages/FavouritePage.qml`、`components/PlayListWindow.qml` |
 | `hotPlayLists` | `pages/HomePage.qml` |
@@ -485,7 +485,8 @@ getComments / getPersonalFm / getPersonalRadar
 | `toplistList` | `pages/PlaylistPage.qml`（`toplistCard.source` 回传给 `getMusicToplist` 强制指定平台） |
 | `musicToplist` | 无 QML 直接引用（仅 C++ 内部保留旧模型；未确认是否有插件读取） |
 | `singerList` | `pages/PlaylistPage.qml` |
-| `personalFm` / `personalRadar` | `pages/HomePage.qml`（`personalWindow.currentModel`） |
+| `personalFm` | 无 QML 引用（首页歌单漫游已改为分类歌单，模型保留） |
+| `personalRadar` | `pages/HomePage.qml`（`dailyWindow`） |
 | `comments` | `components/MusicInfo.qml` |
 | 通用消费 | `components/QListView.qml` 定义 `hashOf()` / `sourceOf()`：`hashOf()` 按 `Config.soundQuality` 取 `hashsq/hashhq/hash`（注意与 `getMusicInfo` 内部的 `resolveQualityHash` 是**两套并行的音质选择**）；`sourceOf()` 在模型无 `source` 字段时推断：`file:` 前缀或本地盘符 → `-1`，否则 `MusicApi.songSource`。其余列表组件（`QGridView.qml`、`QLocalView.qml` 等）**未确认**是否复用同一套函数 |
 

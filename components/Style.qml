@@ -15,6 +15,7 @@ Settings {
     property list<color> colorList: ["#3481fa", "#34fa4a", "#faad34", "#ad34fa"]
     property int backmode: 0 //背景模式
     property int backpic: 0 //背景图片选择
+    property int colorStyle: 0 //配色方案
 
     // 阴影,模糊,发光效果
     property real shadowBlur: 1.0 //阴影模糊
