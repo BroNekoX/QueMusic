@@ -27,7 +27,12 @@ public:
 
     explicit KugouApi(QObject *parent = nullptr);
 
-    void setCookie(const QString &cookie) { m_cookie = cookie; }
+    void setCookie(const QString &cookie)
+    {
+        if (m_cookie != cookie)
+            m_liteUserAuth.clear(); // 登录态变了，概念版用户级 auth 随之失效
+        m_cookie = cookie;
+    }
     // 设备标识（AccountManager 登录时生成/持久化，播放签名请求需要）
     void setDeviceInfo(const QString &mid, const QString &dfid)
     {
@@ -36,6 +41,8 @@ public:
         if (!dfid.isEmpty())
             m_dfid = dfid;
     }
+    // 音质档位（0 标准 128k / 1 高清 320k / 2+ 无损 flac），概念版取址要用
+    void setQuality(int quality) { m_quality = qBound(0, quality, 3); }
 
     // 酷狗扫码登录鉴权辅助（原 WeCrypto；QCloudMusicApi 仅含网易云，不含酷狗签名）
     static QByteArray kugouWebSignature(const QJsonObject &params);
@@ -70,17 +77,14 @@ signals:
 private:
     using Callback = std::function<void(const QJsonObject &)>;
     void get(const QString &url, const Callback &cb); // GET 请求 + JSON 回调
+    void getLite(const QString &url, const Callback &cb); // 概念版：Android 头 + 设备头
     // 按候选键名依次查 cookie（扫码登录写 token/userid，网页 cookie 可能是 t/KugooID）
     QString cookieValue(const QStringList &keys) const;
     // 评论网关的安卓端签名：算法与 kugouWebSignature 相同，盐不同
     static QByteArray kugouAndroidSignature(const QVariantMap &params);
-    // 登录态取 VIP 播放地址；reason 为无地址原因（"vip" 需要会员/购买，供上层提示）
-    void requestSignedPlayInfo(const QString &hash, int type, const QString &reason = QString());
     // play/songinfo 的公共参数（设备 + 登录态），hash/encode_album_audio_id 由调用方补
     QJsonObject songInfoBaseParams() const;
-    // 两步取址：hash → encode_album_audio_id → play_url（VIP 曲只走这一步）
-    void requestSongInfo(const QJsonObject &params, const QString &hash, int type,
-                         const QString &reason, const QJsonObject &metaFallback = QJsonObject());
+    QVariantMap liteBaseParams() const;
 
     // getMusicInfo 两路并行请求的合并状态：
     //   meta    → getSongInfo.php（歌名/歌手/封面/时长 + 128k 兜底地址）
@@ -95,11 +99,34 @@ private:
         int trackerRate = 0;
         int trackerStatus = 0; // 2 = 该曲/该音质需要会员或已购买
         bool trackerDone = false;
+        // 概念版（lite）auth/tracker 需要，取自 getSongInfo.php
+        QString albumId;
+        QString albumAudioId;
     };
 
     void requestPlayMeta(const QString &hash, int type, const QSharedPointer<PlayRequest> &st);
     void requestTrackerUrl(const QString &hash, int type, const QSharedPointer<PlayRequest> &st);
+    // 取址顺序：概念版 → web 签名（两条 VIP），都失败才用免费/128k 兜底
     void finishPlayInfo(const QString &hash, int type, const QSharedPointer<PlayRequest> &st);
+    void finishWithFallback(const QString &hash, int type,
+                            const QSharedPointer<PlayRequest> &st, const QString &reason,
+                            int transportError = 0);
+    // 概念版（lite）取址：先 /v1/authorization 拿 auth，再 /tracker/v5/url 换地址
+    void requestLitePlayInfo(const QString &hash, int type,
+                             const QSharedPointer<PlayRequest> &st, const QString &reason);
+    // 概念版是三步：/v1/user_verify（用户级 auth）→ /v1/authorization（歌曲级）→ /tracker/v5/url
+    void requestLiteSongAuth(const QString &hash, int type,
+                             const QSharedPointer<PlayRequest> &st, const QString &userAuth,
+                             const QString &reason);
+    void requestLiteUrlStep(const QString &hash, int type,
+                            const QSharedPointer<PlayRequest> &st, const QString &auth,
+                            const QString &openTime, int quality, const QString &reason);
+    // web 签名两步取址：hash → encode_album_audio_id → play_url
+    void requestSignedPlayInfo(const QString &hash, int type,
+                               const QSharedPointer<PlayRequest> &st, const QString &reason);
+    void requestSongInfo(const QJsonObject &params, const QString &hash, int type,
+                         const QSharedPointer<PlayRequest> &st, const QString &reason,
+                         const QJsonObject &metaFallback = QJsonObject());
 
     // KRC 歌词解码（替代 pako.mjs inflateRaw）
     static QString decodeKrc(const QByteArray &base64);
@@ -110,6 +137,8 @@ private:
     QString m_cookie;
     QString m_mid;
     QString m_dfid;
+    int m_quality = 1;
+    QString m_liteUserAuth;   // 概念版用户级 auth，同一登录态内复用
     QHash<QString, QString> m_mixIdCache;   // hash → 评论接口所需的数字 mixsongid
 };
 

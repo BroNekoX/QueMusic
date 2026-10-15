@@ -20,7 +20,8 @@ namespace ApiHttp {
 inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                 const QByteArray &userAgent, const QByteArray &referer,
                 const QByteArray &cookie,
-                std::function<void(const QByteArray &, QNetworkReply::NetworkError)> done)
+                std::function<void(const QByteArray &, QNetworkReply::NetworkError)> done,
+                const QList<QPair<QByteArray, QByteArray>> &extraHeaders = {})
 {
     QNetworkRequest request(url);
     request.setRawHeader("User-Agent", userAgent);
@@ -30,19 +31,25 @@ inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
     // 明文端点不携带凭证：酷狗等仍有个别 http:// 域名，凭证不能随明文出网
     if (!cookie.isEmpty() && url.scheme() == QLatin1String("https"))
         request.setRawHeader("Cookie", cookie);
+    for (const auto &header : extraHeaders)
+        request.setRawHeader(header.first, header.second);
 
     QNetworkReply *reply = nam->get(request);
     QObject::connect(reply, &QNetworkReply::finished, context, [reply, done = std::move(done)] {
         const QNetworkReply::NetworkError error = reply->error();
-        const QByteArray body = error != QNetworkReply::NoError ? QByteArray() : reply->readAll();
-        if (error != QNetworkReply::NoError) {
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray body = reply->readAll();
+        // 服务端在完整响应后立刻断链时，Qt 会报 RemoteHostClosedError，但数据其实是完整的
+        const bool accepted = error == QNetworkReply::NoError
+                              || (httpStatus >= 200 && httpStatus < 300 && !body.isEmpty());
+        if (!accepted) {
             // 只记 scheme://host/path：查询串里可能带 token
             QUrl clean = reply->url();
             clean.setQuery(QString());
             qWarning() << "[api] 请求失败:" << reply->errorString() << clean.toString();
         }
         reply->deleteLater();
-        done(body, error);
+        done(body, accepted ? QNetworkReply::NoError : error);
     });
 }
 
