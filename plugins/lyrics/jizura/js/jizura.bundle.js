@@ -106,6 +106,51 @@ JZB.rootStamp = 0;
 JZB.trackFrames = false;
 JZB.allFrames = [];
 
+/* C++ 计算内核 (LyricPvCore) 的句柄, 由 QML 侧通过 JZ.setCore() 注入; null 表示
+   没有内核, 所有重活留在 JS。在这里先声明, 是为了让录制器能无条件读它。 */
+JZB.core = null;
+
+/* ---------------------------------------------------------------- JZW: the
+   WeakMap replacement used for every per-cut / per-pass cache in the bundle.
+
+   Why this exists.  JIZURA keeps small caches in module scope keyed by objects
+   that are owned by the plan (`env.cut`) or by one drawing pass (`env`).  The
+   bundle is a QML *library* script: it outlives every plugin instance, while a
+   plan does not - a new instance plans, renders, and the host destroys the item,
+   which drops the plan and with it the keys of all those caches.
+
+   Each destroyed plugin instance therefore hands V4 a batch of weakly-held keys
+   whose referents are dying, and Qt 6.10.3's weak-table collection is not up to
+   it: the process dies later at an arbitrary property lookup, inside
+   QV4::Value::sameValueZero (the Map/WeakMap key comparison) reached from JIT
+   code, or inside MemoryManager::allocData -> runGC.  This was measured, not
+   guessed: with ~20 host property bindings and 20 load/unload cycles the plugin
+   crashed in 3 of 3 runs; replacing these seven WeakMaps with JZW survived 20
+   cycles x 2, and removing only some of them still crashed - it is the number of
+   weak entries that matters.
+
+   A hidden own property on the key has exactly the lifetime semantics of a
+   WeakMap entry (it dies with the key), never touches the engine's weak table,
+   and - because it is non-enumerable - stays invisible to the Object.assign({},
+   env, ...) / Object.assign({}, cut, ...) copies and to for-in/JSON, which some
+   of these objects do go through.  Every store gets its own tag so the two
+   independent `bgRun` caches cannot collide on a shared key. */
+function JZW() {
+  var P = '__jzw' + (++JZW.n);
+  var has = function (k) { return !!k && Object.prototype.hasOwnProperty.call(k, P); };
+  return {
+    get: function (k) { return k ? k[P] : undefined; },
+    set: function (k, v) {
+      if (!k) return;
+      if (has(k)) k[P] = v;
+      else Object.defineProperty(k, P, { value: v, writable: true, configurable: true, enumerable: false });
+    },
+    has: function (k) { return has(k) && k[P] !== undefined; },
+    delete: function (k) { if (has(k)) k[P] = undefined; }
+  };
+}
+JZW.n = 0;
+
 /* ===================== src/runtime/10_recorder.js ===================== */
 /* ============================================================================
    JIZURA for QueMusic — fragment 1/4: the Canvas2D -> display-list recorder
@@ -152,13 +197,31 @@ var ARGS = [2, 2, 4, 6, 0];
    second and is a genuine memory leak in a long playback session. */
 var COLOR_CACHE = new Map();
 var COLOR_CACHE_MAX = 4096;
+/* 单槽备忘。normColor 是纯函数, 而绘制循环里连续遇到的往往是同一个颜色 (同一批
+   图元共用 fillStyle/strokeStyle), 所以"上一次的 (颜色, alpha)"命中率很高。
+   命中时连缓存键字符串都不用拼, 也不跨语言边界。只存字符串/数字, 不持有对象,
+   与 JZW 那类弱表问题无关。 */
+var ncC = null, ncA = -2, ncV = null;
+
 function normColor(c, a) {
   if (a == null) a = 1;
   if (a <= 0.002) return null;
   if (c && c.__grad) return c;
+  if (c === ncC && a === ncA) return ncV;
+  /* C++ 内核 (LyricPvCore::normalizeColor) 接管热路径: 这里省掉的是"键字符串拼接 +
+     正则/parseInt 解析 + 十六进制格式化"。语义与下面的 JS 分支完全一致 (含
+     #rgb/#rgba/#rrggbb/#rrggbbaa/rgb()/rgba()/transparent 与 alpha 累乘),
+     所以可以按字符串比对做回归。传空串表示"解析为透明", 对应 JS 的 null。 */
+  if (JZB.core && typeof c === 'string') {
+    try {
+      var r0 = JZB.core.normalizeColor(c, a);
+      ncC = c; ncA = a; ncV = r0 === '' ? null : r0;
+      return ncV;
+    } catch (e) { JZB.core = null; }        // 参数类型不被支持 -> 永久退回 JS
+  }
   var key = c + '|' + (a >= 0.999 ? 1 : a.toFixed(2));
   var v = COLOR_CACHE.get(key);
-  if (v !== undefined) return v;
+  if (v !== undefined) { ncC = c; ncA = a; ncV = v; return v; }
   var r = 0, g = 0, b = 0;
   if (typeof c === 'string') {
     var s = c.trim();
@@ -179,11 +242,12 @@ function normColor(c, a) {
       } else if (s === 'transparent') { a = 0; }
     }
   }
-  if (a <= 0.002) { COLOR_CACHE.set(key, null); return null; }
+  if (a <= 0.002) { COLOR_CACHE.set(key, null); ncC = c; ncA = a; ncV = null; return null; }
   v = '#' + ('0' + Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16)).slice(-2) +
       ('000000' + (((r & 255) << 16) | ((g & 255) << 8) | (b & 255)).toString(16)).slice(-6);
   if (COLOR_CACHE.size >= COLOR_CACHE_MAX) COLOR_CACHE.clear();
   COLOR_CACHE.set(key, v);
+  ncC = c; ncA = a; ncV = v;
   return v;
 }
 function mulColorAlpha(c, a) {
@@ -343,6 +407,38 @@ Ctx.prototype.__push = function (code, pts) {
 };
 Ctx.prototype.__pt = function (x, y) { return ap(this.__st.m, x, y); };
 
+/* ---- 标量直推: 把"变换 + push"融合成一次调用, 不再为每个点分配数组 ----
+   原来 moveTo/lineTo 每次经 __pt -> ap 分配一个 [x, y]; quadraticCurveTo 要
+   2 个 __pt 再加一次 concat (第 3 个数组), bezierCurveTo 要 3 个 __pt 加两次
+   concat (共 5 个)。形变效果每帧要发数千条命令, 这里就是每帧上万次短命数组分配
+   —— 全落在 V4 的分配器与 GC 上, 也是效果包耗时的主要来源。
+   下面几个变体的取值顺序与算式和原路径逐位一致 (m[0]*x + m[2]*y + m[4] 等),
+   所以显示列表、进而 SVG 与画面都完全不变。 */
+Ctx.prototype.__push2 = function (code, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code, m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__push4 = function (code, a, b, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code,
+    m[0] * a + m[2] * b + m[4], m[1] * a + m[3] * b + m[5],
+    m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__push6 = function (code, a, b, c, d, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code,
+    m[0] * a + m[2] * b + m[4], m[1] * a + m[3] * b + m[5],
+    m[0] * c + m[2] * d + m[4], m[1] * c + m[3] * d + m[5],
+    m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__pushCode = function (code) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  this.__path.push(code);
+};
+
 /* ---------- state ---------- */
 Ctx.prototype.save = function () {
   var s = this.__st;
@@ -380,25 +476,28 @@ Ctx.prototype.beginPath = function () {
   this.__breakRun();
 };
 Ctx.prototype.moveTo = function (x, y) {
-  var q = this.__pt(x, y); this.__push(M_, q);
+  this.__push2(M_, x, y);
   this.__cx = this.__sx = x; this.__cy = this.__sy = y;
 };
 Ctx.prototype.lineTo = function (x, y) {
-  this.__push(L_, this.__pt(x, y)); this.__cx = x; this.__cy = y;
+  this.__push2(L_, x, y); this.__cx = x; this.__cy = y;
 };
 Ctx.prototype.quadraticCurveTo = function (a, b, x, y) {
-  this.__push(Q_, this.__pt(a, b).concat(this.__pt(x, y))); this.__cx = x; this.__cy = y;
+  this.__push4(Q_, a, b, x, y); this.__cx = x; this.__cy = y;
 };
 Ctx.prototype.bezierCurveTo = function (a, b, c, d, x, y) {
-  this.__push(C_, this.__pt(a, b).concat(this.__pt(c, d), this.__pt(x, y))); this.__cx = x; this.__cy = y;
+  this.__push6(C_, a, b, c, d, x, y); this.__cx = x; this.__cy = y;
 };
-Ctx.prototype.closePath = function () { this.__push(Z_, []); this.__cx = this.__sx; this.__cy = this.__sy; };
+Ctx.prototype.closePath = function () { this.__pushCode(Z_); this.__cx = this.__sx; this.__cy = this.__sy; };
 Ctx.prototype.rect = function (x, y, w, h) {
   if (w === 0 || h === 0) return;
   if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
   var m = this.__st.m, p = this.__path;
-  var a = ap(m, x, y), b = ap(m, x + w, y), c = ap(m, x + w, y + h), d = ap(m, x, y + h);
-  p.push(M_, a[0], a[1], L_, b[0], b[1], L_, c[0], c[1], L_, d[0], d[1], Z_);
+  p.push(M_, m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5],
+            L_, m[0] * (x + w) + m[2] * y + m[4], m[1] * (x + w) + m[3] * y + m[5],
+            L_, m[0] * (x + w) + m[2] * (y + h) + m[4], m[1] * (x + w) + m[3] * (y + h) + m[5],
+            L_, m[0] * x + m[2] * (y + h) + m[4], m[1] * x + m[3] * (y + h) + m[5],
+            Z_);
   this.__cx = this.__sx = x; this.__cy = this.__sy = y;
   this.__breakRun();
 };
@@ -5508,7 +5607,7 @@ const glowOf = sc => { const L = J.lum(sc.bg); for (const c of [sc.accent, sc.ac
 const lightOn = sc => (isDark(sc.bg) ? glowOf(sc) : J.lum(sc.bg) < 0.78 ? '#FFFFFF' : J.mix(sc.accent, '#FFFFFF', 0.2));
 
 // time since this background started (consecutive cuts that share the same bg + seed count as one run)
-const bgRun = new WeakMap();
+const bgRun = JZW();
 const bgT = env => {
   const c = env.cut; if (!c) return env.t;
   let s = bgRun.get(c);
@@ -6697,7 +6796,7 @@ reg('cam', 'spiralIn', { name: '渦ズーム', tags: ['pop', 'graphic', 'emotion
     return { x: Math.cos(th) * env.W * 0.03 * K * r, y: Math.sin(th) * env.H * 0.035 * K * r, rot: -d * 7 * K * r, s: 1 - 0.08 * K * r + 0.015 * K * cuOf(env) };
   } });
 
-const snapCache = new WeakMap();
+const snapCache = JZW();
 const snapTime = (env, at) => {
   const c = env.cut; let v = snapCache.get(c);
   if (v != null) return v;
@@ -6751,7 +6850,7 @@ const colOf = (env, c, g) => (env.pass === 'main' ? c : g ? env.passColor : null
 const FS = env => Math.max(12, 16 * U(env));                         // small label size
 
 /* lyric bbox: remember the last real one per cut so decor never jumps to the centre while the text is hidden */
-const BBC = new WeakMap();
+const BBC = JZW();
 const getBB = (env, bb) => {
   if (bb && isFinite(bb.x0 + bb.x1 + bb.y0 + bb.y1) && bb.x1 > bb.x0 && bb.y1 > bb.y0) {
     const b = { x0: Math.max(bb.x0, -env.W * 0.1), x1: Math.min(bb.x1, env.W * 1.1), y0: Math.max(bb.y0, -env.H * 0.1), y1: Math.min(bb.y1, env.H * 1.1), boxes: bb.boxes || [], cx: bb.cx, cy: bb.cy };
@@ -11274,7 +11373,7 @@ function unitsOf(cut, maxU = 6, minU = 1) {
 }
 
 /* ---- word clock: onset time of each unit inside the cut (locked to beats when they fall close) ---- */
-const clockCache = new WeakMap();
+const clockCache = JZW();
 function onsets(env, n, o = {}) {
   const c = env.cut;
   let m = clockCache.get(c);
@@ -16417,7 +16516,7 @@ const tintC = (sc, k) => J.mix(sc.bg, sc.accent, k);   // faint accent tone
 const Umin = env => Math.min(env.W, env.H);
 const bs = rng => rng.int(1, 1e9);
 // time since this background started (runs of consecutive cuts with the same bg count as one)
-const bgRun = new WeakMap();
+const bgRun = JZW();
 const bgT = env => {
   const c = env.cut; if (!c) return env.t;
   let s = bgRun.get(c);
@@ -16900,7 +16999,7 @@ reg('cam', 'dollyIn', { name: 'ドリー', tags: ['emotional', 'calm', 'editoria
   plan: rng => ({ a: rng.range(0.08, 0.11) }),
   get: (env, P) => { const K = KM(env), q = E.inCubic(cuOf(env)); return { s: 1 + Math.min(0.14, (P.a || 0.1) * K) * q, y: -env.H * 0.008 * K * q }; } });
 
-const stepCache = new WeakMap();
+const stepCache = JZW();
 const stepTimes = (env, n) => {
   const c = env.cut; let ts = stepCache.get(c);
   if (ts && ts.n === n) return ts.v;
@@ -17934,7 +18033,7 @@ reg('treat', 'circled', { name: '丸囲み', tags: ['pop', 'graphic', 'editorial
   } });
 
 /* ---- 「」 corner quotes drawn around the whole lyric ---- */
-const QUOTED = new WeakMap();
+const QUOTED = JZW();
 reg('treat', 'bracketsQuote', { name: 'かぎ括弧', tags: ['editorial', 'emotional', 'calm'], w: 0.6,
   plan: rng => ({ v: rng.pick(['single', 'single', 'double']), k: rng.range(0.05, 0.065) }),
   apply(env, it, P) {
@@ -18203,7 +18302,7 @@ reg('treat', 'focusPull', { name: 'ぼかし送り', tags: ['emotional', 'calm',
     });
   } });
 
-const SPOT = new WeakMap();
+const SPOT = JZW();
 /* ---- spotlight glyph: one character (a kanji) is set in an accent disc / square / diamond ---- */
 reg('treat', 'spotChar', { name: '一字マーク', tags: ['pop', 'graphic', 'editorial', 'emotional'], w: 0.7,
   plan: rng => ({ v: rng.pick(['disc', 'disc', 'square', 'diamond']), k: rng.range(1.06, 1.14), r: rng.range(0, 1) }),
@@ -19908,8 +20007,18 @@ var JZ = {
   budget: function () { return JZB.opBudget; },
   setTextBudget: function (n) { JZB.textBudget = n > 40 ? n : 40; return JZB.textBudget; },
 
-  /* called once from the QML stage; host = { fontFamilies, metrics, stacks } */
+  /* 接入 C++ 计算内核 (LyricPvCore, 见 cpp/lyricpvcore)。
+     传 null/不传 -> 全部留在 JS, PV 仍然可用 (外部插件安装场景)。 */
+  setCore: function (core) {
+    JZB.core = core || null;
+    if (JZB.core && JZB.core.resetCaches) JZB.core.resetCaches();
+    return !!JZB.core;
+  },
+  hasCore: function () { return !!JZB.core; },
+
+  /* called once from the QML stage; host = { fontFamilies, metrics, stacks, core } */
   install: function (host) {
+    if (host && host.core) JZ.setCore(host.core);
     if (host && host.fontFamilies && host.fontFamilies.length) {
       JZB.fonts.configure({ available: Array.prototype.slice.call(host.fontFamilies) });
     }
@@ -20011,6 +20120,9 @@ var JZ = {
      long session with many entries accumulates one plan and one set of caches
      per visit. */
   dispose: function () {
+    // 内核缓存里只有几何与颜色字符串 (不持有 plan/QML 对象), 但 plan 都没了,
+    // 留着也没意义, 顺手清掉
+    if (JZB.core && JZB.core.resetCaches) JZB.core.resetCaches();
     // The metrics provider is the QML JzMetrics object and is about to be
     // destroyed: drop the reference *first*, or a later lookup would call
     // through a dangling QObject.
@@ -20178,6 +20290,89 @@ JZ.setDecorations = function (on) {
   JZB.decorOn = on;
   overrideGroup(J.DECOR, on);
 };
+
+/* ===================== C++ 计算内核 (LyricPvCore) 接管 =====================
+   cpp/lyricpvcore 把"每帧都要做、与画面语义无关"的重活搬到了 C++。实测这一块占
+   一帧的 ~40%: 路径 -> SVG 字符串 ~25%, 颜色归一化 ~16% (1280x720 / q0 画质,
+   record+apply 每帧 ~11.4ms)。JS 的瓶颈在于循环里反复拼接字符串、数值格式化要过
+   V4 的 String 转换、颜色解析要过正则 + parseInt。
+
+   接法有三个约束:
+     1. 只在 JZB.core 存在时启用。宿主没链接这个模块 (例如把 jizura 目录当外部
+        插件拷到别的播放器) 时, 全部退回下面的 JS 实现, PV 照常工作;
+     2. 跨语言边界要尽量少: 每帧只调一次 pathsToSvg (整帧的向量 op 一次交出去),
+        而不是每条路径一次;
+     3. 一旦某次调用抛异常 (参数类型不被该 Qt 版本支持等), 立刻永久退回 JS,
+        并把 JZB.core 置空, 避免每帧都在 try/catch 里付代价。
+
+   normalizeColor 的接管不在这里: 它是 recorder 里的局部函数, 见 10_recorder.js。 */
+
+/* 暂存数组跨帧复用: 每帧新建 cmds/offs/mats/pending 四个数组要走 V4 的分配 +
+   逐次扩容 (cmds 一帧约 1,200 个数), 复用后这部分基本归零。数组只在本次同步调用
+   期间被读走, 下一次 finalize 之前不会有人引用它。 */
+var finCmds = [], finOffs = [0], finMats = [], finOps = [];
+
+/* 整帧的向量 op -> SVG, 一次跨界。
+   每条 op 的几何是 o.d (扁平指令流), 位移是 o.shift (可选), 二者合起来就是一个
+   仿射矩阵 —— 正好对上 C++ 的 pathsToSvg(commands, offsets, matrices) 签名。
+   全部 op 都没有位移时连 matrices 都不用传 (C++ 侧按单位阵处理), 省一次数组转换。 */
+(function () {
+  var origFinalize = JZB.finalize;
+  JZB.finalize = function (frame) {
+    var core = JZB.core;
+    if (!core) { origFinalize(frame); return; }
+    try {
+      var cmds = finCmds, offs = finOffs, mats = finMats, pend = finOps;
+      cmds.length = 0; mats.length = 0; pend.length = 0;
+      offs.length = 0; offs.push(0);
+      var needMats = false;
+      for (var li = 0; li < frame.layers.length; li++) {
+        var L = frame.layers[li];
+        for (var i = 0; i < L.nv; i++) {
+          var o = L.vec[i];
+          if (o.svg) continue;                  // 与原实现一致: 已经有 svg 的不重算
+          var d = o.d;
+          if (!d || !d.length) { o.svg = ''; continue; }
+          for (var k = 0; k < d.length; k++) cmds.push(d[k]);
+          offs.push(cmds.length);
+          if (o.shift) {
+            needMats = true;
+            mats.push(1, 0, 0, 1, o.shift[0], o.shift[1]);
+          } else {
+            mats.push(1, 0, 0, 1, 0, 0);
+          }
+          pend.push(o);
+        }
+      }
+      if (!pend.length) return;
+      var out = core.pathsToSvg(cmds, offs, needMats ? mats : []);
+      for (var j = 0; j < pend.length; j++) pend[j].svg = out[j] || '';
+    } catch (e) {
+      JZB.core = null;                          // 永久退回 JS
+      origFinalize(frame);
+    }
+  };
+})();
+
+/* 颜色插值/亮度: JIZURA 的绘制代码里调用极密 (每帧数千次), 而两者都要先把
+   颜色字符串解析成 RGB —— 原实现每次都要 split/map/join 建临时数组。 */
+(function () {
+  var origMix = J.mix, origLum = J.lum;
+  J.mix = function (h1, h2, t) {
+    var core = JZB.core;
+    if (core && typeof h1 === 'string' && typeof h2 === 'string') {
+      try { return core.mixColors(h1, h2, t); } catch (e) { JZB.core = null; }
+    }
+    return origMix(h1, h2, t);
+  };
+  J.lum = function (h) {
+    var core = JZB.core;
+    if (core && typeof h === 'string') {
+      try { return core.luminance(h); } catch (e) { JZB.core = null; }
+    }
+    return origLum(h);
+  };
+})();
 
 /* the QML stage reads the API from `JZ` in the bundle's namespace */
 JZB.JZ = JZ;

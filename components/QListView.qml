@@ -19,6 +19,7 @@ ListView {
     property list<string> headerModel: isList ? ["标题","创建者","曲目","操作"] : ["标题","歌手","时长","操作"]
     property list<string> menuModel: isList ? ["收藏","歌单信息"] : ["下载到本地","下一首播放","添加到列表","收藏","歌曲信息"]
     property list<int> selectedIndices: []
+    // Set 只在选择态变化时重建一次；delegate 的 color 绑定只做 O(1) 查询。
     readonly property var selectedSet: new Set(selectedIndices)
     property bool isList: false
     property int artistX: width / 2 - 32
@@ -84,8 +85,6 @@ ListView {
         const it = itemAt(i)
         const key = keyOf(it)
         if (!key) return
-        // 成败由 FavoritesModel 的 favoriteStateChanged / errorOccurred 决定，
-        // 这里不抢先提示「已收藏」——写库失败时必须让用户看见
         if (isFav(i))
             favModel.removeFavorite(key, favType)
         else
@@ -154,6 +153,7 @@ ListView {
         title: "Menu"
         parent: Overlay.overlay
         property int index
+        readonly property int displayIndex: visible ? index : -1
 
         background: Rectangle {
             implicitWidth: 160
@@ -188,7 +188,7 @@ ListView {
                     radius: Style.labelRadius - 2
                     width: menuItem.width - 4
                     height: menuItem.height - 4
-                    color: menuItem.down || menuItem.highlighted ? Theme.hoverColor : "transparent"
+                    color: menuItem.hovered ? Theme.hoverColor : "transparent"
                 }
                 text: modelData
                 contentItem: Text {
@@ -335,9 +335,25 @@ ListView {
         required property string artist
         required property string cover
         required property real duration
-        // 收藏/下载/历史等本地模型的角色里没有 paytype，从 item 兜底读
+
+        readonly property string rowKey: {
+            const m = listDel.model
+            return m ? (m.hash || m.favId || m.path || m.fileUrl || m.id || "") : ""
+        }
         readonly property int paytype: listDel.model && listDel.model.paytype !== undefined
                                        ? listDel.model.paytype : 0
+        readonly property string displayCover: listDel.cover
+            ? listDel.cover.replace("{size}", "64")
+            : "qrc:/QueMusic/resources/app/musicpic.png"
+
+        readonly property bool isFav: FavoriteSongs.favoriteRevision >= 0
+                                      && listDel.rowKey !== ""
+                                      && view.favModel.isFavorite(listDel.rowKey, view.favType)
+
+        readonly property string durationText: view.isList
+            ? (listDel.duration > 0 ? listDel.duration + "首" : "")
+            : Playback.fmt(listDel.duration * 1000)
+
         height: 60
         width: ListView.view.width - 16
         color: view.selectedSet.has(listDel.index) ? Theme.containColor : "#00000000"
@@ -353,7 +369,7 @@ ListView {
             anchors.fill: parent
             radius: Style.labelRadius
             color: Theme.hoverColor
-            opacity: listArea.containsMouse ? 1 : 0
+            opacity: listArea.containsMouse || menu.displayIndex === listDel.index ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
 
@@ -363,7 +379,7 @@ ListView {
             width: 44
             height: 44
             radius: 10
-            source: (listDel.cover || "").replace("{size}","64") || "qrc:/QueMusic/resources/app/musicpic.png"
+            source: listDel.displayCover
         }
 
         Text {
@@ -387,7 +403,6 @@ ListView {
             height: 18
             radius: 9
             // VIP 角标：paytype === 3 是 ApiCommon::kPaytypePaid（见 api/ApiCommon.h 的约定）。
-            // 各平台必须把自家枚举归一到这里，别原样透传。
             visible: listDel.paytype === 3
             Text {
                 text: "VIP"
@@ -414,9 +429,7 @@ ListView {
             y: 16
             width: 60
             height: 28
-            // 歌单：duration 存的是曲目数（没拿到就留空，别显示「0 首」）；歌曲：duration 是秒
-            text: view.isList ? (listDel.duration > 0 ? listDel.duration + "首" : "")
-                              : Playback.fmt(listDel.duration * 1000)
+            text: listDel.durationText
             color: Theme.textColor
             font.bold: false
             elide: Text.ElideRight
@@ -462,10 +475,8 @@ ListView {
                     }
                 }
                 SButton {
-                    // 收藏表的全局版本号驱动重算：增删收藏后各列表图标同步刷新
                     iconCharacter: view.toolText1 // 图标固定
-                    iconColor: FavoriteSongs.favoriteRevision >= 0 && view.isFav(listDel.index)
-                               ? Theme.themeColor : Theme.textColor
+                    iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
                     width: 36
                     height: 36
                     radius: 36

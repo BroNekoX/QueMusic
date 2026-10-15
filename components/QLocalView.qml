@@ -92,7 +92,7 @@ ListView {
                     radius: Style.labelRadius - 2
                     width: menuItem.width - 4
                     height: menuItem.height - 4
-                    color: menuItem.down || menuItem.highlighted ? Theme.hoverColor : "transparent"
+                    color: menuItem.hovered ? Theme.hoverColor : "transparent"
                 }
                 text: modelData
                 contentItem: Text {

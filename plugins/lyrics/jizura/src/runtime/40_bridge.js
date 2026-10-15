@@ -217,8 +217,18 @@ var JZ = {
   budget: function () { return JZB.opBudget; },
   setTextBudget: function (n) { JZB.textBudget = n > 40 ? n : 40; return JZB.textBudget; },
 
-  /* called once from the QML stage; host = { fontFamilies, metrics, stacks } */
+  /* 接入 C++ 计算内核 (LyricPvCore, 见 cpp/lyricpvcore)。
+     传 null/不传 -> 全部留在 JS, PV 仍然可用 (外部插件安装场景)。 */
+  setCore: function (core) {
+    JZB.core = core || null;
+    if (JZB.core && JZB.core.resetCaches) JZB.core.resetCaches();
+    return !!JZB.core;
+  },
+  hasCore: function () { return !!JZB.core; },
+
+  /* called once from the QML stage; host = { fontFamilies, metrics, stacks, core } */
   install: function (host) {
+    if (host && host.core) JZ.setCore(host.core);
     if (host && host.fontFamilies && host.fontFamilies.length) {
       JZB.fonts.configure({ available: Array.prototype.slice.call(host.fontFamilies) });
     }
@@ -320,6 +330,9 @@ var JZ = {
      long session with many entries accumulates one plan and one set of caches
      per visit. */
   dispose: function () {
+    // 内核缓存里只有几何与颜色字符串 (不持有 plan/QML 对象), 但 plan 都没了,
+    // 留着也没意义, 顺手清掉
+    if (JZB.core && JZB.core.resetCaches) JZB.core.resetCaches();
     // The metrics provider is the QML JzMetrics object and is about to be
     // destroyed: drop the reference *first*, or a later lookup would call
     // through a dangling QObject.
@@ -487,6 +500,89 @@ JZ.setDecorations = function (on) {
   JZB.decorOn = on;
   overrideGroup(J.DECOR, on);
 };
+
+/* ===================== C++ 计算内核 (LyricPvCore) 接管 =====================
+   cpp/lyricpvcore 把"每帧都要做、与画面语义无关"的重活搬到了 C++。实测这一块占
+   一帧的 ~40%: 路径 -> SVG 字符串 ~25%, 颜色归一化 ~16% (1280x720 / q0 画质,
+   record+apply 每帧 ~11.4ms)。JS 的瓶颈在于循环里反复拼接字符串、数值格式化要过
+   V4 的 String 转换、颜色解析要过正则 + parseInt。
+
+   接法有三个约束:
+     1. 只在 JZB.core 存在时启用。宿主没链接这个模块 (例如把 jizura 目录当外部
+        插件拷到别的播放器) 时, 全部退回下面的 JS 实现, PV 照常工作;
+     2. 跨语言边界要尽量少: 每帧只调一次 pathsToSvg (整帧的向量 op 一次交出去),
+        而不是每条路径一次;
+     3. 一旦某次调用抛异常 (参数类型不被该 Qt 版本支持等), 立刻永久退回 JS,
+        并把 JZB.core 置空, 避免每帧都在 try/catch 里付代价。
+
+   normalizeColor 的接管不在这里: 它是 recorder 里的局部函数, 见 10_recorder.js。 */
+
+/* 暂存数组跨帧复用: 每帧新建 cmds/offs/mats/pending 四个数组要走 V4 的分配 +
+   逐次扩容 (cmds 一帧约 1,200 个数), 复用后这部分基本归零。数组只在本次同步调用
+   期间被读走, 下一次 finalize 之前不会有人引用它。 */
+var finCmds = [], finOffs = [0], finMats = [], finOps = [];
+
+/* 整帧的向量 op -> SVG, 一次跨界。
+   每条 op 的几何是 o.d (扁平指令流), 位移是 o.shift (可选), 二者合起来就是一个
+   仿射矩阵 —— 正好对上 C++ 的 pathsToSvg(commands, offsets, matrices) 签名。
+   全部 op 都没有位移时连 matrices 都不用传 (C++ 侧按单位阵处理), 省一次数组转换。 */
+(function () {
+  var origFinalize = JZB.finalize;
+  JZB.finalize = function (frame) {
+    var core = JZB.core;
+    if (!core) { origFinalize(frame); return; }
+    try {
+      var cmds = finCmds, offs = finOffs, mats = finMats, pend = finOps;
+      cmds.length = 0; mats.length = 0; pend.length = 0;
+      offs.length = 0; offs.push(0);
+      var needMats = false;
+      for (var li = 0; li < frame.layers.length; li++) {
+        var L = frame.layers[li];
+        for (var i = 0; i < L.nv; i++) {
+          var o = L.vec[i];
+          if (o.svg) continue;                  // 与原实现一致: 已经有 svg 的不重算
+          var d = o.d;
+          if (!d || !d.length) { o.svg = ''; continue; }
+          for (var k = 0; k < d.length; k++) cmds.push(d[k]);
+          offs.push(cmds.length);
+          if (o.shift) {
+            needMats = true;
+            mats.push(1, 0, 0, 1, o.shift[0], o.shift[1]);
+          } else {
+            mats.push(1, 0, 0, 1, 0, 0);
+          }
+          pend.push(o);
+        }
+      }
+      if (!pend.length) return;
+      var out = core.pathsToSvg(cmds, offs, needMats ? mats : []);
+      for (var j = 0; j < pend.length; j++) pend[j].svg = out[j] || '';
+    } catch (e) {
+      JZB.core = null;                          // 永久退回 JS
+      origFinalize(frame);
+    }
+  };
+})();
+
+/* 颜色插值/亮度: JIZURA 的绘制代码里调用极密 (每帧数千次), 而两者都要先把
+   颜色字符串解析成 RGB —— 原实现每次都要 split/map/join 建临时数组。 */
+(function () {
+  var origMix = J.mix, origLum = J.lum;
+  J.mix = function (h1, h2, t) {
+    var core = JZB.core;
+    if (core && typeof h1 === 'string' && typeof h2 === 'string') {
+      try { return core.mixColors(h1, h2, t); } catch (e) { JZB.core = null; }
+    }
+    return origMix(h1, h2, t);
+  };
+  J.lum = function (h) {
+    var core = JZB.core;
+    if (core && typeof h === 'string') {
+      try { return core.luminance(h); } catch (e) { JZB.core = null; }
+    }
+    return origLum(h);
+  };
+})();
 
 /* the QML stage reads the API from `JZ` in the bundle's namespace */
 JZB.JZ = JZ;

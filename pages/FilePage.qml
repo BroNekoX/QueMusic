@@ -255,10 +255,7 @@ Item {
             width: fileMain.width - 48
             z: 10
             Text {
-                x: 0
-                y: 0
-                height: 40
-                verticalAlignment: Text.AlignVCenter
+                anchors.verticalCenter: parent.verticalCenter
                 text: "本地音乐"
                 font.weight: Font.DemiBold
                 font.pixelSize: Style.pageTitle

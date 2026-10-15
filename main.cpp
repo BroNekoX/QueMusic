@@ -4,7 +4,6 @@
 // Portions based on QWindowKit example code:
 // Copyright (C) 2023-2024 Stdware Collections (https://www.github.com/stdware)
 // Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
-// 系统托盘（QSystemTrayIcon）属于 QtWidgets，需要 QApplication 而非 QGuiApplication
 #include <QtWidgets/QApplication>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
@@ -126,6 +125,12 @@ int main(int argc, char *argv[])
         qputenv("QSG_NO_VSYNC", "1");
     if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
+
+    // Qt scene graph 调试
+    //qputenv("QSG_RENDER_TIMING", "1");
+    //qputenv("QSG_INFO", "1");
+    //qputenv("QSG_RENDERER_DEBUG", "render");
+    //qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);

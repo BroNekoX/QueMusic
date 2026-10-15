@@ -27,6 +27,9 @@ endif()
 # 第三方依赖（QWindowKit、TagLib、zlib）与部署辅助函数
 add_subdirectory(cmake)
 
+# 歌词 PV 的 C++ 计算内核（独立 QML 模块 LyricPvCore，可被其它 PV 效果复用）
+add_subdirectory(cpp/lyricpvcore)
+
 set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 qt_add_executable(${PROJECT_NAME}
     main.cpp
@@ -130,16 +133,9 @@ set_source_files_properties(
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
 file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "layout/*.qml")
 file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
-# 歌词界面预设目录（可整体替换的歌词界面）
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
-# JIZURA 歌词 PV：既是内置歌词主题，源码同时保留为可外置安装的插件目录。
-# 必须进 QML_FILES 而不是 RESOURCES —— 只有这样 qmlcachegen 才会在构建期把它连同
-# 1.2 MB 的 JS 库一起编译成字节码嵌入二进制；否则运行时要现场编译约一秒，
-# 而宿主若在这段时间里卸载 Loader，Qt 6.10.3 会破坏 V4 堆
-# （崩溃落在 Qt6Qml.dll 的 QV4::Value::sameValueZero，详见该插件 README）。
-# 只取运行时真正加载的文件：src/runtime/*.js 是打包输入、tools/*.js 是 Node 脚本、
-# tests/ 是命令行测试脚手架，三者都不能进 QML 模块（会被 qmlcachegen 当 QML JS 编译）。
+# JIZURA 歌词 PV：既是内置歌词主题，源码同时保留为可外置安装的插件目录
 file(GLOB LYRICS_JIZURA_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
     "plugins/lyrics/jizura/jizura.qml"
     "plugins/lyrics/jizura/qml/*.qml")
@@ -293,8 +289,6 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
         shaders/cardblur.frag
         shaders/cardblur_hq.frag
         shaders/bg_cubes.frag
-        shaders/bg_grid.frag
-        shaders/bg_beams.frag
         shaders/bg_stars.frag
         shaders/bg_stage.frag
         shaders/bg_void.frag
@@ -336,6 +330,10 @@ target_link_libraries(${PROJECT_NAME}
         quemusic::zlib
         quemusic::ffmpeg
         cryptopp::cryptopp
+        # LyricPvCore 是静态 QML 模块：除库本身外还要链它的 plugin 目标，
+        # 类型注册（qml_register_types_LyricPvCore）才会被拉进可执行文件
+        LyricPvCore
+        LyricPvCoreplugin
     PUBLIC
         QWindowKit::Quick
 )

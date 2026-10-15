@@ -8,7 +8,10 @@
 #include <QSGMaterial>
 #include <QtQmlIntegration/qqmlintegration.h>
 
-// 点云舞台的材质：所有 uniform 由 updateUniformData 写进 std140 缓冲（布局须与 stage.vert 一致）
+// std140 布局（须与 stage.vert 一致）。刻意只用 vec4 拼装，避开 vec3/vec2 的对齐陷阱：
+//   [0]mat4 qt_Matrix [64]float qt_Opacity+12填充 [80]uColor [96]uColor2 [112]uSize+填充
+//   [128]uCam(theta,phi,radius,focal) [144]uCtrl(targetY,time,preset,audioGain)
+//   [160]uAudio(low,mid,high,air) [176]uMisc(level,count,density,-)   合计 192 字节
 class StageMaterial : public QSGMaterial
 {
 public:
@@ -20,16 +23,15 @@ public:
 
     int preset = 0;
     int count = 14000;
-    float time = 0.0f;
-    float mouse[2] = {0.0f, 0.0f};
     float size[2] = {1.0f, 1.0f};
-    float audio[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};   // Low/Mid/High/Air/Level
+    float cam[4] = {0.0f, 0.30f, 6.6f, 2.40f};       // theta / phi / radius / focal
+    float ctrl[4] = {0.30f, 0.0f, 0.0f, 1.0f};       // targetY / time / preset / audioGain
+    float audio[4] = {0.0f, 0.0f, 0.0f, 0.0f};       // Low / Mid / High / Air
+    float misc[4] = {0.0f, 14000.0f, 1.0f, 0.0f};    // Level / Count / Density / -
     float colors[8] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    float params[5] = {1.0f, 14000.0f, 9.0f, 1.0f, 1.0f}; // Audio/Count/CamDist/CamSens/Density
 };
 
-// 3d 歌词主题的点云舞台：几万个发光点，位置/大小/亮度全部由 stage.vert 在 GPU 算出。
-// 与背景着色器共用同一套相机 ⇒ 点与方块场在同一个三维空间里。
+// 点云舞台：几万个发光点，位置/大小/亮度全部由 stage.vert 在 GPU 算出。
 class LyricsStage : public QQuickItem
 {
     Q_OBJECT
@@ -38,8 +40,11 @@ class LyricsStage : public QQuickItem
     Q_PROPERTY(int preset READ preset WRITE setPreset NOTIFY presetChanged FINAL)
     Q_PROPERTY(int count READ count WRITE setCount NOTIFY countChanged FINAL)
     Q_PROPERTY(qreal time READ time WRITE setTime NOTIFY timeChanged FINAL)
-    Q_PROPERTY(qreal mouseX READ mouseX WRITE setMouseX NOTIFY mouseXChanged FINAL)
-    Q_PROPERTY(qreal mouseY READ mouseY WRITE setMouseY NOTIFY mouseYChanged FINAL)
+    Q_PROPERTY(qreal camTheta READ camTheta WRITE setCamTheta NOTIFY camChanged FINAL)
+    Q_PROPERTY(qreal camPhi READ camPhi WRITE setCamPhi NOTIFY camChanged FINAL)
+    Q_PROPERTY(qreal camRadius READ camRadius WRITE setCamRadius NOTIFY camChanged FINAL)
+    Q_PROPERTY(qreal camFocal READ camFocal WRITE setCamFocal NOTIFY camChanged FINAL)
+    Q_PROPERTY(qreal camTargetY READ camTargetY WRITE setCamTargetY NOTIFY camChanged FINAL)
     Q_PROPERTY(qreal audioLow READ audioLow WRITE setAudioLow NOTIFY audioLowChanged FINAL)
     Q_PROPERTY(qreal audioMid READ audioMid WRITE setAudioMid NOTIFY audioMidChanged FINAL)
     Q_PROPERTY(qreal audioHigh READ audioHigh WRITE setAudioHigh NOTIFY audioHighChanged FINAL)
@@ -48,8 +53,6 @@ class LyricsStage : public QQuickItem
     Q_PROPERTY(QColor color1 READ color1 WRITE setColor1 NOTIFY color1Changed FINAL)
     Q_PROPERTY(QColor color2 READ color2 WRITE setColor2 NOTIFY color2Changed FINAL)
     Q_PROPERTY(qreal audioGain READ audioGain WRITE setAudioGain NOTIFY audioGainChanged FINAL)
-    Q_PROPERTY(qreal camDist READ camDist WRITE setCamDist NOTIFY camDistChanged FINAL)
-    Q_PROPERTY(qreal camSens READ camSens WRITE setCamSens NOTIFY camSensChanged FINAL)
     Q_PROPERTY(qreal density READ density WRITE setDensity NOTIFY densityChanged FINAL)
 
 public:
@@ -61,10 +64,17 @@ public:
     void setCount(int c);
     qreal time() const { return m_time; }
     void setTime(qreal t);
-    qreal mouseX() const { return m_mouseX; }
-    void setMouseX(qreal v);
-    qreal mouseY() const { return m_mouseY; }
-    void setMouseY(qreal v);
+
+    qreal camTheta() const { return m_cam[0]; }
+    qreal camPhi() const { return m_cam[1]; }
+    qreal camRadius() const { return m_cam[2]; }
+    qreal camFocal() const { return m_cam[3]; }
+    void setCamTheta(qreal v);
+    void setCamPhi(qreal v);
+    void setCamRadius(qreal v);
+    void setCamFocal(qreal v);
+    qreal camTargetY() const { return m_camTargetY; }
+    void setCamTargetY(qreal v);
 
     qreal audioLow() const { return m_audio[0]; }
     void setAudioLow(qreal v);
@@ -74,7 +84,7 @@ public:
     void setAudioHigh(qreal v);
     qreal audioAir() const { return m_audio[3]; }
     void setAudioAir(qreal v);
-    qreal audioLevel() const { return m_audio[4]; }
+    qreal audioLevel() const { return m_audioLevel; }
     void setAudioLevel(qreal v);
 
     QColor color1() const { return m_color1; }
@@ -84,10 +94,6 @@ public:
 
     qreal audioGain() const { return m_audioGain; }
     void setAudioGain(qreal v);
-    qreal camDist() const { return m_camDist; }
-    void setCamDist(qreal v);
-    qreal camSens() const { return m_camSens; }
-    void setCamSens(qreal v);
     qreal density() const { return m_density; }
     void setDensity(qreal v);
 
@@ -95,8 +101,7 @@ signals:
     void presetChanged();
     void countChanged();
     void timeChanged();
-    void mouseXChanged();
-    void mouseYChanged();
+    void camChanged();
     void audioLowChanged();
     void audioMidChanged();
     void audioHighChanged();
@@ -105,8 +110,6 @@ signals:
     void color1Changed();
     void color2Changed();
     void audioGainChanged();
-    void camDistChanged();
-    void camSensChanged();
     void densityChanged();
 
 protected:
@@ -117,13 +120,13 @@ private:
     int m_preset = 0;
     int m_count = 14000;
     int m_geoCount = -1;
+    int m_geoPreset = -1;
     qreal m_time = 0.0;
-    qreal m_mouseX = 0.0;
-    qreal m_mouseY = 0.0;
-    qreal m_audio[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    qreal m_cam[4] = {0.0, 0.30, 6.6, 2.40};         // theta / phi / radius / focal
+    qreal m_camTargetY = 0.30;
+    qreal m_audio[4] = {0.0, 0.0, 0.0, 0.0};         // low / mid / high / air
+    qreal m_audioLevel = 0.0;
     qreal m_audioGain = 1.0;
-    qreal m_camDist = 9.0;
-    qreal m_camSens = 1.0;
     qreal m_density = 1.0;
     QColor m_color1 = QColor::fromString("#00ee66");
     QColor m_color2 = QColor::fromString("#00b1ee");

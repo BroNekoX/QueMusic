@@ -95,10 +95,7 @@ Item {
             width: parent.width
             z: 10
             Text {
-                x: 0
-                y: 0
-                height: 40
-                verticalAlignment: Text.AlignVCenter
+                anchors.verticalCenter: parent.verticalCenter
                 text: "分类"
                 font.weight: Font.DemiBold
                 font.pixelSize: Style.pageTitle

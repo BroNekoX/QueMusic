@@ -23,7 +23,7 @@ Menu {
         RectangularShadow {
             anchors.fill: parent
             z: -1
-            offset.x: 0
+            offset.x: 3
             offset.y: 5
             radius: parent.radius
             blur: 20
@@ -47,7 +47,7 @@ Menu {
                 width: menuItem.width - 4
                 height: menuItem.height - 4
                 color: menuItem.index === dialog.current ? Theme.containColor
-                     : (menuItem.down || menuItem.highlighted) ? Theme.hoverColor
+                     : menuItem.hovered ? Theme.hoverColor
                      : "transparent"
             }
             text: modelData

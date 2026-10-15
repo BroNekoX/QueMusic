@@ -81,6 +81,7 @@ Item {
     property real fxDecor: 0.5
     property real fxDensity: 0.55
     property real textScale: 1.0
+    property string komaMode: "smooth"     // smooth (every frame) | onTwos | auto
 
     function pullSettings(): void {
         settings.sync();                       // pick up writes made elsewhere
@@ -98,6 +99,7 @@ Item {
         if (fxDensity !== settings.fxDensity) fxDensity = settings.fxDensity;
         if (textScale !== settings.textScale) textScale = settings.textScale;
         if (rendererMode !== settings.rendererMode) rendererMode = settings.rendererMode;
+        if (komaMode !== settings.komaMode) komaMode = settings.komaMode;
     }
 
     Rectangle {
@@ -137,6 +139,7 @@ Item {
         property real fxDensity: 0.55
         property real textScale: 1.0
         property string rendererMode: "geometry"   // Qt's own default Shape backend
+        property string komaMode: "smooth"         // smooth | onTwos | auto
     }
 
     // ----------------------------------------------------------------- state
@@ -188,6 +191,26 @@ Item {
     }
 
     JzMetrics { id: metrics }
+
+    // C++ 计算内核 (crates/cpp/lyricpvcore 的 LyricPvCore)。实测路径->SVG 与颜色
+    // 归一化合计占一帧 ~40%, 放在 C++ 里做。加载失败时 (宿主没链接该模块) 只有
+    // 这一个 Item 失败, PV 退回纯 JS 计算, 不会整个主题起不来。
+    Loader {
+        id: coreLoader
+        source: Qt.resolvedUrl("qml/JzCore.qml")
+        asynchronous: false
+        onLoaded: {
+            const ok = root.jz.setCore(item.core);
+            console.log("JIZURA: LyricPvCore " + (ok ? "已启用（路径/颜色计算在 C++）"
+                                                    : "不可用，退回 JS 计算"));
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.warn("JIZURA: LyricPvCore 不可用，计算退回 JS");
+                root.jz.setCore(null);
+            }
+        }
+    }
 
     // ------------------------------------------------------------- rendering
     JzStage {
@@ -423,7 +446,44 @@ Item {
             return;
         }
         plan = res.plan;
+        applyKoma();
         render();
+    }
+
+    // JIZURA quantises all motion to `koma` drawings per second — the anime
+    // "on twos" trick, 12 or 8, picked per mood by the planner — and its
+    // renderer still re-records the whole frame on every tick, so quantising
+    // saves no work at all: it only caps the picture at 8-12 updates/s while
+    // the app's own fps counter keeps showing the (full) render rate.  koma is
+    // read at draw time, so overriding it here is enough.
+    function applyKoma(): void {
+        if (!plan || !plan.fx)
+            return;
+        if (komaMode === "onTwos") {
+            plan.fx.koma = 12;
+            plan.fx.onTwos = true;
+        } else if (komaMode === "smooth") {
+            // both knobs: J.komaOf() treats a missing koma as "12 unless
+            // onTwos === false", so set the flag as well as the number
+            plan.fx.koma = 0;
+            plan.fx.onTwos = false;
+        }
+        // "auto" keeps the mood's own choice
+    }
+
+    // steps per second the picture really advances at: exactly the reciprocal
+    // of J.stepDur(), which is what the renderer quantises its time with.
+    // A function, not a binding: applyKoma() mutates plan.fx after `plan` has
+    // already been assigned, so a binding on `plan` would report the planner's
+    // original value and never refresh.
+    function pictureStepsNow(): real {
+        return (plan && plan.fx) ? 1 / Jz.JZB.J.stepDur(plan.fx, plan.fps || 60) : 0;
+    }
+
+    onKomaModeChanged: {
+        applyKoma();
+        if (plan)
+            render();
     }
 
     function hash(s): int {
@@ -464,7 +524,8 @@ Item {
         font.pixelSize: 12
         font.family: "Consolas"
         text: "JIZURA  q" + root.qualityLevel + "  " + root.frameEma.toFixed(1) + "ms  "
-              + root.liveShapes + " 图形  " + root.liveTexts + " 文本"
+              + root.liveShapes + " 图形  " + root.liveTexts + " 文本  "
+              + root.pictureStepsNow().toFixed(0) + " 步/秒"
               + (root.planFailed ? "  编排失败" : "")
     }
 

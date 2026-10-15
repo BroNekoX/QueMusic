@@ -1,6 +1,6 @@
 #version 450 core
 
-// 预设：平面星空 —— 多层星点（鼠标视差）+ 一条银河带 + 轻微闪烁；不做相机环绕，纯粹平铺星空。
+// 预设：平面星空 —— 多层星点（视角视差）+ 银河带 + 轻微闪烁，不做相机环绕。
 layout(location = 0) in vec2 qt_TexCoord0;
 
 layout(std140, binding = 0) uniform buf {
@@ -9,7 +9,9 @@ layout(std140, binding = 0) uniform buf {
     vec4  uColor;
     vec4  uColor2;
     vec2  uResolution;
-    vec2  uMouse;
+    // 共享相机
+    float uCamTheta;
+    float uCamPhi;
     float uTime;
     float uLow;
     float uMid;
@@ -20,8 +22,9 @@ layout(std140, binding = 0) uniform buf {
     float uSaturate;
     float uAudio;
     float uField;
-    float uCamDist;
-    float uCamSens;
+    float uCamRadius;
+    float uFocal;
+    float uCamTargetY;
 };
 
 layout(location = 0) out vec4 fragColor;
@@ -35,6 +38,26 @@ vec2 hash23(vec3 c) {
     return fract(vec2(h, h * 7.31));
 }
 
+// 银河带的碎纹用噪声，别用正弦（正弦会出规则麻点）
+float h21f(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float fbm2(vec2 p) {
+    float a = 0.5, s = 0.0;
+    for (int k = 0; k < 3; ++k) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        s += a * mix(mix(h21f(i), h21f(i + vec2(1.0, 0.0)), f.x),
+                     mix(h21f(i + vec2(0.0, 1.0)), h21f(i + vec2(1.0, 1.0)), f.x), f.y);
+        p = p * 2.07 + 11.3;
+        a *= 0.5;
+    }
+    return s;
+}
+
 void main() {
     vec2 uv = (vec2(qt_TexCoord0.x, 1.0 - qt_TexCoord0.y) * uResolution * 2.0 - uResolution)
              / max(uResolution.y, 1.0);
@@ -43,10 +66,11 @@ void main() {
 
     vec3 col = vec3(0.0);
 
-    // 银河带：一条斜向的弥散亮带（噪声状的稀疏星云）
+    // 银河带：斜向弥散亮带 + 多倍频噪声打碎 + 域扭曲
     float band = exp(-pow((sp.y - 0.35 * sp.x + 0.15) / 0.42, 2.0));
-    float grain = 0.5 + 0.5 * sin(sp.x * 7.3 + uTime * 0.05) * sin(sp.y * 6.1 - uTime * 0.04);
-    col += mix(uColor.rgb, uColor2.rgb, 0.6) * band * grain * 0.10
+    vec2 nq = sp * 2.5 + vec2(uCamTheta * 0.50, (uCamPhi - 0.30) * 0.80) + vec2(0.0, uTime * 0.020);
+    float grain = pow(fbm2(nq + fbm2(nq * 1.35 + 3.7) * 1.10), 1.6);
+    col += mix(uColor.rgb, uColor2.rgb, 0.6) * band * (0.30 + 0.90 * grain) * 0.15
            * (0.5 + 0.8 * uLevel * uAudio);
 
     // 5 层星点：越远越小越淡、视差越小
@@ -54,9 +78,8 @@ void main() {
         float fl = float(L);
         float depth = 0.35 + 0.75 * fl;
         float scale = 30.0 / depth;
-        // 视差量在"格子空间"里必须与 scale 无关，才会换算成"屏幕位移 ∝ depth"：
-        // 屏幕位移 = 1.8 / scale = 0.06 * depth ⇒ 近层动得多、远层动得少
-        vec2 q = sp * scale + vec2(uMouse.x, -uMouse.y) * 1.8
+        // 视差量在格子空间里与 scale 无关 ⇒ 屏幕位移 ∝ depth，近层动得多
+        vec2 q = sp * scale + vec2(uCamTheta, uCamPhi - 0.30) * 6.0
                  + uTime * vec2(0.10, -0.07);
         vec2 ip = floor(q);
         vec2 fp = fract(q) - 0.5;

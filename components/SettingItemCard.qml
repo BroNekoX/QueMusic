@@ -7,7 +7,7 @@ import QueMusic 1.0
 Item {
     id: settingItem
     property string label: ""
-    property string tip: "这是一个提示，哈哈哈设置你的内容"
+    property string tip: "这是一个提示，快设置你的可爱内容喵"
     property int controlWidth: 160
     property alias controlItem: controlContent.data
     property bool isBigItem: false

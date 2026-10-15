@@ -43,13 +43,31 @@ var ARGS = [2, 2, 4, 6, 0];
    second and is a genuine memory leak in a long playback session. */
 var COLOR_CACHE = new Map();
 var COLOR_CACHE_MAX = 4096;
+/* 单槽备忘。normColor 是纯函数, 而绘制循环里连续遇到的往往是同一个颜色 (同一批
+   图元共用 fillStyle/strokeStyle), 所以"上一次的 (颜色, alpha)"命中率很高。
+   命中时连缓存键字符串都不用拼, 也不跨语言边界。只存字符串/数字, 不持有对象,
+   与 JZW 那类弱表问题无关。 */
+var ncC = null, ncA = -2, ncV = null;
+
 function normColor(c, a) {
   if (a == null) a = 1;
   if (a <= 0.002) return null;
   if (c && c.__grad) return c;
+  if (c === ncC && a === ncA) return ncV;
+  /* C++ 内核 (LyricPvCore::normalizeColor) 接管热路径: 这里省掉的是"键字符串拼接 +
+     正则/parseInt 解析 + 十六进制格式化"。语义与下面的 JS 分支完全一致 (含
+     #rgb/#rgba/#rrggbb/#rrggbbaa/rgb()/rgba()/transparent 与 alpha 累乘),
+     所以可以按字符串比对做回归。传空串表示"解析为透明", 对应 JS 的 null。 */
+  if (JZB.core && typeof c === 'string') {
+    try {
+      var r0 = JZB.core.normalizeColor(c, a);
+      ncC = c; ncA = a; ncV = r0 === '' ? null : r0;
+      return ncV;
+    } catch (e) { JZB.core = null; }        // 参数类型不被支持 -> 永久退回 JS
+  }
   var key = c + '|' + (a >= 0.999 ? 1 : a.toFixed(2));
   var v = COLOR_CACHE.get(key);
-  if (v !== undefined) return v;
+  if (v !== undefined) { ncC = c; ncA = a; ncV = v; return v; }
   var r = 0, g = 0, b = 0;
   if (typeof c === 'string') {
     var s = c.trim();
@@ -70,11 +88,12 @@ function normColor(c, a) {
       } else if (s === 'transparent') { a = 0; }
     }
   }
-  if (a <= 0.002) { COLOR_CACHE.set(key, null); return null; }
+  if (a <= 0.002) { COLOR_CACHE.set(key, null); ncC = c; ncA = a; ncV = null; return null; }
   v = '#' + ('0' + Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16)).slice(-2) +
       ('000000' + (((r & 255) << 16) | ((g & 255) << 8) | (b & 255)).toString(16)).slice(-6);
   if (COLOR_CACHE.size >= COLOR_CACHE_MAX) COLOR_CACHE.clear();
   COLOR_CACHE.set(key, v);
+  ncC = c; ncA = a; ncV = v;
   return v;
 }
 function mulColorAlpha(c, a) {
@@ -234,6 +253,38 @@ Ctx.prototype.__push = function (code, pts) {
 };
 Ctx.prototype.__pt = function (x, y) { return ap(this.__st.m, x, y); };
 
+/* ---- 标量直推: 把"变换 + push"融合成一次调用, 不再为每个点分配数组 ----
+   原来 moveTo/lineTo 每次经 __pt -> ap 分配一个 [x, y]; quadraticCurveTo 要
+   2 个 __pt 再加一次 concat (第 3 个数组), bezierCurveTo 要 3 个 __pt 加两次
+   concat (共 5 个)。形变效果每帧要发数千条命令, 这里就是每帧上万次短命数组分配
+   —— 全落在 V4 的分配器与 GC 上, 也是效果包耗时的主要来源。
+   下面几个变体的取值顺序与算式和原路径逐位一致 (m[0]*x + m[2]*y + m[4] 等),
+   所以显示列表、进而 SVG 与画面都完全不变。 */
+Ctx.prototype.__push2 = function (code, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code, m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__push4 = function (code, a, b, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code,
+    m[0] * a + m[2] * b + m[4], m[1] * a + m[3] * b + m[5],
+    m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__push6 = function (code, a, b, c, d, x, y) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  var m = this.__st.m;
+  this.__path.push(code,
+    m[0] * a + m[2] * b + m[4], m[1] * a + m[3] * b + m[5],
+    m[0] * c + m[2] * d + m[4], m[1] * c + m[3] * d + m[5],
+    m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+};
+Ctx.prototype.__pushCode = function (code) {
+  if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
+  this.__path.push(code);
+};
+
 /* ---------- state ---------- */
 Ctx.prototype.save = function () {
   var s = this.__st;
@@ -271,25 +322,28 @@ Ctx.prototype.beginPath = function () {
   this.__breakRun();
 };
 Ctx.prototype.moveTo = function (x, y) {
-  var q = this.__pt(x, y); this.__push(M_, q);
+  this.__push2(M_, x, y);
   this.__cx = this.__sx = x; this.__cy = this.__sy = y;
 };
 Ctx.prototype.lineTo = function (x, y) {
-  this.__push(L_, this.__pt(x, y)); this.__cx = x; this.__cy = y;
+  this.__push2(L_, x, y); this.__cx = x; this.__cy = y;
 };
 Ctx.prototype.quadraticCurveTo = function (a, b, x, y) {
-  this.__push(Q_, this.__pt(a, b).concat(this.__pt(x, y))); this.__cx = x; this.__cy = y;
+  this.__push4(Q_, a, b, x, y); this.__cx = x; this.__cy = y;
 };
 Ctx.prototype.bezierCurveTo = function (a, b, c, d, x, y) {
-  this.__push(C_, this.__pt(a, b).concat(this.__pt(c, d), this.__pt(x, y))); this.__cx = x; this.__cy = y;
+  this.__push6(C_, a, b, c, d, x, y); this.__cx = x; this.__cy = y;
 };
-Ctx.prototype.closePath = function () { this.__push(Z_, []); this.__cx = this.__sx; this.__cy = this.__sy; };
+Ctx.prototype.closePath = function () { this.__pushCode(Z_); this.__cx = this.__sx; this.__cy = this.__sy; };
 Ctx.prototype.rect = function (x, y, w, h) {
   if (w === 0 || h === 0) return;
   if (this.__sealed) { this.__path = this.__path.slice(); this.__sealed = false; }
   var m = this.__st.m, p = this.__path;
-  var a = ap(m, x, y), b = ap(m, x + w, y), c = ap(m, x + w, y + h), d = ap(m, x, y + h);
-  p.push(M_, a[0], a[1], L_, b[0], b[1], L_, c[0], c[1], L_, d[0], d[1], Z_);
+  p.push(M_, m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5],
+            L_, m[0] * (x + w) + m[2] * y + m[4], m[1] * (x + w) + m[3] * y + m[5],
+            L_, m[0] * (x + w) + m[2] * (y + h) + m[4], m[1] * (x + w) + m[3] * (y + h) + m[5],
+            L_, m[0] * x + m[2] * (y + h) + m[4], m[1] * x + m[3] * (y + h) + m[5],
+            Z_);
   this.__cx = this.__sx = x; this.__cy = this.__sy = y;
   this.__breakRun();
 };

@@ -1055,13 +1055,7 @@ Window {
     }
 
     // 扩展点：整窗覆盖层（插件自己定位，默认不吃鼠标事件）
-    Item {
-        id: pluginOverlay
-        anchors.fill: parent
-        z: 20
-        PluginSlot { slotName: "window.overlay"; target: pluginOverlay }
-    }
-
+    PluginSlot { slotName: "window.overlay"; target: Overlay.overlay }
     PluginHost {
         onPluginLoaded: window.syncTitleBarHitTest()
     }

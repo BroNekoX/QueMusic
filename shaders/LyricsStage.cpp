@@ -10,12 +10,8 @@
 
 namespace {
 
-// std140 布局（须与 shaders/stage.vert 的 buf 完全一致）：
-// qt_Matrix(64) + qt_Opacity(4) + 填充(12) = 80
-// + vec4 uColor(16) + vec4 uColor2(16) + vec2 uSize(8) + vec2 uMouse(8)
-// + float uTime(4) + float uLow..uLevel(20) + float uPreset(4)
-// + float uAudio/uCount/uCamDist/uCamSens/uDensity(20) = 176
-constexpr int kStageUniformSize = 176;
+// 偏移须与 shaders/stage.vert 的 buf 一致，布局表见 LyricsStage.h
+constexpr int kStageUniformSize = 192;
 constexpr int kBase = 80;
 
 class StageShader : public QSGMaterialShader
@@ -39,29 +35,27 @@ public:
             memcpy(buf->data() + 64, &opacity, 4);
         }
         char *p = buf->data() + kBase;
-        memcpy(p + 0, mat->colors, 32);        // uColor, uColor2
-        memcpy(p + 32, mat->size, 8);          // uSize
-        memcpy(p + 40, mat->mouse, 8);         // uMouse
-        memcpy(p + 48, &mat->time, 4);         // uTime
-        memcpy(p + 52, mat->audio, 20);        // uLow / uMid / uHigh / uAir / uLevel
-        const float presetF = float(mat->preset);
-        memcpy(p + 72, &presetF, 4);           // uPreset
-        memcpy(p + 76, mat->params, 20);       // uAudio / uCount / uCamDist / uCamSens / uDensity
+        memcpy(p + 0, mat->colors, 32);
+        memcpy(p + 32, mat->size, 8);
+        memcpy(p + 48, mat->cam, 16);
+        memcpy(p + 64, mat->ctrl, 16);
+        memcpy(p + 80, mat->audio, 16);
+        memcpy(p + 96, mat->misc, 16);
         return true;
     }
 };
 
 const QSGGeometry::AttributeSet &stageAttributes()
 {
-    // 单个属性：aId = (点序号, 角序号)
+    // aId = (点序号, 角序号, 柔边标记)
     static const QSGGeometry::Attribute attrs[] = {
-        QSGGeometry::Attribute::create(0, 2, QSGGeometry::FloatType, true)
+        QSGGeometry::Attribute::create(0, 3, QSGGeometry::FloatType, true)
     };
-    static const QSGGeometry::AttributeSet set = {1, 2 * int(sizeof(float)), attrs};
+    static const QSGGeometry::AttributeSet set = {1, 3 * int(sizeof(float)), attrs};
     return set;
 }
 
-QSGGeometry *makeStageGeometry(int count)
+QSGGeometry *makeStageGeometry(int count, bool soft)
 {
     auto *g = new QSGGeometry(stageAttributes(), count * 6);   // 每点 2 个三角形
     g->setDrawingMode(QSGGeometry::DrawTriangles);
@@ -72,6 +66,7 @@ QSGGeometry *makeStageGeometry(int count)
         for (int c = 0; c < 6; ++c) {
             v[k++] = float(i);
             v[k++] = float(c);
+            v[k++] = soft ? 1.0f : 0.0f;
         }
     }
     g->markVertexDataDirty();
@@ -82,7 +77,7 @@ QSGGeometry *makeStageGeometry(int count)
 
 StageMaterial::StageMaterial()
 {
-    setFlag(Blending, true);        // 加色发光（片元输出 alpha=0 + 预乘颜色）
+    setFlag(Blending, true);        // 加色发光
 }
 
 QSGMaterialType *StageMaterial::type() const
@@ -137,19 +132,48 @@ void LyricsStage::setTime(qreal t)
     update();
 }
 
-void LyricsStage::setMouseX(qreal v)
+void LyricsStage::setCamTheta(qreal v)
 {
-    if (qFuzzyCompare(m_mouseX, v))
+    if (qFuzzyCompare(m_cam[0], v))
         return;
-    m_mouseX = v;
+    m_cam[0] = v;
+    emit camChanged();
     update();
 }
 
-void LyricsStage::setMouseY(qreal v)
+void LyricsStage::setCamPhi(qreal v)
 {
-    if (qFuzzyCompare(m_mouseY, v))
+    if (qFuzzyCompare(m_cam[1], v))
         return;
-    m_mouseY = v;
+    m_cam[1] = v;
+    emit camChanged();
+    update();
+}
+
+void LyricsStage::setCamRadius(qreal v)
+{
+    if (qFuzzyCompare(m_cam[2], v))
+        return;
+    m_cam[2] = v;
+    emit camChanged();
+    update();
+}
+
+void LyricsStage::setCamFocal(qreal v)
+{
+    if (qFuzzyCompare(m_cam[3], v))
+        return;
+    m_cam[3] = v;
+    emit camChanged();
+    update();
+}
+
+void LyricsStage::setCamTargetY(qreal v)
+{
+    if (qFuzzyCompare(m_camTargetY, v))
+        return;
+    m_camTargetY = v;
+    emit camChanged();
     update();
 }
 
@@ -179,7 +203,7 @@ void LyricsStage::setAudioAir(qreal v)
 
 void LyricsStage::setAudioLevel(qreal v)
 {
-    m_audio[4] = v;
+    m_audioLevel = v;
     update();
 }
 
@@ -207,18 +231,6 @@ void LyricsStage::setAudioGain(qreal v)
     update();
 }
 
-void LyricsStage::setCamDist(qreal v)
-{
-    m_camDist = v;
-    update();
-}
-
-void LyricsStage::setCamSens(qreal v)
-{
-    m_camSens = v;
-    update();
-}
-
 void LyricsStage::setDensity(qreal v)
 {
     m_density = v;
@@ -241,32 +253,36 @@ QSGNode *LyricsStage::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
         node->setMaterial(new StageMaterial);
         node->setFlag(QSGNode::OwnsMaterial, true);
     }
-    if (!node->geometry() || m_geoCount != m_count) {
-        node->setGeometry(makeStageGeometry(m_count));   // 旧几何由 OwnsGeometry 释放
+    const bool soft = (m_preset == 5);                   // 预设 5 = 前景浮尘
+    if (!node->geometry() || m_geoCount != m_count || m_geoPreset != m_preset) {
+        node->setGeometry(makeStageGeometry(m_count, soft));   // 旧几何由 OwnsGeometry 释放
         m_geoCount = m_count;
+        m_geoPreset = m_preset;
     }
 
     auto *mat = static_cast<StageMaterial *>(node->material());
     mat->preset = m_preset;
     mat->count = m_count;
-    mat->time = float(m_time);
-    mat->mouse[0] = float(m_mouseX);
-    mat->mouse[1] = float(m_mouseY);
     mat->size[0] = float(width());
     mat->size[1] = float(height());
-    for (int i = 0; i < 5; ++i)
-        mat->audio[i] = float(m_audio[i]);
+    for (int i = 0; i < 4; ++i)
+        mat->cam[i] = float(m_cam[i]);
 
     const float c1[4] = {float(m_color1.redF()), float(m_color1.greenF()), float(m_color1.blueF()), 1.0f};
     const float c2[4] = {float(m_color2.redF()), float(m_color2.greenF()), float(m_color2.blueF()), 1.0f};
     memcpy(mat->colors, c1, 16);
     memcpy(mat->colors + 4, c2, 16);
 
-    mat->params[0] = float(m_audioGain);
-    mat->params[1] = float(m_count);
-    mat->params[2] = float(m_camDist);
-    mat->params[3] = float(m_camSens);
-    mat->params[4] = float(m_density);
+    mat->ctrl[0] = float(m_camTargetY);
+    mat->ctrl[1] = float(m_time);
+    mat->ctrl[2] = float(m_preset);
+    mat->ctrl[3] = float(m_audioGain);
+    for (int i = 0; i < 4; ++i)
+        mat->audio[i] = float(m_audio[i]);
+    mat->misc[0] = float(m_audioLevel);
+    mat->misc[1] = float(m_count);
+    mat->misc[2] = float(m_density);
+    mat->misc[3] = 0.0f;
 
     node->markDirty(QSGNode::DirtyMaterial);
     return node;

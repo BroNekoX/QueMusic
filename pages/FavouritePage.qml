@@ -83,10 +83,7 @@ Item {
             width: favouriteChildPage.width
             z: 10
             Text {
-                x: 0
-                y: 0
-                height: 40
-                verticalAlignment: Text.AlignVCenter
+                anchors.verticalCenter: parent.verticalCenter
                 text: "收藏内容"
                 font.weight: Font.DemiBold
                 font.pixelSize: Style.pageTitle

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 3d 歌词主题，三层：① 背景着色器（按预设换文件）② 点云舞台 LyricsStage（C++，GPU 算点位置）
-// ③ 歌词平面 lyricplane.frag（固定 LOD 0 保持字清晰 + 字体发光）。
-// 本主题的设置全部落在模块自己的 Settings（category "Lyrics3D"），不写宿主 Style、不走白名单。
+// 3D 歌词主题：一个相机、一个场景。背景着色器、点云舞台、歌词板共用同一套球面轨道相机，
+// 拖动时整个场景一起转；歌词板放在场景正前方的世界里，不跟随相机。
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtCore
 import QueMusic 1.0
 
 Item {
@@ -21,52 +19,63 @@ Item {
     property color secondColor: "#00b1ee"
     property int hideHeight: 0              // 宿主沉浸模式偏移
 
-    readonly property real rowH: (lyricSize * 1.35 + 78) * 1.45      // 行距拉大
+    readonly property real rowH: (lyricSize * 1.35 + 78) * 1.45
     readonly property real bigFont: Math.min(lyricSize * 2 + 30, width * 0.105)
+    readonly property real tau: Math.PI * 2
 
-    // 预设表：名称 / 背景着色器 / 点云舞台预设（-1 = 该预设不用点云）
+    // 预设：名称 / 背景着色器 / 点云预设（-1 = 不用粒子预设，改补一层环境星屑）
     readonly property var presetTable: [
         { n: "方块场", s: "bg_cubes", p: -1 },
-        { n: "光栅地平", s: "bg_grid", p: -1 },
         { n: "平面星空", s: "bg_stars", p: -1 },
-        { n: "光棱", s: "bg_beams", p: -1 },
         { n: "星尘", s: "bg_void", p: 0 },
         { n: "光隧", s: "bg_void", p: 1 },
         { n: "星环", s: "bg_void", p: 2 },
-        { n: "舞台", s: "bg_stage", p: 3 }     // 实体舞台（SDF 几何）+ 周围环绕星尘
+        { n: "舞台", s: "bg_stage", p: 3 }
     ]
     readonly property int presetIndex: Math.max(0, Math.min(presetTable.length - 1, Lyrics3DConfig.preset))
     readonly property var preset: presetTable[presetIndex]
+    readonly property int envPreset: preset.p >= 0 ? preset.p : 4
+    readonly property int envCount: preset.p >= 0 ? 14000 : 4200
 
     readonly property color textColor: Lyrics3DConfig.textColorCustom !== "" ? Lyrics3DConfig.textColorCustom : "#ffffff"
     readonly property color glowColor: Lyrics3DConfig.glowColorCustom !== "" ? Lyrics3DConfig.glowColorCustom : mainColor
 
-    // 滑杆表：[设置键, 名称, min, max, step, 显示倍数, 单位]（改动即时写入 Lyrics3DConfig）
-    readonly property var sliderTable: [
-        ["bright", "背景亮度", 20, 200, 10, 100, "x"],
-        ["saturate", "色彩饱和度", 100, 220, 10, 100, "x"],
-        ["audio", "音频反应", 0, 200, 10, 100, "x"],
-        ["density", "点云密度", 20, 200, 10, 100, "x"],
-        ["fieldScale", "方块场大小", 50, 160, 10, 100, "x"],
-        ["camDist", "相机距离", 60, 140, 5, 10, "x"],
-        ["camSens", "旋转灵敏度", 3, 20, 1, 10, "x"],
-        ["tilt", "歌词跟随鼠标", 0, 100, 10, 100, "%"],
-        ["lyricScale", "歌词大小", 60, 160, 10, 100, "x"],
-        ["lyricY", "歌词上下", -100, 100, 10, 100, ""],
-        ["lyricZ", "歌词景深", -100, 100, 10, 100, ""],
-        ["glow", "歌词溢光", 0, 150, 10, 100, "x"],
-        ["sweep", "当前行发光", 0, 100, 10, 100, "%"],
-        ["beatGlow", "溢光随鼓点", 0, 100, 10, 100, "%"],
-        ["floatAmt", "上下浮动", 0, 100, 10, 100, "%"]
-    ]
-    readonly property var colorTable: [["textColorCustom", "歌词文字颜色"], ["glowColorCustom", "歌词溢光颜色"]]
+    // ── 相机 ──
+    property real camTheta: 0
+    property real camPhi: 0.34                              // 俯仰，限 ±1.35
+    property real camTargetY: 0.30
+    readonly property real camRadius: Lyrics3DConfig.camDist
+    readonly property real focal: 1.0 / Math.tan(Math.max(20, Lyrics3DConfig.fov) * Math.PI / 360)
+    property bool dragging: false
+    property real velTheta: 0                               // 松手后的角速度
+    property real velPhi: 0
+    property real pressTheta: 0
+    property real pressPhi: 0
+    readonly property real spinSens: 0.0042 * Lyrics3DConfig.camSens
 
-    function timerFunction(): void { }           // 宿主接口：索引由宿主计算
+    // 镜头呼吸；拖动时减弱，免得和手抢方向
+    readonly property real camThetaView: camTheta + Math.sin(animTime * 0.08) * 0.014 * (dragging ? 0.25 : 1.0)
+    readonly property real camPhiView: camPhi + Math.sin(animTime * 0.06 + 1.0) * 0.010 * (dragging ? 0.25 : 1.0)
 
-    property real mouseX: 0
-    property real mouseY: 0
-    Behavior on mouseX { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-    Behavior on mouseY { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+    // ── 歌词板（世界坐标）──
+    // 半高是常量，不跟相机距离走：拉远相机时整块跟着变小，而不是永远占满画面。
+    readonly property real lyricHalfH: 2.35 * Lyrics3DConfig.lyricScale
+    readonly property real lyricY: 0.30 + Lyrics3DConfig.lyricY * 0.06
+    readonly property real lyricDist: 1.60 + Lyrics3DConfig.lyricZ * 1.20   // 沿 +X 往前放多远
+    readonly property real floorY: -1.05                                    // 地面高度，倒影用
+
+    function rebaseTheta(): void {
+        if (Math.abs(camTheta) > 1000)
+            camTheta -= tau * Math.round(camTheta / tau);
+    }
+
+    function resetView(): void {
+        _resetFromTheta = camTheta;
+        _resetFromPhi = camPhi;
+        velTheta = 0;
+        velPhi = 0;
+        camResetAnim.restart();
+    }
 
     property real animTime: 0
     NumberAnimation on animTime {
@@ -75,32 +84,62 @@ Item {
         running: root.visible
     }
 
-    // 频谱四段 + 总电平（着色器同名 uniform；Qt 不支持从 JS 数组绑定数组 uniform）
+    // 双击回正：偏航走最短角差
+    property real resetProgress: 1
+    property real _resetFromTheta: 0
+    property real _resetFromPhi: 0
+    NumberAnimation on resetProgress {
+        id: camResetAnim
+        running: false
+        from: 0; to: 1; duration: 620; easing.type: Easing.OutCubic
+    }
+    onResetProgressChanged: {
+        if (resetProgress >= 1)
+            return;
+        let d = -_resetFromTheta;
+        d -= tau * Math.round(d / tau);
+        camTheta = _resetFromTheta + d * resetProgress;
+        camPhi = _resetFromPhi + (0.34 - _resetFromPhi) * resetProgress;
+    }
+
+    // ── 音频：峰值归一化 → 非对称 EMA → 鼓点脉冲 + 慢速副歌闸门 ──
     property real uLow: 0
     property real uMid: 0
     property real uHigh: 0
     property real uAir: 0
     property real uLevel: 0
+    property real uBeat: 0
+    property real uSun: 0
+    property real _bassPeak: 0.03
+    property real _midPeak: 0.026
+    property real _trebPeak: 0.018
+    property real _energyPeak: 0.030
+    property real _onsetPeak: 0.10
+    property real _sunAvg: 0
+    property real _sunPeak: 0
+    property real _lastTick: 0
+    // 地形涟漪：两个槽交替，强鼓点时在圆盘内放一圈扩散波（着色器按出生时刻算波前）
+    property vector4d _ripA: Qt.vector4d(0, 0, -99, 0)
+    property vector4d _ripB: Qt.vector4d(0, 0, -99, 0)
+    property real _ripLast: -9
 
-    // HoverHandler 而非 MouseArea：不吞点击；面板打开时暂停跟随
-    HoverHandler {
-        id: hover
-        enabled: !diyPanel.visible
-        blocking: false
-        onPointChanged: {
-            const p = hover.point;
-            if (!p) return;
-            root.mouseX = Math.max(-1, Math.min(1, p.position.x / root.width * 2 - 1));
-            root.mouseY = Math.max(-1, Math.min(1, 1 - p.position.y / root.height * 2));
-        }
+    function clamp01(v: real): real { return v < 0 ? 0 : (v > 1 ? 1 : v) }
+
+    // 起音快、释放慢；按 dt 换算，帧率无关
+    function asym(prev: real, next: real, attack: real, release: real, dt: real): real {
+        const k = next > prev ? attack : release;
+        return prev + (next - prev) * (1 - Math.pow(1 - k, dt * 60));
     }
 
     // wavePath 首尾各一个哨兵点、y ∈ 0..80；采样 32 点折算四段
     function updateSpectrum(): void {
         const p = Options.getWave.wavePath;
         const inner = p ? p.length - 2 : 0;
+        const dt = 0.06;
         if (inner < 8) {
-            root.uLow = root.uMid = root.uHigh = root.uAir = root.uLevel = 0;
+            const dec = 1 - Math.pow(0.16, dt * 60);
+            uLow -= uLow * dec; uMid -= uMid * dec; uHigh -= uHigh * dec;
+            uAir -= uAir * dec; uLevel -= uLevel * dec;
             return;
         }
         let a = 0, b = 0, c = 0, d = 0;
@@ -112,11 +151,50 @@ Item {
             else if (i < 20) c += v;
             else d += v;
         }
-        root.uLow = a / 4;
-        root.uMid = b / 6;
-        root.uHigh = c / 10;
-        root.uAir = d / 12;
-        root.uLevel = (root.uLow + root.uMid + root.uHigh + root.uAir) / 4;
+        const rawBass = a / 4, rawMid = b / 6, rawHigh = c / 10, rawAir = d / 12;
+
+        // 缓慢衰减的峰值做归一化 ⇒ 音量大小不影响观感
+        _bassPeak = Math.max(0.030, _bassPeak * 0.994);
+        _midPeak = Math.max(0.026, _midPeak * 0.993);
+        _trebPeak = Math.max(0.018, _trebPeak * 0.992);
+        _energyPeak = Math.max(0.030, _energyPeak * 0.995);
+        _bassPeak = Math.max(_bassPeak, rawBass);
+        _midPeak = Math.max(_midPeak, rawMid);
+        _trebPeak = Math.max(_trebPeak, rawHigh);
+        _energyPeak = Math.max(_energyPeak, rawAir);
+
+        const nb = clamp01(Math.pow(rawBass / _bassPeak, 0.78));
+        const nm = clamp01(Math.pow(rawMid / _midPeak, 0.86));
+        const nh = clamp01(Math.pow(rawHigh / _trebPeak, 0.92));
+        const ne = clamp01(Math.pow(rawAir / _energyPeak, 0.82));
+
+        uLow = asym(uLow, nb, 0.28, 0.075, dt);
+        uMid = asym(uMid, nm, 0.18, 0.060, dt);
+        uHigh = asym(uHigh, nh, 0.18, 0.055, dt);
+        uAir = asym(uAir, ne, 0.16, 0.055, dt);
+        uLevel = (uLow + uMid + uHigh + uAir) / 4;
+
+        // 鼓点：能量突然冲高才算
+        if (nb > _onsetPeak * 1.16 && nb > 0.30)
+            uBeat = Math.max(uBeat, Math.min(1.0, nb * 1.05));
+        if (uBeat > 0.55 && animTime - _ripLast > 1.9) {
+            _ripLast = animTime;
+            const a = animTime * 2.39996;                       // 黄金角，落点铺得开
+            const rr = 1.4 + Math.abs(Math.sin(animTime * 1.7)) * 5.2;
+            const v = Qt.vector4d(Math.cos(a) * rr, Math.sin(a) * rr, animTime,
+                                  Math.min(1.0, 0.50 + uBeat * 0.70));
+            if (_ripA.z < _ripB.z)
+                _ripA = v;
+            else
+                _ripB = v;
+        }
+        _onsetPeak = Math.max(0.10, _onsetPeak * 0.90);
+
+        // 副歌闸门：长平均 + 峰值保持，只有持续的高潮段才点亮"太阳"
+        const sunRaw = clamp01(uLevel * 0.36 + uHigh * 0.18 + uMid * 0.26 + uAir * 0.20);
+        _sunAvg += (sunRaw - _sunAvg) * Math.min(1, 0.006 * dt * 60);
+        _sunPeak = Math.max(sunRaw, _sunPeak * 0.9985);
+        uSun = asym(uSun, sunRaw > Math.max(0.55, _sunAvg + 0.20, _sunPeak * 0.74) ? 1.0 : 0.0, 0.075, 0.030, dt);
     }
 
     Timer {
@@ -125,7 +203,77 @@ Item {
         repeat: true
         onTriggered: root.updateSpectrum()
     }
-    Component.onCompleted: root.updateSpectrum()
+
+    // 每帧一次：惯性甩动 + 鼓点衰减（时间无关，高刷屏手感一致）
+    function tickFrame(): void {
+        const now = Date.now();
+        const dt = Math.min(0.05, Math.max(0.001, (now - _lastTick) / 1000));
+        _lastTick = now;
+        uBeat *= Math.pow(0.36, dt);
+        if (uBeat < 0.002)
+            uBeat = 0;
+        if (dragging)
+            return;
+        if (velTheta !== 0 || velPhi !== 0) {
+            camTheta += velTheta * dt;
+            camPhi = Math.max(-1.35, Math.min(1.35, camPhi + velPhi * dt));
+            const damp = Math.pow(0.90, dt * 60);
+            velTheta *= damp;
+            velPhi *= damp;
+            if (Math.abs(velTheta) < 0.004 && Math.abs(velPhi) < 0.004) {
+                velTheta = 0;
+                velPhi = 0;
+            }
+            rebaseTheta();
+        }
+    }
+    onAnimTimeChanged: root.tickFrame()
+    Component.onCompleted: {
+        _lastTick = Date.now();
+        updateSpectrum();
+    }
+
+    // ── 拖动转向：按住才转，仅移动鼠标不转 ──
+    DragHandler {
+        id: spin
+        target: null
+        enabled: !diyPanel.visible
+        onActiveChanged: {
+            if (active) {
+                camResetAnim.stop();
+                root.dragging = true;
+                root.velTheta = 0;
+                root.velPhi = 0;
+                root.pressTheta = root.camTheta;
+                root.pressPhi = root.camPhi;
+            } else {
+                root.dragging = false;
+                // 松手甩动
+                root.velTheta = Math.max(-6.2, Math.min(6.2, spin.centroid.velocity.x * root.spinSens));
+                root.velPhi = Math.max(-6.2, Math.min(6.2, spin.centroid.velocity.y * root.spinSens));
+            }
+        }
+        onActiveTranslationChanged: {
+            if (!spin.active)
+                return;
+            root.camTheta = root.pressTheta + spin.activeTranslation.x * root.spinSens;
+            root.camPhi = Math.max(-1.35, Math.min(1.35,
+                              root.pressPhi + spin.activeTranslation.y * root.spinSens));
+            root.rebaseTheta();
+        }
+    }
+    TapHandler {
+        enabled: !diyPanel.visible
+        onDoubleTapped: root.resetView()
+    }
+    WheelHandler {
+        enabled: !diyPanel.visible
+        onWheel: function (e) {
+            Lyrics3DConfig.camDist = Math.max(5.0, Math.min(14.0,
+                                     Lyrics3DConfig.camDist + e.angleDelta.y * 0.004));
+            e.accepted = true;
+        }
+    }
 
     // ── 1) 背景 ──
     ShaderEffect {
@@ -133,7 +281,10 @@ Item {
         property color uColor: root.mainColor
         property color uColor2: root.secondColor
         property vector2d uResolution: Qt.vector2d(width, height)
-        property vector2d uMouse: Qt.vector2d(root.mouseX, root.mouseY)
+        property real uCamTheta: root.camThetaView
+        property real uCamPhi: root.camPhiView
+        property real uCamRadius: root.camRadius
+        property real uFocal: root.focal
         property real uTime: root.animTime
         property real uLow: root.uLow
         property real uMid: root.uMid
@@ -144,20 +295,24 @@ Item {
         property real uSaturate: Lyrics3DConfig.saturate
         property real uAudio: Lyrics3DConfig.audio
         property real uField: Lyrics3DConfig.fieldScale
-        property real uCamDist: Lyrics3DConfig.camDist
-        property real uCamSens: Lyrics3DConfig.camSens
+        property real uCamTargetY: root.camTargetY
+        property real uBeat: root.uBeat
+        property vector4d uRipA: root._ripA
+        property vector4d uRipB: root._ripB
         fragmentShader: "qrc:/shaders/shaders/" + root.preset.s + ".frag.qsb"
     }
 
-    // ── 2) 点云舞台（真 3D：GPU 算点位置 + 透视尺寸/亮度衰减）──
+    // ── 2) 身后来那层点云（GPU 算位置与透视衰减）──
     LyricsStage {
         anchors.fill: parent
-        visible: root.preset.p >= 0
-        preset: Math.max(0, root.preset.p)
-        count: 14000
+        preset: root.envPreset
+        count: root.envCount
         time: root.animTime
-        mouseX: root.mouseX
-        mouseY: root.mouseY
+        camTheta: root.camThetaView
+        camPhi: root.camPhiView
+        camRadius: root.camRadius
+        camFocal: root.focal
+        camTargetY: root.camTargetY
         audioLow: root.uLow
         audioMid: root.uMid
         audioHigh: root.uHigh
@@ -166,30 +321,34 @@ Item {
         color1: root.mainColor
         color2: root.secondColor
         audioGain: Lyrics3DConfig.audio
-        camDist: Lyrics3DConfig.camDist
-        camSens: Lyrics3DConfig.camSens
         density: Lyrics3DConfig.density * 0.85
     }
 
-    // ── 歌词平板（纹理源）──
+    // ── 歌词板纹理源 ──
     ListView {
         id: lyricList
         anchors.fill: parent
         clip: true
         interactive: false
         model: root.lyricsModel
-        contentY: root.currentIndex * root.rowH + root.rowH / 2 - height / 2
+        spacing: 20
+        property int contentTrueY: root.currentIndex * (root.rowH + 20) + root.rowH / 2 - height * 0.4
+        contentY: contentTrueY
         Behavior on contentY { NumberAnimation { duration: 420; easing.type: Easing.BezierSpline; easing.bezierCurve: [ 0.24, 0.06, 0.00, 1.03, 1, 1 ] } }
 
         delegate: Item {
+            id: lyricDel
             width: lyricList.width
             height: root.rowH
 
             readonly property real dist: Math.abs(index - root.currentIndex)
             readonly property bool active: index === root.currentIndex
+            required property int index
+            required property var modelData
 
-            opacity: Math.max(0, 1 - dist * 0.22)
-            scale: active ? 1.22 : Math.max(0.60, 1 - dist * 0.10)   // 当前行明显更大
+            // 景深和雾在着色器里按行距做，这里只留"当前行更亮"
+            opacity: Math.max(0.16, 1 - dist * 0.18)
+            scale: active ? 1.2 : 1.0
             transformOrigin: Item.Center
             Behavior on scale { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
 
@@ -203,12 +362,12 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
                     maximumLineCount: 1
-                    elide: Text.ElideRight
-                    text: modelData.text || ""
+                    //elide: Text.ElideRight
+                    text: lyricDel.modelData.text || ""
                     color: root.textColor
-                    opacity: parent.parent.active ? 1.0 : 0.72
+                    opacity: lyricDel.active ? 1.0 : 0.72
                     font.pixelSize: root.bigFont
-                    font.weight: parent.parent.active ? Font.DemiBold : Font.Normal
+                    font.weight: lyricDel.active ? Font.DemiBold : Font.Normal
                     font.family: Style.fontFamily
                     Behavior on opacity { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
                 }
@@ -216,9 +375,9 @@ Item {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     maximumLineCount: 1
-                    elide: Text.ElideRight
+                    //elide: Text.ElideRight
                     visible: root.openTranslate && text !== ""
-                    text: root.translateModel[index] ? root.translateModel[index] : ""
+                    text: root.translateModel[lyricDel.index] ? root.translateModel[lyricDel.index] : ""
                     color: root.textColor
                     opacity: 0.60
                     font.pixelSize: root.bigFont * 0.42
@@ -233,9 +392,8 @@ Item {
         sourceItem: lyricList
         hideSource: true
         recursive: false
-        // live 常开会让整张歌词纹理每帧重采样；只在行切换与滚动落定时手动刷新
-        live: false
-        mipmap: false
+        live: true
+        mipmap: true                 // 远行用 mip LOD 做景深虚化
         smooth: true
     }
 
@@ -250,27 +408,56 @@ Item {
         onTriggered: lyricTex.scheduleUpdate()
     }
 
-    // ── 3) 歌词平面（字体发光在这里做）──
+    // ── 3) 歌词板 ──
     ShaderEffect {
         anchors.fill: parent
         property color uGlowColor: root.glowColor
         property vector2d uResolution: Qt.vector2d(width, height)
-        property vector2d uMouse: Qt.vector2d(root.mouseX, root.mouseY)
         property real uTime: root.animTime
+        property real uCamTheta: root.camThetaView
+        property real uCamPhi: root.camPhiView
+        property real uCamRadius: root.camRadius
+        property real uCamTargetY: root.camTargetY
+        property real uFocal: root.focal
+        property real uHalfH: root.lyricHalfH
+        property real uPlaneDist: root.lyricDist
+        property real uYOffset: root.lyricY
+        property real uFloorY: root.floorY
         property real uGlow: Lyrics3DConfig.glow
-        property real uTilt: Lyrics3DConfig.tilt
-        property real uLineV: 0.5             // 当前行恒在纹理纵向中心（contentY 已对齐）
         property real uSweep: Lyrics3DConfig.sweep
         property real uBeatGlow: Lyrics3DConfig.beatGlow
         property real uLevel: root.uLevel
-        property real uLyricScale: Lyrics3DConfig.lyricScale
-        property real uLyricY: Lyrics3DConfig.lyricY
-        property real uLyricZ: Lyrics3DConfig.lyricZ
-        property real uCamDist: Lyrics3DConfig.camDist
-        property real uCamSens: Lyrics3DConfig.camSens
+        property real uBeat: root.uBeat
+        property real uSun: root.uSun
+        property real uReflect: Lyrics3DConfig.reflect
+        property real uReadab: Lyrics3DConfig.readab
+        property real uFog: Lyrics3DConfig.fog
+        property real uDof: Lyrics3DConfig.dof
         property real uFloat: Lyrics3DConfig.floatAmt
         property ShaderEffectSource uLyrics: lyricTex
         fragmentShader: "qrc:/shaders/shaders/lyricplane.frag.qsb"
+    }
+
+    // ── 4) 前景浮尘：盖在歌词上面 ⇒ 歌词处在场景内部而不是浮在最上层 ──
+    LyricsStage {
+        anchors.fill: parent
+        preset: 5
+        count: 150
+        time: root.animTime
+        camTheta: root.camThetaView
+        camPhi: root.camPhiView
+        camRadius: root.camRadius
+        camFocal: root.focal
+        camTargetY: root.camTargetY
+        audioLow: root.uLow
+        audioMid: root.uMid
+        audioHigh: root.uHigh
+        audioAir: root.uAir
+        audioLevel: root.uLevel
+        color1: root.mainColor
+        color2: root.secondColor
+        audioGain: Lyrics3DConfig.audio
+        density: Lyrics3DConfig.density
     }
 
     // 滑杆：一份定义，面板与宿主弹窗共用
@@ -280,19 +467,20 @@ Item {
         label: spec[1]
         QSlider {
             anchors.right: parent.right
-            from: spec[2]
-            to: spec[3]
-            stepSize: spec[4]
+            from: parent.spec[2]
+            to: parent.spec[3]
+            stepSize: parent.spec[4]
             width: 160
             height: 36
             leftText: true
-            valueText: (value / spec[5]).toFixed(2) + spec[6]
-            value: Math.round(Lyrics3DConfig[spec[0]] * spec[5])
-            onMoved: Lyrics3DConfig[spec[0]] = value / spec[5]
+            valueText: (value / parent.spec[5]).toFixed(2) + parent.spec[6]
+            value: Math.round(Lyrics3DConfig[parent.spec[0]] * parent.spec[5])
+            onMoved: Lyrics3DConfig[parent.spec[0]] = value / parent.spec[5]
         }
     }
 
     component OptColor: SettingItem {
+        id: optRoot
         width: parent ? parent.width : 0
         property var spec
         label: spec[1]
@@ -301,12 +489,12 @@ Item {
             width: 120
             height: 36
             radius: 10
-            color: Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]] : "#33ffffff"
+            color: Lyrics3DConfig[optRoot.spec[0]] !== "" ? Lyrics3DConfig[optRoot.spec[0]] : "#33ffffff"
             border.width: 1
             border.color: "#40ffffff"
             Text {
                 anchors.centerIn: parent
-                text: Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]].toUpperCase() : "跟随主题"
+                text: Lyrics3DConfig[optRoot.spec[0]] !== "" ? Lyrics3DConfig[optRoot.spec[0]].toUpperCase() : "跟随主题"
                 color: "#ffffff"
                 font.pixelSize: 11
             }
@@ -314,15 +502,13 @@ Item {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    colorPick.key = spec[0];
-                    colorPick.openColor(Lyrics3DConfig[spec[0]] !== "" ? Lyrics3DConfig[spec[0]]
-                                                            : (spec[0] === "textColorCustom" ? "#ffffff" : root.mainColor));
+                    colorPick.key = optRoot.spec[0];
+                    colorPick.openColor(Lyrics3DConfig[optRoot.spec[0]] !== "" ? Lyrics3DConfig[optRoot.spec[0]] : root.mainColor);
                 }
             }
         }
     }
 
-    // ── 自定义按钮：与翻译按钮同一行、在它左边 ──
     SButton {
         id: diyButton
         x: root.width - 60 - 48
@@ -331,7 +517,7 @@ Item {
         width: 36
         height: 36
         radius: 18
-        iconCharacter: "\uf013"
+        iconCharacter: "\uf0a4"
         iconColor: diyPanel.visible ? "#555555" : "#fbfbfb"
         iconSize: Style.texticon
         buttonColor: diyPanel.visible ? "#88ffffff" : "#55e1e1e1"
@@ -342,7 +528,6 @@ Item {
         onClicked: diyPanel.visible = !diyPanel.visible
     }
 
-    // ── 卡片式面板 ──
     Rectangle {
         id: diyPanel
         visible: false
@@ -389,9 +574,11 @@ Item {
                             color: index === root.presetIndex ? root.mainColor : Theme.primaryColor
                             border.width: 1
                             border.color: index === root.presetIndex ? root.mainColor : Theme.sideColor
+                            required property int index
+                            required property var modelData
                             Text {
                                 anchors.centerIn: parent
-                                text: modelData.n
+                                text: parent.modelData.n
                                 color: Theme.textColor
                                 font.pixelSize: 11
                                 font.family: Style.fontFamily
@@ -399,19 +586,26 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Lyrics3DConfig.preset = index
+                                onClicked: Lyrics3DConfig.preset = parent.index
                             }
                         }
                     }
                 }
 
+                Text {
+                    text: "拖动旋转 · 滚轮缩放 · 双击回正"
+                    color: "#7f8ea3"
+                    font.pixelSize: 11
+                    font.family: Style.fontFamily
+                }
+
                 Repeater {
                     model: root.sliderTable
-                    delegate: OptSlider { spec: modelData }
+                    delegate: OptSlider { required property var modelData; spec: modelData }
                 }
                 Repeater {
                     model: root.colorTable
-                    delegate: OptColor { spec: modelData }
+                    delegate: OptColor { required property var modelData; spec: modelData }
                 }
 
                 ColorPickerDialog {
@@ -430,8 +624,34 @@ Item {
             spacing: 14
             Repeater {
                 model: root.sliderTable
-                delegate: OptSlider { spec: modelData }
+                delegate: OptSlider { required property var modelData; spec: modelData }
             }
         }
     }
+
+    // [设置键, 名称, min, max, step, 显示倍数, 单位]，面板与宿主弹窗共用
+    readonly property var sliderTable: [
+        ["bright", "背景亮度", 20, 200, 10, 100, "x"],
+        ["saturate", "色彩饱和度", 100, 220, 10, 100, "x"],
+        ["audio", "音频反应", 0, 200, 10, 100, "x"],
+        ["density", "点云密度", 20, 200, 10, 100, "x"],
+        ["fieldScale", "方块场大小", 50, 160, 10, 100, "x"],
+        ["fov", "视场角", 30, 70, 2, 1, "°"],
+        ["camDist", "相机距离", 50, 140, 5, 10, "x"],
+        ["camSens", "拖动灵敏度", 3, 20, 1, 10, "x"],
+        ["lyricScale", "歌词大小", 60, 160, 10, 100, "x"],
+        ["lyricY", "歌词上下", -100, 100, 10, 100, ""],
+        ["lyricZ", "歌词景深", -100, 100, 10, 100, ""],
+        ["glow", "歌词溢光", 0, 150, 10, 100, "x"],
+        ["sweep", "当前行发光", 0, 100, 10, 100, "%"],
+        ["beatGlow", "溢光随鼓点", 0, 100, 10, 100, "%"],
+        ["reflect", "地面倒影", 0, 100, 10, 100, "%"],
+        ["readab", "暗底衬", 0, 100, 10, 100, "%"],
+        ["fog", "深度雾", 0, 100, 10, 100, "%"],
+        ["dof", "景深虚化", 0, 100, 10, 100, "%"],
+        ["floatAmt", "上下浮动", 0, 100, 10, 100, "%"]
+    ]
+    readonly property var colorTable: [["textColorCustom", "歌词文字颜色"], ["glowColorCustom", "歌词溢光颜色"]]
+
+    function timerFunction(): void { }           // 宿主接口：索引由宿主计算
 }

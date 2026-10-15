@@ -16,6 +16,7 @@ Popup {
     property string confirmText: "完成"
     property bool isInput: false
     property bool dismissOnOverlay: true
+    property color cardColor: Theme.primaryBlurColor
     // false 时 cancel 只发信号、不关闭：调用方把左下按钮当确认按钮用时
     // （例如网易云手机号登录，失败提示要留在弹窗里）
     property bool cancelCloses: true
@@ -46,6 +47,7 @@ Popup {
         rectXy: dialog.rectXy
         shadowEffect: true
         borderRadius: Style.cubeRadius
+        cardColor: dialog.cardColor
     }
 
     contentItem: Column {

@@ -11,7 +11,6 @@ import QtQuick.Effects
 import Qt5Compat.GraphicalEffects   // 仅逐字染色仍用 LinearGradient
 import QtMultimedia                  // 背景「视频」样式
 import QtQuick.Dialogs               // 背景图片/视频选择
-import QtCore
 import QueMusic 1.0
 
 Item {
@@ -152,8 +151,11 @@ Item {
         property color uColor: mainLyrics.mainColor
         property color uColor2: mainLyrics.secondColor
         property vector2d uResolution: Qt.vector2d(width, height)
-        // 自由模式不吃真实鼠标：用循环动画合成一个"假鼠标"，在画面里缓慢游走（李萨如路径，不会跳变）
-        property vector2d uMouse: Qt.vector2d(Math.sin(uTime * 0.55), Math.cos(uTime * 0.37) * 0.6)
+        // 自由模式不吃真实鼠标：用循环动画合成一个"假相机"，在画面里缓慢游走（李萨如路径，不会跳变）
+        property real uCamTheta: Math.sin(uTime * 0.55) / 3.0
+        property real uCamPhi: 0.30 - Math.cos(uTime * 0.37) * 0.10
+        property real uCamRadius: 9.0
+        property real uFocal: 1.9
         property real uTime: 0
         property real uLow: 0
         property real uMid: 0
@@ -164,8 +166,7 @@ Item {
         property real uSaturate: 1.45
         property real uAudio: 1.0
         property real uField: 1.0
-        property real uCamDist: 9.0
-        property real uCamSens: 1.0
+        property real uCamTargetY: 0.30
         NumberAnimation on uTime {
             from: 0; to: 1000; duration: 1000000
             loops: Animation.Infinite

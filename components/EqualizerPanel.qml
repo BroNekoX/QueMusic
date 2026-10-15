@@ -30,7 +30,7 @@ Column {
         height: statusRow.height + 20
         color: panel.cardColor
         radius: Style.cubeRadius
-        visible: panel.display === 0 || panel.display === 1
+        visible: panel.display === 0 || panel.display === 2
 
         Row {
             id: statusRow
@@ -76,7 +76,7 @@ Column {
         color: panel.cardColor
         radius: Style.cubeRadius
         height: eqColumn.height
-        visible: panel.display === 0 || panel.display === 1
+        visible: panel.display === 0 || panel.display === 2
 
         Column {
             id: eqColumn
@@ -381,7 +381,7 @@ Column {
         color: panel.cardColor
         radius: Style.cubeRadius
         height: soundRoadColumn.height
-        visible: panel.display === 0 || panel.display === 2
+        visible: panel.display === 0 || panel.display === 3
         Column {
             id: soundRoadColumn
             width: parent.width

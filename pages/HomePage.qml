@@ -109,7 +109,6 @@ Item {
 
             Text {
                 id: homeText
-                anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 text: homePage.greeting
                 font.pixelSize: Style.pageTitle
@@ -169,7 +168,6 @@ Item {
                 id: homeContent
                 spacing: 16
                 height: implicitHeight + 16
-                // Beta 提示：单行、弱底色，只占一条的高度
                 Rectangle {
                     width: homeView.standWidth
                     height: 48
@@ -219,7 +217,13 @@ Item {
                     readonly property real heroWidth: stacked ? width : width * 0.52 - 8
                     readonly property real sideWidth: stacked ? width : width * 0.48 - 8
                     readonly property int sideCardHeight: 76
-                    height: stacked ? 168 + 16 * 2 + sideCardHeight * 2 : 168
+                    height: stacked ? 200 + sideCardHeight * 2 : 168
+                    onStackedChanged: {
+                        if(stacked) {
+                            homeView.scrollToY -= sideCardHeight * 2 + 32;
+                            homeView.contentY -= sideCardHeight * 2 + 32;
+                        }
+                    }
 
                     QFloatCard {
                         id: dailyCard
@@ -266,7 +270,7 @@ Item {
                         Text {
                             x: 32
                             y: 72
-                            text: "最新发行高赞潮流流行歌曲"
+                            text: "每天推荐的新发行流行歌曲"
                             color: Theme.textColor
                             font.pixelSize: Style.text
                             elide: Text.ElideRight
@@ -530,7 +534,7 @@ Item {
                     anchors.fill: hotPlayCover
                     topLeftRadius: Style.labelRadius
                     topRightRadius: Style.labelRadius
-                    color: "#00000030"
+                    color: "#30000000"
                     opacity: hotPlayRow.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }

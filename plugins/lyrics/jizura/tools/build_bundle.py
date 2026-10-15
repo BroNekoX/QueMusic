@@ -38,6 +38,31 @@ def read(path):
         return f.read()
 
 
+# JIZURA keeps per-cut / per-pass caches in module-level WeakMaps.  The bundle is
+# a QML library script that outlives every plugin instance, so each time the host
+# destroys the plugin item those weakly-held keys die in one batch - and Qt
+# 6.10.3's weak-table collection then corrupts the V4 heap (the process dies at a
+# random later property lookup, inside QV4::Value::sameValueZero, or inside
+# runGC).  Measured: 3 of 3 load/unload runs crashed with them; 0 of 20+ survived
+# when all seven were replaced.  src/runtime/00_prelude.js defines JZW(), which
+# stores the entry as a hidden own property on the key: same lifetime semantics,
+# no weak table, and invisible to the Object.assign({}, env, ...) /
+# Object.assign({}, cut, ...) copies those objects go through.
+# `evOwner` is left alone: it is plan-time only and provably not involved.
+WEAKMAP_CACHES = ["bgRun", "snapCache", "BBC", "clockCache", "stepCache",
+                  "QUOTED", "SPOT"]
+
+
+def swap_weakmaps(text):
+    n = 0
+    for name in WEAKMAP_CACHES:
+        old = "const %s = new WeakMap();" % name
+        if old in text:
+            n += text.count(old)
+            text = text.replace(old, "const %s = JZW();" % name)
+    return text, n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tier", default=None)
@@ -150,10 +175,14 @@ def main():
         " */\n" % (version, tier, len(core), len(packs))
     )
     out = banner + "".join(parts)
+    out, nsub = swap_weakmaps(out)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write(out)
+
+    if not args.quiet:
+        print("weakmaps    : %d replaced by JZW()" % nsub)
 
     if not args.quiet:
         print("tier        : %s" % tier)

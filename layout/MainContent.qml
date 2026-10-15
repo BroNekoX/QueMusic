@@ -39,7 +39,7 @@ Rectangle {
             target: pageAnine.target
             from: 0
             to: 1
-            duration: 320
+            duration: 280
             easing.type: Easing.OutCubic
         }
         NumberAnimation {

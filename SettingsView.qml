@@ -135,7 +135,7 @@ Item {
                 onClicked: AccountManager.startNeteaseQrLogin()
             }
 
-            // ---- 备用登录方式（扫码提示"环境异常"时用）----
+            // 备用登录方式（扫码提示"环境异常"时用）
             Text {
                 width: parent.width
                 text: "手机号登录被网易云风控拦截时，可改用：粘贴浏览器里的 Cookie（最稳）"

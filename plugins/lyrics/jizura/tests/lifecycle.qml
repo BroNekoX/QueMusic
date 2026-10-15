@@ -29,6 +29,7 @@ Window {
     property bool doInject: true
     property int uniformMs: 0
     property string injectMode: "all"   // all | bindings | requestStyle
+    property var onlyKeys: []
 
     // --------------------------------------------------- host's inject (verbatim)
     readonly property var lyrics: [
@@ -69,8 +70,44 @@ Window {
             lyricMove: () => 0,
             openTranslate: () => true
         };
-        if (win.injectMode !== "requestStyle")
-            for (const k in src)
+        const keys = win.onlyKeys.length ? win.onlyKeys : Object.keys(src);
+        if (win.injectMode === "direct") {
+            // plain values, no bindings at all: the plugin still gets
+            // mediaActive=true and therefore still renders, but nothing is
+            // bound to the host - separates "renders" from "has bindings"
+            for (const k of keys)
+                if (k in it)
+                    it[k] = src[k]();
+            if ("requestStyle" in it)
+                it.requestStyle = win.applyStyleRequest;
+            return;
+        }
+        if (win.injectMode === "declarative" || win.injectMode === "declarativeR")
+            return;   // handled by the Binding elements below
+        if (win.injectMode === "explicit") {
+            // same bindings, but installed one by one with a literal property
+            // name - no for-in iterator alive across the Qt.binding() calls
+            it.position = Qt.binding(src.position);
+            it.playbackRate = Qt.binding(src.playbackRate);
+            it.playing = Qt.binding(src.playing);
+            it.mediaActive = Qt.binding(src.mediaActive);
+            it.lyricsModel = Qt.binding(src.lyricsModel);
+            it.translateModel = Qt.binding(src.translateModel);
+            it.currentIndex = Qt.binding(src.currentIndex);
+            it.title = Qt.binding(src.title);
+            it.artist = Qt.binding(src.artist);
+            it.coverUrl = Qt.binding(src.coverUrl);
+            it.mainColor = Qt.binding(src.mainColor);
+            it.secondColor = Qt.binding(src.secondColor);
+            it.thirdColor = Qt.binding(src.thirdColor);
+            it.hideHeight = Qt.binding(src.hideHeight);
+            it.lyricSize = Qt.binding(src.lyricSize);
+            it.basicCd = Qt.binding(src.basicCd);
+            it.lyricType = Qt.binding(src.lyricType);
+            it.lyricMove = Qt.binding(src.lyricMove);
+            it.openTranslate = Qt.binding(src.openTranslate);
+        } else if (win.injectMode !== "requestStyle")
+            for (const k of keys)
                 if (k in it)
                     it[k] = Qt.binding(src[k]);
         if (win.injectMode !== "bindings")
@@ -95,6 +132,30 @@ Window {
         onTriggered: if (lyricLoader.item) lyricLoader.item.timerFunction()
     }
 
+    // ---- declarative injection, for A/B against the Qt.binding() loop ----
+    // `declarativeR` additionally passes requestStyle, `declarative` does not.
+    readonly property bool declOn: win.injectMode.startsWith("declarative")
+                                   && win.pageVisible && lyricLoader.item !== null
+    Binding { target: lyricLoader.item; property: "position";       value: win.pos;   when: win.declOn }
+    Binding { target: lyricLoader.item; property: "playbackRate";   value: 1.0;       when: win.declOn }
+    Binding { target: lyricLoader.item; property: "playing";        value: true;      when: win.declOn }
+    Binding { target: lyricLoader.item; property: "mediaActive";    value: true;      when: win.declOn }
+    Binding { target: lyricLoader.item; property: "lyricsModel";    value: win.lyrics; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "translateModel"; value: [];        when: win.declOn }
+    Binding { target: lyricLoader.item; property: "currentIndex";   value: 0;         when: win.declOn }
+    Binding { target: lyricLoader.item; property: "title";          value: "夜明けの色"; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "artist";         value: "harness"; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "coverUrl";       value: "";        when: win.declOn }
+    Binding { target: lyricLoader.item; property: "mainColor";      value: "#4aa8ff"; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "secondColor";    value: "#ff66aa"; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "thirdColor";     value: "#66ffaa"; when: win.declOn }
+    Binding { target: lyricLoader.item; property: "hideHeight";     value: 0;         when: win.declOn }
+    Binding { target: lyricLoader.item; property: "lyricSize";      value: 10;        when: win.declOn }
+    Binding { target: lyricLoader.item; property: "basicCd";        value: false;     when: win.declOn }
+    Binding { target: lyricLoader.item; property: "lyricType";      value: 0;         when: win.declOn }
+    Binding { target: lyricLoader.item; property: "lyricMove";      value: 0;         when: win.declOn }
+    Binding { target: lyricLoader.item; property: "openTranslate";  value: true;      when: win.declOn }
+
     Loader {
         id: optLoader
         width: 420
@@ -109,7 +170,11 @@ Window {
         interval: 32
         repeat: true
         running: lyricLoader.item !== null
-        onTriggered: win.pos = (win.pos + 32) % 30000
+        onTriggered: {
+            win.pos = (win.pos + 32) % 30000;
+            if (win.injectMode === "direct" && lyricLoader.item)
+                lyricLoader.item.position = win.pos;
+        }
     }
 
     // ------------------------------------------------------------ timeline
@@ -224,6 +289,8 @@ Window {
                 uniformMs = parseInt(args[i + 1]);
             if (args[i] === "--inject-mode")
                 injectMode = args[i + 1];
+            if (args[i] === "--only")
+                onlyKeys = args[i + 1].split(",");
         }
         console.log("LIFECYCLE pattern=" + pattern + " passes=" + maxPasses
                     + " plugin=" + pluginUrl + " async=" + asyncLoad

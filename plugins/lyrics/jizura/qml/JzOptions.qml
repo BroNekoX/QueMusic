@@ -40,6 +40,7 @@ Item {
         property real fxDensity: 0.55
         property real textScale: 1.0
         property string rendererMode: "geometry"
+        property string komaMode: "smooth"
     }
 
 
@@ -234,6 +235,21 @@ Item {
                 choice: js.rendererMode === "curve" ? 1 : 0
                 onTransformed: (choiced) => {
                     js.rendererMode = choiced === 1 ? "curve" : "geometry";
+                }
+            }
+        }
+
+        SettingItem {
+            label: "画面步进"
+            width: parent.width
+            QDrop {
+                anchors.right: parent.right
+                width: 200
+                height: 36
+                model: ["流畅（每渲染帧）", "动画二拍（12 帧/秒）", "跟随风格"]
+                choice: js.komaMode === "smooth" ? 0 : js.komaMode === "onTwos" ? 1 : 2
+                onTransformed: (choiced) => {
+                    js.komaMode = choiced === 0 ? "smooth" : choiced === 1 ? "onTwos" : "auto";
                 }
             }
         }
