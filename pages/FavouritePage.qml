@@ -4,10 +4,11 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
+import QtQuick.Controls.Basic
 
 Item {
     id: favouritePage
-    property int setMode: 0
+    property int setMode: 0                 // 歌单选择：0 无 | 2 选择歌单
     property list<int> chooseIndex: []
     property var favSortOptions: [
         { label: "默认顺序", mode: 0, desc: false },
@@ -21,13 +22,6 @@ Item {
     signal scrollTop
 
     QSortModel {
-        id: songSort
-        model: FavoriteSongs
-        options: favouritePage.favSortOptions
-        nameRole: "title"
-    }
-
-    QSortModel {
         id: listSort
         model: FavoritePlaylists
         options: favouritePage.favSortOptions
@@ -36,18 +30,26 @@ Item {
     QMenu {
         id: sortMenu
         model: favouritePage.favSortOptions.map(o => o.label)
-        current: favouriteChildPage.lastIndex === 0 ? songSort.menuIndex : listSort.menuIndex
+        current: listSort.menuIndex
         onClicked: (i) => {
-            const target = favouriteChildPage.lastIndex === 0 ? songSort : listSort;
-            target.selectMenu(i);
+            listSort.selectMenu(i);
             favouritePage.setMode = 0;
             favouritePage.chooseIndex = [];
             favouritePage.scrollTop;
         }
     }
 
+    // 打开收藏夹：切到该夹歌曲并滑出歌曲窗口
+    function openFavoriteFolder(folderId: int, name: string): void {
+        FavoriteSongs.folderId = folderId
+        FavoriteSongs.searchText = ""
+        songFavListMusic.setMode = 0
+        songFavListMusic.chooseIndex = []
+        songFavListMusic.opened(name, "")
+    }
+
     function chooseTotal(): int {
-        return favouriteChildPage.lastIndex === 0 ? FavoriteSongs.count : FavoritePlaylists.count;
+        return FavoritePlaylists.count;
     }
 
     function isAllChosen(): bool {
@@ -114,7 +116,30 @@ Item {
             z: 2
             spacing: 8
             QButton {
+                visible: favouriteChildPage.lastIndex === 0
+                height: 38
+                text: "新建收藏夹"
+                iconCharacter: "\uf0f8"
+                buttonColor: Theme.primaryColor
+                QAlertDialog {
+                    id: newFavDialog
+                    title: "新建收藏夹"
+                    message: "为收藏夹设定一个名称："
+                    isInput: true
+                    onConfirm: {
+                        if (input !== "") {
+                            FavoriteFolders.addFolder(input)
+                            Options.warned("已新建收藏夹", 1)
+                        } else {
+                            Options.warned("请输入名称", 0)
+                        }
+                    }
+                }
+                onClicked: newFavDialog.open()
+            }
+            QButton {
                 id: sortBtn
+                visible: favouriteChildPage.lastIndex === 1
                 height: 38
                 text: "排序"
                 iconCharacter: "\uf10b"
@@ -122,7 +147,7 @@ Item {
                 onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 6)
             }
             QButton {
-                visible: favouriteChildPage.lastIndex === 4
+                visible: favouriteChildPage.lastIndex === 3
                 height: 38
                 text: "清空历史"
                 iconCharacter: "\uf08e"
@@ -133,56 +158,143 @@ Item {
                     })
             }
             QButton {
+                visible: favouriteChildPage.lastIndex === 1
                 height: 38
-                text: favouritePage.setMode === 1 ? "取消选择" : "选择"
+                text: favouritePage.setMode === 2 ? "取消选择" : "选择"
                 iconCharacter: "\uf09f"
-                buttonColor: favouritePage.setMode === 1 ? Theme.containColor : Theme.primaryColor
+                buttonColor: favouritePage.setMode === 2 ? Theme.containColor : Theme.primaryColor
                 onClicked: {
-                    if(favouritePage.setMode === 1) {
+                    if(favouritePage.setMode === 2) {
                         favouritePage.setMode = 0;
                         favouritePage.chooseIndex = [];
                     } else {
-                        favouritePage.setMode = 1;
+                        favouritePage.setMode = 2;
                     }
                 }
             }
         }
 
+        // 歌曲收藏夹列表（与本地音乐「我的文件夹」同款双栏样式）
         Loader {
             id: songsLoader
             asynchronous: true
             active: visible
             visible: true
-            sourceComponent: QListView {
-                id: songs
+            sourceComponent: QLocalView {
+                id: favFolderView
                 width: favouriteChildPage.width + 16
                 height: favouriteChildPage.height
-                model: songSort
+                model: FavoriteFolders
                 clip: true
                 topMargin: 72
-                selectedIndices: favouritePage.chooseIndex
-                Connections {
-                    target: favouritePage
-                    function onScrollTop(): void { songs.scrollTop() }
+                headerModel: ["收藏夹","","","操作"]
+
+                QAlertDialog {
+                    id: editFavDialog
+                    title: "重命名"
+                    message: "为收藏夹重新命名："
+                    isInput: true
+                    property int folderId
+                    onConfirm: {
+                        if (input !== "") {
+                            FavoriteFolders.renameFolder(editFavDialog.folderId, input)
+                        } else {
+                            Options.warned("请输入名称", 0)
+                        }
+                    }
                 }
 
-                onClicked: (index) => {
-                    if (favouritePage.setMode === 1) {
-                        const idx = favouritePage.chooseIndex.indexOf(index);
-                        if (idx === -1) {
-                            favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
-                        } else {
-                            favouritePage.chooseIndex = favouritePage.chooseIndex.filter(v => v !== index);
+                delegate: Rectangle {
+                    id: favFolderRow
+                    required property int folderId
+                    required property string name
+                    required property bool isDefault
+                    height: 64
+                    width: favFolderView.width - 16
+                    radius: Style.labelRadius
+                    color: "#00000000"
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
+                        opacity: favFolderArea.containsMouse ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 80 } }
+                    }
+                    Rectangle {
+                        y: 8; x: 8; z: 2; width: 48; height: 48
+                        color: Theme.containColor; radius: 10
+                        Text {
+                            anchors.fill: parent
+                            text: "\uf0f5"
+                            font.family: Fonts.icon
+                            font.pixelSize: Style.texticon
+                            color: Theme.fontColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
                         }
-                    } else {
-                        const r = songSort.at(index);
-                        MusicApi.getMusicInfo(r.id, 0, r.source);
+                    }
+                    Text {
+                        x: 72; y: 0; z: 2
+                        width: favFolderView.width - 150
+                        height: 64
+                        text: favFolderRow.name
+                        color: Theme.fontColor
+                        font.bold: true
+                        font.pixelSize: Style.textmain
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                        id: favFolderArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: favouritePage.openFavoriteFolder(favFolderRow.folderId, favFolderRow.name)
+                        Row {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 20
+                            y: 12
+                            height: 36
+                            spacing: 2
+                            z: 3
+                            SButton {
+                                iconCharacter: "\uf005"
+                                width: 36; height: 36; radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
+                                shadowEnabled: false
+                                tipText: "重命名收藏夹"
+                                onClicked: {
+                                    if (favFolderRow.isDefault) { Options.warned("无法修改默认收藏夹名称", 0); return }
+                                    editFavDialog.input = favFolderRow.name
+                                    editFavDialog.folderId = favFolderRow.folderId
+                                    editFavDialog.open()
+                                }
+                            }
+                            SButton {
+                                iconCharacter: "\uf08e"
+                                width: 36; height: 36; radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                shadowEnabled: false
+                                tipText: "删除收藏夹"
+                                onClicked: {
+                                    if (favFolderRow.isDefault) { Options.warned("无法删除默认收藏夹", 0); return }
+                                    Options.dialog.openSimpleDialog("删除",
+                                        "将删除收藏夹「" + favFolderRow.name + "」及其中的歌曲收藏，是否继续？",
+                                        function() {
+                                            FavoriteFolders.deleteFolder(favFolderRow.folderId)
+                                            Options.warned("已删除收藏夹", 1)
+                                        })
+                                }
+                            }
+                        }
                     }
                 }
                 Text {
                     anchors.centerIn: parent
-                    visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
-                    text: "没有收藏的内容？快去收藏一些歌曲吧"
+                    visible: FavoriteFolders.count === 0
+                    text: "还没有收藏夹"
                     color: Theme.textColor
                     font.pixelSize: 14
                 }
@@ -209,7 +321,7 @@ Item {
                 }
 
                 onClicked: (index) => {
-                    if (favouritePage.setMode === 1) {
+                    if (favouritePage.setMode === 2) {
                         const idx = favouritePage.chooseIndex.indexOf(index);
                         if (idx === -1) {
                             favouritePage.chooseIndex = favouritePage.chooseIndex.concat([index]);
@@ -277,13 +389,8 @@ Item {
                 }
                 function toggleFav(e: var): void {
                     if (e.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
-                    if (FavoriteSongs.isFavorite(e.path, "song")) {
-                        FavoriteSongs.removeFavorite(e.path, "song")
-                        Options.warned("已取消收藏", 0)
-                    } else {
-                        FavoriteSongs.addFavorite(e.path, e.title, e.artist, e.cover, e.source, e.duration, "song")
-                        Options.warned("已收藏", 1)
-                    }
+                    Options.favPicker.show({ id: e.path, title: e.title, artist: e.artist,
+                                             cover: e.cover, source: e.source, duration: e.duration })
                 }
 
                 onClicked: (index) => {
@@ -308,7 +415,7 @@ Item {
             }
         }
 
-        // 选择模式
+        // 歌单选择操作条
         Rectangle {
             id: chooseArea
             x: -24
@@ -316,7 +423,7 @@ Item {
             opacity: visible ? 1 : 0
             width: favouritePage.width
             height: 60
-            visible: favouritePage.setMode !== 0
+            visible: favouritePage.setMode === 2
             gradient: Gradient {
                 GradientStop { position: 0.0; color: "transparent" }
                 GradientStop { position: 1.0; color: Theme.sideColor }
@@ -341,7 +448,7 @@ Item {
                 width: 92
                 height: 36
                 radius: 20
-                color: "transparent"//Theme.fullColor
+                color: "transparent"
                 Text {
                     anchors.centerIn: parent
                     text: "已选择:" + favouritePage.chooseIndex.length + "项"
@@ -360,65 +467,17 @@ Item {
                     borderWidth: 1
                     buttonColor: "#fa4642"
                     text: "取消收藏"
-                    onClicked: {
-                        switch(favouritePage.setMode) {
-                        case 1:
-                            Options.dialog.openSimpleDialog("取消收藏",
-                                "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 首歌曲",
-                                function() {
-                                    // 先记下数量：下面清空 chooseIndex 后就读不到了
-                                    const total = favouritePage.chooseIndex.length;
-                                    for(let i = 0; i < total; i++) {
-                                        const r = songSort.at(favouritePage.chooseIndex[i]);
-                                        if (r) FavoriteSongs.removeFavorite(r.id, "song");
-                                    }
-                                    favouritePage.chooseIndex = [];
-                                    Options.warned("已取消收藏 " + total + " 首歌曲", 1);
-                                }
-                            );
-                            break;
-                        case 2:
-                            Options.dialog.openSimpleDialog("取消收藏",
-                                "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 个歌单",
-                                function() {
-                                    const total = favouritePage.chooseIndex.length;
-                                    for(let i = 0; i < total; i++) {
-                                        const r = listSort.at(favouritePage.chooseIndex[i]);
-                                        if (r) FavoritePlaylists.removeFavorite(r.id, "playlist");
-                                    }
-                                    favouritePage.chooseIndex = [];
-                                    Options.warned("已取消收藏 " + total + " 个歌单", 1);
-                                }
-                            );
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                }
-                QButton {
-                    shadowEnabled: false
-                    height: 36
-                    radius: 20
-                    borderWidth: 1
-                    text: "加入播放列表"
-                    onClicked: {
-                        switch(favouritePage.setMode) {
-                        case 1:
-                            for(let a = 0;a < favouritePage.chooseIndex.length;a++) {
-                                const fav = songSort.at(favouritePage.chooseIndex[a]);
-                                if (!fav)
-                                    continue;
-                                if (Options.queue.indexOfPath(fav.id) === -1) {
-                                    Options.queue.append({ name: fav.title, path: fav.id, songer: fav.artist, source: fav.source });
-                                    Options.warned("已加入播放列表", 1);
-                                }
+                    onClicked: Options.dialog.openSimpleDialog("取消收藏",
+                        "将取消收藏选中的 " + favouritePage.chooseIndex.length + " 个歌单",
+                        function() {
+                            const total = favouritePage.chooseIndex.length;
+                            for(let i = 0; i < total; i++) {
+                                const r = listSort.at(favouritePage.chooseIndex[i]);
+                                if (r) FavoritePlaylists.removeFavorite(r.id, "playlist");
                             }
-                            break;
-                        default:
-                            break;
-                        }
-                    }
+                            favouritePage.chooseIndex = [];
+                            Options.warned("已取消收藏 " + total + " 个歌单", 1);
+                        })
                 }
                 QButton {
                     shadowEnabled: false
@@ -480,4 +539,275 @@ Item {
         }
     }
 
+    // 收藏夹内的歌曲：搜索 / 排序 / 刷新 / 播放全部 / 批量取消收藏
+    AnimatorWindow {
+        id: songFavListMusic
+        mainTarget: favouriteChildPage
+        winIndex: 1
+        property int setMode: 0
+        property list<int> chooseIndex: []
+
+        content: Item {
+            width: songFavListMusic.width
+            height: songFavListMusic.height
+
+            QSortModel {
+                id: favSongSort
+                model: FavoriteSongs
+                options: favouritePage.favSortOptions
+                nameRole: "title"
+            }
+
+            QMenu {
+                id: favSongSortMenu
+                model: favSongSort.options.map(o => o.label)
+                current: favSongSort.menuIndex
+                onClicked: (i) => {
+                    favSongSort.selectMenu(i)
+                    favSongView.scrollTop()
+                }
+            }
+
+            // 全部加入播放列表，play=true 时立即播放
+            function playAll(play: bool): void {
+                const total = FavoriteSongs.count
+                if (total === 0) { Options.warned("当前收藏夹没有歌曲", 0); return }
+                const rows = []
+                for (let i = 0; i < total; i++) {
+                    const item = favSongSort.at(i)
+                    if (item && item.id)
+                        rows.push({ name: item.title, path: item.id, songer: item.artist, source: item.source })
+                }
+                const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0
+                if (added === 0) {
+                    Options.warned("列表中的歌曲都已在播放列表中", 0)
+                } else {
+                    Options.warned("已加入播放列表 " + added + " 首", 1)
+                    if (play) Playback.goTo(Options.queue.count - added)
+                }
+            }
+
+            function removeChosen(): void {
+                const total = songFavListMusic.chooseIndex.length
+                if (total === 0) return
+                for (let i = 0; i < total; i++) {
+                    const item = favSongSort.at(songFavListMusic.chooseIndex[i])
+                    if (item) FavoriteSongs.removeFavorite(item.id, "song")
+                }
+                songFavListMusic.chooseIndex = []
+                songFavListMusic.setMode = 0
+                Options.warned("已取消收藏 " + total + " 首歌曲", 1)
+            }
+
+            // 顶栏
+            Row {
+                x: 136
+                y: 76
+                height: 36
+                spacing: 6
+                QButton {
+                    height: 36; width: 96
+                    radius: Style.labelRadius
+                    iconCharacter: "\uf00e"
+                    text: "播放"
+                    shadowEnabled: false
+                    buttonColor: Theme.sideColor
+                    tipText: "播放当前收藏夹全部歌曲"
+                    onClicked: playAll(true)
+                }
+                SButton {
+                    width: 36; height: 36; radius: Style.labelRadius
+                    iconCharacter: "\uf095"
+                    shadowEnabled: false
+                    buttonColor: Theme.sideColor
+                    tipText: "全部加入播放列表"
+                    onClicked: playAll(false)
+                }
+                SButton {
+                    width: 36; height: 36; radius: Style.labelRadius
+                    iconCharacter: "\uf10c"
+                    shadowEnabled: false
+                    buttonColor: Theme.sideColor
+                    tipText: "刷新收藏夹"
+                    onClicked: {
+                        favSearchInput.text = ""
+                        FavoriteSongs.refresh()
+                        Options.warned("已刷新当前收藏夹", 1)
+                    }
+                }
+                SButton {
+                    id: favSortBtn
+                    width: 48; height: 36; radius: Style.labelRadius
+                    iconCharacter: "\uf10b"
+                    shadowEnabled: false
+                    buttonColor: Theme.sideColor
+                    tipText: "排序方式"
+                    onClicked: favSongSortMenu.popup(favSortBtn, 0, favSortBtn.height + 6)
+                }
+            }
+
+            Row {
+                x: songFavListMusic.width - width - 24
+                y: 26
+                height: 40
+                spacing: 8
+                z: 2
+                QButton {
+                    height: 40
+                    radius: 20
+                    text: songFavListMusic.setMode === 2 ? "取消选择" : "选择"
+                    iconCharacter: "\uf09f"
+                    buttonColor: songFavListMusic.setMode === 2 ? Theme.containColor : Theme.primaryColor
+                    onClicked: {
+                        if (songFavListMusic.setMode === 2) {
+                            songFavListMusic.setMode = 0
+                            songFavListMusic.chooseIndex = []
+                        } else {
+                            songFavListMusic.setMode = 2
+                        }
+                    }
+                }
+            }
+
+            TextField {
+                id: favSearchInput
+                x: songFavListMusic.width - width - 24
+                y: 76
+                z: 3
+                width: 200
+                height: 36
+                leftPadding: 12
+                rightPadding: 38
+                placeholderText: "搜索与过滤"
+                placeholderTextColor: Theme.textColor
+                color: Theme.textColor
+                font.pixelSize: Style.text
+                verticalAlignment: Text.AlignVCenter
+                selectionColor: Theme.containColor
+                onTextChanged: FavoriteSongs.searchText = text
+                background: Rectangle {
+                    radius: Style.labelRadius
+                    color: Theme.primaryColor
+                    border.width: 2
+                    border.color: favSearchInput.focus ? Theme.themeColor : Theme.sideColor
+                }
+                SButton {
+                    visible: favSearchInput.text !== ""
+                    y: 2
+                    x: parent.width - 34
+                    width: 32; height: 32
+                    radius: Style.labelRadius
+                    iconCharacter: "\uf025"
+                    iconSize: 15
+                    buttonColor: "transparent"
+                    shadowEnabled: false
+                    onClicked: favSearchInput.text = ""
+                }
+            }
+
+            QListView {
+                id: favSongView
+                x: 24
+                y: 128
+                width: songFavListMusic.width - 32
+                height: songFavListMusic.height - 128
+                model: favSongSort
+                clip: true
+                topMargin: 8
+                bottomMargin: 24
+                selectedIndices: songFavListMusic.chooseIndex
+                onClicked: (index) => {
+                    if (songFavListMusic.setMode === 2) {
+                        const idx = songFavListMusic.chooseIndex.indexOf(index)
+                        songFavListMusic.chooseIndex = idx === -1
+                            ? songFavListMusic.chooseIndex.concat([index])
+                            : songFavListMusic.chooseIndex.filter(v => v !== index)
+                    } else {
+                        const item = favSongSort.at(index)
+                        if (item) MusicApi.getMusicInfo(item.id, 0, item.source)
+                    }
+                }
+                Text {
+                    anchors.centerIn: parent
+                    visible: !FavoriteSongs.loading && FavoriteSongs.count === 0
+                    text: "这个收藏夹还没有歌曲"
+                    color: Theme.textColor
+                    font.pixelSize: 14
+                }
+            }
+
+            // 选择操作条
+            Rectangle {
+                x: 0
+                y: songFavListMusic.height - 60
+                width: songFavListMusic.width
+                height: 60
+                visible: songFavListMusic.setMode === 2
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop { position: 1.0; color: Theme.sideColor }
+                }
+                QButton {
+                    shadowEnabled: false
+                    x: 16; y: 12
+                    width: 92; height: 36; radius: 20; borderWidth: 1
+                    buttonColor: (FavoriteSongs.count > 0
+                                  && songFavListMusic.chooseIndex.length >= FavoriteSongs.count)
+                                 ? Theme.themeColor : Theme.fullColor
+                    textColor: (FavoriteSongs.count > 0
+                                && songFavListMusic.chooseIndex.length >= FavoriteSongs.count)
+                               ? Theme.primaryColor : Theme.fontColor
+                    text: "全选"
+                    onClicked: {
+                        const total = FavoriteSongs.count
+                        if (total === 0) return
+                        if (songFavListMusic.chooseIndex.length >= total) {
+                            songFavListMusic.chooseIndex = []
+                        } else {
+                            const all = []
+                            for (let i = 0; i < total; i++) all.push(i)
+                            songFavListMusic.chooseIndex = all
+                        }
+                    }
+                }
+                Text {
+                    x: 118; y: 12
+                    width: 130; height: 36
+                    text: "已选择:" + songFavListMusic.chooseIndex.length + "项"
+                    color: Theme.textColor
+                    font.pixelSize: Style.textmain
+                    verticalAlignment: Text.AlignVCenter
+                }
+                Row {
+                    y: 12
+                    x: parent.width - width - 16
+                    spacing: 8
+                    QButton {
+                        shadowEnabled: false
+                        height: 36; radius: 20; borderWidth: 1
+                        buttonColor: "#fa4642"
+                        text: "取消收藏"
+                        onClicked: removeChosen()
+                    }
+                    QButton {
+                        shadowEnabled: false
+                        height: 36; radius: 20; borderWidth: 1
+                        text: "加入播放列表"
+                        onClicked: playAll(false)
+                    }
+                    QButton {
+                        shadowEnabled: false
+                        width: 92; height: 36; radius: 20; borderWidth: 1
+                        buttonColor: Theme.themeColor
+                        textColor: Theme.primaryColor
+                        text: "完成"
+                        onClicked: {
+                            songFavListMusic.setMode = 0
+                            songFavListMusic.chooseIndex = []
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -654,9 +654,11 @@ void AccountManager::startKugouQrLogin()
     custom.insert(QStringLiteral("appid"), 1001);
     custom.insert(QStringLiteral("type"), 1);
     custom.insert(QStringLiteral("plat"), 4);
+    // 概念版（lite）登录：二维码落地页用概念版 appid 3116，签发概念版 token
     custom.insert(QStringLiteral("qrcode_txt"),
-                 QStringLiteral("https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1001&"));
+                 QStringLiteral("https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=3116&"));
     custom.insert(QStringLiteral("srcappid"), 2919);
+    custom.insert(QStringLiteral("clientver"), 11440);
     kugouGet(QStringLiteral("https://login-user.kugou.com"),
              QStringLiteral("/v2/qrcode"), custom);
 }
@@ -687,9 +689,10 @@ void AccountManager::pollKugou()
         return;
     QJsonObject custom;
     custom.insert(QStringLiteral("plat"), 4);
-    custom.insert(QStringLiteral("appid"), 1001);
+    custom.insert(QStringLiteral("appid"), 3116); // 概念版
     custom.insert(QStringLiteral("srcappid"), 2919);
     custom.insert(QStringLiteral("qrcode"), m_kugouKey);
+    custom.insert(QStringLiteral("clientver"), 11440);
     kugouGet(QStringLiteral("https://login-user.kugou.com"),
              QStringLiteral("/v2/get_userinfo_qrcode"), custom);
 }
@@ -720,7 +723,7 @@ void AccountManager::onKugouKey(QNetworkReply *reply)
         return;
     }
     // 扫码落地页：与接口 qrcode_txt 的 appid 保持一致
-    QString qrText = QStringLiteral("https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1001&qrcode=")
+    QString qrText = QStringLiteral("https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=3116&qrcode=")
                      + m_kugouKey;
     setKugouQr(QrWaiting, QStringLiteral("请使用酷狗音乐App扫码登录"), qrText);
     m_kugouPollTimer->start();

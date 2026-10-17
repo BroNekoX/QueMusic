@@ -70,7 +70,7 @@
 |---|---|---|---|
 | `folders` | `id INTEGER PRIMARY KEY AUTOINCREMENT`、`name TEXT NOT NULL`、`type TEXT NOT NULL DEFAULT 'my'`、`path TEXT DEFAULT ''`、`created_at DATETIME DEFAULT CURRENT_TIMESTAMP` | `FolderModel`（`cpp/FolderModel.cpp`） | 索引 `idx_folders_type(type)`；首次运行插入一条 `name='默认文件夹', type='my'` |
 | `songs` | `id INTEGER PRIMARY KEY AUTOINCREMENT`、`folder_id INTEGER NOT NULL`、`name TEXT NOT NULL`、`path TEXT NOT NULL`、`singer TEXT DEFAULT ''`、`duration INTEGER DEFAULT 0`、`tag_title TEXT DEFAULT ''`、`tag_artist TEXT DEFAULT ''`、`tag_cover TEXT DEFAULT ''`、`tagged INTEGER DEFAULT 0` | `SongModel`（`cpp/FolderModel.cpp`）；`CoverHelper::clearCache()` 会重置 `tagged/tag_cover` | `FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE`；索引 `idx_songs_folder(folder_id)`、唯一索引 `idx_songs_path(folder_id, path)`；`tag_*`/`tagged` 四列由 `addColumnIfMissing` 增量 ALTER 加入 |
-| `favorites` | `id TEXT NOT NULL`、`title TEXT NOT NULL`、`artist TEXT`、`cover TEXT`、`source INTEGER NOT NULL`、`duration INTEGER DEFAULT 0`、`type TEXT NOT NULL`、`created_at DATETIME DEFAULT CURRENT_TIMESTAMP`、`PRIMARY KEY (type, id)` | `FavoritesModel`（三个单例共用同一张表） | 写入用 `INSERT ... ON CONFLICT(type, id) DO UPDATE`（UPSERT，取代「先查再写」） |
+| `favorites` | `id TEXT NOT NULL`、`title TEXT NOT NULL`、`artist TEXT`、`cover TEXT`、`source INTEGER NOT NULL`、`duration INTEGER DEFAULT 0`、`type TEXT NOT NULL`、`folder_id INTEGER`、`created_at DATETIME DEFAULT CURRENT_TIMESTAMP`、`PRIMARY KEY (type, id)` | `FavoritesModel`（三个单例共用同一张表；`folder_id` 归属由 `FavoriteFoldersModel` 删夹时清理） | 写入用 `INSERT ... ON CONFLICT(type, id) DO UPDATE`（UPSERT，取代「先查再写」）；`folder_id` 由 `addColumnIfMissing` 增量加入，仅 `type='song'` 使用；启动时把无归属歌曲收藏迁入 `type='fav'` 默认夹（见第 10 部分） |
 | `db_probe` | `x INTEGER` | `DbWorker::open()` | 开库自检用，建完立刻 `DROP TABLE db_probe`，不常驻 |
 
 ### 2.2.3 线程模型
@@ -278,6 +278,7 @@
 | `FavoriteSongs` | `FavoritesModel` | `"song"` |
 | `FavoritePlaylists` | `FavoritesModel` | `"playlist"` |
 | `FavoriteArtists` | `FavoritesModel` | `"artist"` |
+| `FavoriteFolders` | `FavoriteFoldersModel` | （收藏夹列表，无过滤类型；第 10 部分） |
 
 ---
 

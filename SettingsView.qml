@@ -1429,13 +1429,19 @@ Item {
                         }
 
                         SettingItemCard {
-                            label: "高级逐行弹簧动画"
-                            tip: "歌词逐行切换时使用更细腻的弹簧动画"
-                            controlItem: QSwitch {
+                            label: "弹簧动画过冲度"
+                            tip: "歌词逐行切换时弹簧动画弹过位置的弹动效果强度"
+                            controlItem: QSlider {
                                 anchors.fill: parent
-                                letRight: true
-                                switchTrue: Style.premiumLyricAnime
-                                onToggled: Style.premiumLyricAnime = !Style.premiumLyricAnime
+                                from: 0
+                                to: 4
+                                stepSize: 1
+                                leftText: true
+                                valueText: value + 1
+                                value: Style.springValue
+                                onMoved: {
+                                    Style.springValue = value
+                                }
                             }
                         }
 

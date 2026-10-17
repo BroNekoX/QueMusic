@@ -57,6 +57,20 @@ QUEMUSIC_DECLARE_MODEL_SINGLETON(FavoriteSongs, FavoritesModel, "song");
 QUEMUSIC_DECLARE_MODEL_SINGLETON(FavoritePlaylists, FavoritesModel, "playlist");
 QUEMUSIC_DECLARE_MODEL_SINGLETON(FavoriteArtists, FavoritesModel, "artist");
 
+// 歌曲收藏夹（folders.type='fav'）
+class FavoriteFolders : public FavoriteFoldersModel
+{
+    Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
+public:
+    explicit FavoriteFolders(QObject *parent) : FavoriteFoldersModel(parent) {}
+    static FavoriteFolders *create(QQmlEngine *qmlEngine, QJSEngine *)
+    {
+        return new FavoriteFolders(qmlEngine);
+    }
+};
+
 #undef QUEMUSIC_DECLARE_MODEL_SINGLETON
 
 #endif // APPMODELS_H

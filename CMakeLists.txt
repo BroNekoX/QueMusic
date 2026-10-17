@@ -227,6 +227,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/AccountManager.h
         cpp/LocalLyricsReader.cpp
         cpp/LocalLyricsReader.h
+        cpp/SpringAnimator.cpp
+        cpp/SpringAnimator.h
         cpp/CustomFlow.cpp
         cpp/CustomFlow.h
         cpp/QueueModel.cpp

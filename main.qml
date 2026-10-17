@@ -27,6 +27,7 @@ Window {
         Options.textWatch = textWatch
         Options.picWatch = picWatch
         Options.songInfo = songInfo
+        Options.favPicker = favPicker
         Options.coverHelper = coverHelper
         Options.desktopPlayerLoader = desktopPlayerLoader
         Options.desktopLyricsLoader = desktopLyricsLoader
@@ -1040,9 +1041,14 @@ Window {
                     }
                 }
     }
-    // 歌曲 / 歌单信息：全应用共用一个弹窗，各列表调 Options.songInfo.show(item, isList)
+    // 歌曲歌单信息-Options.songInfo.show(item, isList)
     SongInfoDialog {
         id: songInfo
+    }
+
+    // 歌曲收藏夹选择-Options.favPicker.show(item)
+    FavoriteFolderDialog {
+        id: favPicker
     }
 
     Loader {

@@ -299,6 +299,7 @@ void DbService::ensureSchema(QSqlDatabase &db)
         "source INTEGER NOT NULL,"
         "duration INTEGER DEFAULT 0,"
         "type TEXT NOT NULL,"
+        "folder_id INTEGER,"
         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
         "PRIMARY KEY (type, id))"));
 
@@ -307,9 +308,11 @@ void DbService::ensureSchema(QSqlDatabase &db)
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_artist"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_cover"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tagged"), QStringLiteral("INTEGER DEFAULT 0"));
+    addColumnIfMissing(db, QStringLiteral("favorites"), QStringLiteral("folder_id"), QStringLiteral("INTEGER"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_songs_folder ON songs(folder_id)"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_folders_type ON folders(type)"));
     query.exec(QStringLiteral("CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_path ON songs(folder_id, path)"));
+    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_favorites_folder ON favorites(folder_id)"));
 
     // 首次运行时补一个默认歌单
     query.prepare(QStringLiteral("SELECT COUNT(*) FROM folders WHERE type='my' AND name='默认文件夹'"));
@@ -318,6 +321,25 @@ void DbService::ensureSchema(QSqlDatabase &db)
         query.bindValue(QStringLiteral(":name"), QStringLiteral("默认文件夹"));
         query.bindValue(QStringLiteral(":type"), QStringLiteral("my"));
         query.exec();
+    }
+
+    // 收藏夹：没有就建默认夹，并把历史上没归属的歌曲收藏迁进去（保证老收藏不丢）
+    int favRoot = -1;
+    if (query.exec(QStringLiteral("SELECT id FROM folders WHERE type='fav' ORDER BY id ASC LIMIT 1")) && query.next())
+        favRoot = query.value(0).toInt();
+    if (favRoot < 0) {
+        QSqlQuery insert(db);
+        insert.prepare(QStringLiteral("INSERT INTO folders (name, type) VALUES (:name, 'fav')"));
+        insert.bindValue(QStringLiteral(":name"), QStringLiteral("默认收藏夹"));
+        if (insert.exec())
+            favRoot = insert.lastInsertId().toInt();
+    }
+    if (favRoot >= 0) {
+        QSqlQuery adopt(db);
+        adopt.prepare(QStringLiteral("UPDATE favorites SET folder_id = :folder "
+                                     "WHERE type = 'song' AND folder_id IS NULL"));
+        adopt.bindValue(QStringLiteral(":folder"), favRoot);
+        adopt.exec();
     }
 }
 

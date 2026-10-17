@@ -192,9 +192,10 @@
 | [`07-build-settings.md`](07-build-settings.md) | 547 | 56.8 | 第 7 部分 · CMake 选项、第三方依赖、构建命令、打包、CI、测试、设置键总表（约 185 键） |
 | [`08-config-evidence.md`](08-config-evidence.md) | 63 | 6 | 第 8 部分 · 实际落盘 INI 的分组与键（运行时真值）+ 遗留键分析 |
 | [`09-crosscheck.md`](09-crosscheck.md) | 115 | 10.9 | 第 9 部分 · QML→C++ 实例化位置与引用热力表、README 勘误、死代码/未完成项清单、统计口径 |
+| [`10-favorites-folders.md`](10-favorites-folders.md) | — | — | 第 10 部分 · 歌曲收藏夹（多文件夹收藏）：folders(type='fav')、favorites.folder_id、默认夹迁移、FavoriteFoldersModel、收藏夹弹窗与调用点 |
 | [`A-appendix-linecounts.md`](A-appendix-linecounts.md) | 227 | 10.5 | 附录 A · 216 个文件的行数与字节快照 |
 
-> 分片共 10 个文件、约 3936 行。各部分内部的章节编号是**全局唯一**的（§3.2 只在第 3 部分出现），跨文件引用一律写「第 N 部分」，因此拆分后原有交叉引用依然有效。
+> 分片共 11 个文件。各部分内部的章节编号是**全局唯一**的（§3.2 只在第 3 部分出现），跨文件引用一律写「第 N 部分」，因此拆分后原有交叉引用依然有效。
 
 > ⚠️ **不要一次读完整套分片**（约 390 KB）。标准用法：读本文件（约 13 KB）→ 用 §0 的任务索引定位 → 只打开命中的那 1–2 个分片。
 

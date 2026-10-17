@@ -85,6 +85,13 @@ ListView {
         const it = itemAt(i)
         const key = keyOf(it)
         if (!key) return
+        // 歌曲：弹收藏夹选择；歌单：不涉及收藏夹，仍直接切换
+        if (!view.isList) {
+            Options.favPicker.show({ id: key, title: titleOf(it), artist: artistOf(it),
+                                     cover: coverOf(it), source: sourceOf(it),
+                                     duration: it.duration || 0 })
+            return
+        }
         if (isFav(i))
             favModel.removeFavorite(key, favType)
         else

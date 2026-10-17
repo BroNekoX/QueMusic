@@ -155,7 +155,7 @@ Popup {
             WheelHandler {
                 property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines / 4
                 onWheel: (event) => {
-                    playListView.scrollToY = Math.max(-4, Math.min(playListView.scrollToY - (event.angleDelta.y * scrollMultiplier), playListView.contentHeight - playListView.height + 10))
+                    playListView.scrollToY = Math.max(-4, Math.min(playListView.scrollToY - (event.angleDelta.y * scrollMultiplier), playListView.contentHeight - playListView.height + 12))
                     listViewAnime.running = false
                     listViewAnime.running = true
                     event.accepted = true
@@ -300,13 +300,9 @@ Popup {
                             tipText: "收藏"
                             onClicked: {
                                 if (listfile.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
-                                if (FavoriteSongs.isFavorite(listfile.path, "song")) {
-                                    FavoriteSongs.removeFavorite(listfile.path, "song")
-                                    Options.warned("已取消收藏", 0)
-                                } else {
-                                    FavoriteSongs.addFavorite(listfile.path, listfile.name, listfile.songer, "", listfile.source, 0, "song")
-                                    Options.warned("已收藏", 1)
-                                }
+                                Options.favPicker.show({ id: listfile.path, title: listfile.name,
+                                                         artist: listfile.songer, cover: "",
+                                                         source: listfile.source, duration: 0 })
                             }
                         }
                         SButton {

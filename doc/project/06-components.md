@@ -178,7 +178,7 @@
 | 按压缩放 | `Easing.OutExpo` 120ms（`pressedScale` 0.94–0.96） |
 | 大范围布局位移（左栏/首页） | `Easing.BezierSpline`，`[0.50, 0.00, 0.00, 1.00, 1, 1]` / `[1.00, 0.00, 0.50, 1.00, 1, 1]` / `[0.30, 0.08, 0.00, 1.00, 1, 1]` |
 | 列表行插入/位移、滚动 | `Easing.Bezier`，`[0.23, 0.06, 0.00, 1.00, 1, 1]`（QMessage/QLocalView/QListView/QBlurTapBar） |
-| 歌词行位移（带弹簧参数） | `Easing.BezierSpline`，`[0.24, 0.06, lyricContent.springValue, 1.03, 1, 1]` |
+| 歌词行位移 | C++ `SpringAnimator`（阻尼弹簧，`duration`/`delay`/`bounce`）；QML 负责逐行错峰与画面外融合 |
 | 弹性强调（卡片缩放/开关球柄） | `Easing.OutBack` + `easing.overshoot ≈ 1.1~1.2`，或 `[0.20, 0.04, 0.00, 1.64, 1, 1]` |
 | 滚动容器 | `NumberAnimation 240ms Easing.OutCubic`，target `contentY` → `scrollToY` |
 

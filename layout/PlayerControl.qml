@@ -26,15 +26,6 @@ Rectangle {
         return Math.floor(posSec / 60) + ':' + (seconds < 10 ? '0' + seconds : seconds);
       }
 
-    Connections {
-        target: Options.queue
-        function onPlayListIndexChanged(): void {
-            if(Options.queue.playListIndex < 0)
-                return;
-            likeButton.iconColor = FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")
-                                   ? Theme.themeColor : Theme.textColor;
-        }
-    }
 
     Rectangle {
         width: musicControlMin.width
@@ -295,21 +286,26 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            // 听 favoriteRevision 重算：收藏夹弹窗改了归属后图标也能跟着变
+            iconColor: {
+                FavoriteSongs.favoriteRevision
+                const q = Options.queue
+                if (!q) return Theme.textColor
+                const i = q.playListIndex
+                if (i < 0 || i >= q.count) return Theme.textColor
+                const e = q.get(i)
+                return e && FavoriteSongs.isFavorite(e.path, "song") ? Theme.themeColor : Theme.textColor
+            }
             shadowEnabled: false
             onClicked: {
-                if(Options.queue.get(Options.queue.playListIndex).source !== -1) {
-                    console.log("收藏的hash/id:",Options.queue.get(Options.queue.playListIndex).path);
-                    if (FavoriteSongs.isFavorite(Options.queue.get(Options.queue.playListIndex).path, "song")) {
-                        FavoriteSongs.removeFavorite(Options.queue.get(Options.queue.playListIndex).path, "song");
-                        Options.warned("已取消收藏", 0);
-                        iconColor = Theme.textColor;
-                    } else {
-FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr, Options.queue.get(Options.queue.playListIndex).source, Math.floor(Playback.player.duration / 1000), "song");
-                        Options.warned("已收藏", 1);
-                        iconColor = Theme.themeColor;
-                    }
-                }
+                const i = Options.queue.playListIndex
+                if (i < 0 || i >= Options.queue.count) return
+                const row = Options.queue.get(i)
+                if (row.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
+                Options.favPicker.show({ id: row.path, title: Playback.musicTitle,
+                                         artist: Playback.musicArtist, cover: Playback.player.urlStr,
+                                         source: row.source,
+                                         duration: Math.floor(Playback.player.duration / 1000) })
             }
             tipText: "收藏"
         }
@@ -544,7 +540,7 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
         }
     }
 
-    // 收藏/取消收藏当前曲目
+    // 收藏当前曲目：弹收藏夹选择
     function toggleFavorite(): void {
         const i = Options.queue.playListIndex;
         if(i < 0 || i >= Options.queue.count) return;
@@ -553,16 +549,9 @@ FavoriteSongs.addFavorite(Options.queue.get(Options.queue.playListIndex).path, P
             Options.warned("本地歌曲请使用本地收藏", 0);
             return;
         }
-        if(FavoriteSongs.isFavorite(e.path, "song")) {
-            FavoriteSongs.removeFavorite(e.path, "song");
-            likeButton.iconColor = Theme.textColor;
-            Options.warned("已取消收藏", 0);
-        } else {
-            FavoriteSongs.addFavorite(e.path, Playback.musicTitle, Playback.musicArtist, Playback.player.urlStr,
-                                      e.source, Math.floor(Playback.player.duration / 1000), "song");
-            likeButton.iconColor = Theme.themeColor;
-            Options.warned("已收藏", 1);
-        }
+        Options.favPicker.show({ id: e.path, title: Playback.musicTitle, artist: Playback.musicArtist,
+                                 cover: Playback.player.urlStr, source: e.source,
+                                 duration: Math.floor(Playback.player.duration / 1000) });
     }
 
     function openPlayerOptions(): void { playerOptions.open() }

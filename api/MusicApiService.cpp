@@ -346,6 +346,7 @@ void MusicApiService::syncSource(int source)
     else if (source == kSourceKugou) {
         m_kugou.setCookie(m_account->kugouCookie());
         m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
+        m_kugou.setQuality(m_soundQuality);
     }
 }
 

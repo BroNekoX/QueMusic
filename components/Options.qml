@@ -19,6 +19,7 @@ QtObject {
     property Loader textWatch
     property QOptionDialog picWatch
     property SongInfoDialog songInfo
+    property FavoriteFolderDialog favPicker
     property CoverHelper coverHelper
     property Loader desktopPlayerLoader
     property Loader desktopLyricsLoader

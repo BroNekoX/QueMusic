@@ -43,6 +43,8 @@ int uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong sourceLe
 namespace {
 const char *kUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+// 概念版（lite）接口只认 Android 客户端身份，用浏览器 UA 会被判非法
+const char *kAndroidUa = "Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi";
 // 酷狗 KRC 歌词 XOR 密钥（16 字节）
 const unsigned char kKrcKey[16] = {64, 71, 97, 119, 94, 50, 116, 71,
                                    81, 54, 49, 45, 206, 210, 110, 105};
@@ -305,6 +307,24 @@ QByteArray kugouSignature(const QByteArray &salt, const QStringList &keyValues)
     sorted.sort();
     return md5Hex(salt + sorted.join(QString()).toUtf8() + salt);
 }
+
+// 概念版（lite）签名与标准版只差盐；tracker 的 key 另有一套算法
+QByteArray liteAndroidSignature(const QVariantMap &params)
+{
+    QStringList keyValues;
+    keyValues.reserve(params.size());
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        keyValues << (it.key() + QLatin1Char('=') + it.value().toString());
+    return kugouSignature("LnT6xpN3khm36zse0QzvmgTZ3waWdRSA", keyValues);
+}
+
+QString liteSignKey(const QString &hash, const QString &appid, const QString &mid,
+                    const QString &userid)
+{
+    return QString::fromLatin1(
+        md5Hex((hash + QStringLiteral("185672dd44712f60bb1736df5a377e82") + appid + mid + userid)
+                   .toUtf8()));
+}
 } // namespace
 
 QByteArray KugouApi::kugouWebSignature(const QJsonObject &params)
@@ -438,6 +458,30 @@ void KugouApi::get(const QString &url, const Callback &cb)
                          object.insert(QStringLiteral("error"), int(error));
                      cb(object);
                  });
+}
+
+// 概念版（lite）网关请求：Android UA + 设备头，失败同样补 "error" 键
+void KugouApi::getLite(const QString &url, const Callback &cb)
+{
+    const QByteArray clienttime = QByteArray::number(QDateTime::currentSecsSinceEpoch());
+    const QList<QPair<QByteArray, QByteArray>> headers{
+        { QByteArrayLiteral("dfid"), m_dfid.toUtf8() },
+        { QByteArrayLiteral("clienttime"), clienttime },
+        { QByteArrayLiteral("mid"), m_mid.toUtf8() },
+        { QByteArrayLiteral("kg-rc"), QByteArrayLiteral("1") },
+        { QByteArrayLiteral("kg-thash"), QByteArrayLiteral("5d816a0") },
+        { QByteArrayLiteral("kg-rec"), QByteArrayLiteral("1") },
+        { QByteArrayLiteral("kg-rf"), QByteArrayLiteral("B9EDA08A64250DEFFBCADDEE00F8F25F") },
+    };
+    ApiHttp::get(m_nam, this, QUrl(url), kAndroidUa, "https://www.kugou.com/",
+                 m_cookie.toUtf8(),
+                 [cb](const QByteArray &body, QNetworkReply::NetworkError error) {
+                     QJsonObject object = QJsonDocument::fromJson(body).object();
+                     if (error != QNetworkReply::NoError)
+                         object.insert(QStringLiteral("error"), int(error));
+                     cb(object);
+                 },
+                 headers);
 }
 
 // KRC 歌词解码（替代 pako.mjs：Base64 → 跳4 → XOR → 跳2 → raw inflate）
@@ -1202,6 +1246,11 @@ void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPoint
         st->meta = data;
         st->metaUrl = playUrl;
         st->metaBackupUrl = backupUrl;
+        // 概念版取址要专辑与音频 id；这里顺手从元数据接口带出来
+        st->albumId = d.value(QStringLiteral("albumid")).toVariant().toString();
+        if (st->albumId.isEmpty())
+            st->albumId = d.value(QStringLiteral("req_albumid")).toVariant().toString();
+        st->albumAudioId = d.value(QStringLiteral("album_audio_id")).toVariant().toString();
         st->metaDone = true;
         finishPlayInfo(hash, type, st);
     });
@@ -1255,9 +1304,26 @@ void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointe
     if (!st->metaDone || !st->trackerDone)
         return;
 
+    // trackercdn status=2 说明该曲对该账号无权限（会员/购买），用于给出准确提示
+    const QString reason = st->trackerStatus == 2 ? QStringLiteral("vip")
+                                                 : QStringLiteral("unavailable");
+    if (cookieValue({QStringLiteral("token"), QStringLiteral("t")}).isEmpty()) {
+        finishWithFallback(hash, type, st, reason); // 未登录：只能用免费/128k 兜底
+        return;
+    }
+    // 已登录：先走两条 VIP 取址（概念版 → web 签名），免费地址留到最后兜底
+    qInfo() << "[kugou] 先试 VIP 取址（概念版 → web 签名）hash:" << hash.left(8);
+    requestLitePlayInfo(hash, type, st, reason);
+}
+
+// 两条 VIP 取址都失败后的收尾：能用免费/128k 地址就用，否则回传失败原因
+void KugouApi::finishWithFallback(const QString &hash, int type,
+                                  const QSharedPointer<PlayRequest> &st, const QString &reason,
+                                  int transportError)
+{
     QVariantMap data = st->meta;
     const QString fallbackUrl = st->metaUrl.isEmpty() ? st->metaBackupUrl : st->metaUrl;
-    QString playUrl = st->trackerUrl.isEmpty() ? fallbackUrl : st->trackerUrl;
+    const QString freeUrl = st->trackerUrl.isEmpty() ? fallbackUrl : st->trackerUrl;
 
     // 文件名后缀跟随实际音质（无损存 .flac，而不是 .mp3）
     if (!st->trackerUrl.isEmpty() && !st->trackerExt.isEmpty()) {
@@ -1267,22 +1333,16 @@ void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointe
             fileName = fileName.left(dot) + QLatin1Char('.') + st->trackerExt;
         data.insert(QStringLiteral("fileName"), fileName);
     }
-    data.insert(QStringLiteral("url"), playUrl);
+    data.insert(QStringLiteral("url"), freeUrl);
     data.insert(QStringLiteral("backup_url"), fallbackUrl);
     data.insert(QStringLiteral("hash"), hash);
     data.insert(QStringLiteral("type"), type);
-
-    if (playUrl.isEmpty()) {
-        // trackercdn status=2 说明该曲对该账号无权限（会员/购买），用于给出准确提示
-        const QString reason = st->trackerStatus == 2 ? QStringLiteral("vip")
-                                                     : QStringLiteral("unavailable");
-        if (!cookieValue({QStringLiteral("token"), QStringLiteral("t")}).isEmpty()) {
-            qInfo() << "[kugou] 免费通道无地址，转登录签名接口 hash:" << hash.left(8);
-            requestSignedPlayInfo(hash, type, reason);
-            return;
-        }
+    // VIP 通道是传输失败时，让上层提示「网络错误」而不是「需要会员」
+    if (transportError != 0)
+        data.insert(QStringLiteral("error"), transportError);
+    if (freeUrl.isEmpty()) {
         data.insert(QStringLiteral("errReason"), reason);
-        qWarning() << "[kugou] 未登录且无可用地址（VIP/付费曲目需要会员或已购买）";
+        qWarning() << "[kugou] 所有取址通道均无地址（VIP/付费或版权限制）hash:" << hash.left(8);
     }
     emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
 }
@@ -1327,15 +1387,17 @@ QJsonObject KugouApi::songInfoBaseParams() const
 }
 
 // wwwapi 播放接口（web 签名 + 登录 token）：VIP/付费曲要到第二步才给 play_url
-void KugouApi::requestSignedPlayInfo(const QString &hash, int type, const QString &reason)
+void KugouApi::requestSignedPlayInfo(const QString &hash, int type,
+                                     const QSharedPointer<PlayRequest> &st, const QString &reason)
 {
     QJsonObject params = songInfoBaseParams();
     params.insert(QStringLiteral("hash"), hash);
-    requestSongInfo(params, hash, type, reason);
+    requestSongInfo(params, hash, type, st, reason);
 }
 
 void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, int type,
-                               const QString &reason, const QJsonObject &metaFallback)
+                               const QSharedPointer<PlayRequest> &st, const QString &reason,
+                               const QJsonObject &metaFallback)
 {
     const bool secondStep = params.contains(QStringLiteral("encode_album_audio_id"));
     QJsonObject signedParams = params;
@@ -1350,7 +1412,7 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
     url.setQuery(q);
 
     get(url.toString(),
-        [this, hash, type, reason, secondStep, metaFallback](const QJsonObject &json) {
+        [this, hash, type, st, reason, secondStep, metaFallback](const QJsonObject &json) {
             const QJsonObject d = json.value(QStringLiteral("data")).toObject();
             // 第二步的响应可能少字段，缺失时回落到第一步
             const auto pick = [&](const char *key) {
@@ -1373,25 +1435,13 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
                             << hash.left(8);
                     QJsonObject next = songInfoBaseParams();
                     next.insert(QStringLiteral("encode_album_audio_id"), encodeId);
-                    requestSongInfo(next, hash, type, reason, d);
+                    requestSongInfo(next, hash, type, st, reason, d);
                     return;
                 }
                 qWarning() << "[kugou] 签名取址无播放地址 step:" << (secondStep ? 2 : 1)
                            << "err_code:" << json.value(QStringLiteral("err_code")).toInt();
-                // 必须回传结果，否则上层 loadState 一直为 true（界面卡在加载中）
-                QVariantMap fail;
-                fail.insert(QStringLiteral("url"), QString());
-                fail.insert(QStringLiteral("songName"), pick("song_name"));
-                fail.insert(QStringLiteral("author_name"), pick("author_name"));
-                fail.insert(QStringLiteral("album_img"), pick("img"));
-                fail.insert(QStringLiteral("timeLength"), timeLength);
-                fail.insert(QStringLiteral("hash"), hash);
-                fail.insert(QStringLiteral("type"), type);
-                fail.insert(QStringLiteral("errReason"),
-                            reason.isEmpty() ? QStringLiteral("unavailable") : reason);
-                if (json.contains(QStringLiteral("error")))
-                    fail.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
-                emit resultReady(QStringLiteral("getMusicInfo"), fail, Source);
+                finishWithFallback(hash, type, st, reason,
+                                   json.value(QStringLiteral("error")).toInt());
                 return;
             }
 
@@ -1413,6 +1463,197 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
             data.insert(QStringLiteral("type"), type);
             emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
         });
+}
+
+// 概念版（lite）公共参数：设备 + 登录态，appid/clientver 用概念版自己的
+QVariantMap KugouApi::liteBaseParams() const
+{
+    QVariantMap params;
+    params.insert(QStringLiteral("dfid"), m_dfid.isEmpty() ? QStringLiteral("-") : m_dfid);
+    params.insert(QStringLiteral("mid"), m_mid);
+    params.insert(QStringLiteral("uuid"), QStringLiteral("-"));
+    params.insert(QStringLiteral("appid"), 3116);
+    params.insert(QStringLiteral("clientver"), 11440);
+    params.insert(QStringLiteral("clienttime"),
+                  QString::number(QDateTime::currentSecsSinceEpoch()));
+    params.insert(QStringLiteral("token"),
+                  cookieValue({QStringLiteral("token"), QStringLiteral("t")}));
+    const QString userid = cookieValue({QStringLiteral("userid"), QStringLiteral("user_id"),
+                                        QStringLiteral("KugooID")});
+    params.insert(QStringLiteral("userid"),
+                  userid.isEmpty() ? QStringLiteral("0") : userid);
+    return params;
+}
+
+// 概念版取址第一步：hash + album_audio_id 换 auth / open_time
+// 概念版取址第一步：/v1/user_verify 换用户级 auth（同一登录态内缓存复用）
+void KugouApi::requestLitePlayInfo(const QString &hash, int type,
+                                   const QSharedPointer<PlayRequest> &st, const QString &reason)
+{
+    if (!m_liteUserAuth.isEmpty()) {
+        requestLiteSongAuth(hash, type, st, m_liteUserAuth, reason);
+        return;
+    }
+
+    QVariantMap params = liteBaseParams();
+    params.insert(QStringLiteral("module_id"), 51);
+    params.insert(QStringLiteral("signature"), QString::fromLatin1(liteAndroidSignature(params)));
+
+    QUrlQuery q;
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        q.addQueryItem(it.key(), it.value().toString());
+
+    getLite(QStringLiteral("http://trackercdngz.kugou.com/v1/user_verify?") + q.toString(),
+            [this, hash, type, st, reason](const QJsonObject &json) {
+                const QString userAuth = json.value(QStringLiteral("data")).toObject()
+                                             .value(QStringLiteral("auth")).toString();
+                if (userAuth.isEmpty()) {
+                    qWarning() << "[kugou] 概念版 user_verify 失败，落回 web 签名 status:"
+                               << json.value(QStringLiteral("status")).toInt()
+                               << "err_code:" << json.value(QStringLiteral("error_code")).toInt();
+                    requestSignedPlayInfo(hash, type, st, reason);
+                    return;
+                }
+                m_liteUserAuth = userAuth;
+                qInfo() << "[kugou] 概念版用户级 auth 已获取，继续取歌曲授权" << hash.left(8);
+                requestLiteSongAuth(hash, type, st, userAuth, reason);
+            });
+}
+
+// 概念版取址第二步：/v1/authorization 换歌曲级 auth + open_time
+void KugouApi::requestLiteSongAuth(const QString &hash, int type,
+                                   const QSharedPointer<PlayRequest> &st, const QString &userAuth,
+                                   const QString &reason)
+{
+    QVariantMap params = liteBaseParams();
+    params.insert(QStringLiteral("authorization"), userAuth);
+    params.insert(QStringLiteral("module_id"), 51);
+    params.insert(QStringLiteral("album_audio_id"),
+                  st->albumAudioId.isEmpty() ? 0 : st->albumAudioId.toLongLong());
+    params.insert(QStringLiteral("clientver"), 11561); // 歌曲授权接口版本与其它 lite 接口不同
+    params.insert(QStringLiteral("hash"), hash.toLower());
+    params.insert(QStringLiteral("signature"), QString::fromLatin1(liteAndroidSignature(params)));
+
+    QUrlQuery q;
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        q.addQueryItem(it.key(), it.value().toString());
+
+    getLite(QStringLiteral("http://trackercdngz.kugou.com/v1/authorization?") + q.toString(),
+            [this, hash, type, st, reason](const QJsonObject &json) {
+                const QJsonObject d = json.value(QStringLiteral("data")).toObject();
+                const QString auth = d.value(QStringLiteral("auth")).toString();
+                const QString openTime =
+                    d.value(QStringLiteral("open_time")).toVariant().toString();
+                if (auth.isEmpty() || openTime.isEmpty()) {
+                    // 用户级 auth 可能已过期：清掉缓存，本次落回 web 签名
+                    m_liteUserAuth.clear();
+                    qWarning() << "[kugou] 概念版歌曲授权失败，落回 web 签名 status:"
+                               << json.value(QStringLiteral("status")).toInt()
+                               << "err_code:" << json.value(QStringLiteral("error_code")).toInt();
+                    requestSignedPlayInfo(hash, type, st, reason);
+                    return;
+                }
+                qInfo() << "[kugou] 概念版歌曲授权已获取，换播放地址" << hash.left(8);
+                requestLiteUrlStep(hash, type, st, auth, openTime, m_quality, reason);
+            });
+}
+
+// 概念版取址第二步：auth + open_time 换播放地址；音质被拒时降级到标准音质再试一次
+void KugouApi::requestLiteUrlStep(const QString &hash, int type,
+                                  const QSharedPointer<PlayRequest> &st, const QString &auth,
+                                  const QString &openTime, int quality, const QString &reason)
+{
+    const QString lower = hash.toLower();
+    const QString userid = cookieValue({QStringLiteral("userid"), QStringLiteral("user_id"),
+                                        QStringLiteral("KugooID")});
+    QVariantMap params = liteBaseParams();
+    params.insert(QStringLiteral("album_id"),
+                  st->albumId.isEmpty() ? 0 : st->albumId.toLongLong());
+    params.insert(QStringLiteral("area_code"), 1);
+    params.insert(QStringLiteral("module"), QString());
+    params.insert(QStringLiteral("hash"), lower);
+    params.insert(QStringLiteral("need_m"), 0);
+    params.insert(QStringLiteral("ssa_flag"), QStringLiteral("is_fromtrack"));
+    params.insert(QStringLiteral("version"), 11430);
+    params.insert(QStringLiteral("open_time"), openTime);
+    params.insert(QStringLiteral("ptype"), 0);
+    params.insert(QStringLiteral("need_ogg"), 1);
+    params.insert(QStringLiteral("page_id"), 967177915);
+    params.insert(QStringLiteral("auth"), auth);
+    params.insert(QStringLiteral("mtype"), 0);
+    params.insert(QStringLiteral("quality"),
+                  quality >= 2 ? QStringLiteral("flac")
+                               : (quality == 1 ? QStringLiteral("320") : QStringLiteral("128")));
+    params.insert(QStringLiteral("album_audio_id"),
+                  st->albumAudioId.isEmpty() ? 0 : st->albumAudioId.toLongLong());
+    params.insert(QStringLiteral("behavior"), QStringLiteral("play"));
+    params.insert(QStringLiteral("pid"), 411);
+    params.insert(QStringLiteral("module_id"), 51);
+    params.insert(QStringLiteral("cmd"), 26);
+    params.insert(QStringLiteral("ppage_id"), QStringLiteral("356753938,823673182,967485191"));
+    params.insert(QStringLiteral("clientver"), 11561);
+    params.insert(QStringLiteral("pidversion"), 3001);
+    params.insert(QStringLiteral("cdnBackup"), 1);
+    params.insert(QStringLiteral("key"),
+                  liteSignKey(lower, QStringLiteral("3116"), m_mid,
+                              userid.isEmpty() ? QStringLiteral("0") : userid));
+    // 参考实现里 notSign 是笔误（底层只认 notSignature），tracker 实际仍要 android 签名
+    params.insert(QStringLiteral("signature"), QString::fromLatin1(liteAndroidSignature(params)));
+
+    QUrlQuery q;
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        q.addQueryItem(it.key(), it.value().toString());
+
+    getLite(QStringLiteral("https://gateway.kugou.com/tracker/v5/url?") + q.toString(),
+            [this, hash, type, st, auth, openTime, quality, reason](const QJsonObject &json) {
+                // url 可能落在顶层或 data 下，且可能是字符串或数组
+                QString url;
+                const auto takeUrl = [&url](const QJsonValue &value) {
+                    if (value.isArray()) {
+                        for (const QJsonValue &item : value.toArray()) {
+                            if (!item.toString().isEmpty()) {
+                                url = item.toString();
+                                break;
+                            }
+                        }
+                    } else if (!value.toString().isEmpty()) {
+                        url = value.toString();
+                    }
+                };
+                takeUrl(json.value(QStringLiteral("url")));
+                if (url.isEmpty())
+                    takeUrl(json.value(QStringLiteral("data")).toObject()
+                                .value(QStringLiteral("url")));
+
+                if (url.isEmpty()) {
+                    const int status = json.value(QStringLiteral("status")).toInt();
+                    if (quality > 0) {
+                        qInfo() << "[kugou] 概念版拒绝该音质，降级重试 status:" << status;
+                        requestLiteUrlStep(hash, type, st, auth, openTime, 0, reason);
+                        return;
+                    }
+                    qWarning() << "[kugou] 概念版取址无地址 status:" << status
+                               << "err_code:" << json.value(QStringLiteral("error_code")).toInt();
+                    requestSignedPlayInfo(hash, type, st, reason);
+                    return;
+                }
+
+                const QJsonObject dd = json.value(QStringLiteral("data")).toObject();
+                QString ext = json.value(QStringLiteral("extName")).toString();
+                if (ext.isEmpty())
+                    ext = dd.value(QStringLiteral("extName")).toString();
+                QVariantMap data = st->meta;
+                QString fileName = data.value(QStringLiteral("fileName")).toString();
+                const int dot = fileName.lastIndexOf(QLatin1Char('.'));
+                if (!ext.isEmpty() && dot > 0)
+                    fileName = fileName.left(dot) + QLatin1Char('.') + ext;
+                data.insert(QStringLiteral("fileName"), fileName);
+                data.insert(QStringLiteral("url"), url);
+                data.insert(QStringLiteral("backup_url"), url);
+                data.insert(QStringLiteral("hash"), hash);
+                data.insert(QStringLiteral("type"), type);
+                emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+            });
 }
 
 // 歌词（两步：搜索候选 → 下载 KRC → 解码）
