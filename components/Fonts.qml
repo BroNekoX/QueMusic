@@ -9,7 +9,7 @@ QtObject {
         source: "qrc:/QueMusic/resources/fonts/feather.ttf"
     }
     readonly property FontLoader textLoader: FontLoader {
-        source: "qrc:/QueMusic/resources/fonts/poppins.ttf"
+        source: "qrc:/QueMusic/resources/fonts/Figtree.otf"
     }
 
     readonly property string icon: iconLoader.name

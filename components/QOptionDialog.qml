@@ -10,6 +10,7 @@ Popup {
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
     property alias options: content.sourceComponent
+    property alias loadItem: content.item
     property alias header: titleText.children
     property string cancelText: ""
     property string cancelIcon: "\uf10f"

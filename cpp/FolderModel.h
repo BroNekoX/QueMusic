@@ -67,6 +67,9 @@ public:
     Q_INVOKABLE void deleteFolder(int folderId);
     Q_INVOKABLE void deleteFolders(const QVariantList &folderIds);
     Q_INVOKABLE void renameFolder(int folderId, const QString &newName);
+    // 拖动排序：moveFolder 只换内存顺序（视图立刻跟随），松手后 commitFolderOrder() 落库
+    Q_INVOKABLE void moveFolder(int from, int to);
+    Q_INVOKABLE void commitFolderOrder();
 
     QString filterType() const { return m_filterType; }
     void setFilterType(const QString &type);

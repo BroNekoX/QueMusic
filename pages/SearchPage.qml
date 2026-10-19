@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -22,7 +23,7 @@ Item {
         width: parent.width - 48
         height: parent.height - 68
         id: searchChildPage
-        pageList: [searchSong,searchLists,searchAlbum,searchLyrics]
+        pageList: [searchSong,searchLists,searchLyrics]
 
         // 顶部常显示栏
         // 顶部标题
@@ -70,9 +71,9 @@ Item {
             x: 0
             y: 12
             z: 5
-            model: ["歌曲","歌单","专辑","歌词"]
+            model: ["歌曲","歌单","歌词"]
             tabWidth: 75
-            width: 306
+            width: 221
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: searchChildPage.pageList[searchChildPage.lastIndex]
             onTabChange: (index) => {

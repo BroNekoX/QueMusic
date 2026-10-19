@@ -2,9 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 // 颜色选择对话框（继承 QOptionDialog）：二维饱和/明度色板 + HSV 滑块 + 十六进制输入。
-// 色板用分层渐变实现，效果对齐 Qt 自带 ColorDialog 的非原生实现。
-// 用法：openColor(当前色) 打开，onAccepted 里读 selectedColor。
-// 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 Options.mainLayout，跨文件使用需调用方显式设置。
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -19,6 +17,9 @@ QOptionDialog {
     property real hue: 0.6
     property real sat: 0.9
     property real val: 0.8
+    // options 由 Loader 延迟加载，外部拿不到其中的 id，
+    // 因此用该属性作为十六进制文本的唯一数据源，组件内部再同步给 QInput。
+    property string hexText: "#7E57C2"
 
     signal accepted()
 
@@ -36,20 +37,16 @@ QOptionDialog {
 
     function syncFromHsv(): void {
         selectedColor = Qt.hsva(hue, sat, val, 1.0);
-        hexInput.inputText = selectedColor.toString().toUpperCase();
-        // 直接赋值而不是绑定：拖动滑块会打断 value 上的绑定
-        hueSlider.value = Math.round(hue * 359);
-        satSlider.value = Math.round(sat * 100);
-        valSlider.value = Math.round(val * 100);
+        hexText = selectedColor.toString().toUpperCase();
     }
 
     // 输入框里的十六进制优先于滑块
     function applyHex(): void {
-        const picked = Qt.color(hexInput.inputText);
+        const picked = Qt.color(hexText);
         if (picked.valid)
             setColor(picked);
         else
-            hexInput.inputText = selectedColor.toString().toUpperCase();
+            hexText = selectedColor.toString().toUpperCase();
     }
 
     onConfirm: {
@@ -58,8 +55,35 @@ QOptionDialog {
     }
 
     options: Column {
+        id: optionsRoot
         width: parent.width
         spacing: 14
+
+        // 组件首次实例化时（即 open() 之后 Loader 加载完成时）从 root 同步一次初始值
+        Component.onCompleted: {
+            hueSlider.value = Math.round(root.hue * 359);
+            satSlider.value = Math.round(root.sat * 100);
+            valSlider.value = Math.round(root.val * 100);
+            hexInput.inputText = root.hexText;
+        }
+
+        // root 属性变化时同步到 UI 控件
+        Connections {
+            target: root
+            function onHueChanged(): void {
+                hueSlider.value = Math.round(root.hue * 359);
+            }
+            function onSatChanged(): void {
+                satSlider.value = Math.round(root.sat * 100);
+            }
+            function onValChanged(): void {
+                valSlider.value = Math.round(root.val * 100);
+            }
+            function onHexTextChanged(): void {
+                if (hexInput.inputText !== root.hexText)
+                    hexInput.inputText = root.hexText;
+            }
+        }
 
         // 二维色板：横向调饱和度、纵向调明度，底色是当前色相
         Rectangle {
@@ -224,6 +248,11 @@ QOptionDialog {
             QInput {
                 id: hexInput
                 width: parent.width - 68
+                // 用户输入时回写 root.hexText（不规范化，避免打断输入）
+                onInputTextChanged: {
+                    if (inputText !== root.hexText)
+                        root.hexText = inputText;
+                }
                 onEntered: root.applyHex()
             }
         }

@@ -806,9 +806,6 @@ Item {
                                     Style.backmode = choiced
                                     Options.changeUi()
                                     Options.changeTheme()
-                                    if(choiced === 4) {
-                                        Options.dialog.openSimpleDialog("提示", "重启本应用以生效模糊窗口功能.", null);
-                                    }
                                 }
                             }
                         }
@@ -822,12 +819,12 @@ Item {
                             controlItem: QDrop {
                                 anchors.fill: parent
                                 choice: Style.backpic
-                                model: ["示例1","示例2","自定义图片"]
+                                model: ["示例1","示例2","示例3","自定义图片"]
                                 onTransformed: (choiced) => {
                                     Style.backpic = choiced;
                                     Options.changeUi();
                                     Options.changeTheme();
-                                    if(choiced === 2) {
+                                    if(choiced === 3) {
                                         imagefileDialog.open();
                                     }
                                 }
@@ -2120,9 +2117,9 @@ Item {
                 x: 24 + settingStack.containX
                 y: 70
                 z: 5
-                model: ["歌词界面","功能","音乐源"]
+                model: ["歌词界面","功能","音乐源","插件市场"]
                 tabWidth: 100
-                width: 304
+                width: 404
                 rectXy: Qt.rect(0, 10, width, 40)
                 blurSource: downloadChildPage
                 onTabChange: (index) => {
@@ -2133,7 +2130,7 @@ Item {
 
             // 「音乐源」尚未实现，仅在该子页签提示
             Rectangle {
-                visible: modset.tabIndex === 2
+                visible: modset.tabIndex >= 2
                 x: 24 + settingStack.containX
                 y: 124
                 width: settingStack.standWidth
@@ -2170,31 +2167,23 @@ Item {
                 width: settingStack.standWidth
                 height: parent.height - 60
                 id: downloadChildPage
-                pageList: [uiMod,toolMod,musicMod]
-                Item {
+                pageList: [uiMod,toolMod,musicMod,modShop]
+                PluginManager {
                     id: uiMod
                     visible: true
                     width: downloadChildPage.width
                     height: downloadChildPage.height
-
-                    PluginManager {
-                        anchors.fill: parent
-                        store: LyricsPlugins
-                        pluginKind: "歌词界面插件"
-                    }
+                    store: LyricsPlugins
+                    pluginKind: "歌词界面插件"
                 }
-                Item {
+                PluginManager {
                     id: toolMod
                     visible: false
                     width: downloadChildPage.width
                     height: downloadChildPage.height
-
-                    PluginManager {
-                        anchors.fill: parent
-                        store: FunctionPlugins
-                        pluginKind: "功能插件"
-                        multi: true
-                    }
+                    store: FunctionPlugins
+                    pluginKind: "功能插件"
+                    multi: true
                 }
                 Item {
                     id: musicMod
@@ -2204,6 +2193,20 @@ Item {
                     Text {
                         anchors.fill: parent
                         text: "音乐源"
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+                }
+                Item {
+                    id: modShop
+                    visible: false
+                    width: downloadChildPage.width
+                    height: downloadChildPage.height
+                    Text {
+                        anchors.fill: parent
+                        text: "插件市场"
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.textColor
@@ -2544,6 +2547,22 @@ Item {
                         text: "网易云音乐第三方API服务框架"
                         openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
                         color: settingStack.cardColor
+                    }
+                }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: fontDescript.implicitHeight + 48
+                    color: settingStack.cardColor
+                    radius: Style.cubeRadius
+                    Text {
+                        id: fontDescript
+                        anchors.centerIn: parent
+                        width: settingStack.standWidth - 48
+                        text: "QueMusic使用Feather字体库用于显示图标以及Figtree字体库用于显示部分英文。还有更多被QueMusic使用的第三方库，开发者表示感谢，详细查看项目Readme"
+                        wrapMode: Text.Wrap
+                        color: Theme.textColor
+                        font.pixelSize: 13
                     }
                 }
 

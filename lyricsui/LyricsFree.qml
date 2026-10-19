@@ -8,7 +8,6 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Shapes
 import QtQuick.Effects
-import Qt5Compat.GraphicalEffects   // 仅逐字染色仍用 LinearGradient
 import QtMultimedia                  // 背景「视频」样式
 import QtQuick.Dialogs               // 背景图片/视频选择
 import QueMusic 1.0
@@ -170,7 +169,7 @@ Item {
         NumberAnimation on uTime {
             from: 0; to: 1000; duration: 1000000
             loops: Animation.Infinite
-            running: visible
+            running: LyricsFreeConfig.bgStyle === 3
         }
         fragmentShader: "qrc:/shaders/shaders/bg_stars.frag.qsb"
     }
@@ -238,18 +237,17 @@ Item {
         font.pixelSize: mainLyrics.standHeight / 2
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
-
         color: Qt.rgba(1,1,1,1)
         layer.enabled: true
-        layer.effect: DropShadow {
-            horizontalOffset: 2
-            verticalOffset: 2
-            radius: 12.0
-            samples: 16
-            fast: true
-            color: "#30000000"
-            source: titleMax // 阴影绑定到主内容区域
-        }
+    }
+    MultiEffect {
+        anchors.fill: titleMax
+        source: titleMax
+        visible: x !== -400 && !mainLyrics.basicCd
+        shadowEnabled: true
+        shadowBlur: 1.0
+        blurMax: 16
+        shadowColor: "#30000000"
     }
     Text {
         id: artistMax
@@ -289,8 +287,7 @@ Item {
         width: mainLyrics.lyricType === 2 ? mainLyrics.width * 0.6 : mainLyrics.width * 0.48
         height: parent.height - 120
         visible: mainLyrics.lyricType !== 1
-        // 关掉模糊时整个 Item 只是整行染色，不必走 FBO
-        layer.enabled: Style.maskBlur
+        layer.enabled: true
         layer.effect: ShaderEffect {
             property real fadeTop: 0.15
             property real fadeBottom: 0.3
@@ -336,7 +333,6 @@ Item {
             id: finalHAnime
             target: lyricContent
             property: "finalH"
-            // 逐行范围 (-3~7) 往下的延续：延迟对齐 index+7 行，时长取再下一行。
             delay: (7 + 4) ** 1.2 * 24
             duration: 460 + (8 + 4) * 32
             bounce: 0.2 + Style.springValue * 0.05
@@ -468,9 +464,7 @@ Item {
                 property real standY: 0.0
                 y: standY + lyricContent.scrollOffset
 
-                // 卡片翻转已改为整块 lyricContent 统一向左翻（见 lyricContent 的 transform）
 
-                // 逐行动画：delay 承接 pauseMs，duration 承接 animeMs，to 承接 toY。
                 SpringAnimator {
                     id: lyricAnime
                     target: lyricItem
@@ -577,17 +571,30 @@ Item {
                     Repeater {
                         id: linesText
                         model: lyricItem.isFlowActive ? lyricItem.flowWords : 0
-                        delegate: Item {
+                        delegate: ShaderEffect {
                             id: wordItem
                             required property int index
                             required property var modelData
-                            // 按 delegate 下标取字：用歌词行号会串到别的字上
                             readonly property var word: lyricItem.flowWords[wordItem.index]
-                            width: lyricFlowText.width
-                            height: lyricFlowText.height
-                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > wordItem.word.offset && lyricItem.isCurrent
+                            width: lyricFlowText.implicitWidth
+                            height: lyricFlowText.implicitHeight
+                            property real countProgress: lyricItem.nowPosition > modelData.offset && lyricItem.isFlowActive ? width + 16 : 0
+                            Behavior on countProgress { NumberAnimation { Component.onCompleted: duration = wordItem.modelData.duration / mainLyrics.playbackRate * (wordItem.width + 16) / wordItem.width } }
+
+                            property var source: lyricFlowText
+
+                            property real fillPx: countProgress * Screen.devicePixelRatio
+                            property real itemWidthPx: width * Screen.devicePixelRatio
+                            property real softnessPx: 16 * Screen.devicePixelRatio
+                            property real progressOpacity: lyricItem.opacityAnime
+                            property color progressColor: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffffff"
+                            fragmentShader: "qrc:/shaders/shaders/lyricFill.frag.qsb"
+
+                            transform: Translate { id: textTransform; y: 0 }
+
+                            readonly property bool toTextAnimeValue: lyricItem.nowPosition > modelData.offset && lyricItem.isCurrent
                             onToTextAnimeValueChanged: {
-                                if(toTextAnimeValue) {
+                                if (toTextAnimeValue) {
                                     outFlowText.running = false;
                                     toFlowText.running = true;
                                 } else {
@@ -596,39 +603,32 @@ Item {
                                 }
                             }
 
-                            ParallelAnimation {
-                                id: toFlowText
-                                NumberAnimation { target: lyricFlowText; property: "y"; to: -3; duration: 240 + wordItem.word.duration * 10; easing.type: Easing.OutExpo }
-                            }
-                            ParallelAnimation {
-                                id: outFlowText
-                                NumberAnimation { target: lyricFlowText; property: "y"; to: 0; duration: 640; easing.type: Easing.InOutCubic }
-                            }
-
                             Text {
                                 id: lyricFlowText
-                                text: wordItem.word.text
-                                y: 0
+                                text: wordItem.modelData.text
+                                textFormat: Text.PlainText
                                 font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
                                 color: LyricsFreeConfig.lyricLineColor !== "" && lyricItem.isCurrent ? LyricsFreeConfig.lyricLineColor : "#ffe8e8e8"
-                                opacity: LyricsFreeConfig.lyricIdleOpacity
+                                visible: false
+                                layer.enabled: true
+                                layer.smooth: true
                             }
-                            LinearGradient {
-                                id: lyricGradient
-                                property int countToWidth: lyricItem.nowPosition > wordItem.word.offset && lyricItem.isFlowActive ? width + 16 : 0
-                                Behavior on countToWidth { NumberAnimation { Component.onCompleted: duration = wordItem.word.duration / mainLyrics.playbackRate * (lyricGradient.width + 16) / lyricGradient.width } }
-                                width: parent.width
-                                height: parent.height
-                                y: lyricFlowText.y
-                                opacity: lyricItem.opacityAnime
-                                source: lyricFlowText
-                                start: Qt.point(countToWidth - 16, 0)
-                                end: Qt.point(countToWidth, 0)
-                                gradient: Gradient {
-                                    GradientStop { position: 0.0; color: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffffff" }
-                                    GradientStop { position: 1.0; color: "#66e8e8e8" }
+
+                            ParallelAnimation {
+                                id: toFlowText
+                                NumberAnimation {
+                                    target: textTransform; property: "y"; to: -3
+                                    duration: 240 + wordItem.modelData.duration * 10
+                                    easing.type: Easing.OutExpo
+                                }
+                            }
+                            ParallelAnimation {
+                                id: outFlowText
+                                NumberAnimation {
+                                    target: textTransform; property: "y"; to: 0
+                                    duration: 640; easing.type: Easing.InOutCubic
                                 }
                             }
                         }

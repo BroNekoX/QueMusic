@@ -88,7 +88,6 @@ Window {
         value: Config.downloadFolder
     }
 
-
     function silentUpdateCheck(): void {
         const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
@@ -431,9 +430,12 @@ Window {
                             backGround.source = "qrc:/QueMusic/resources/pic/back1.jpg";
                             break;
                         case 1:
-                            backGround.source = "qrc:/QueMusic/resources/pic/back3.jpg";
+                            backGround.source = "qrc:/QueMusic/resources/pic/back2.jpg";
                             break;
                         case 2:
+                            backGround.source = "qrc:/QueMusic/resources/pic/back3.jpg";
+                            break;
+                        case 3:
                             backGround.source = Style.backgroundImage;
                             break;
                     }
@@ -1003,43 +1005,43 @@ Window {
         }
 
         options: Column {
-                    width: parent.width
-                    Image {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        id: imageWatch
-                        source: picWatch.source
-                        width: 256
-                        height: 256
-                        cache: false
-                        sourceSize.width: 512
-                        sourceSize.height: 512
-                        fillMode: Image.PreserveAspectCrop
-                        MouseArea {
-                            id: dragImageArea
-                            anchors.fill: imageWatch
-                            drag.target: dragImage
-                        }
-                    }
-                    Item {
-                        id: dragImage
-                        Drag.active: dragImageArea.drag.active
-                        Drag.dragType: Drag.Automatic
-                        Drag.supportedActions: Qt.CopyAction
-                        Drag.imageSource: imageWatch.source
-                        Drag.imageSourceSize: Qt.size(64, 64)
-                        Drag.mimeData: { "text/uri-list": imageWatch.source }
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width
-                        height: 40
-                        text: picWatch.fileName
-                        font.pixelSize: Style.textH2
-                        color: Theme.textColor
-                        verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: Text.AlignHCenter
-                    }
+            width: parent.width
+            Image {
+                anchors.horizontalCenter: parent.horizontalCenter
+                id: imageWatch
+                source: picWatch.source
+                width: 256
+                height: 256
+                cache: false
+                sourceSize.width: 512
+                sourceSize.height: 512
+                fillMode: Image.PreserveAspectCrop
+                MouseArea {
+                    id: dragImageArea
+                    anchors.fill: imageWatch
+                    drag.target: dragImage
                 }
+            }
+            Item {
+                id: dragImage
+                Drag.active: dragImageArea.drag.active
+                Drag.dragType: Drag.Automatic
+                Drag.supportedActions: Qt.CopyAction
+                Drag.imageSource: imageWatch.source
+                Drag.imageSourceSize: Qt.size(64, 64)
+                Drag.mimeData: { "text/uri-list": imageWatch.source }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width
+                height: 40
+                text: picWatch.fileName
+                font.pixelSize: Style.textH2
+                color: Theme.textColor
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
     }
     // 歌曲歌单信息-Options.songInfo.show(item, isList)
     SongInfoDialog {

@@ -124,7 +124,7 @@ void FolderModel::loadFromDatabase()
     DbService::instance()->submit([self, type, generation](QSqlDatabase &db) {
         QVector<FolderItem> rows;
         QSqlQuery query(db);
-        query.prepare(QStringLiteral("SELECT %1 FROM folders WHERE type = :type ORDER BY created_at ASC")
+        query.prepare(QStringLiteral("SELECT %1 FROM folders WHERE type = :type ORDER BY sort_order ASC, id ASC")
                           .arg(kFolderColumns));
         query.bindValue(QStringLiteral(":type"), type);
         if (query.exec()) {
@@ -186,11 +186,21 @@ void FolderModel::mutate(DbMutator mutator)
 void FolderModel::addFolder(const QString &name, const QString &type, const QString &path)
 {
     mutate([name, type, path](QSqlDatabase &db, QString &error) {
+        // 新文件夹排在同类末尾，别插到用户手动排好的顺序中间
+        int sortOrder = 0;
+        QSqlQuery nextQuery(db);
+        nextQuery.prepare(QStringLiteral("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM folders WHERE type = :type"));
+        nextQuery.bindValue(QStringLiteral(":type"), type);
+        if (nextQuery.exec() && nextQuery.next())
+            sortOrder = nextQuery.value(0).toInt();
+
         QSqlQuery query(db);
-        query.prepare(QStringLiteral("INSERT INTO folders (name, type, path) VALUES (:name, :type, :path)"));
+        query.prepare(QStringLiteral("INSERT INTO folders (name, type, path, sort_order) "
+                                     "VALUES (:name, :type, :path, :sort)"));
         query.bindValue(QStringLiteral(":name"), name);
         query.bindValue(QStringLiteral(":type"), type);
         query.bindValue(QStringLiteral(":path"), path);
+        query.bindValue(QStringLiteral(":sort"), sortOrder);
         if (!query.exec())
             error = QStringLiteral("添加文件夹失败: ") + query.lastError().text();
     });
@@ -241,6 +251,51 @@ void FolderModel::renameFolder(int folderId, const QString &newName)
         query.bindValue(QStringLiteral(":id"), folderId);
         if (!query.exec())
             error = QStringLiteral("重命名失败: ") + query.lastError().text();
+    });
+}
+
+void FolderModel::moveFolder(int from, int to)
+{
+    if (from == to || from < 0 || to < 0 || from >= m_items.size() || to >= m_items.size())
+        return;
+    // beginMoveRows 的目标下标是"移动前"坐标：往下移要 +1
+    const int destination = to > from ? to + 1 : to;
+    if (!beginMoveRows(QModelIndex(), from, from, QModelIndex(), destination))
+        return;
+    m_items.move(from, to);
+    endMoveRows();
+}
+
+// 拖动过程中只改内存顺序，松手才写一次库（一次事务写完整个序，行数很少）
+void FolderModel::commitFolderOrder()
+{
+    QList<QPair<int, int>> order;
+    order.reserve(m_items.size());
+    for (int i = 0; i < m_items.size(); ++i)
+        order.append(qMakePair(m_items.at(i).id, i));
+    if (order.isEmpty())
+        return;
+
+    QPointer<FolderModel> self(this);
+    DbService::instance()->submit([self, order](QSqlDatabase &db) {
+        QString error;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("UPDATE folders SET sort_order = :sort WHERE id = :id"));
+        db.transaction();
+        for (const auto &entry : order) {
+            query.bindValue(QStringLiteral(":sort"), entry.second);
+            query.bindValue(QStringLiteral(":id"), entry.first);
+            if (!query.exec()) {
+                error = QStringLiteral("保存文件夹排序失败: ") + query.lastError().text();
+                DbService::markWriteFailed(query.lastError());
+                break;
+            }
+        }
+        error.isEmpty() ? db.commit() : db.rollback();
+        DbService::post(self, [self, error] {
+            if (self && !error.isEmpty())
+                emit self->errorOccurred(error);
+        });
     });
 }
 

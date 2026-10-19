@@ -23,18 +23,10 @@ QOptionDialog {
 
     // 空字符串表示跟随系统默认字体，放列表首位
     readonly property list<string> families: [""].concat(Qt.fontFamilies())
-    readonly property list<string> filteredFamilies: {
-        const needle = search.inputText.trim().toLowerCase();
-        return needle === "" ? families
-                             : families.filter(name => name.toLowerCase().includes(needle));
-    }
 
     function openFamily(family: string): void {
-        search.inputText = "";
-        selectedFamily = family === "" ? families[0] : family;
-        familyList.currentIndex = Math.max(0, filteredFamilies.indexOf(selectedFamily));
-        familyList.positionViewAtIndex(familyList.currentIndex, ListView.Center);
         open();
+        selectedFamily = family === "" ? families[0] : family;
     }
 
     onConfirm: root.accepted()
@@ -42,10 +34,20 @@ QOptionDialog {
     options: Column {
         width: parent.width
         spacing: 10
+        Component.onCompleted: {
+            fontSearch.inputText = "";
+            familyList.currentIndex = Math.max(0, fontSearch.filteredFamilies.indexOf(root.selectedFamily));
+            familyList.positionViewAtIndex(familyList.currentIndex, ListView.Center);
+        }
 
         QInput {
-            id: search
+            id: fontSearch
             width: parent.width
+            readonly property list<string> filteredFamilies: {
+                const needle = fontSearch.inputText.trim().toLowerCase();
+                return needle === "" ? root.families
+                                     : root.families.filter(name => name.toLowerCase().includes(needle));
+            }
         }
 
         ListView {
@@ -53,7 +55,7 @@ QOptionDialog {
             width: parent.width
             height: 300
             clip: true
-            model: root.filteredFamilies
+            model: fontSearch.filteredFamilies
             property int scrollToY: familyList.contentY
             onDraggingChanged: familyList.scrollToY = familyList.contentY
 

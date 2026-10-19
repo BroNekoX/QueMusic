@@ -137,12 +137,12 @@ Rectangle {
             sourceSize: Qt.size(24, 24)
         }
         Text {
-            y: 11
+            y: 9
             x: 51
-            height: 18
+            height: 20
             text: "QueMusic"
             font.family: Fonts.text
-            font.pixelSize: 16
+            font.pixelSize: 17
             font.bold: true
             verticalAlignment: Text.AlignVCenter
             color: Theme.fontColor
@@ -157,7 +157,8 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 text: "Beta"
-                font.pixelSize: 12
+                font.family: Fonts.text
+                font.pixelSize: 13
                 font.weight: Font.DemiBold
                 color:  Theme.fullColor
             }

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
 import QueMusic 1.0
 
 Window {
@@ -80,33 +80,39 @@ Window {
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
             layer.enabled: true
-            layer.effect: DropShadow {
-                radius: 12.0
-                samples: 16
-                fast: true
-                color: "#41000000"
-            }
+            visible: false
+        }
+        MultiEffect {
+            anchors.fill: currentLineText
+            source: currentLineText
+            visible: true
+            shadowEnabled: true
+            shadowBlur: 1.0
+            blurMax: 16
+            shadowColor: "#41000000"
         }
 
         Text {
             id: nextLineText
             width: parent.width
             text: (desktopLyricsWindow.nextIndex >= 0 && desktopLyricsWindow.nextIndex < desktopLyricsWindow.lyricsData.length)
-                  ? desktopLyricsWindow.lyricsData[desktopLyricsWindow.nextIndex].text || ""
-                  : ""
+                  ? desktopLyricsWindow.lyricsData[desktopLyricsWindow.nextIndex].text || "" : ""
             font.pixelSize: desktopLyricsWindow.lyricSize
             font.bold: true
             color: "#fcfcfc"
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
-            visible: text !== ""
+            visible: false
             layer.enabled: true
-            layer.effect: DropShadow {
-                radius: 12.0
-                samples: 16
-                fast: true
-                color: "#56000000"
-            }
+        }
+        MultiEffect {
+            anchors.fill: nextLineText
+            source: nextLineText
+            visible: nextLineText.text !== ""
+            shadowEnabled: true
+            shadowBlur: 1.0
+            blurMax: 16
+            shadowColor: "#56000000"
         }
     }
 

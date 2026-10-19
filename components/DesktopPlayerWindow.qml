@@ -4,60 +4,68 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 
 Window {
     id: desktopPlayerWindow
     width: 340
     height: 148
-    minimumWidth: 240
-    minimumHeight: 128
+    minimumWidth: 320
+    minimumHeight: 72
+    maximumWidth: 480
+    maximumHeight: 160
     visible: true
     color: "transparent"
     title: "QueMusic桌面播放器"
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property bool topWindow: true
-    property int bw: 3
+    property int bw: 0
+    readonly property bool isSmall: height < 132
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
 
+    // 右侧缩放
     MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        z: 1
-        cursorShape: {
-            const p = Qt.point(mouseX, mouseY);
-            const b = bw + 10; // Increase the corner size slightly
-            if (p.x < b && p.y < b) return Qt.SizeFDiagCursor;
-            if (p.x >= width - b && p.y >= height - b) return Qt.SizeFDiagCursor;
-            if (p.x >= width - b && p.y < b) return Qt.SizeBDiagCursor;
-            if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor;
-            if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor;
-            if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor;
+        anchors.right: parent.right
+        height: parent.height - 10
+        width: 10
+        z: 1000
+        cursorShape: Qt.SizeHorCursor
+        onPressed: {
+            desktopPlayerWindow.startSystemResize(Qt.RightEdge)
         }
-        acceptedButtons: Qt.NoButton // don't handle actual events
     }
 
-    DragHandler {
-        id: resizeHandler
-        grabPermissions: TapHandler.TakeOverForbidden
-        target: null
-        onActiveChanged: if (active) {
-                             const p = resizeHandler.centroid.position;
-                             const b = bw + 10; // Increase the corner size slightly
-                             let e = 0;
-                             if (p.x < b) { e |= Qt.LeftEdge }
-                             if (p.x >= width - b) { e |= Qt.RightEdge }
-                             if (p.y < b) { e |= Qt.TopEdge }
-                             if (p.y >= height - b) { e |= Qt.BottomEdge }
-                             desktopPlayerWindow.startSystemResize(e);
-                         }
+    // 底边缩放
+    MouseArea {
+        width: parent.width - 10
+        anchors.bottom: parent.bottom
+        height: 10
+        z: 1000
+        cursorShape: Qt.SizeVerCursor
+        onPressed: {
+            desktopPlayerWindow.startSystemResize(Qt.BottomEdge)
+        }
+    }
+
+    // 右下角斜向缩放
+    MouseArea {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 10
+        height: 10
+        z: 1000
+        cursorShape: Qt.SizeFDiagCursor
+        onPressed: {
+            desktopPlayerWindow.startSystemResize(Qt.RightEdge | Qt.BottomEdge)
+        }
     }
 
     MouseArea {
         anchors.fill: parent
-        anchors.margins: 6
+        anchors.margins: 10
         z: 0
         property real dragOffsetX: 0
         property real dragOffsetY: 0
@@ -79,26 +87,26 @@ Window {
         radius: 12
         z: 1
         color: Theme.primaryColor
-        border.width: 2
+        border.width: 1
         border.color: Theme.sideColor
 
-        Image {
+        QPicture {
+            id: wcover
             x: 16
-            y: 16
-            width: 64
-            height: 64
+            y: desktopPlayerWindow.isSmall ? (parent.height - height) * 0.5 : 16
+            width: desktopPlayerWindow.isSmall ? 52 : 64
+            height: desktopPlayerWindow.isSmall ? 52 : 64
+            radius: 8
             source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
-            sourceSize: Qt.size(128, 128)
-            asynchronous: true
-            fillMode: Image.PreserveAspectCrop
+            sourceSize: Qt.size(64, 64)
         }
 
         Text {
             id: playerTitle
-            x: 102
-            y: 16
-            width: playerCard.width - 102 - 48
-            height: 22
+            x: desktopPlayerWindow.isSmall ? 84 : 96
+            y: wcover.y
+            width: desktopPlayerWindow.isSmall ? desktopPlayerWindow.width - 128 - dpControlRow.width : desktopPlayerWindow.width - 112
+            height: 18
             text: Playback.musicTitle
             elide: Text.ElideRight
             font.bold: true
@@ -109,10 +117,10 @@ Window {
 
         Text {
             id: playerArtist
-            x: 102
-            y: 38
-            width: playerCard.width - 102 - 48
-            height: 18
+            x: desktopPlayerWindow.isSmall ? 84 : 96
+            y: wcover.y + 18
+            width: desktopPlayerWindow.isSmall ? desktopPlayerWindow.width - 128 - dpControlRow.width : desktopPlayerWindow.width - 112
+            height: 16
             text: Playback.musicArtist
             elide: Text.ElideRight
             font.pixelSize: 12
@@ -122,9 +130,9 @@ Window {
 
         Slider {
             id: seekSlider
-            x: 102
-            y: 56
-            width: playerCard.width - 102 - 14
+            x: desktopPlayerWindow.isSmall ? timeText.width + 100 : 96
+            y: wcover.y + 35
+            width: desktopPlayerWindow.isSmall ? playerCard.width - 128 - timeText.width - timeFullText.width : playerCard.width - 112//96 - 16
             height: 16
             from: 0
             to: Playback.player.duration > 0 ? Playback.player.duration : 1
@@ -151,38 +159,54 @@ Window {
                 width: 12
                 height: 12
                 radius: 6
-                color: Theme.primaryColor
-                border.width: 2
-                border.color: Theme.themeColor
-                visible: seekSlider.hovered || seekSlider.pressed
+                color: Theme.themeColor
+                border.width: 3
+                border.color: Theme.primaryColor
+                RectangularShadow {
+                    anchors.fill: parent
+                    z: -1
+                    radius: 10
+                    blur: 5
+                    spread: 0
+                    color: "#33000000"
+                }
             }
         }
 
         Text {
             id: timeText
-            x: 102
-            y: 72
-            width: playerCard.width - 102 - 14
+            x: wcover.width + 32
+            y: desktopPlayerWindow.isSmall ? wcover.y + 35 : 70
             height: 16
-            text: Playback.fmt(Playback.player.position) + " / " + Playback.fmt(Playback.player.duration)
+            text: Playback.fmt(Playback.player.position)
             font.pixelSize: 11
             color: Theme.textColor
-            horizontalAlignment: Text.AlignRight
+        }
+        Text {
+            id: timeFullText
+            x: desktopPlayerWindow.width - width - 16
+            y: desktopPlayerWindow.isSmall ? wcover.y + 35 : 70
+            height: 16
+            font.pixelSize: 11
+            color: Theme.textColor
+            text: Playback.fmt(Playback.player.duration)
         }
 
         Row {
-            y: parent.height - 52
-            anchors.horizontalCenter: parent.horizontalCenter
+            id: dpControlRow
+            y: desktopPlayerWindow.isSmall ? wcover.y + 2 : parent.height - 52
+            x: desktopPlayerWindow.isSmall ? desktopPlayerWindow.width - width - 44 : (desktopPlayerWindow.width - width) / 2
+            height: desktopPlayerWindow.isSmall ? 28 : 36
             SButton {
                 iconCharacter: Playback.cycleIcon
-                width: 36
-                height: 36
+                width: parent.height
+                height: parent.height
                 radius: 18
                 buttonColor: "transparent"
                 hoverColor: Theme.hoverColor
                 iconColor: Theme.textColor
                 shadowEnabled: false
-                iconSize: Style.texticon
+                iconSize: Style.texticon - 2
                 onClicked: {
                     if(Config.cycleIndex < 3) {
                         Config.cycleIndex += 1;
@@ -195,8 +219,8 @@ Window {
 
             SButton {
                 id: lastButton
-                width: 36
-                height: 36
+                width: parent.height
+                height: parent.height
                 radius: 18
                 iconCharacter: "\uf0dc"
                 iconSize: Style.texticon
@@ -209,8 +233,8 @@ Window {
             }
             SButton {
                 id: playButton
-                width: 36
-                height: 36
+                width: parent.height
+                height: parent.height
                 radius: 18
                 iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
                 iconSize: Style.texticon + 2
@@ -223,8 +247,8 @@ Window {
             }
             SButton {
                 id: nextButton
-                width: 36
-                height: 36
+                width: parent.height
+                height: parent.height
                 radius: 18
                 iconCharacter: "\uf0d9"
                 iconSize: Style.texticon
@@ -237,11 +261,11 @@ Window {
             }
             SButton {
                 id: playListButton
-                width: 36
-                height: 36
+                width: parent.height
+                height: parent.height
                 radius: 17
                 iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
-                iconSize: Style.texticon
+                iconSize: Style.texticon - 2
                 buttonColor: "transparent"
                 hoverColor: Theme.hoverColor
                 iconColor: Theme.textColor
@@ -262,9 +286,9 @@ Window {
         SButton {
             id: closeButton
             x: playerCard.width - 44
-            y: 8
-            width: 32
-            height: 32
+            y: desktopPlayerWindow.isSmall ? wcover.y + 2 : 12
+            width: desktopPlayerWindow.isSmall ? 28 : 32
+            height: width
             radius: 16
             iconCharacter: "\uf025"
             iconSize: Style.texticon

@@ -135,13 +135,6 @@ file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPE
 file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
-# JIZURA 歌词 PV：既是内置歌词主题，源码同时保留为可外置安装的插件目录
-file(GLOB LYRICS_JIZURA_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
-    "plugins/lyrics/jizura/jizura.qml"
-    "plugins/lyrics/jizura/qml/*.qml")
-file(GLOB LYRICS_JIZURA_JS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS
-    "plugins/lyrics/jizura/js/*.js")
-
 # 模块内全部 QML/JS；qmltc 跳过清单须在 qt6_add_qml_module() 解析参数前备好，故先统一为变量
 set(QUE_MUSIC_QML_FILES
     main.qml
@@ -149,8 +142,6 @@ set(QUE_MUSIC_QML_FILES
     api/qrcode.js
     ${LAYOUT_QML}
     ${LYRICS_UI_QML}
-    ${LYRICS_JIZURA_QML}
-    ${LYRICS_JIZURA_JS}
     ${PAGE_QML}
     ${QML_COMPONENTS}
     )
@@ -191,7 +182,7 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         resources/app/header.png
         resources/app/rainbowMusicIcon.png
         resources/fonts/feather.ttf
-        resources/fonts/poppins.ttf
+        resources/fonts/Figtree.otf
         resources/app/musicpic.png
         resources/app/cd.png
         resources/app/cdpoint.png
@@ -295,6 +286,7 @@ qt6_add_shaders(${PROJECT_NAME} "effectshaders"
         shaders/bg_stage.frag
         shaders/bg_void.frag
         shaders/lyricplane.frag
+        shaders/lyricFill.frag
 )
 
 qt6_add_shaders(${PROJECT_NAME} "bgshaders"
@@ -332,8 +324,6 @@ target_link_libraries(${PROJECT_NAME}
         quemusic::zlib
         quemusic::ffmpeg
         cryptopp::cryptopp
-        # LyricPvCore 是静态 QML 模块：除库本身外还要链它的 plugin 目标，
-        # 类型注册（qml_register_types_LyricPvCore）才会被拉进可执行文件
         LyricPvCore
         LyricPvCoreplugin
     PUBLIC

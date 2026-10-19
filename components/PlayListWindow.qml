@@ -233,15 +233,16 @@ Item {
         }
     }
 
-    Rectangle {
-        x: 24
-        y: 24
-        width: root.width - 48
+    Item {
+        id: plHeader
+        x: 8
+        y: 8
+        width: root.width - 16
         height: 160
         z: 10
-        radius: Style.cubeRadius
-        color: Theme.primaryColor
-        RectangularShadow {
+        //radius: Style.cubeRadius
+        //color: Theme.primaryColor
+        /*RectangularShadow {
             anchors.fill: parent
             z: -1
             offset.x: 3
@@ -251,7 +252,7 @@ Item {
             spread: 0
             visible: true
             color: Theme.shadowColor
-        }
+        }*/
         QPicture {
             y: 16
             x: 16
@@ -267,7 +268,7 @@ Item {
         Text {
             x: 160
             y: 24
-            width: 300
+            width: plHeader.width - 220 - makerText.width
             height: 32
             elide: Text.ElideRight
             color: Theme.fontColor
@@ -278,7 +279,7 @@ Item {
         }
         Text {
             id: makerText
-            x: root.width - width - 64
+            x: plHeader.width - width - 24
             y: 24
             height: 32
             color: Theme.textColor
@@ -289,7 +290,7 @@ Item {
         Text {
             x: 160
             y: 56
-            width: root.width - 220
+            width: plHeader.width - 220
             height: 44
             maximumLineCount: 3
             elide: Text.ElideRight
@@ -302,7 +303,7 @@ Item {
             id: playInfoRectangle
             height: 36
             width: playCountRow.implicitWidth + 20
-            x: root.width - playCountRow.implicitWidth - 83
+            x: plHeader.width - playCountRow.implicitWidth - 44
             y: 100
             radius: Style.labelRadius
             color: Theme.sideColor

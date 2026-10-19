@@ -309,6 +309,8 @@ void DbService::ensureSchema(QSqlDatabase &db)
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_cover"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tagged"), QStringLiteral("INTEGER DEFAULT 0"));
     addColumnIfMissing(db, QStringLiteral("favorites"), QStringLiteral("folder_id"), QStringLiteral("INTEGER"));
+    // 文件夹手动排序：老库没有这一列时补上，-1 表示"尚未编号"
+    addColumnIfMissing(db, QStringLiteral("folders"), QStringLiteral("sort_order"), QStringLiteral("INTEGER DEFAULT -1"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_songs_folder ON songs(folder_id)"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_folders_type ON folders(type)"));
     query.exec(QStringLiteral("CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_path ON songs(folder_id, path)"));
@@ -341,6 +343,9 @@ void DbService::ensureSchema(QSqlDatabase &db)
         adopt.bindValue(QStringLiteral(":folder"), favRoot);
         adopt.exec();
     }
+
+    // 还没编号的文件夹按 id 补一次，效果等于原来的 created_at 先后（只跑一次，之后序号都 >= 0）
+    query.exec(QStringLiteral("UPDATE folders SET sort_order = id WHERE sort_order < 0"));
 }
 
 #include "DbService.moc"

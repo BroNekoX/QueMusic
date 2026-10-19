@@ -47,7 +47,7 @@ Settings {
     property bool noOpacityControl: false //透明底部播放栏
 
     // UI设置
-    property bool sidebarColor: false
+    property bool sidebarColor: true
     property int sidebarStyle: 1
     property int animeType: 0
     property int menutheme: 1

@@ -58,8 +58,52 @@ Item {
     }
 
     function clearChoose(): void {
+        filePage.dragEnd();          // 拖动中退出选择：先把顺序落库
         filePage.chooseIndex = [];
         filePage.setMode = 0;
+    }
+
+    // ── 文件夹拖动排序（仅选择模式）──
+    // 同一时刻只拖一行，状态放页面上，两个列表共用一套，不用给每项再加覆盖层
+    property Item dragRow: null       // 正在拖的行
+    property var dragModel: null      // 该行所属的模型
+    property real dragTop: 0          // 被拖行的视觉顶边（content 坐标）
+    property real dragGrab: 0         // 按下时指针在行内的 y
+    property real dragOrigin: 0       // 行 0 的 content y（换位不会改变它）
+    property bool dragDirty: false    // 顺序是否真的变过
+
+    function dragBegin(view: ListView, row: var, localY: real, mode: int): void {
+        if (setMode !== mode) return
+        dragRow = row
+        dragModel = view.model
+        dragGrab = localY
+        dragTop = row.y
+        dragOrigin = row.y - row.index * row.height
+        dragDirty = false
+    }
+
+    // localY 是 MouseArea 的局部坐标，不受行位移影响，据此换算出新的视觉顶边
+    function dragMove(view: ListView, row: var, localY: real): void {
+        if (dragRow !== row) return
+        dragTop = localY + dragTop - dragGrab
+        // 目标行只由拖到的高度决定：不读 row.y / row.index，重复调用不会连环换位
+        const target = Math.round((dragTop - dragOrigin) / row.height)
+        const to = Math.max(0, Math.min(view.count - 1, target))
+        if (to !== row.index) {
+            dragModel.moveFolder(row.index, to)
+            dragDirty = true
+        }
+    }
+
+    function dragEnd(): void {
+        if (!dragRow) return
+        const model = dragModel
+        dragRow = null
+        dragModel = null
+        if (dragDirty) {
+            dragDirty = false
+            model.commitFolderOrder()
+        }
     }
 
     // 导入在 DB 线程执行，数量由信号回报
@@ -385,6 +429,15 @@ Item {
                         radius: Style.labelRadius
                         property bool chosen: filePage.setMode === 1 && filePage.chooseIndex.indexOf(listfolder.folderId) !== -1
                         color: listfolder.chosen ? Theme.containColor : "#00000000"
+                        // 拖动排序：被拖的行浮到上层并跟随指针（translate 不动 ListView 的布局 y）
+                        readonly property bool dragging: filePage.dragRow === listfolder
+                        z: listfolder.dragging ? 2 : 0
+                        transform: Translate {
+                            y: listfolder.dragging ? (filePage.dragTop - listfolder.y) : 0
+                            Behavior on y {
+                                NumberAnimation { duration: listfolder.dragging ? 0 : 180; easing.type: Easing.OutCubic }
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -393,6 +446,14 @@ Item {
                             opacity: foldArea.containsMouse ? 1 : 0
                             z: 1
                             Behavior on opacity { NumberAnimation { duration: 80 } }
+                            Text {
+                                text: "\uf074"
+                                color: Theme.fontColor
+                                visible: filePage.setMode === 1
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticon
+                                anchors.centerIn: parent
+                            }
                         }
 
                         Rectangle {
@@ -434,7 +495,25 @@ Item {
                             id: foldArea
                             anchors.fill: parent
                             hoverEnabled: true
+                            property real pressY: 0
+                            property bool dragged: false
+                            onPressed: (mouse) => {
+                                dragged = false
+                                pressY = mouse.y
+                                filePage.dragBegin(folderView, listfolder, mouse.y, 1)
+                            }
+                            onPositionChanged: (mouse) => {
+                                if (filePage.dragRow !== listfolder) return
+                                if (!dragged) {
+                                    if (Math.abs(mouse.y - pressY) < 4) return
+                                    dragged = true
+                                }
+                                filePage.dragMove(folderView, listfolder, mouse.y)
+                            }
+                            onReleased: filePage.dragEnd()
+                            onCanceled: filePage.dragEnd()
                             onClicked: {
+                                if (dragged) return
                                 if(filePage.setMode === 1) {
                                     filePage.toggleChoose(listfolder.folderId);
                                 } else {
@@ -614,12 +693,22 @@ Item {
                         required property int folderId
                         required property string name
                         required property string path
+                        required property int index
                         id: listLocalfolder
                         height: 64
                         width: localFolderView.width - 16
                         radius: Style.labelRadius
                         property bool chosen: filePage.setMode === 2 && filePage.chooseIndex.indexOf(listLocalfolder.folderId) !== -1
                         color: listLocalfolder.chosen ? Theme.containColor : "#00000000"
+                        // 拖动排序：被拖的行浮到上层并跟随指针
+                        readonly property bool dragging: filePage.dragRow === listLocalfolder
+                        z: listLocalfolder.dragging ? 2 : 0
+                        transform: Translate {
+                            y: listLocalfolder.dragging ? (filePage.dragTop - listLocalfolder.y) : 0
+                            Behavior on y {
+                                NumberAnimation { duration: listLocalfolder.dragging ? 0 : 180; easing.type: Easing.OutCubic }
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -678,7 +767,26 @@ Item {
                             id: foldersArea
                             anchors.fill: parent
                             hoverEnabled: true
+                            // 选择模式下按住本行即可上下拖动，复用这个 MouseArea，不再加覆盖层
+                            property real pressY: 0
+                            property bool dragged: false
+                            onPressed: (mouse) => {
+                                dragged = false
+                                pressY = mouse.y
+                                filePage.dragBegin(localFolderView, listLocalfolder, mouse.y, 2)
+                            }
+                            onPositionChanged: (mouse) => {
+                                if (filePage.dragRow !== listLocalfolder) return
+                                if (!dragged) {
+                                    if (Math.abs(mouse.y - pressY) < 4) return
+                                    dragged = true
+                                }
+                                filePage.dragMove(localFolderView, listLocalfolder, mouse.y)
+                            }
+                            onReleased: filePage.dragEnd()
+                            onCanceled: filePage.dragEnd()
                             onClicked: {
+                                if (dragged) return
                                 if(filePage.setMode === 2) {
                                     filePage.toggleChoose(listLocalfolder.folderId);
                                 } else {
