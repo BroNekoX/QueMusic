@@ -107,23 +107,28 @@ WebDavStore::WebDavStore(QObject *parent)
 
 QVariantList WebDavStore::servers() const
 {
-    QVariantList out = m_servers;
-    for (QVariant &item : out) {
+    if (!m_publicDirty)
+        return m_publicServers;
+    m_publicServers = m_servers;
+    for (QVariant &item : m_publicServers) {
         QVariantMap server = item.toMap();
         server.remove(QStringLiteral("password"));   // 凭据不进 QML
         item = server;
     }
-    return out;
+    m_publicDirty = false;
+    return m_publicServers;
 }
 
 void WebDavStore::load()
 {
     QSettings settings;
     m_servers = settings.value(QStringLiteral("webdav/servers")).toList();
+    m_publicDirty = true;
 }
 
 void WebDavStore::save() const
 {
+    m_publicDirty = true;                           // 配置变了，脱敏副本要重建
     m_authCacheId.clear();                          // 配置变了，缓存的鉴权头作废
     QSettings settings;
     settings.setValue(QStringLiteral("webdav/servers"), m_servers);

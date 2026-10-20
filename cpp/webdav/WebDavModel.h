@@ -87,6 +87,9 @@ private:
     WebDavClient m_client;
     QHash<QString, Cached> m_cache;
     QList<WebDavClient::Entry> m_entries;
+    // data() 每次重绘都会读，预先算好
+    QStringList m_titles;
+    QStringList m_artists;
     QHash<QString, QPair<QString, QString>> m_sidecars;   // 音频 URL → (歌词, 封面)
     QHash<QString, QString> m_coverCache;                 // 音频 URL → 已提取的封面 URL
     QSet<QString> m_coverPending;                         // 提取过（含没提取到）的，不再重试

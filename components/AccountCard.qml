@@ -8,13 +8,14 @@ Rectangle {
     width: 300
     height: 88
     radius: 16
-    color: cardArea.containsMouse ? Theme.containColor : Theme.primaryColor
+    color: cardArea.containsMouse ? Theme.containColor : baseColor
     border.color: Theme.secondaryColor
     border.width: 2
+    property color baseColor: Theme.primaryColor
     property url source: "qrc:/QueMusic/resources/app/header.png"
     property string title: "Account"
     property string text: ""
-    property string openUrl: ""
+    property url openUrl: ""
     Behavior on color { ColorAnimation { duration: 120 } }
     QPicture {
         x: 19

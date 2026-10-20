@@ -76,7 +76,7 @@
 | 分组 | 文件 |
 |---|---|
 | `shaders/` | `MeshGradientItem.cpp/.h`、`LyricsStage.cpp/.h` |
-| `cpp/` 顶层 | `AppModels.h`、`MediaTypes.h`、`PlayerDatabase`、`DbService`、`CoverHelper`、`ColorExtractor`、`GetWave`、`FolderModel`、`DownloadManager`、`DownloadedMusicModel`、`Favorites`、`AccountManager`、`LocalLyricsReader`、`CustomFlow`、`QueueModel`、`LocalMusicScanner`、`SearchResultModel`、`WindowsSmtcManager`、`LogManager`、`SystemTrayManager`（各 .cpp+.h） |
+| `cpp/` 顶层 | `AppModels.h`、`MediaTypes.h`、`DbService`、`CoverHelper`、`ColorExtractor`、`GetWave`、`FolderModel`、`DownloadManager`、`DownloadedMusicModel`、`Favorites`、`AccountManager`、`LocalLyricsReader`、`CustomFlow`、`QueueModel`、`LocalMusicScanner`、`SearchResultModel`、`WindowsSmtcManager`、`LogManager`、`SystemTrayManager`（各 .cpp+.h） |
 | `cpp/webdav/` | `WebDavCache`、`WebDavClient`、`WebDavModel`、`WebDavStore` |
 | `cpp/plugins/` | `PluginStore`、`LyricsPluginStore`、`FunctionPluginStore` |
 | `cpp/audio/` | `AudioEngine`、`AudioDsp`、`FfmpegDecoder`、`PitchShifter`、`TimeStretch`（.cpp+.h）＋ 纯头 `AudioRing.h`、`AudioSpectrumSink.h` |

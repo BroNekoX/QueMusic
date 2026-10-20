@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=QueMusic
+GenericName=Music Player
+GenericName[zh_CN]=音乐播放器
+Comment=A high-performance music player built with Qt 6 and QML
+Comment[zh_CN]=基于 Qt 6 / QML 的高性能音乐播放器
+Exec=QueMusic %U
+Icon=io.github.BroNekoX.QueMusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;audio;mp3;flac;lyrics;qt;qml;
+Keywords[zh_CN]=音乐;播放器;歌词;
+MimeType=audio/mpeg;audio/flac;audio/ogg;audio/opus;audio/x-wav;audio/mp4;audio/x-m4a;audio/aac;
+StartupNotify=true
+StartupWMClass=QueMusic

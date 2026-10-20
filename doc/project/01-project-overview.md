@@ -108,13 +108,13 @@ QML 层        main.qml / SettingsView.qml / layout/ / pages/ / components/ / ly
 基础设施      cpp/DbService(SQLite) · cpp/audio/FfmpegDecoder(FFmpeg) · TagLib · QNetwork
 ```
 
-依赖方向**单向向下**，没有反向 include；QML 永远不直接碰 `DbService` / `FfmpegDecoder`（实测 QML 里 `DbService`、`PlayerDatabase` 出现 0 次）。
+依赖方向**单向向下**，没有反向 include；QML 永远不直接碰 `DbService` / `FfmpegDecoder`（实测 QML 里 `DbService` 出现 0 次）。
 
 ### 三条主数据流
 
 | 流程 | 链路 |
 |---|---|
-| **本地播放** | `LocalMusicScanner` 扫描 → `DbService`/`PlayerDatabase` 入库 → `FolderModel`/`MyFolders`/`LocalFolders` 暴露给 QML → 选中后 `AudioEngine.source` → 解码线程读 TagLib/FFmpeg → 环形缓冲 → DSP → QAudioSink |
+| **本地播放** | `LocalMusicScanner` 扫描 → `DbService` 入库 → `FolderModel`/`MyFolders`/`LocalFolders` 暴露给 QML → 选中后 `AudioEngine.source` → 解码线程读 TagLib/FFmpeg → 环形缓冲 → DSP → QAudioSink |
 | **在线播放** | QML 调 `MusicApi.<action>()` → `MusicApiService` 按 `source` 分派给平台类 → 平台返回 → `ApiCommon` 归一化字段 → 灌入 `OnlineListModel` → `resultReady(action, data, source)` 信号 → QML 取播放地址 → 交给 `AudioEngine`（网络 URL）或 `MusicApi.downloader` |
 | **外设同步** | `AudioEngine` 状态 → `layout/SmtcBridge.qml` → `WindowsSmtcManager`（Windows 系统媒体控件）/ `SystemTrayManager`（托盘）/ `components/DesktopLyrics.qml`（桌面歌词） |
 

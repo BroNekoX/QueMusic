@@ -30,8 +30,11 @@ Item {
 
     property rect rectXy: Qt.rect(root.x, root.y, root.width, root.height)
 
-    readonly property int _texW: Math.max(2, Math.round(root.width  * Screen.devicePixelRatio))
-    readonly property int _texH: Math.max(2, Math.round(root.height * Screen.devicePixelRatio))
+    // 模糊会抹掉细节，按 0.5× 设备像素抓取即可
+    property real grabScale: 0.5
+
+    readonly property int _texW: Math.max(2, Math.round(root.width  * Screen.devicePixelRatio * root.grabScale))
+    readonly property int _texH: Math.max(2, Math.round(root.height * Screen.devicePixelRatio * root.grabScale))
 
     ShaderEffectSource {
         id: effectSource
@@ -63,7 +66,8 @@ Item {
 
         property var src: effectSource
         property real blur: root.blur
-        property real blurMax: root.blurMax
+        // 半径按纹理像素换算，上限要随 grabScale 同步缩小
+        property real blurMax: root.blurMax * root.grabScale
         property real saturation: root.saturation
         property real corner: root.borderRadius
         property vector2d cardSize: Qt.vector2d(root.width, root.height)

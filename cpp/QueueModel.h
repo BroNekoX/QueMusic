@@ -35,9 +35,9 @@ public:
 
     Q_INVOKABLE QVariantMap get(int index) const;
     Q_INVOKABLE void append(const QVariantMap &item);
-    // 批量追加：一次 beginInsertRows，跳过已存在或本批重复的 path。
-    // 返回实际加入数；追加在队尾，故首条下标 = count() - 返回值。
-    Q_INVOKABLE int appendBatch(const QVariantList &items);
+    // 批量追加：一次 beginInsertRows + 一次索引重建，避免逐条 append 的 O(n²)。
+    // skipExisting=false 时保留重复项（会话恢复用）。返回实际加入数，首条下标 = count() - 返回值。
+    Q_INVOKABLE int appendBatch(const QVariantList &items, bool skipExisting = true);
     Q_INVOKABLE void insert(int index, const QVariantMap &item);
     // 把已在队列里的 from 行挪到 to 行；当前播放行跟着走，高亮不会跑偏
     Q_INVOKABLE void moveTo(int from, int to);

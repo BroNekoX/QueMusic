@@ -67,11 +67,11 @@ QVariant WebDavModel::data(const QModelIndex &index, int role) const
         return entry.size;
     case ModifiedRole:
         return entry.modified;
-    // 文件夹名就是标题；音频按「歌手 - 歌名」拆开，好让列表和本地音乐一样有两列
+    // apply() 已预拆分
     case TitleRole:
-        return titleOf(stemOf(entry.name));
+        return m_titles.at(index.row());
     case ArtistRole:
-        return entry.isDir ? QString() : artistOf(stemOf(entry.name));
+        return m_artists.at(index.row());
     case CoverUrlRole:
         // 侧车封面是远端 URL，列表加载不了它（要带鉴权头）；这里只暴露已经落地到本地的那份
         return QString();
@@ -256,11 +256,17 @@ void WebDavModel::apply(const QList<WebDavClient::Entry> &entries, const QString
 
     beginResetModel();
     m_entries.clear();
+    m_titles.clear();
+    m_artists.clear();
     m_sidecars.clear();
     for (const WebDavClient::Entry &entry : entries) {
         if (!entry.isDir && !MediaTypes::isAudioName(entry.name))
             continue;
         m_entries.append(entry);
+        // 标题按「歌名 - 歌手」拆，文件夹无歌手
+        const QString stem = stemOf(entry.name);
+        m_titles.append(titleOf(stem));
+        m_artists.append(entry.isDir ? QString() : artistOf(stem));
         if (entry.isDir)
             continue;
         const int dot = entry.name.lastIndexOf(QLatin1Char('.'));
@@ -288,11 +294,11 @@ void WebDavModel::apply(const QList<WebDavClient::Entry> &entries, const QString
 // 所以放工作线程，回来再刷新这些行的 localCover，列表本身不等它
 void WebDavModel::warmCovers()
 {
+    // 「是否已落地」要 SHA1 + 扫目录，交给工作线程
     QStringList pending;
+    pending.reserve(m_entries.size());
     for (const WebDavClient::Entry &entry : std::as_const(m_entries)) {
         if (entry.isDir || m_coverCache.contains(entry.url) || m_coverPending.contains(entry.url))
-            continue;
-        if (WebDavCache::cachedAudioFor(entry.url).isEmpty())
             continue;
         pending.append(entry.url);
     }
@@ -322,14 +328,15 @@ void WebDavModel::warmCovers()
         QHash<QString, QString> covers;
         const QString coverDir = DbService::cacheDir();
         for (const QString &url : pending) {
+            const QString local = WebDavCache::cachedAudioFor(url);
+            if (local.isEmpty())
+                continue;   // 没落地就没有本地封面可取
             const QString sidecar = WebDavCache::cachedCoverFor(url);   // 同目录 cover.*
             if (!sidecar.isEmpty()) {
                 covers.insert(url, QUrl::fromLocalFile(sidecar).toString());
                 continue;
             }
-            const QString local = WebDavCache::cachedAudioFor(url);
-            const QString cover = local.isEmpty() ? QString()
-                                                  : CoverHelper::readCoverFromTag(local, coverDir);
+            const QString cover = CoverHelper::readCoverFromTag(local, coverDir);
             if (!cover.isEmpty())
                 covers.insert(url, cover);
         }

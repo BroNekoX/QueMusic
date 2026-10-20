@@ -1,3 +1,8 @@
+> **应用商店上架**：Flathub / AUR / Microsoft Store 的完整流程、清单与政策风险，见
+> [`../doc/store-publishing.md`](../doc/store-publishing.md)。
+> 新增目录：`linux/`（desktop + metainfo）、`flatpak/`（manifest）、`aur/`（PKGBUILD）、
+> `windows/`（MSIX / Inno Setup）。
+
 # QueMusic 打包指南
 
 本目录包含 QueMusic 在各平台的打包脚本与配置。

@@ -90,6 +90,7 @@ Item {
         visible: Style.waveDisplay
     }
 
+    // 静态渐变模式下被上层 Rectangle 遮住，停掉着色器与定时器
     MeshGradientItem {
         anchors.fill: parent
         coverUrl: mainLyrics.coverUrl || "qrc:/QueMusic/resources/app/musicpic.png"
@@ -97,7 +98,8 @@ Item {
         color2: mainLyrics.secondColor
         color3: mainLyrics.thirdColor
         algorithm: Style.flowStyle
-        animating: true
+        animating: Style.flowStyle !== 2
+        visible: Style.flowStyle !== 2
         clip: true
     }
 

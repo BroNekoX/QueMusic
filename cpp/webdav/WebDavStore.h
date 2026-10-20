@@ -48,6 +48,9 @@ private:
     void save() const;
     int indexOf(const QString &id) const;
     QVariantList m_servers;
+    // servers() 读得频繁：缓存剥掉密码的副本，配置变更时置脏
+    mutable QVariantList m_publicServers;
+    mutable bool m_publicDirty = true;
     QHash<QString, QVariantMap> m_sidecars;   // 会话内：音频 URL → {lyricsUrl, coverUrl}
     // 解密后的 Basic 头按服务器缓存（配置一变就失效）
     mutable QString m_authCacheId;

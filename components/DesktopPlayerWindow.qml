@@ -178,7 +178,9 @@ Window {
             x: wcover.width + 32
             y: desktopPlayerWindow.isSmall ? wcover.y + 35 : 70
             height: 16
-            text: Playback.fmt(Playback.player.position)
+            // position 20Hz 刷新：量化到秒
+            readonly property int posSec: Math.floor(Playback.player.position / 1000)
+            text: Playback.fmt(posSec * 1000)
             font.pixelSize: 11
             color: Theme.textColor
         }

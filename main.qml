@@ -221,7 +221,7 @@ Window {
             id: appTitleBlock
             x: 10
             y: 10
-            width: 180
+            width: 140
             height: 40
             Component.onCompleted: windowAgent.setHitTestVisible(appTitleBlock, true)
         }
@@ -406,23 +406,23 @@ Window {
                 windowAgent.setWindowAttribute("dwm-blur", false);
                 if(Style.backmode === 0) {
                     backGround.visible = false;
-                    sidebar.baseColor = Theme.primaryColor;
+                    sidebar.color = Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.secondaryColor;
                 } else if(Style.backmode === 1) {
                     backGround.visible = false;
-                    sidebar.baseColor = Theme.primaryBlurColor;
+                    sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.containColor;
                     mainContent.color = Theme.blurOverlayColor;
                 } else if(Style.backmode === 2) {
                     backGround.visible = true;
-                    sidebar.baseColor = Theme.blurOverlayColor;
+                    sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.blurOverlayColor;
                     backGround.source = "qrc:/QueMusic/resources/pic/cloudRainbow.png";
                 } else if(Style.backmode === 3) {
                     backGround.visible = true;
-                    sidebar.baseColor = Theme.blurOverlayColor;
+                    sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.blurOverlayColor;
                     switch(Style.backpic) {
@@ -441,7 +441,7 @@ Window {
                     }
                 } else if(Style.backmode === 4) {
                     backGround.visible = false;
-                    sidebar.baseColor = Theme.primaryBlurColor;
+                    sidebar.color = Theme.primaryBlurColor;
                     window.color = "transparent";
                     mainContent.color = Theme.primaryBlurColor;
                     windowAgent.setWindowAttribute("dwm-blur", true);
@@ -457,6 +457,8 @@ Window {
             height: parent.height
             visible: false
             asynchronous: true
+            // 按窗口尺寸解码，别整图上显存
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
 
         }
@@ -545,6 +547,8 @@ Window {
                 const color2 = colors.length > 1 ? colors[1] : "#9d4edd";
                 const color3 = colors.length > 2 ? colors[2] : (colors.length === 2 ? colors[0] : "#00ea64");
                 musicControlMax.changeColor(color1,color2,color3);
+                const mainColor = Qt.hsva(color1.hsvHue, color1.hsvSaturation * 0.8, color1.hsvValue * 0.5 + 0.1, 1.0);
+                musicControlMin.changeColor(mainColor);
                 colorExtractFinished();
             }
 

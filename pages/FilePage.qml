@@ -1088,7 +1088,8 @@ Item {
                 height: folderMusic.height - 128
                 model: folderMusic.searching ? songSearchSort : songSort
                 clip: true
-                reuseItems: false
+                // 委托已处理 onReused/onPooled，可复用
+                reuseItems: true
                 property int transY: 0
                 transform: Translate { y: fileView.transY }
                 populate: Transition {
@@ -1470,7 +1471,8 @@ Item {
                 height: localFolderMusic.height - 128
                 model: localFolderMusic.searching ? localFileModel.searchResults : localFileModel
                 clip: true
-                reuseItems: false
+                // 委托已处理 onReused/onPooled，可复用
+                reuseItems: true
                 populate: Transition {
                     id: localFileLoadAnime
                     enabled: Style.premiumAnime

@@ -4,7 +4,6 @@
 #include "Favorites.h"
 
 #include "DbService.h"
-#include "PlayerDatabase.h"
 
 #include <QDebug>
 #include <QPointer>
@@ -137,9 +136,9 @@ void FavoritesModel::refreshModel()
     const int folder = m_folderId;
     QPointer<FavoritesModel> self(this);
 
+    m_refreshInFlight = true;
     DbService::instance()->submit([self, filter, folder, generation](QSqlDatabase &db) {
         QVector<FavoriteItem> items;
-        QSet<QString> ids;
         QSqlQuery query(db);
         QString where;
         if (!filter.isEmpty())
@@ -157,16 +156,13 @@ void FavoritesModel::refreshModel()
         if (folder >= 0)
             query.bindValue(QStringLiteral(":folder"), folder);
         if (query.exec()) {
-            while (query.next()) {
-                const FavoriteItem item = readFavorite(query);
-                ids.insert(item.id);
-                items.append(item);
-            }
+            while (query.next())
+                items.append(readFavorite(query));
         }
 
         // 顺带把所有类型（song/playlist/artist）的 id 都取回来：isFavorite 在委托里逐行调用，
         // 不能在 GUI 线程查库（同一连接名被 DB 线程持有），只能靠这份内存答案
-        const QHash<QString, QSet<QString>> allIds = [&db] {
+        QHash<QString, QSet<QString>> allIds = [&db] {
             QHash<QString, QSet<QString>> out;
             QSqlQuery q(db);
             if (q.exec(QStringLiteral("SELECT type, id FROM favorites"))) {
@@ -175,9 +171,15 @@ void FavoritesModel::refreshModel()
             }
             return out;
         }();
+        // 预置三种类型的键，否则 isFavorite 会反复补加载
+        for (const char *type : {"song", "playlist", "artist"})
+            allIds.insert(QString::fromLatin1(type), QSet<QString>());
 
-        DbService::post(self, [self, filter, generation, items, ids, allIds] {
-            if (!self || generation != self->m_generation.load())
+        DbService::post(self, [self, generation, items, allIds] {
+            if (!self)
+                return;
+            self->m_refreshInFlight = false;
+            if (generation != self->m_generation.load())
                 return;
             self->m_idsByType = allIds;
             self->applyItems(items);
@@ -350,9 +352,10 @@ bool FavoritesModel::isFavorite(const QString &id, const QString &type) const
     // 只读内存答案：委托每行都会调用，绝不能在这里查库
     const auto it = m_idsByType.constFind(type);
     if (it == m_idsByType.cend()) {
-        // 该类型还没装进内存（refreshModel 失败或被换了数据目录）：补一次后台加载，
-        // 否则界面会一直显示成「未收藏」，而用户其实收藏过
-        const_cast<FavoritesModel *>(this)->refreshModel();
+        // 该类型还没装进内存（加载失败/换了数据目录）：补一次，但只在没有在途任务时
+        auto *self = const_cast<FavoritesModel *>(this);
+        if (!self->m_refreshInFlight)
+            self->refreshModel();
         return false;
     }
     return it->contains(id);

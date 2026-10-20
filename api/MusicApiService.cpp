@@ -685,6 +685,9 @@ QString MusicApiService::readLocalCoverHint(const QString &filePath)
         const QVariantMap meta = QJsonDocument::fromJson(f.readAll()).object().toVariantMap();
         hint = meta.value(QStringLiteral("cover")).toString();
     }
+    // 逐行兜底会缓存整库路径，设个上限
+    if (m_coverHintCache.size() > 8192)
+        m_coverHintCache.clear();
     m_coverHintCache.insert(path, hint);
     return hint;
 }
@@ -1148,13 +1151,16 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getAllToplist")) {
         // 单平台榜单列表：保留旧模型 + 累积到双平台模型（注入 source 供点击强制指定平台）
+        // 只归一化一次（榜单数据量最大）
+        const QVariantList normalized = normalizeList(info);
         m_musicToplist.clear();
-        m_musicToplist.append(normalizeList(info));
-        QVariantList list = normalizeList(info);
-        for (QVariant &it : list) {
+        m_musicToplist.append(normalized);
+        QVariantList list;
+        list.reserve(normalized.size());
+        for (const QVariant &it : normalized) {
             QVariantMap m = it.toMap();
             m.insert(QStringLiteral("source"), source);
-            it = m;
+            list.append(m);
         }
         m_toplistList.append(list);
     } else if (action == QLatin1String("getHotSingers")) {

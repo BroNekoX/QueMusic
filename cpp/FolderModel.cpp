@@ -460,22 +460,49 @@ void SongModel::startEnrichment()
         return;
 
     m_enrichPending.clear();
+
+    // 失效判断要 stat + 正则：只拷字段，筛选放线程池
+    struct Candidate {
+        int row;
+        QString coverUrl;
+        bool tagged;
+    };
+    const quint64 generation = m_loadGeneration.load();
+    QVector<Candidate> candidates;
+    candidates.reserve(m_items.size());
     for (int i = 0; i < m_items.size(); ++i) {
         const SongItem &item = m_items.at(i);
-        // 缓存文件被清理过（tag_cover 指向不存在的文件）或还是旧版带尺寸后缀的缓存名都要重提：
-        // 否则这一行要么永远空封面，要么一直用低分辨率的旧图
-        const bool coverStale = !item.tagCoverUrl.isEmpty()
-                                && (!QFileInfo(QUrl(item.tagCoverUrl).toLocalFile()).exists()
-                                    || CoverHelper::isLegacyCover(item.tagCoverUrl));
-        if (!item.tagged || coverStale)
-            m_enrichPending.append(i);
+        if (!item.tagged || !item.tagCoverUrl.isEmpty())
+            candidates.append({ i, item.tagCoverUrl, item.tagged });
     }
-    m_enriching = false;
-    if (m_enrichPending.isEmpty())
+    if (candidates.isEmpty())
         return;
 
     m_enriching = true;
-    enrichBatch();
+    auto *watcher = new QFutureWatcher<QList<int>>(this);
+    connect(watcher, &QFutureWatcher<QList<int>>::finished, this, [this, watcher, generation] {
+        watcher->deleteLater();
+        if (generation != m_loadGeneration.load())
+            return;   // 旧代次：结果与状态都已无关
+        m_enriching = false;
+        m_enrichPending = watcher->result();
+        if (m_enrichPending.isEmpty())
+            return;
+        m_enriching = true;
+        enrichBatch();
+    });
+    watcher->setFuture(QtConcurrent::run([candidates] {
+        QList<int> pending;
+        for (const Candidate &c : candidates) {
+            // 缓存文件被清理过、或还是旧版带尺寸后缀的名字，都要重提 TAG
+            const bool coverStale = !c.coverUrl.isEmpty()
+                                    && (!QFileInfo(QUrl(c.coverUrl).toLocalFile()).exists()
+                                        || CoverHelper::isLegacyCover(c.coverUrl));
+            if (!c.tagged || coverStale)
+                pending.append(c.row);
+        }
+        return pending;
+    }));
 }
 
 void SongModel::enrichBatch()
@@ -498,11 +525,9 @@ void SongModel::enrichBatch()
     auto *watcher = new QFutureWatcher<QList<EnrichResult>>(this);
     connect(watcher, &QFutureWatcher<QList<EnrichResult>>::finished, this, [this, watcher, generation, slice] {
         watcher->deleteLater();
+        if (generation != m_loadGeneration.load())
+            return;   // 旧代次：refreshModel 已清过状态
         m_enriching = false;
-        if (generation != m_loadGeneration.load()) {
-            m_enrichPending.clear();
-            return;
-        }
 
         const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole};
         QList<int> ids;

@@ -10,12 +10,11 @@ Rectangle {
     z: 1
     id: sidebar
     width: 210
-    property color baseColor: "transparent"
     property color choiceColor: Theme.hoverColor
     property color choiceTextColor: Theme.fontColor
     property int choiceIndex: 0
     required property MainContent mainCont
-    color: Style.backmode === 0 ? (Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor) : baseColor
+    color: Theme.secondaryColor
     Connections {
         target: Options
         function onChangeTheme(): void {

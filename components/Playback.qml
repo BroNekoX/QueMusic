@@ -364,7 +364,8 @@ cover: player.urlStr || "",
         if (!Config.autoRestoreQueue) return
         try {
             const arr = JSON.parse(Config.lastQueue || "[]")
-            for (let i = 0; i < arr.length; i++) queue.append(arr[i])
+            // 批量追加（保留重复项）：避免逐条 append 的 O(n²)
+            if (arr.length > 0) queue.appendBatch(arr, false)
             const idx = Config.lastQueueIndex
             if (idx < 0 || idx >= count) return
             queue.playListIndex = idx

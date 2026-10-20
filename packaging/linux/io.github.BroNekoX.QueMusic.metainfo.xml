@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.BroNekoX.QueMusic</id>
+
+  <name>QueMusic</name>
+  <summary>A high-performance music player built with Qt 6 and QML</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+
+  <developer id="io.github.BroNekoX">
+    <name>BroNekoX</name>
+  </developer>
+
+  <description>
+    <p>
+      QueMusic is a native desktop music player built with C++20, Qt 6 and QML.
+      Decoding, scanning and database work run on C++ worker threads while the
+      interface is rendered on the GPU, so large libraries stay responsive.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Local library scanning with tag and embedded-lyrics support</li>
+      <li>FFmpeg-based decoding with a custom audio pipeline and equalizer</li>
+      <li>Synced lyrics view with shader-driven background effects</li>
+      <li>Playlists, favourites, queue management and a system tray player</li>
+      <li>Optional WebDAV library and a plugin system for lyrics views</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.BroNekoX.QueMusic.desktop</launchable>
+
+  <url type="homepage">https://quemusic.top</url>
+  <url type="bugtracker">https://github.com/BroNekoX/QueMusic/issues</url>
+  <url type="vcs-browser">https://github.com/BroNekoX/QueMusic</url>
+  <url type="help">https://github.com/BroNekoX/QueMusic/blob/main/doc/macos-install.md</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>The main window</caption>
+      <image>https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/example/home.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Full-screen lyrics</caption>
+      <image>https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/example/lyric.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Settings</caption>
+      <image>https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/example/settings.jpg</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.6.0" date="2026-10-20">
+      <description>
+        <p>Preview release of the 0.6 series.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+
+  <provides>
+    <binary>QueMusic</binary>
+  </provides>
+</component>

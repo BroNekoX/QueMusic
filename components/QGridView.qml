@@ -14,7 +14,6 @@ GridView {
     bottomMargin: 24
     rightMargin: 16
     property int scrollToY: view.contentY
-    property bool enabled: true
     clip: true
     signal topScroll()
     function scrollTop(): void {

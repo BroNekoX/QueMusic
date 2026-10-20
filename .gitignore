@@ -60,6 +60,11 @@ logs/
 # --- Third-party build dirs ---
 ThirdParty/*/build/
 
+# --- 打包产物 ---
+dist/
+*.msix
+*.msixupload
+
 # --- Linux 打包中间产物 ---
 AppDir/
 squashfs-root/

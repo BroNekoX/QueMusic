@@ -167,8 +167,6 @@
 | `cpp\LogManager.cpp` | 316 | 9722 |
 | `cpp\LogManager.h` | 112 | 3952 |
 | `cpp\MediaTypes.h` | 39 | 1373 |
-| `cpp\PlayerDatabase.cpp` | 33 | 947 |
-| `cpp\PlayerDatabase.h` | 12 | 313 |
 | `cpp\plugins\FunctionPluginStore.cpp` | 53 | 1480 |
 | `cpp\plugins\FunctionPluginStore.h` | 36 | 1093 |
 | `cpp\plugins\LyricsPluginStore.cpp` | 73 | 2553 |

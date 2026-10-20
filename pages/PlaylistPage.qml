@@ -74,7 +74,7 @@ Item {
         if(!Options.playlistLoaded) {
             MusicApi.getPlaylistMenu(3);
             MusicApi.getNewSongs(1, 1, 20);
-            MusicApi.getAllToplist();
+            // 榜单由 cloud 页请求，避免重复拉取
             Options.playlistLoaded = true;
         }
     }
@@ -324,7 +324,8 @@ Item {
                 clip: true
                 y: musicMenuFlow.implicitHeight + 80
                 width: parent.width + 16
-                model: MusicApi.musicPlaylists
+                // 隐藏页签挂空模型，不建看不见的委托
+                model: musicMenuPage.visible ? MusicApi.musicPlaylists : null
                 property int artistX: width / 2 - 50
                 bottomMargin: 24
                 isList: true
@@ -364,7 +365,7 @@ Item {
                 id: toplistFlick
                 width: parent.width + 16
                 height: parent.height
-                model: MusicApi.toplistList
+                model: cloud.visible ? MusicApi.toplistList : null
                 cellWidth: 180
                 cellHeight: 240
                 rightMargin: -8
@@ -559,7 +560,7 @@ Item {
                         }
                     }
                 }
-                model: MusicApi.singerList
+                model: album.visible ? MusicApi.singerList : null
                 delegate: Item {
                     id: singerCard
                     required property string cover

@@ -10,111 +10,18 @@
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
 #include <QSettings>
-#include <QLibraryInfo>
+#include <QTimer>
 #include "cpp/AccountManager.h"
 #include "cpp/LogManager.h"
+#include "cpp/platform/WindowsAppIdentity.h"
 #include "api/MusicApiService.h"
 #include <QWKQuick/qwkquickglobal.h>
 
 extern void qml_register_types_QueMusic();
 
-#if defined(Q_OS_WIN)
-// Windows SMTC（系统媒体控制）身份注册所需 API
-#include <windows.h>
-#include <winreg.h>
-#include <shobjidl.h>
-#include <propsys.h>
-#include <propkey.h>
-#include <string>
-
-static void registerSmtcAppIdentity()
+// 渲染相关开关必须早于 QApplication
+static void applyRenderOptions(const QString &configPath)
 {
-    const wchar_t *appId = L"BroNekoX.QueMusic";
-
-    // 1) 设置当前进程的显式 AppUserModelID（需在展示任何 UI 之前调用）
-    typedef HRESULT (WINAPI *SetAppUserModelIDFn)(PCWSTR);
-    HMODULE shell32 = LoadLibraryW(L"shell32.dll");
-    if (shell32) {
-        auto fn = reinterpret_cast<SetAppUserModelIDFn>(
-            reinterpret_cast<void *>(GetProcAddress(shell32, "SetCurrentProcessExplicitAppUserModelID")));
-        if (fn)
-            fn(appId);
-    }
-
-    wchar_t exePath[MAX_PATH] = {};
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-
-    // 2) 注册表 DisplayName + IconUri（通知等系统部件解析显示名/图标用）
-    HKEY key = nullptr;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER,
-                        L"Software\\Classes\\AppUserModelId\\BroNekoX.QueMusic",
-                        0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
-        const wchar_t *displayName = L"QueMusic";
-        RegSetValueExW(key, L"DisplayName", 0, REG_SZ,
-                       reinterpret_cast<const BYTE *>(displayName),
-                       (DWORD)((wcslen(displayName) + 1) * sizeof(wchar_t)));
-        if (exePath[0]) {
-            // exe 自身带有 .ico 资源，直接指向 exe 即可提取应用图标
-            RegSetValueExW(key, L"IconUri", 0, REG_SZ,
-                           reinterpret_cast<const BYTE *>(exePath),
-                           (DWORD)((wcslen(exePath) + 1) * sizeof(wchar_t)));
-        }
-        RegCloseKey(key);
-    }
-
-    // 3) 创建开始菜单快捷方式并写入 AppUserModelID（SMTC 媒体弹窗取名的关键）
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    const bool comReady = SUCCEEDED(hr); // S_OK / S_FALSE 表示本线程 COM 已就绪
-    if (SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE) {
-        wchar_t appData[MAX_PATH] = {};
-        if (GetEnvironmentVariableW(L"APPDATA", appData, MAX_PATH)) {
-            const std::wstring lnkPath = std::wstring(appData)
-                + L"\\Microsoft\\Windows\\Start Menu\\Programs\\QueMusic.lnk";
-
-            IShellLinkW *shellLink = nullptr;
-            hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
-                                  IID_IShellLinkW, reinterpret_cast<void **>(&shellLink));
-            if (SUCCEEDED(hr) && shellLink) {
-                shellLink->SetPath(exePath);
-                shellLink->SetDescription(L"QueMusic");
-                shellLink->SetIconLocation(exePath, 0);
-
-                IPropertyStore *propStore = nullptr;
-                if (SUCCEEDED(shellLink->QueryInterface(IID_IPropertyStore,
-                                                        reinterpret_cast<void **>(&propStore)))
-                    && propStore) {
-                    PROPVARIANT pv;
-                    ZeroMemory(&pv, sizeof(pv));
-                    pv.vt = VT_LPWSTR;
-                    pv.pwszVal = const_cast<wchar_t *>(appId);
-                    propStore->SetValue(PKEY_AppUserModel_ID, pv);
-                    propStore->Commit();
-                    propStore->Release();
-                }
-
-                IPersistFile *persistFile = nullptr;
-                if (SUCCEEDED(shellLink->QueryInterface(IID_IPersistFile,
-                                                        reinterpret_cast<void **>(&persistFile)))
-                    && persistFile) {
-                    persistFile->Save(lnkPath.c_str(), TRUE);
-                    persistFile->Release();
-                }
-                shellLink->Release();
-            }
-        }
-        if (comReady)
-            CoUninitialize();
-    }
-}
-#endif
-
-int main(int argc, char *argv[])
-{
-#if defined(Q_OS_WIN)
-    registerSmtcAppIdentity();
-#endif
-    // 渲染后端 / 垂直同步 / 动画驱动开关（须在 QApplication 之前设环境变量）
-    QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
     QSettings opt(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
     switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
     case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
@@ -123,14 +30,28 @@ int main(int argc, char *argv[])
     }
     if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
         qputenv("QSG_NO_VSYNC", "1");
-    if (opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool() == false)
+    if (!opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool())
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
+}
 
-    // Qt scene graph 调试
-    //qputenv("QSG_RENDER_TIMING", "1");
-    //qputenv("QSG_INFO", "1");
-    //qputenv("QSG_RENDERER_DEBUG", "render");
-    //qputenv("QT_LOGGING_RULES", "qt.scenegraph.time.renderloop=true");
+static void setupApplicationMetadata(QApplication &application)
+{
+    application.setOrganizationName(QStringLiteral("BroNekoX"));
+    application.setOrganizationDomain(QStringLiteral("com.bronekox.quemusic"));
+    // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
+    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
+    application.setApplicationName(QStringLiteral("QueMusic"));
+    // Wayland app_id / Flatpak / 桌面集成：必须与 .desktop 文件名、AppStream <id> 一致
+    application.setDesktopFileName(QStringLiteral("io.github.BroNekoX.QueMusic"));
+}
+
+int main(int argc, char *argv[])
+{
+    // AppUserModelID 必须早于 UI；注册表/快捷方式延后到事件循环
+    WindowsAppIdentity::applyProcessIdentity();
+
+    const QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+    applyRenderOptions(configPath);
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -138,28 +59,27 @@ int main(int argc, char *argv[])
     application.setQuitOnLastWindowClosed(false);   // 常驻托盘：退出统一走 QML 的 Qt.quit()
 
     QQuickWindow::setDefaultAlphaBuffer(true);
-    QQmlApplicationEngine engine;
-
-    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型
-    engine.addImportPath(QStringLiteral("qrc:/"));
-
-    application.setOrganizationName("BroNekoX");
-    application.setOrganizationDomain("com.bronekox.quemusic");
-    // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
-    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
-    application.setApplicationName("QueMusic");
+    setupApplicationMetadata(application);
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
+
+    QQmlApplicationEngine engine;
+    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型
+    engine.addImportPath(QStringLiteral("qrc:/"));
 
     LogManager::create(&engine, &engine);   // 日志单例：接管 Qt 消息，写入安装目录/logs
     AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例
 
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
     // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
-    engine.rootContext()->setContextProperty("configDir", configPath);
+    engine.rootContext()->setContextProperty(QStringLiteral("configDir"), configPath);
 
     QWK::registerTypes(&engine);
     engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));
+
+    // 首次运行才写注册表/快捷方式
+    QTimer::singleShot(0, &application, [] { WindowsAppIdentity::ensureShellIntegration(); });
+
     return application.exec();
 }

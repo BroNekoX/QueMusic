@@ -10,10 +10,12 @@ import QueMusic 1.0
 Rectangle {
     id: musicControlMin
     height: 78
-    color: Style.noOpacityControl ? Theme.primaryColor : Theme.primaryBlurColor
+    color: Style.noOpacityControl ? (Style.coverColorControl ? mainColor : Theme.primaryColor) : Theme.primaryBlurColor
     clip: false
     property int musicInfoX: 100
     signal centerChange()
+    property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.8, Theme.themeColor.hsvValue * 0.5 + 0.1, 1.0);
+    property color iconColor: Style.noOpacityControl && Style.coverColorControl ? "#dae8e8ec" : Theme.textColor
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
@@ -32,6 +34,8 @@ Rectangle {
         height: 1
         color: Theme.sideColor
     }
+
+
 
     function parseArtists(raw: string): var {
         const parts = raw.split(/\s*[\/、,，&;&；]\s*/);
@@ -54,6 +58,20 @@ Rectangle {
         mainContent.contentIndexed(5);
         MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
         Options.exitIndex = 1;
+    }
+
+    function changeColor(tocolor: color): void {
+        colorChangeAnime.running = false;
+        colorChangeAnime.to = tocolor;
+        colorChangeAnime.running = true;
+
+    }
+
+    ColorAnimation {
+        id: colorChangeAnime
+        duration: 360
+        target: musicControlMin
+        property: "mainColor"
     }
 
     //控制条
@@ -197,7 +215,7 @@ Rectangle {
             font.bold: true
             font.pixelSize: 15
             verticalAlignment: Text.AlignVCenter
-            color: titleDisplayMouse.containsMouse ? Theme.themeColor : Theme.textColor
+            color: titleDisplayMouse.containsMouse ? Theme.themeColor : musicControlMin.iconColor
 
             MouseArea {
                 id: titleDisplayMouse
@@ -239,7 +257,7 @@ Rectangle {
             font.bold: false
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
-            color: artistDisplayMouse.containsMouse ? Theme.themeColor : Theme.textColor
+            color: artistDisplayMouse.containsMouse ? Theme.themeColor : musicControlMin.iconColor
 
             MouseArea {
                 id: artistDisplayMouse
@@ -294,7 +312,7 @@ Rectangle {
                 const i = q.playListIndex
                 if (i < 0 || i >= q.count) return Theme.textColor
                 const e = q.get(i)
-                return e && FavoriteSongs.isFavorite(e.path, "song") ? Theme.themeColor : Theme.textColor
+                return e && FavoriteSongs.isFavorite(e.path, "song") ? Theme.themeColor : musicControlMin.iconColor
             }
             shadowEnabled: false
             onClicked: {
@@ -318,7 +336,7 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             shadowEnabled: false
             visible: Options.queue.count > 0 && Options.queue.playListIndex >= 0
                      && Options.queue.playListIndex < Options.queue.count
@@ -347,7 +365,7 @@ Rectangle {
             radius: 46
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
@@ -366,7 +384,7 @@ Rectangle {
             radius: 46
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.previous()
@@ -377,9 +395,9 @@ Rectangle {
             width: 46
             height: 46
             radius: 46
-            buttonColor: Theme.secondaryBlurColor
+            buttonColor: Theme.sideBlurColor
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.togglePlay()
@@ -392,7 +410,7 @@ Rectangle {
             radius: 46
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.next(false)
@@ -405,7 +423,7 @@ Rectangle {
             radius: 46
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 1
             shadowEnabled: false
             onClicked: musicControlMin.openPlayerOptions()
@@ -436,7 +454,7 @@ Rectangle {
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
             horizontalAlignment: Text.AlignHCenter
-            color: Theme.textColor
+            color: musicControlMin.iconColor
         }
         SButton {
             iconCharacter: "\uf0b6"
@@ -445,7 +463,7 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 1
             shadowEnabled: false
             onClicked: {
@@ -464,7 +482,7 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 2
             shadowEnabled: false
             onHoveredChanged: {
@@ -499,7 +517,7 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
@@ -518,7 +536,7 @@ Rectangle {
             radius: 40
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
-            iconColor: Theme.textColor
+            iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 2
             shadowEnabled: false
             onClicked: {

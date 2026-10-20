@@ -73,7 +73,7 @@ Item {
             z: 5
             model: ["歌曲","歌单","歌词"]
             tabWidth: 75
-            width: 221
+            width: 231
             rectXy: Qt.rect(0, 12, width, 40)
             blurSource: searchChildPage.pageList[searchChildPage.lastIndex]
             onTabChange: (index) => {
@@ -117,7 +117,8 @@ Item {
             id: searchLists
             width: searchChildPage.width + 16
             height: searchChildPage.height
-            model: MusicApi.searchSongsResults
+            // 隐藏页签挂空模型，不建看不见的委托
+            model: visible ? MusicApi.searchSongsResults : null
             clip: true
             visible: false
             topMargin: 72
@@ -144,35 +145,10 @@ Item {
             }
         }
         QListView {
-            id: searchAlbum
-            width: searchChildPage.width + 16
-            height: searchChildPage.height
-            model: MusicApi.searchSongsResults
-            clip: true
-            visible: false
-            topMargin: 72
-            bottomMargin: 24
-            isList: true
-
-            onEnded: {
-                if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(Options.searchText,2,MusicApi.searchSongsResults.count / 20 + 1,20);
-                    isEnd = false;
-                } else {
-                    if(MusicApi.searchSongsResults.count !== 0) {
-                        isEnd = true;
-                    }
-                }
-            }
-            onClicked: (index) => {
-                MusicApi.getMusicInfo(model.get(index).hash);
-            }
-        }
-        QListView {
             id: searchLyrics
             width: searchChildPage.width + 16
             height: searchChildPage.height
-            model: MusicApi.searchSongsResults
+            model: visible ? MusicApi.searchSongsResults : null
             clip: true
             visible: false
             topMargin: 72

@@ -1,0 +1,66 @@
+# Maintainer: BroNekoX <uihugd@outlook.com>
+#
+# QueMusic —— 基于 Qt 6 / QML 的跨平台音乐播放器（Arch Linux 源码包）
+#
+# 本包跟踪上游 main 分支，属于 VCS 包；上游打 tag 后建议另建稳定包
+# `quemusic`，用 release tarball + sha256（见 doc/store-publishing.md）。
+#
+# 子模块（QWindowKit / TagLib / Crypto++）在 prepare() 中拉取，
+# 需要构建时能访问 GitHub；makepkg 默认允许。
+
+pkgname=quemusic-git
+pkgver=0.5.1.Beta.r58.g06f0287
+pkgrel=1
+pkgdesc="A high-performance music player built with Qt 6 and QML"
+arch=('x86_64' 'aarch64')
+url="https://github.com/BroNekoX/QueMusic"
+license=('Apache-2.0')
+depends=(
+    'qt6-base'
+    'qt6-declarative'
+    'qt6-multimedia'
+    'qt6-shadertools'
+    'qt6-5compat'
+    'qt6-svg'
+    'qt6-wayland'
+    'ffmpeg'
+    'hicolor-icon-theme'
+)
+makedepends=('cmake' 'ninja' 'git')
+provides=('quemusic')
+conflicts=('quemusic' 'quemusic-bin')
+source=("git+https://github.com/BroNekoX/QueMusic.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "${srcdir}/QueMusic"
+    git describe --long --tags --abbrev=7 2>/dev/null \
+        | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' \
+        || printf '0.6.0.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+    cd "${srcdir}/QueMusic"
+    git submodule update --init --recursive
+}
+
+build() {
+    cd "${srcdir}/QueMusic"
+    # CMAKE_BUILD_TYPE=None：使用 makepkg 导出的 CXXFLAGS（-O2 等）
+    cmake -B build -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DQUEMUSIC_ENABLE_LTO=OFF \
+        -DQUEMUSIC_QML_LINT=OFF
+    cmake --build build --parallel
+}
+
+package() {
+    cd "${srcdir}/QueMusic"
+    DESTDIR="$pkgdir" cmake --install build
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+    install -Dm644 THIRD_PARTY_NOTICES.md \
+        "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_NOTICES.md"
+}

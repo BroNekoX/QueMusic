@@ -233,17 +233,17 @@ Item {
         font.weight: 600
         width: mainLyrics.piclong
         elide: Text.ElideRight
-        visible: x !== -400 && !mainLyrics.basicCd && LyricsFreeConfig.showTitle
         font.pixelSize: mainLyrics.standHeight / 2
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
         color: Qt.rgba(1,1,1,1)
         layer.enabled: true
+        visible: false
     }
     MultiEffect {
         anchors.fill: titleMax
         source: titleMax
-        visible: x !== -400 && !mainLyrics.basicCd
+        visible: x !== -400 && !mainLyrics.basicCd && LyricsFreeConfig.showTitle
         shadowEnabled: true
         shadowBlur: 1.0
         blurMax: 16

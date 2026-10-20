@@ -112,7 +112,7 @@ Window {                 // 不是 ApplicationWindow
 **非单例、按需实例化的 C++ 类型**（`QML_ELEMENT`，QML 里直接 `Xxx { }`）：
 `AudioEngine`、`QueueModel`、`GetWave`、`CoverHelper`、`ColorExtractor`、`CustomFlow`、`LocalMusicScanner`、`DownloadedMusicModel`、`DownloadManager`、`SystemTrayManager`、`WindowsSmtcManager`、`WebDavModel`、`MeshGradientItem`、`LyricsStage`。
 
-**QML 不可见（纯 C++）**：`DbService`、`PlayerDatabase`、`FfmpegDecoder`、`AudioDsp`、`WebDavClient`、`PluginStore`（基类）、`SearchResultModel`、`FavoritesModel`/`FolderModel`/`SongModel`（抽象基类，实际只用上面的单例子类）。
+**QML 不可见（纯 C++）**：`DbService`、`FfmpegDecoder`、`AudioDsp`、`WebDavClient`、`PluginStore`（基类）、`SearchResultModel`、`FavoritesModel`/`FolderModel`/`SongModel`（抽象基类，实际只用上面的单例子类）。
 
 ### 5.2.3 `main.qml` → `Options` 注入清单（**全部 15 条，无遗漏**）
 
@@ -651,7 +651,6 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | `FunctionPlugins` | `cpp/plugins/FunctionPluginStore.h` | ✅ 单例 | `components/PluginHost.qml`、`SettingsView.qml:2174` |
 | `MeshGradientItem` | `shaders/MeshGradientItem.h` | ✅ 普通类型 | `layout/MainLyric.qml:94`、`lyricsui/LyricsFree.qml:100` |
 | `LyricsStage` | `shaders/LyricsStage.h` | ✅ 普通类型 | `lyricsui/Lyrics3D.qml:153` |
-| `PlayerDatabase` | `cpp/PlayerDatabase.h` | ❌ 无 `QML_ELEMENT` | **QML 层不可见**（纯 C++，经 `DbService` 使用） |
 | `DbService` | `cpp/DbService.h` | ❌ 非 `QObject`（无 QML 暴露） | **QML 层不可见** |
 
 ---

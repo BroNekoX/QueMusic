@@ -84,7 +84,7 @@ Rectangle {
         rectcolorAnime.running = true;
     }
 
-    Behavior on hideHeight { enabled: musicControlMax.visible; NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
+    Behavior on hideHeight { enabled: musicControlMax.visible; NumberAnimation { duration: 500; easing.type: Easing.OutExpo } }
 
     MouseArea {
         anchors.fill: parent

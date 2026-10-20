@@ -1,0 +1,27 @@
+pkgbase = quemusic-git
+	pkgdesc = A high-performance music player built with Qt 6 and QML
+	pkgver = 0.5.1.Beta.r58.g06f0287
+	pkgrel = 1
+	url = https://github.com/BroNekoX/QueMusic
+	arch = x86_64
+	arch = aarch64
+	license = Apache-2.0
+	makedepends = cmake
+	makedepends = ninja
+	makedepends = git
+	depends = qt6-base
+	depends = qt6-declarative
+	depends = qt6-multimedia
+	depends = qt6-shadertools
+	depends = qt6-5compat
+	depends = qt6-svg
+	depends = qt6-wayland
+	depends = ffmpeg
+	depends = hicolor-icon-theme
+	provides = quemusic
+	conflicts = quemusic
+	conflicts = quemusic-bin
+	source = git+https://github.com/BroNekoX/QueMusic.git
+	sha256sums = SKIP
+
+pkgname = quemusic-git

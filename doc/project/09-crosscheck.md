@@ -28,7 +28,7 @@
 |---|---|---|
 | `SearchResultModel` | `cpp/FolderModel.cpp:260` 与 `cpp/LocalMusicScanner.cpp:193` 各自 `new`，**role 子集不同**（前者 `SongIdRole…`，后者 `FileNameRole…`） | `QSortModel.qml` 注释：`SearchResultModel` 用 `getRow(row)`，而 `Favorites`/`SongModel` 用 `get(row)` |
 | `DownloadManager` | `MusicApiService` 的成员 `m_downloader`，以 `MusicApi.downloader`（`Q_PROPERTY(... CONSTANT)`）暴露；`pages/DownloadPage.qml` 里 `MusicApi.downloader` 出现 9 次 | `api/MusicApiService.h` |
-| `DbService`、`PlayerDatabase` | 纯 C++ 内部使用 | 全仓 QML 里出现次数为 **0** |
+| `DbService` | 纯 C++ 内部使用 | 全仓 QML 里出现次数为 **0** |
 
 ## 9.2 QML → C++ 单例引用热力表
 

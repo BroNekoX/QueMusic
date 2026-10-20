@@ -37,6 +37,7 @@ Item {
         source: settingsView.backSource
         visible: Style.backmode === 2 || Style.backmode === 3
         asynchronous: true
+        sourceSize: Qt.size(width, height)
         fillMode: Image.PreserveAspectCrop
     }
 
@@ -810,11 +811,10 @@ Item {
                             }
                         }
 
-                        SettingItemCard {
+                        SettingsItemVisibleCard {
                             label: "选择背景图片"
                             tip: "设置应用背景壁纸显示的图片"
-                            visible: Style.backmode === 3
-                            height: visible ? 64 : 0
+                            display: Style.backmode === 3
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {
                                 anchors.fill: parent
@@ -1123,12 +1123,11 @@ Item {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
                     radius: Style.cubeRadius
+                    height: jmysColumn.height
                     Column {
+                        id: jmysColumn
                         width: settingStack.standWidth
                         padding: 0
-                        Component.onCompleted: {
-                            parent.height = height
-                        }
                         SettingItemCard {
                             label: "左栏沉浸"
                             tip: "左侧的页面切换栏将使用与背景一致的色彩，提高观感"
@@ -1136,7 +1135,10 @@ Item {
                                 anchors.fill: parent
                                 letRight: true
                                 switchTrue: Style.sidebarColor
-                                onToggled: Style.sidebarColor = !Style.sidebarColor
+                                onToggled: {
+                                    Style.sidebarColor = !Style.sidebarColor;
+                                    Options.changeTheme();
+                                }
                             }
                         }
 
@@ -1162,6 +1164,18 @@ Item {
                                 letRight: true
                                 switchTrue: Style.noOpacityControl
                                 onToggled: Style.noOpacityControl = !Style.noOpacityControl
+                            }
+                        }
+
+                        SettingsItemVisibleCard {
+                            label: "封面色底栏"
+                            tip: "播放器控制底栏将使用和当前歌曲封面相同的主题色"
+                            display: Style.noOpacityControl
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Style.coverColorControl
+                                onToggled: Style.coverColorControl = !Style.coverColorControl
                             }
                         }
 
@@ -2435,7 +2449,7 @@ Item {
                         title: "BroNekoX Studio"
                         text: "本项目的主要开发负责人"
                         openUrl: "https://github.com/bronekox"
-                        color: settingStack.cardColor
+                        baseColor: settingStack.cardColor
                     }
                 }
 
@@ -2530,7 +2544,7 @@ Item {
                         title: "QWindowKit"
                         text: "实现全平台完美的无边框窗口"
                         openUrl: "https://github.com/stdware/qwindowkit"
-                        color: settingStack.cardColor
+                        baseColor: settingStack.cardColor
                     }
                     AccountCard {
                         width: settingStack.standWidth / 2 - 12
@@ -2538,7 +2552,7 @@ Item {
                         title: "Qt Community"
                         text: "强大的开源跨平台软件包框架"
                         openUrl: "https://github.com/qt"
-                        color: settingStack.cardColor
+                        baseColor: settingStack.cardColor
                     }
                     AccountCard {
                         width: settingStack.standWidth / 2 - 12
@@ -2546,7 +2560,7 @@ Item {
                         title: "QCloudMusicApi"
                         text: "网易云音乐第三方API服务框架"
                         openUrl: "https://github.com/s12mmm3/QCloudMusicApi"
-                        color: settingStack.cardColor
+                        baseColor: settingStack.cardColor
                     }
                 }
 
@@ -2968,6 +2982,84 @@ Item {
             onConfirm: {
                 Qt.openUrlExternally("https://github.com/BroNekoX/QueMusic/releases");
             }
+        }
+    }
+
+    component SettingsItemVisibleCard: SettingItemCard {
+        id: cardRoot
+        property bool display: false
+        property real transY: 0
+        height: 0
+        visible: false
+        transform: Translate { y: cardRoot.transY }
+        Component.onCompleted: {
+            if(display) {
+                height = 64;
+                visible = true;
+            }
+        }
+        onDisplayChanged: {
+            if(display) {
+                outAnime.running = false;
+                visible = true;
+                onAnime.running = true;
+            } else {
+                onAnime.running = false;
+                outAnime.running = true;
+            }
+        }
+
+        ParallelAnimation {
+            id: onAnime
+            NumberAnimation {
+                target: cardRoot
+                property: "height"
+                from: 0
+                to: 64
+                duration: 420
+                easing.type: Easing.OutExpo
+            }
+            NumberAnimation {
+                target: cardRoot
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 360
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: cardRoot
+                property: "transY"
+                from: -64
+                to: 0
+                duration: 420
+                easing.type: Easing.OutExpo
+            }
+        }
+        ParallelAnimation {
+            id: outAnime
+            NumberAnimation {
+                target: cardRoot
+                property: "height"
+                to: 0
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: cardRoot
+                property: "opacity"
+                to: 0
+                duration: 160
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: cardRoot
+                property: "transY"
+                to: -64
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+            onFinished: cardRoot.visible = false;
         }
     }
 }

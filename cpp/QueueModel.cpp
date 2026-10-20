@@ -67,7 +67,7 @@ void QueueModel::append(const QVariantMap &item)
     insert(m_items.size(), item);
 }
 
-int QueueModel::appendBatch(const QVariantList &items)
+int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
 {
     if (items.isEmpty())
         return 0;
@@ -77,9 +77,13 @@ int QueueModel::appendBatch(const QVariantList &items)
     QSet<QString> seen;
     for (const QVariant &entry : items) {
         const Track t = toTrack(entry.toMap());
-        if (t.path.isEmpty() || m_indexOfPath.contains(t.path) || seen.contains(t.path))
+        if (t.path.isEmpty())
             continue;
-        seen.insert(t.path);
+        if (skipExisting) {
+            if (m_indexOfPath.contains(t.path) || seen.contains(t.path))
+                continue;
+            seen.insert(t.path);
+        }
         tracks.append(t);
     }
     if (tracks.isEmpty())
@@ -88,9 +92,9 @@ int QueueModel::appendBatch(const QVariantList &items)
     const int first = m_items.size();
     beginInsertRows(QModelIndex(), first, first + tracks.size() - 1);
     m_items += tracks;
-    for (int i = 0; i < tracks.size(); ++i)
-        m_indexOfPath.insert(tracks.at(i).path, first + i);
     endInsertRows();
+    // 新行都在尾部，整体重建索引同样是 O(n)
+    rebuildIndex();
     emit countChanged();
     return tracks.size();
 }

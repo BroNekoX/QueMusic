@@ -4,6 +4,7 @@
 #include "LocalMusicScanner.h"
 
 #include "CoverHelper.h"
+#include "DbService.h"
 #include "SearchResultModel.h"
 #include <QDir>
 #include <QDirIterator>
@@ -11,7 +12,6 @@
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QSet>
-#include <QStandardPaths>
 #include <QUrl>
 #include <algorithm>
 
@@ -362,9 +362,8 @@ void LocalMusicScanner::startScan()
     m_worker->showDirs = m_showDirs;
     m_worker->sortField = m_sortField;
     m_worker->sortReversed = m_sortReversed;
-    m_worker->cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-                         + QStringLiteral("/cache");
-    QDir().mkpath(m_worker->cacheDir);
+    // 与库里其它封面同目录（DbService 回退时也一致）
+    m_worker->cacheDir = DbService::cacheDir();
 
     if (!m_scanning) {
         m_scanning = true;

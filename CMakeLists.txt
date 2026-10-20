@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(QueMusic VERSION 0.1 LANGUAGES CXX)
+project(QueMusic VERSION 0.6.0 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOMOC_PATH_PREFIX ON)
@@ -196,8 +196,6 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         shaders/LyricsStage.h
         cpp/AppModels.h
         cpp/MediaTypes.h
-        cpp/PlayerDatabase.cpp
-        cpp/PlayerDatabase.h
         cpp/DbService.cpp
         cpp/DbService.h
         cpp/CoverHelper.cpp
@@ -248,6 +246,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/LogManager.h
         cpp/SystemTrayManager.cpp
         cpp/SystemTrayManager.h
+        cpp/platform/WindowsAppIdentity.cpp
+        cpp/platform/WindowsAppIdentity.h
         cpp/audio/AudioEngine.cpp
         cpp/audio/AudioEngine.h
         cpp/audio/AudioDsp.cpp
@@ -374,3 +374,34 @@ endif()
 
 
 
+
+# ds大肥鱼喵
+# ---------------------------------------------------------------------------
+# 安装规则（Linux 打包：Flatpak / AUR / AppImage 共用）
+#
+# 之前只把产物放在 build/bin，由各打包脚本手工拷贝；Flatpak 与 AUR 都要求
+# `cmake --install` 能落到 ${CMAKE_INSTALL_PREFIX}，否则无法复用同一份
+# 打包流程。这里只安装运行期必需的内容：
+#   bin/QueMusic
+#   share/applications/<app-id>.desktop
+#   share/metainfo/<app-id>.metainfo.xml
+#   share/icons/hicolor/512x512/apps/<app-id>.png
+# QML 与资源都已编入 qrc，不需要额外安装 QML 文件。
+# ---------------------------------------------------------------------------
+include(GNUInstallDirs)
+
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION .
+)
+
+if(UNIX AND NOT APPLE)
+    set(QUE_MUSIC_APP_ID "io.github.BroNekoX.QueMusic")
+    install(FILES packaging/linux/${QUE_MUSIC_APP_ID}.desktop
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES packaging/linux/${QUE_MUSIC_APP_ID}.metainfo.xml
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
+    install(FILES resources/app/rainbowMusicIcon.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps
+            RENAME ${QUE_MUSIC_APP_ID}.png)
+endif()

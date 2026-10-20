@@ -116,6 +116,8 @@ private:
     int m_folderId = -1;          // >=0 时只看该收藏夹（仅歌曲）
     std::atomic<int> m_generation{0};
     bool m_loading = false;
+    // isFavorite 补加载闸门，避免空类型反复「查询→重置→查询」
+    bool m_refreshInFlight = false;
     inline static int s_revision = 0;              // 只在 GUI 线程递增
     inline static QList<FavoritesModel *> s_instances;   // 三个单例，用于互相通知
 };

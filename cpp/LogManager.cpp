@@ -186,9 +186,10 @@ void LogManager::writeLine(int level, const QString &category, const QString &me
 
 void LogManager::ensureLogFile()
 {
-    const QString today = QDate::currentDate().toString(QStringLiteral("yyyyMMdd"));
-    if (m_file.isOpen() && m_dateStamp == today)
+    const QDate day = QDate::currentDate();
+    if (m_file.isOpen() && m_stampDay == day)
         return;
+    const QString today = day.toString(QStringLiteral("yyyyMMdd"));
 
     if (m_file.isOpen())
         m_file.close();
@@ -198,7 +199,7 @@ void LogManager::ensureLogFile()
     m_file.setFileName(path);
 
     if (m_file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        m_dateStamp = today;
+        m_stampDay = day;
         m_logFile = QFileInfo(path).absoluteFilePath();
 
         // 新文件写入 UTF-8 BOM，便于 Windows 记事本识别中文

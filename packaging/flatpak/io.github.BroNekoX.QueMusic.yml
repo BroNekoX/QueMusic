@@ -1,0 +1,49 @@
+# Flatpak manifest for QueMusic
+#
+# 本地构建：
+#   flatpak install -y flathub org.flatpak.Builder org.kde.Platform//6.10 org.kde.Sdk//6.10
+#   flatpak run --command=flathub-build org.flatpak.Builder --install packaging/flatpak/io.github.BroNekoX.QueMusic.yml
+#   flatpak run io.github.BroNekoX.QueMusic
+#
+# 提交前：
+#   flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/io.github.BroNekoX.QueMusic.yml
+#
+# 说明：
+#   * flatpak-builder 的 git source 默认会递归 checkout 子模块，
+#     因此 ThirdParty/qwindowkit、ThirdParty/taglib、
+#     api/QCloudMusicApi/3rdparty/cryptopp 无需单独列 source。
+#   * commit 必须与源文件的版本一致；发版后改成 tag + commit 更直观。
+#   * 商店版若要裁掉在线音源/下载功能，在这里追加
+#     -DQUEMUSIC_DISTRO_BUILD=ON（需先在 CMake 中实现该开关）。
+
+app-id: io.github.BroNekoX.QueMusic
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+command: QueMusic
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-music:ro
+  - --filesystem=xdg-download
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+modules:
+  - name: quemusic
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DQUEMUSIC_ENABLE_LTO=OFF
+      - -DQUEMUSIC_QML_LINT=OFF
+      - -DQUEMUSIC_FFMPEG_USE_QT=OFF
+    sources:
+      - type: git
+        url: https://github.com/BroNekoX/QueMusic.git
+        disable-shallow-clone: true
+        commit: 06f028768ed4dc948b7a939e5986135e6881e0d4

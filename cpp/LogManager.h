@@ -4,6 +4,7 @@
 #ifndef LOGMANAGER_H
 #define LOGMANAGER_H
 
+#include <QDate>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -102,7 +103,7 @@ private:
     int m_minimumLevel = Level::Info;  // 默认：信息
     QString m_logDir;
     QString m_logFile;
-    QString m_dateStamp;
+    QDate m_stampDay;   // 跨天才重新格式化文件名
     QFile m_file;
     QStringList m_recentLines;
     QString m_preview;

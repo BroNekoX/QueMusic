@@ -48,13 +48,15 @@ QHash<int, QByteArray> OnlineListModel::roleNames() const
 void OnlineListModel::collectRoles(const QVariantMap &map)
 {
     for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
-        const QByteArray key = it.key().toLatin1();
-        if (!m_roleIndex.contains(key)) {
-            const int role = m_nextRole++;
-            m_roleIndex.insert(key, role);
-            m_roleNames.insert(role, key);
-            m_roleKeys.insert(role, it.key());
-        }
+        // 常见角色已注册：通常只做一次 QString 查找
+        const QString &name = it.key();
+        if (m_roleIndex.contains(name))
+            continue;
+        const QByteArray key = name.toLatin1();
+        const int role = m_nextRole++;
+        m_roleIndex.insert(name, role);
+        m_roleNames.insert(role, key);
+        m_roleKeys.insert(role, name);
     }
 }
 
@@ -86,13 +88,18 @@ void OnlineListModel::append(const QVariant &items)
     if (list.isEmpty())
         return;
 
+    // 每项只 toMap() 一次
+    QVector<QVariantMap> rows;
+    rows.reserve(list.size());
+    for (const QVariant &v : list)
+        rows.append(v.toMap());
     // 先收集新字段 role（roleNames 变化须在 beginInsertRows 前完成）
-    for (const QVariant &v : list)
-        collectRoles(v.toMap());
+    for (const QVariantMap &row : std::as_const(rows))
+        collectRoles(row);
     const int start = m_items.size();
-    beginInsertRows(QModelIndex(), start, start + list.size() - 1);
-    for (const QVariant &v : list)
-        m_items.append(v.toMap());
+    beginInsertRows(QModelIndex(), start, start + rows.size() - 1);
+    for (const QVariantMap &row : std::as_const(rows))
+        m_items.append(row);
     endInsertRows();
     emit countChanged();
 }
@@ -110,12 +117,17 @@ void OnlineListModel::remove(int index, int count)
 
 void OnlineListModel::setItems(const QVariantList &items)
 {
+    QVector<QVariantMap> rows;
+    rows.reserve(items.size());
+    for (const QVariant &v : items)
+        rows.append(v.toMap());
     beginResetModel();
     m_items.clear();
-    for (const QVariant &v : items)
-        collectRoles(v.toMap());
-    for (const QVariant &v : items)
-        m_items.append(v.toMap());
+    m_items.reserve(rows.size());
+    for (const QVariantMap &row : std::as_const(rows))
+        collectRoles(row);
+    for (const QVariantMap &row : std::as_const(rows))
+        m_items.append(row);
     endResetModel();
     emit countChanged();
 }

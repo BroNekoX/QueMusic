@@ -684,7 +684,13 @@ Item {
                 font.pixelSize: Style.text
                 verticalAlignment: Text.AlignVCenter
                 selectionColor: Theme.containColor
-                onTextChanged: FavoriteSongs.searchText = text
+                // 防抖：每敲一个字都会重置模型
+                onTextChanged: favSearchDebounce.restart()
+                Timer {
+                    id: favSearchDebounce
+                    interval: 150
+                    onTriggered: FavoriteSongs.searchText = favSearchInput.text
+                }
                 background: Rectangle {
                     radius: Style.labelRadius
                     color: Theme.primaryColor

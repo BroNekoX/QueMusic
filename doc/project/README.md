@@ -78,7 +78,7 @@
 | 任务 | 主要文件 |
 |---|---|
 | 本地扫描入库 | `cpp/LocalMusicScanner.{h,cpp}` |
-| 曲库/歌单/收藏的数据库访问（线程化） | `cpp/DbService.{h,cpp}`、`cpp/PlayerDatabase.{h,cpp}` |
+| 曲库/歌单/收藏的数据库访问（线程化） | `cpp/DbService.{h,cpp}` |
 | 文件夹/歌单模型（`MyFolders`/`LocalFolders`/`Songs`） | `cpp/FolderModel.{h,cpp}` + `cpp/AppModels.h` |
 | 收藏（`FavoriteSongs`/`FavoritePlaylists`/`FavoriteArtists`） | `cpp/Favorites.{h,cpp}` + `cpp/AppModels.h` |
 | 本地歌词（`.lrc` / 内嵌 SYLT/USLT） | `cpp/LocalLyricsReader.{h,cpp}` |

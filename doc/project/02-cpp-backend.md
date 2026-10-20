@@ -31,7 +31,6 @@
 | `cpp/LocalMusicScanner.h` `cpp/LocalMusicScanner.cpp` | `LocalMusicScanner`、`LocalScanWorker`（内含 `LocalFileEntry`） | `LocalMusicScanner`（`QML_ELEMENT`） | 本地目录列表：独立线程扫描 + TAG 富集分批回传 + 资源管理器式搜索 + 批量移入回收站。 |
 | `cpp/LogManager.h` `cpp/LogManager.cpp` | `LogManager` | `LogManager`（`QML_ELEMENT` + `QML_SINGLETON`） | 应用级日志：接管 Qt 全局消息、按日写文件、QML 预览与等级开关。 |
 | `cpp/MediaTypes.h` | 命名空间 `MediaTypes` | 未暴露 | 可播放后缀白名单的**唯一来源**（本地扫描/WebDAV/已下载共用）。 |
-| `cpp/PlayerDatabase.h` `cpp/PlayerDatabase.cpp` | 自由函数 `playerDatabase()` | 未暴露 | GUI 线程共享的 `QSqlDatabase` 连接（懒建、自动建表）。 |
 | `cpp/QueueModel.h` `cpp/QueueModel.cpp` | `QueueModel` | `QueueModel`（`QML_ELEMENT`） | 播放队列模型：增删移、批量追加去重、path→行号索引。 |
 | `cpp/SearchResultModel.h` `cpp/SearchResultModel.cpp` | `SearchResultModel`（内含 `Row`） | `SearchResultModel`（`QML_ANONYMOUS`），经 `searchResults` 属性暴露 | 通用搜索结果模型：角色集合由构造时传入，分批追加。 |
 | `cpp/SystemTrayManager.h` `cpp/SystemTrayManager.cpp` | `SystemTrayManager` | `SystemTrayManager`（`QML_ELEMENT`） | 系统托盘图标 + 原生菜单，交互以信号回发 QML；依赖 QtWidgets。 |
@@ -58,13 +57,12 @@
 | 数据库文件 | `<DbService::dataDir()>/player_data.db` |
 | `dataDir()` | 优先 `QStandardPaths::AppDataLocation`；该目录**真切一条连接建表试写**失败时退到 `QCoreApplication::applicationDirPath() + "/data"`；两者都失败回退 `preferred` |
 | 迁移 | 换目录时若旧库存在、新库不存在，且旧库 `SELECT count(*) FROM favorites` > 0，则整库 `QFile::copy` 搬迁；旧库保留不删并打日志 |
-| 缓存目录 | `DbService::cacheDir()` = `dataDir() + "/cache"`（自动 `mkpath`）。注意 `LocalMusicScanner::startScan()` 另算了一次 `AppDataLocation + "/cache"`（见第 8 节） |
-| 连接名 | DB 线程：`quemusic_db_worker`；GUI 线程：`shared_player_db`（`playerDatabase()`）；临时：`writable_probe`、`migrate_probe` |
+| 缓存目录 | `DbService::cacheDir()` = `dataDir() + "/cache"`（自动 `mkpath`），是**唯一**封面缓存目录：`LocalMusicScanner` 也改用它，不再自己拼 `AppDataLocation` |
+| 连接名 | DB 线程：`quemusic_db_worker`；临时：`writable_probe`、`migrate_probe`（旧的 GUI 线程连接 `shared_player_db` 已随 `PlayerDatabase` 删除） |
 
 ### 2.2.2 表与属主
 
-建表与增量迁移全部在 `DbService::ensureSchema(QSqlDatabase&)`，由 DB 线程 `DbWorker::open()` 调用，
-`playerDatabase()` 首次打开时也会调用一次。
+建表与增量迁移全部在 `DbService::ensureSchema(QSqlDatabase&)`，由 DB 线程 `DbWorker::open()` 调用。
 
 | 表 | 列 | 属主（唯一写入方） | 备注 |
 |---|---|---|---|
@@ -83,8 +81,6 @@
 - 结果回投：`DbService::post(target, fn)` → `QMetaObject::invokeMethod(target, fn, Qt::QueuedConnection)`；`target` 已销毁（`QPointer` 为空）则丢弃。
 - 所有 QML 侧读写都遵循「工作线程碰 db、结果 post 回对象所在线程」；`Favorites.h` 注释明确：
   `isFavorite` 在 GUI 线程**绝不能**查库（连接名被 DB 线程持有），只能读内存集合。
-- GUI 线程只读通道 `playerDatabase()`（`shared_player_db`）懒建并自动 `ensureSchema`。
-  注：`Favorites.cpp` `#include "PlayerDatabase.h"` 但全文件未调用 `playerDatabase()`（未确认是否有意保留）。
 - PRAGMA（DB 线程 `open()` 内）：`journal_mode = DELETE`、`synchronous = NORMAL`、`foreign_keys = ON`；
   连接选项 `QSQLITE_BUSY_TIMEOUT=8000`。
 - 写失败自愈：写操作失败时调用 `DbService::markWriteFailed(err)`，识别 `nativeErrorCode == "8"`（SQLITE_READONLY）
@@ -197,7 +193,7 @@
 |---|---|
 | Q_PROPERTY | `int count`、`int playListIndex`（可写，写入自动 clamp 到 `[-1, size-1]`，空列表为 -1） |
 | Q_ENUM | `Roles { NameRole = Qt::UserRole + 1, PathRole, SongerRole, SourceRole }` |
-| Q_INVOKABLE | `QVariantMap get(index)`、`append(item)`、`int appendBatch(items)`（返回实际加入数，首条下标 = `count() - 返回值`）、`insert(index, item)`、`moveTo(from, to)`、`remove(index, count = 1)`、`clear()`、`int indexOfPath(path)` |
+| Q_INVOKABLE | `QVariantMap get(index)`、`append(item)`、`int appendBatch(items, skipExisting = true)`（一次 beginInsertRows + 一次索引重建；返回实际加入数，首条下标 = `count() - 返回值`；`skipExisting=false` 时保留重复项，供会话恢复）、`insert(index, item)`、`moveTo(from, to)`、`remove(index, count = 1)`、`clear()`、`int indexOfPath(path)` |
 | signals | `countChanged()`、`playListIndexChanged()` |
 
 ### SearchResultModel
