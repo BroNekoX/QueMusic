@@ -183,6 +183,7 @@ void FavoritesModel::refreshModel()
                 return;
             self->m_idsByType = allIds;
             self->applyItems(items);
+            emit self->favoriteStateChanged();
         });
     });
 }
@@ -308,6 +309,7 @@ void FavoritesModel::writeFavorite(const QString &id, const QString &title,
                 return;
             }
             self->m_idsByType[type].insert(id);
+            emit self->favoriteChanged(id, type, true);
             self->bumpRevision();
             if (self->m_filterType == type)
                 self->refreshModel();
@@ -340,6 +342,7 @@ void FavoritesModel::removeFavorite(const QString &id, const QString &type)
                 return;
             }
             self->m_idsByType[type].remove(id);
+            emit self->favoriteChanged(id, type, false);
             self->bumpRevision();
             if (self->m_filterType == type)
                 self->refreshModel();

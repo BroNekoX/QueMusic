@@ -147,7 +147,8 @@ private:
     void startEnrichment();
     void enrichBatch();
     void persistTags(const QList<int> &ids, const QStringList &titles,
-                     const QStringList &artists, const QStringList &covers);
+                     const QStringList &artists, const QStringList &covers,
+                     const QList<int> &durations);
     void submitSearch();
     void mutate(DbMutator mutator);
 

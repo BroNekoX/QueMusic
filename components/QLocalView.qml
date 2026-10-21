@@ -14,7 +14,7 @@ ListView {
     rightMargin: 16
     acceptedButtons: Qt.NoButton
     property int scrollToY: view.contentY
-    property list<string> headerModel: ["标题","歌手","","菜单"]
+    property list<string> headerModel: ["标题","歌手","","时长"]
     property list<string> menuModel: ["立即播放","下一首播放","添加到播放列表","音频详情","编辑元数据","移除该音乐"]
     property list<int> selectedIndices: []
     readonly property var selectedSet: new Set(selectedIndices)
@@ -173,9 +173,9 @@ ListView {
             verticalAlignment: Text.AlignVCenter
         }
         Text {
-            x: view.width - 76
+            x: view.width - 74
             height: 36
-            text: view.headerModel[2]
+            text: view.headerModel[3]
             color: Theme.textColor
             font.pixelSize: Style.textTip
             font.weight: Font.DemiBold

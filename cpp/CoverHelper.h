@@ -46,6 +46,7 @@ public:
     struct Metadata {
         QString title;
         QString artist;
+        int duration = 0;
     };
 
     // 内嵌封面统一按这一档缓存成 cover-<key>.jpg，列表与播放页共用，解码尺寸交给 QML 的 sourceSize

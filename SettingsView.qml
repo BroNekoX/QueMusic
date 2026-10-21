@@ -1733,9 +1733,9 @@ Item {
                             tip: "清空全部播放历史记录"
                             controlItem: QButton {
                                 anchors.fill: parent
-                                anchors.verticalCenter: parent.verticalCenter
                                 shadowEnabled: false
                                 fontSize: Style.textTip
+                                radius: Style.labelRadius
                                 text: "清空"
                                 buttonColor: "#fa4642"
                                 textColor: "#ffffff"
@@ -2436,23 +2436,6 @@ Item {
                     }
                 }
 
-                QHead { text: "主要开发者" }
-
-                Grid {
-                    spacing: 24
-                    rows: 2
-                    width: settingStack.standWidth
-                    height: 80
-                    AccountCard {
-                        width: settingStack.standWidth / 2 - 12
-                        source: "qrc:/QueMusic/resources/app/icons/bronekox.jpg"
-                        title: "BroNekoX Studio"
-                        text: "本项目的主要开发负责人"
-                        openUrl: "https://github.com/bronekox"
-                        baseColor: settingStack.cardColor
-                    }
-                }
-
                 QHead { text: "技术践与版本信息" }
 
                 Rectangle {
@@ -2580,7 +2563,7 @@ Item {
                     }
                 }
 
-                QHead { text: "联系开发者" }
+                QHead { text: "联系开发者 —— BroNekoX" }
 
                 Rectangle {
                     width: settingStack.standWidth
@@ -2949,7 +2932,7 @@ Item {
                         const remoteVersion = parseInt(text.substring(0,3));
                         console.log("远程版本号:", remoteVersion);
 
-                        if (remoteVersion > localVersion) {
+                        if (remoteVersion > updater.localVersion) {
                             console.log("发现新版本!");
                             newVersion = remoteVersion;
                             updater.versionDescription = text.substring(4);

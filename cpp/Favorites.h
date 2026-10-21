@@ -94,6 +94,7 @@ signals:
     void loadingChanged();
     // 某个 id 的收藏状态变了：委托里的收藏图标据此重算
     void favoriteStateChanged();
+    void favoriteChanged(const QString &id, const QString &type, bool favorite);
     void errorOccurred(const QString &message);
 
 private:

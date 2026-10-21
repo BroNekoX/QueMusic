@@ -25,6 +25,7 @@ struct LocalFileEntry {
     QString title;
     QString artist;
     QString coverUrl;
+    int duration = 0;
 };
 Q_DECLARE_METATYPE(LocalFileEntry)
 Q_DECLARE_METATYPE(QList<LocalFileEntry>)
@@ -87,7 +88,8 @@ public:
         FileModifiedRole,
         TitleRole,
         ArtistRole,
-        CoverUrlRole
+        CoverUrlRole,
+        DurationRole
     };
 
     explicit LocalMusicScanner(QObject *parent = nullptr);

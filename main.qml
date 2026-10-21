@@ -335,6 +335,7 @@ Window {
             QWKButton {
                 id: settingButton
                 largeicon: true
+                buttonColor: settingsView.visible ? Theme.containColor : "transparent"
                 source: Options.darkis || titleBar.toBarLyric ? "qrc:/QueMusic/resources/window-bar/settingd.svg" : "qrc:/QueMusic/resources/window-bar/setting.svg"
                 onClicked: {
                     settingsView.active = true;

@@ -50,6 +50,8 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void reload();
+    Q_INVOKABLE void removeFile(const QString &fileUrl);
+    Q_INVOKABLE void syncSidecar(const QString &fileUrl);
     Q_INVOKABLE QVariantMap get(int row) const;
 
     QString downloadDir() const { return m_downloadDir; }

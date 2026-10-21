@@ -538,7 +538,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
                                     tipText: listfolder.path ? "打开文件夹位置" : "应用逻辑文件夹（无磁盘路径）"
                                     onClicked: {
@@ -555,7 +554,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
                                     tipText: "重命名文件夹"
 
@@ -575,7 +573,7 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                    hoverColor: "#dcff9999"
                                     shadowEnabled: false
                                     tipText: "删除文件夹"
                                     onClicked: {
@@ -811,7 +809,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
                                     tipText: "打开文件夹位置"
                                     onClicked: {
@@ -828,7 +825,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                     shadowEnabled: false
                                     tipText: "重命名文件夹"
 
@@ -844,7 +840,7 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                    hoverColor: "#dcff9999"
                                     shadowEnabled: false
                                     tipText: "删除文件夹"
                                     onClicked: {
@@ -1150,6 +1146,7 @@ Item {
                     required property string tagTitle
                     required property string tagArtist
                     required property string tagCoverUrl
+                    required property int duration
                     required property int index
                     id: listfile
                     height: 60
@@ -1220,7 +1217,19 @@ Item {
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
-
+                    Text {
+                        x: fileView.width - 92
+                        y: 16
+                        width: 60
+                        height: 28
+                        text: listfile.duration > 0 ? Playback.fmt(listfile.duration * 1000) : ""
+                        color: Theme.textColor
+                        font.bold: false
+                        elide: Text.ElideRight
+                        font.pixelSize: Style.text
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
                     MouseArea {
                         id: fileArea
                         anchors.fill: parent
@@ -1243,11 +1252,12 @@ Item {
                             forceActiveFocus();
                         }
                         Row {
-                            anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            x: fileView.toolX
                             spacing: 2
                             y: 12
                             height: 36
+                            opacity: fileArea.containsMouse ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 160 } }
                             SButton {
                                 id: fileListAdd
                                 iconCharacter: "\uf095"
@@ -1255,7 +1265,6 @@ Item {
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
                                 onClicked: filePage.enqueueLocalEntry(listfile.path, listfile.songTitle,
@@ -1268,7 +1277,6 @@ Item {
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "打开所在文件夹"
                                 onClicked: {
@@ -1282,7 +1290,7 @@ Item {
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                hoverColor: "#dcff9999"
                                 shadowEnabled: false
                                 tipText: "从当前文件夹移除"
                                 onClicked: {
@@ -1527,6 +1535,7 @@ Item {
                     required property string fileName
                     required property string title
                     required property string artist
+                    required property int duration
                     required property var model
                     required property int index
                     id: listLocalFile
@@ -1601,6 +1610,19 @@ Item {
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
+                    Text {
+                        x: listLocalFile.width - 92
+                        y: 16
+                        width: 60
+                        height: 28
+                        text: Playback.fmt(listLocalFile.duration * 1000) || ""
+                        color: Theme.textColor
+                        font.bold: false
+                        elide: Text.ElideRight
+                        font.pixelSize: Style.text
+                        verticalAlignment: Text.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
 
                     MouseArea {
                         id: localFileArea
@@ -1624,18 +1646,18 @@ Item {
                             forceActiveFocus();
                         }
                         Row {
-                            anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            x: localFileView.toolX
                             spacing: 2
                             y: 12
                             height: 36
+                            opacity: localFileArea.containsMouse ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 160 } }
                             SButton {
                                 iconCharacter: "\uf095"
                                 width: 36
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
                                 onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(),
@@ -1648,7 +1670,6 @@ Item {
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
                                 shadowEnabled: false
                                 tipText: "打开所在文件夹"
                                 onClicked: {
@@ -1661,7 +1682,7 @@ Item {
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                                hoverColor: "#dcff9999"
                                 shadowEnabled: false
                                 tipText: "从本地文件夹移除（移入回收站）"
                                 onClicked: filePage.deleteLocalFile(listLocalFile.fileUrl.toString(), listLocalFile.fileName)
@@ -1863,230 +1884,17 @@ Item {
         }
     }
 
-    // 音频详情：TagLib 只读表头，同步调用
-    QOptionDialog {
+    AudioInfoDialog {
         id: audioInfoDialog
-        title: "音频详情"
-        cancelText: ""
-        confirmText: "关闭"
-        property var rows: []
-
-        function showInfo(path: string): void {
-            const info = MusicApi.readLocalAudioInfo(path)
-            const rows = []
-            const add = (label, value) => {
-                const text = value === undefined || value === null ? "" : String(value)
-                if (text !== "" && text !== "0") rows.push({ label: label, value: text })
-            }
-            add("标题", info.title)
-            add("歌手", info.artist)
-            add("专辑", info.album)
-            add("流派", info.genre)
-            add("年份", info.year)
-            add("音轨号", info.track)
-            add("时长", info.duration > 0
-                ? Math.floor(info.duration / 60) + ":" + String(info.duration % 60).padStart(2, "0") : "")
-            add("格式", info.format)
-            add("比特率", info.bitrate > 0 ? info.bitrate + " kbps" : "")
-            add("采样率", info.sampleRate > 0 ? info.sampleRate + " Hz" : "")
-            add("声道", info.channels)
-            add("大小", info.size > 0 ? (info.size / 1048576).toFixed(2) + " MB" : "")
-            add("文件名", info.fileName)
-            audioInfoDialog.rows = rows
-            audioInfoDialog.open()
-        }
-
-        options: Column {
-            width: parent.width
-            spacing: 8
-            Repeater {
-                model: audioInfoDialog.rows
-                delegate: Row {
-                    id: infoRow
-                    required property string label
-                    required property string value
-                    width: parent.width
-                    height: 24
-                    spacing: 12
-                    Text {
-                        width: 68
-                        height: parent.height
-                        text: infoRow.label
-                        color: Theme.textColor
-                        font.pixelSize: Style.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        opacity: 0.65
-                    }
-                    Text {
-                        width: parent.width - 80
-                        height: parent.height
-                        text: infoRow.value
-                        color: Theme.fontColor
-                        font.pixelSize: Style.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        elide: Text.ElideMiddle
-                    }
-                }
-            }
-        }
     }
 
-    // 编辑元数据：标签 + 封面 + 歌词，统一走 TagLib 写回
-    QOptionDialog {
+    MetaEditorDialog {
         id: metaDialog
-        title: "编辑元数据"
-        confirmText: "保存"
-        cancelText: "取消"
-        property string filePath: ""
-        property int source: 0 // 0 我的文件夹 / 1 本地文件夹
-        property var values: ({})
-        property string coverPick: "" // 用户新选的封面图，空表示不修改
-        // 打开时读一次；放在 binding 里每次重算都会同步开 TagLib
-        property string embeddedCover: ""
-
-        readonly property string coverPreview: {
-            if (coverPick !== "")
-                return coverPick
-            if (embeddedCover !== "")
-                return embeddedCover
-            return "qrc:/QueMusic/resources/app/musicpic.png"
-        }
-
-        function edit(path: string, src: int): void {
-            const info = MusicApi.readLocalAudioInfo(path)
-            filePath = path
-            source = src
-            coverPick = ""
-            embeddedCover = path !== "" ? (Options.coverHelper.findEmbeddedCover(path) || "") : ""
-            values = {
-                title: info.title || info.fileName.replace(/\.[^.]+$/, ""),
-                artist: info.artist || "",
-                album: info.album || "",
-                genre: info.genre || "",
-                year: info.year > 0 ? String(info.year) : "",
-                track: info.track > 0 ? String(info.track) : ""
-            }
-            lyricsArea.text = MusicApi.readLocalLyricsText(path)
-            metaDialog.open()
-        }
-
-        onConfirm: {
-            values.lyrics = lyricsArea.text
-            values.cover = coverPick
-            MusicApi.writeLocalMetadata(filePath, values)
-        }
-
-        options: Column {
-            width: parent.width
-            spacing: 12
-            Row {
-                width: parent.width
-                height: 96
-                spacing: 12
-                QPicture {
-                    width: 96
-                    height: 96
-                    source: metaDialog.coverPreview
-                    radius1: 10
-                    radius2: 10
-                    radius3: 10
-                    radius4: 10
-                }
-                Column {
-                    width: parent.width - 108
-                    spacing: 8
-                    Text {
-                        text: "封面"
-                        color: Theme.textColor
-                        font.pixelSize: Style.textmain
-                        opacity: 0.65
-                    }
-                    QButton {
-                        width: 108
-                        height: 32
-                        radius: 16
-                        text: "选择图片"
-                        onClicked: coverDialog.open()
-                    }
-                }
-            }
-            Repeater {
-                model: [
-                    { label: "标题", key: "title" },
-                    { label: "歌手", key: "artist" },
-                    { label: "专辑", key: "album" },
-                    { label: "流派", key: "genre" },
-                    { label: "年份", key: "year" },
-                    { label: "音轨号", key: "track" }
-                ]
-                delegate: Row {
-                    id: metaRow
-                    required property string key
-                    required property string label
-                    width: parent.width
-                    height: 36
-                    spacing: 12
-                    Text {
-                        width: 56
-                        height: parent.height
-                        text: metaRow.label
-                        color: Theme.textColor
-                        font.pixelSize: Style.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        opacity: 0.65
-                    }
-                    QInput {
-                        width: parent.width - 68
-                        height: 36
-                        inputText: metaDialog.values[metaRow.key] !== undefined
-                                   ? String(metaDialog.values[metaRow.key]) : ""
-                        onInputTextChanged: metaDialog.values[metaRow.key] = inputText
-                    }
-                }
-            }
-            Text {
-                text: "歌词（可带 [mm:ss.xx] 时间轴）"
-                color: Theme.textColor
-                font.pixelSize: Style.textmain
-                opacity: 0.65
-            }
-            TextArea {
-                id: lyricsArea
-                width: parent.width
-                color: Theme.fontColor
-                font.pixelSize: Style.textmain
-                wrapMode: TextEdit.Wrap
-                selectByMouse: true
-                background: Rectangle {
-                    radius: Style.labelRadius
-                    color: Theme.fullColor
-                    border.width: 1
-                    border.color: Theme.sideColor
-                }
-            }
-        }
-    }
-
-    FileDialog {
-        id: coverDialog
-        title: "选择封面图片"
-        nameFilters: ["图片文件 (*.jpg *.jpeg *.png *.bmp *.gif)"]
-        onAccepted: metaDialog.coverPick = selectedFile.toString()
-    }
-
-    Connections {
-        target: MusicApi
-        function onLocalMetadataSaved(filePath: string, ok: bool): void {
-            if (!ok) {
-                Options.warned("元数据保存失败，文件可能只读或格式不支持", 0);
-                return;
-            }
-            Options.warned("元数据已保存", 1);
-            // 只让改动的这首重读标签，其余沿用缓存
-            if (metaDialog.source === 0)
-                Songs.rescanTags(filePath);
+        onSaved: (filePath, source) => {
+            if (source === 0)
+                Songs.rescanTags(filePath)
             else
-                localFileModel.rescan();
+                localFileModel.rescan()
         }
     }
 }

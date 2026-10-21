@@ -2,6 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "DownloadedMusicModel.h"
+#include "CoverHelper.h"
 #include "MediaTypes.h"
 #include <QDir>
 #include <QFile>
@@ -155,6 +156,61 @@ void DownloadedMusicModel::reload()
         applyItems(watcher->result());
     });
     watcher->setFuture(QtConcurrent::run([downloadDir] { return scanDownloads(downloadDir); }));
+}
+
+void DownloadedMusicModel::removeFile(const QString &fileUrl)
+{
+    const QString path = QUrl(fileUrl).toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    auto *watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher] {
+        watcher->deleteLater();
+        reload();
+    });
+    watcher->setFuture(QtConcurrent::run([path] {
+        if (!QFile::moveToTrash(path) && !QFile::remove(path))
+            return;
+        const QFileInfo fi(path);
+        const QString base = fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName();
+        QFile::remove(base + QStringLiteral(".json"));
+        QFile::remove(base + QStringLiteral(".lrc"));
+    }));
+}
+
+void DownloadedMusicModel::syncSidecar(const QString &fileUrl)
+{
+    const QString path = QUrl(fileUrl).toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    auto *watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher] {
+        watcher->deleteLater();
+        reload();
+    });
+    watcher->setFuture(QtConcurrent::run([path] {
+        const QFileInfo fi(path);
+        const QString jsonPath = fi.absolutePath() + QLatin1Char('/')
+                                 + fi.completeBaseName() + QStringLiteral(".json");
+        if (!QFileInfo::exists(jsonPath))
+            return;
+
+        const CoverHelper::Metadata meta = CoverHelper::readMetadata(fi);
+        QVariantMap map = readMetadataFile(jsonPath);
+        if (!meta.title.isEmpty())
+            map.insert(QStringLiteral("title"), meta.title);
+        if (!meta.artist.isEmpty())
+            map.insert(QStringLiteral("artist"), meta.artist);
+        if (meta.duration > 0)
+            map.insert(QStringLiteral("duration"), meta.duration);
+
+        QFile out(jsonPath);
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return;
+        out.write(QJsonDocument(QJsonObject::fromVariantMap(map)).toJson());
+    }));
 }
 
 void DownloadedMusicModel::applyItems(const QVector<DownloadedItem> &items)

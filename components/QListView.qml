@@ -221,7 +221,10 @@ ListView {
     // 收藏结果由模型回执：成功才提示已收藏，失败直接把原因显示出来
     Connections {
         target: FavoriteSongs
-        function onFavoriteStateChanged(): void { Options.warned("收藏已更新", 1) }
+        function onFavoriteChanged(id: string, type: string, favorite: bool): void {
+            if (type === view.favType)
+                Options.warned("收藏已更新", 1)
+        }
         function onErrorOccurred(message: string): void { Options.warned(message, 0) }
     }
 
@@ -280,7 +283,7 @@ ListView {
             verticalAlignment: Text.AlignVCenter
         }
         Text {
-            x: view.width - 76
+            x: view.width - 74
             height: 36
             text: view.headerModel[2]
             color: Theme.textColor
@@ -353,9 +356,10 @@ ListView {
             ? listDel.cover.replace("{size}", "64")
             : "qrc:/QueMusic/resources/app/musicpic.png"
 
-        readonly property bool isFav: FavoriteSongs.favoriteRevision >= 0
-                                      && listDel.rowKey !== ""
-                                      && view.favModel.isFavorite(listDel.rowKey, view.favType)
+        readonly property bool isFav: {
+            view.favModel.favoriteRevision
+            return listDel.rowKey !== "" && view.favModel.isFavorite(listDel.rowKey, view.favType)
+        }
 
         readonly property string durationText: view.isList
             ? (listDel.duration > 0 ? listDel.duration + "首" : "")
@@ -392,15 +396,13 @@ ListView {
         Text {
             id: title
             x: 72
-            y: 16
             width: view.artistX - 110
-            height: 28
             text: listDel.title || "Unknown"
             color: Theme.fontColor
             font.weight: Font.DemiBold
             elide: Text.ElideRight
             font.pixelSize: Style.textmain
-            verticalAlignment: Text.AlignVCenter
+            anchors.verticalCenter: parent.verticalCenter
         }
         Rectangle {
             color: Theme.containColor
@@ -421,27 +423,23 @@ ListView {
         }
         Text {
             x: view.artistX
-            y: 16
             width: view.artistX - 128
-            height: 28
             text: listDel.artist || "Unknown"
             color: Theme.textColor
             font.weight: Font.Normal
             elide: Text.ElideRight
             font.pixelSize: Style.text
-            verticalAlignment: Text.AlignVCenter
+            anchors.verticalCenter: parent.verticalCenter
         }
         Text {
             x: view.width - 92
-            y: 16
             width: 60
-            height: 28
             text: listDel.durationText
             color: Theme.textColor
             font.bold: false
             elide: Text.ElideRight
             font.pixelSize: Style.text
-            verticalAlignment: Text.AlignVCenter
+            anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -471,7 +469,7 @@ ListView {
                     iconCharacter: "\uf050"
                     width: 36
                     height: 36
-                    radius: 36
+                    radius: 18
                     buttonColor: "transparent"
                     hoverColor: Theme.hoverColor
                     shadowEnabled: false
@@ -486,7 +484,7 @@ ListView {
                     iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
                     width: 36
                     height: 36
-                    radius: 36
+                    radius: 18
                     buttonColor: "transparent"
                     hoverColor: Theme.hoverColor
                     shadowEnabled: false
@@ -497,7 +495,7 @@ ListView {
                     iconCharacter: view.toolText0
                     width: 36
                     height: 36
-                    radius: 36
+                    radius: 18
                     buttonColor: "transparent"
                     hoverColor: Theme.hoverColor
                     shadowEnabled: false

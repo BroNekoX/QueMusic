@@ -363,12 +363,14 @@ Item {
 
             QGridView {
                 id: toplistFlick
-                width: parent.width + 16
+                x: -8
+                width: parent.width + 24
                 height: parent.height
                 model: cloud.visible ? MusicApi.toplistList : null
                 cellWidth: 180
                 cellHeight: 240
                 rightMargin: -8
+                leftMargin: 8
                 topMargin: 72
                 delegate: Rectangle {
                     id: toplistCard

@@ -9,8 +9,6 @@ import QueMusic 1.0
 Item {
     id: downloadPage
 
-    property int downloadTab: 0
-
     DownloadedMusicModel {
         id: downloadedModel
     }
@@ -22,6 +20,68 @@ Item {
     }
 
     Component.onCompleted: refreshDownloads()
+
+    function itemAt(index: int): var {
+        return downloadedModel.get(index)
+    }
+
+    function playRow(index: int): void {
+        const item = itemAt(index)
+        if (!item || !item.fileUrl)
+            return
+        Playback.playItem({ name: item.title || item.fileName, path: item.fileUrl,
+                            songer: item.artist || "", source: -1 })
+    }
+
+    function playNext(index: int): void {
+        const item = itemAt(index)
+        if (!item || !item.fileUrl)
+            return
+        Playback.playNext({ name: item.title || item.fileName, path: item.fileUrl,
+                            songer: item.artist || "", source: -1 })
+        Options.warned("已设为下一首播放", 1)
+    }
+
+    function enqueueRow(index: int): void {
+        const item = itemAt(index)
+        if (!item || !item.fileUrl)
+            return
+        const added = Playback.enqueue({ name: item.title || item.fileName, path: item.fileUrl,
+                                         songer: item.artist || "", source: -1 })
+        Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
+    }
+
+    function revealRow(index: int): void {
+        const item = itemAt(index)
+        if (item && item.fileUrl)
+            Qt.openUrlExternally(MusicApi.downloader.effectiveDownloadDir())
+    }
+
+    function removeRow(index: int): void {
+        const item = itemAt(index)
+        if (!item || !item.fileUrl)
+            return
+        Options.dialog.openSimpleDialog("删除", "这将把「" + (item.title || item.fileName) + "」移入回收站，是否继续？",
+            function() { downloadedModel.removeFile(item.fileUrl) })
+    }
+
+    function runMenu(index: int, choice: int): void {
+        const item = itemAt(index)
+        if (!item)
+            return
+        if (choice === 0)
+            playRow(index)
+        else if (choice === 1)
+            playNext(index)
+        else if (choice === 2)
+            enqueueRow(index)
+        else if (choice === 3)
+            audioInfoDialog.showInfo(item.fileUrl)
+        else if (choice === 4)
+            metaDialog.edit(item.fileUrl, 0)
+        else if (choice === 5)
+            removeRow(index)
+    }
 
     Connections {
         target: MusicApi.downloader
@@ -354,32 +414,153 @@ Item {
                 visible: downloadedModel.count === 0
             }
 
-            QListView {
-                id: localFileView
+            QLocalView {
+                id: downloadView
                 anchors.fill: parent
                 topMargin: 72
                 bottomMargin: 24
                 model: downloadedModel
                 clip: true
                 visible: downloadedModel.count !== 0
-                headerModel: ["标题","歌手","时长","操作"]
 
-                onClicked: (index) => {
-                    const item = downloadedModel.get(index);
-                    if (!item || !item.fileUrl)
-                        return;
-                    Playback.playLocalSong(item.fileUrl, item.fileName);
+                onClicked: (index) => downloadPage.playRow(index)
+                onMenuClicked: (index, choice) => downloadPage.runMenu(index, choice)
 
-                    const listIndex = Options.queue.indexOfPath(item.fileUrl);
-                    if (listIndex === -1) {
-                        Options.queue.append({ name: item.title || item.fileName, path: item.fileUrl, songer: item.artist || "", source: -1 });
-                        Options.queue.playListIndex = Options.queue.count - 1;
-                    } else {
-                        Options.queue.playListIndex = listIndex;
+                delegate: Rectangle {
+                    id: row
+                    required property int index
+                    required property string title
+                    required property string artist
+                    required property string cover
+                    required property int duration
+                    required property string fileName
+                    required property string fileUrl
+
+                    height: 60
+                    width: downloadView.width - 16
+                    radius: Style.labelRadius
+                    color: Playback.player.source === row.fileUrl ? Theme.containColor : "transparent"
+
+                    ListView.onReused: row.opacity = 1
+                    ListView.onPooled: row.opacity = 1
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
+                        opacity: rowArea.containsMouse ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                    }
+
+                    QPicture {
+                        y: 8
+                        x: 8
+                        width: 44
+                        height: 44
+                        radius: 10
+                        source: row.cover || "qrc:/QueMusic/resources/app/musicpic.png"
+                    }
+
+                    Text {
+                        x: 72
+                        width: downloadView.artistX - 110
+                        text: row.title || row.fileName
+                        color: Theme.fontColor
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Style.textmain
+                        elide: Text.ElideRight
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        x: downloadView.artistX
+                        width: downloadView.artistX - 128
+                        text: row.artist || "Unknown"
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
+                        elide: Text.ElideRight
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        x: downloadView.width - 92
+                        width: 60
+                        text: row.duration > 0 ? Playback.fmt(row.duration * 1000) : ""
+                        color: Theme.textColor
+                        font.pixelSize: Style.text
+                        elide: Text.ElideRight
+                        anchors.verticalCenter: parent.verticalCenter
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    MouseArea {
+                        id: rowArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.RightButton) {
+                                downloadView.menu.index = row.index
+                                downloadView.menu.popup()
+                            } else {
+                                downloadPage.playRow(row.index)
+                            }
+                            forceActiveFocus()
+                        }
+
+                        Row {
+                            x: downloadView.toolX
+                            spacing: 2
+                            y: 12
+                            height: 36
+                            opacity: rowArea.containsMouse ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                            SButton {
+                                iconCharacter: "\uf095"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Theme.hoverColor
+                                shadowEnabled: false
+                                tipText: "加入播放列表"
+                                onClicked: downloadPage.enqueueRow(row.index)
+                            }
+                            SButton {
+                                iconCharacter: "\uf107"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: Theme.hoverColor
+                                shadowEnabled: false
+                                tipText: "打开所在文件夹"
+                                onClicked: downloadPage.revealRow(row.index)
+                            }
+                            SButton {
+                                iconCharacter: "\uf08e"
+                                width: 36
+                                height: 36
+                                radius: 18
+                                buttonColor: "transparent"
+                                hoverColor: "#dcff9999"
+                                shadowEnabled: false
+                                tipText: "删除文件"
+                                onClicked: downloadPage.removeRow(row.index)
+                            }
+                        }
                     }
                 }
-
             }
         }
+    }
+
+    AudioInfoDialog {
+        id: audioInfoDialog
+    }
+
+    MetaEditorDialog {
+        id: metaDialog
+        onSaved: (filePath, source) => downloadedModel.syncSidecar(filePath)
     }
 }

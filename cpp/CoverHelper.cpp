@@ -162,7 +162,7 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
     }
 
     const QByteArray encodedPath = QFile::encodeName(localPath);
-    TagLib::FileRef ref(encodedPath.constData(), false);
+    TagLib::FileRef ref(encodedPath.constData());
     if (ref.isNull() || ref.file() == nullptr) {
         // 典型情形是文件正被播放占用：等空闲时（列表扫描）再提取
         qWarning() << "[cover] 无法打开音频文件读取封面:" << localPath;
@@ -293,10 +293,12 @@ CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLi
             const QJsonObject object = doc.object();
             meta.title = jsonFirst(object, { "title", "name", "TITLE" });
             meta.artist = jsonFirst(object, { "artist", "singer", "songer", "ARTIST" });
+            const QJsonValue duration = object.value(QStringLiteral("duration"));
+            meta.duration = duration.isString() ? duration.toString().toInt() : duration.toInt();
         }
     }
 
-    if (!meta.title.isEmpty() && !meta.artist.isEmpty())
+    if (!meta.title.isEmpty() && !meta.artist.isEmpty() && meta.duration > 0)
         return meta;
 
     Metadata fromTag;
@@ -304,7 +306,7 @@ CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLi
         fromTag = metadataFromTag(*openRef);
     } else {
         const QByteArray encodedPath = QFile::encodeName(fileInfo.absoluteFilePath());
-        TagLib::FileRef ref(encodedPath.constData(), false);
+        TagLib::FileRef ref(encodedPath.constData());
         fromTag = metadataFromTag(ref);
     }
 
@@ -312,6 +314,8 @@ CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLi
         meta.title = fromTag.title;
     if (meta.artist.isEmpty())
         meta.artist = fromTag.artist;
+    if (meta.duration <= 0)
+        meta.duration = fromTag.duration;
     return meta;
 }
 
@@ -331,6 +335,9 @@ CoverHelper::Metadata CoverHelper::metadataFromTag(TagLib::FileRef &ref)
         meta.title = propertyFirst(properties, { "TITLE" });
     if (meta.artist.isEmpty())
         meta.artist = propertyFirst(properties, { "ARTIST", "ALBUMARTIST" });
+
+    if (const TagLib::AudioProperties *audio = ref.audioProperties())
+        meta.duration = audio->lengthInSeconds();
     return meta;
 }
 

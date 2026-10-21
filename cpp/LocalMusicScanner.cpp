@@ -97,6 +97,7 @@ void LocalScanWorker::run()
         e.coverUrl = CoverHelper::readCoverFromTag(e.path, cacheDir, &meta);
         e.title = meta.title;
         e.artist = meta.artist;
+        e.duration = meta.duration;
         if (i - chunkStart == 49 || i == total - 1) {
             emit enriched(gen, chunkStart, list.mid(chunkStart, i + 1 - chunkStart));
             chunkStart = i + 1;
@@ -196,7 +197,8 @@ LocalMusicScanner::LocalMusicScanner(QObject *parent)
                                              SearchResultModel::FileModifiedRole,
                                              SearchResultModel::TitleRole,
                                              SearchResultModel::ArtistRole,
-                                             SearchResultModel::CoverUrlRole}, this);
+                                             SearchResultModel::CoverUrlRole,
+                                             SearchResultModel::DurationRole}, this);
 
     connect(m_worker, &LocalScanWorker::searchBatch, this, &LocalMusicScanner::onWorkerSearchBatch);
     connect(m_worker, &LocalScanWorker::searchDone, this, &LocalMusicScanner::onWorkerSearchDone);
@@ -241,6 +243,7 @@ QVariant LocalMusicScanner::data(const QModelIndex &index, int role) const
     case TitleRole:        return e.title;
     case ArtistRole:       return e.artist;
     case CoverUrlRole:     return e.coverUrl;
+    case DurationRole:     return e.duration;
     default:               return {};
     }
 }
@@ -254,7 +257,8 @@ QHash<int, QByteArray> LocalMusicScanner::roleNames() const
         {FileUrlRole,      "fileUrl"},
         {TitleRole,        "title"},
         {ArtistRole,       "artist"},
-        {CoverUrlRole,     "coverUrl"}
+        {CoverUrlRole,     "coverUrl"},
+        {DurationRole,     "duration"}
     };
 }
 
@@ -278,6 +282,8 @@ QVariant LocalMusicScanner::get(int index, const QString &role) const
         return e.artist;
     if (r == QStringLiteral("coverUrl"))
         return e.coverUrl;
+    if (r == QStringLiteral("duration"))
+        return e.duration;
     return {};
 }
 
@@ -462,6 +468,7 @@ void LocalMusicScanner::onWorkerSearchBatch(quint64 searchGeneration, const QLis
         row.title = e.title;
         row.artist = e.artist;
         row.coverUrl = e.coverUrl;
+        row.duration = e.duration;
         batch.append(row);
     }
     if (!batch.isEmpty())
@@ -509,9 +516,10 @@ void LocalMusicScanner::onWorkerEnriched(quint64 gen, int startIndex, QList<Loca
         dst.title = chunk[i].title;
         dst.artist = chunk[i].artist;
         dst.coverUrl = chunk[i].coverUrl;
+        dst.duration = chunk[i].duration;
     }
     emit dataChanged(index(startIndex), index(last),
-                     {TitleRole, ArtistRole, CoverUrlRole});
+                     {TitleRole, ArtistRole, CoverUrlRole, DurationRole});
 }
 
 void LocalMusicScanner::onWorkerEnrichDone(quint64 gen, int count)

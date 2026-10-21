@@ -24,6 +24,7 @@ struct EnrichResult {
     QString title;
     QString artist;
     QString coverUrl;
+    int duration = 0;
     bool failed = false;   // 读取失败（非「确实没有封面」），不要落 tagged，留待下次重试
 };
 
@@ -466,14 +467,15 @@ void SongModel::startEnrichment()
         int row;
         QString coverUrl;
         bool tagged;
+        int duration;
     };
     const quint64 generation = m_loadGeneration.load();
     QVector<Candidate> candidates;
     candidates.reserve(m_items.size());
     for (int i = 0; i < m_items.size(); ++i) {
         const SongItem &item = m_items.at(i);
-        if (!item.tagged || !item.tagCoverUrl.isEmpty())
-            candidates.append({ i, item.tagCoverUrl, item.tagged });
+        if (!item.tagged || item.duration <= 0 || !item.tagCoverUrl.isEmpty())
+            candidates.append({ i, item.tagCoverUrl, item.tagged, item.duration });
     }
     if (candidates.isEmpty())
         return;
@@ -498,7 +500,7 @@ void SongModel::startEnrichment()
             const bool coverStale = !c.coverUrl.isEmpty()
                                     && (!QFileInfo(QUrl(c.coverUrl).toLocalFile()).exists()
                                         || CoverHelper::isLegacyCover(c.coverUrl));
-            if (!c.tagged || coverStale)
+            if (!c.tagged || c.duration <= 0 || coverStale)
                 pending.append(c.row);
         }
         return pending;
@@ -529,11 +531,12 @@ void SongModel::enrichBatch()
             return;   // 旧代次：refreshModel 已清过状态
         m_enriching = false;
 
-        const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole};
+        const QVector<int> roles = {TagTitleRole, TagArtistRole, TagCoverUrlRole, DurationRole};
         QList<int> ids;
         QStringList titles;
         QStringList artists;
         QStringList covers;
+        QList<int> durations;
         for (const EnrichResult &result : watcher->result()) {
             if (result.row < 0 || result.row >= m_items.size())
                 continue;
@@ -541,6 +544,8 @@ void SongModel::enrichBatch()
             item.tagTitle = result.title;
             item.tagArtist = result.artist;
             item.tagCoverUrl = result.coverUrl;
+            if (result.duration > 0)
+                item.duration = result.duration;
             item.tagged = !result.failed;
             emit dataChanged(index(result.row), index(result.row), roles);
             if (result.failed)   // 本次没读到就别写库，下次打开列表还能再试
@@ -549,8 +554,9 @@ void SongModel::enrichBatch()
             titles.append(result.title);
             artists.append(result.artist);
             covers.append(result.coverUrl);
+            durations.append(result.duration);
         }
-        persistTags(ids, titles, artists, covers);
+        persistTags(ids, titles, artists, covers, durations);
         enrichBatch();
     });
 
@@ -566,6 +572,7 @@ void SongModel::enrichBatch()
                                                             &result.failed);
             result.title = meta.title;
             result.artist = meta.artist;
+            result.duration = meta.duration;
             out.append(result);
         }
         return out;
@@ -573,21 +580,23 @@ void SongModel::enrichBatch()
 }
 
 void SongModel::persistTags(const QList<int> &ids, const QStringList &titles,
-                            const QStringList &artists, const QStringList &covers)
+                            const QStringList &artists, const QStringList &covers,
+                            const QList<int> &durations)
 {
     if (ids.isEmpty())
         return;
 
-    DbService::instance()->submit([ids, titles, artists, covers](QSqlDatabase &db) {
+    DbService::instance()->submit([ids, titles, artists, covers, durations](QSqlDatabase &db) {
         QSqlQuery query(db);
         query.prepare(QStringLiteral(
-            "UPDATE songs SET tag_title = :title, tag_artist = :artist, tag_cover = :cover, tagged = 1 "
-            "WHERE id = :id"));
+            "UPDATE songs SET tag_title = :title, tag_artist = :artist, tag_cover = :cover, "
+            "duration = MAX(duration, :duration), tagged = 1 WHERE id = :id"));
         db.transaction();
         for (int i = 0; i < ids.size(); ++i) {
             query.bindValue(QStringLiteral(":title"), titles.value(i));
             query.bindValue(QStringLiteral(":artist"), artists.value(i));
             query.bindValue(QStringLiteral(":cover"), covers.value(i));
+            query.bindValue(QStringLiteral(":duration"), durations.value(i));
             query.bindValue(QStringLiteral(":id"), ids.at(i));
             query.exec();
         }
