@@ -83,7 +83,8 @@ Window {
             visible: false
         }
         MultiEffect {
-            anchors.fill: currentLineText
+            width: parent.width
+            height: currentLineText.height
             source: currentLineText
             visible: true
             shadowEnabled: true
@@ -106,7 +107,8 @@ Window {
             layer.enabled: true
         }
         MultiEffect {
-            anchors.fill: nextLineText
+            width: parent.width
+            height: nextLineText.height
             source: nextLineText
             visible: nextLineText.text !== ""
             shadowEnabled: true
@@ -116,39 +118,63 @@ Window {
         }
     }
 
-    property int bw: 3
-
+    // 右侧缩放
     MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        z: 1
-        cursorShape: {
-            const p = Qt.point(mouseX, mouseY);
-            const b = desktopLyricsWindow.bw + 10; // Increase the corner size slightly
-            if (p.x < b && p.y < b) return Qt.SizeFDiagCursor;
-            if (p.x >= width - b && p.y >= height - b) return Qt.SizeFDiagCursor;
-            if (p.x >= width - b && p.y < b) return Qt.SizeBDiagCursor;
-            if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor;
-            if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor;
-            if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor;
+        anchors.right: parent.right
+        height: parent.height - 12
+        width: 10
+        z: 100
+        cursorShape: Qt.SizeHorCursor
+        onPressed: {
+            desktopLyricsWindow.startSystemResize(Qt.RightEdge)
         }
-        acceptedButtons: Qt.NoButton // don't handle actual events
     }
 
-    DragHandler {
-        id: resizeHandler
-        grabPermissions: TapHandler.TakeOverForbidden
-        target: null
-        onActiveChanged: if (active) {
-                             const p = resizeHandler.centroid.position;
-                             const b = desktopLyricsWindow.bw + 10; // Increase the corner size slightly
-                             let e = 0;
-                             if (p.x < b) { e |= Qt.LeftEdge }
-                             if (p.x >= desktopLyricsWindow.width - b) { e |= Qt.RightEdge }
-                             if (p.y < b) { e |= Qt.TopEdge }
-                             if (p.y >= desktopLyricsWindow.height - b) { e |= Qt.BottomEdge }
-                             desktopLyricsWindow.startSystemResize(e);
-                         }
+    // 左侧缩放
+    MouseArea {
+        height: parent.height - 10
+        width: 10
+        z: 100
+        cursorShape: Qt.SizeHorCursor
+        onPressed: {
+            desktopLyricsWindow.startSystemResize(Qt.LeftEdge)
+        }
+    }
+
+    // 底边缩放
+    MouseArea {
+        width: parent.width - 12
+        anchors.bottom: parent.bottom
+        height: 10
+        z: 100
+        cursorShape: Qt.SizeVerCursor
+        onPressed: {
+            desktopLyricsWindow.startSystemResize(Qt.BottomEdge)
+        }
+    }
+
+    // 顶边缩放
+    MouseArea {
+        width: parent.width - 10
+        height: 10
+        z: 100
+        cursorShape: Qt.SizeVerCursor
+        onPressed: {
+            desktopLyricsWindow.startSystemResize(Qt.TopEdge)
+        }
+    }
+
+    // 右下角斜向缩放
+    MouseArea {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 12
+        height: 12
+        z: 100
+        cursorShape: Qt.SizeFDiagCursor
+        onPressed: {
+            desktopLyricsWindow.startSystemResize(Qt.RightEdge | Qt.BottomEdge)
+        }
     }
 
 
@@ -156,7 +182,7 @@ Window {
         opacity: desktopLyricArea.containsMouse ? 1 : 0
         anchors.fill: parent
         color: "#88000000"
-        radius: Style.cubeRadius
+        radius: Style.labelRadius
         z: 2
         Behavior on opacity { NumberAnimation { duration: 120 } }
         Text {
@@ -173,7 +199,7 @@ Window {
         MouseArea {
             id: desktopLyricArea
             anchors.fill: parent
-            anchors.margins: 6
+            //anchors.margins: 10
             property real dragOffsetX: 0
             property real dragOffsetY: 0
             onPressed: (mouse) => {
@@ -189,7 +215,7 @@ Window {
             hoverEnabled: true
 
             Row {
-                y: 6
+                y: 12
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
 
@@ -231,7 +257,7 @@ Window {
             }
             Text {
                 x: desktopLyricsWindow.width - 68 - width
-                y: 6
+                y: 12
                 height: 36
                 text: Playback.fmt(Playback.player.position) + " / " + Playback.fmt(Playback.player.duration)
                 font.pixelSize: 13
@@ -241,7 +267,7 @@ Window {
             SButton {
                 id: closeButton
                 x: desktopLyricsWindow.width - 54
-                y: 6
+                y: 12
                 width: 36; height: 36; radius: Style.labelRadius
                 iconCharacter: "\uf025"
                 iconSize: 15

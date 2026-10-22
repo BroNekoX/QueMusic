@@ -302,11 +302,9 @@ qt6_add_shaders(${PROJECT_NAME} "bgshaders"
 )
 
 # QCloudMusicApi：网易云音乐在线接口（crypto++ 随其源码放在 api/QCloudMusicApi/3rdparty）
-set(QCLOUDMUSICAPI_BUILD_TEST OFF CACHE BOOL "" FORCE)
-set(QCLOUDMUSICAPI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 add_subdirectory(api/QCloudMusicApi)
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi/QCloudMusicApi)
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE

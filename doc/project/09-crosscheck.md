@@ -109,7 +109,7 @@
 - 文档中所有行数用 `[System.IO.File]::ReadAllLines(path).Length` 统计，与编辑器和 `read` 工具显示的行号一致。
 - **不要用** `(Get-Content path).Count`（会漏掉空行，`main.cpp` 会得出 157 而不是 160）或 `Measure-Object -Line`（同样漏空行）。
 - 行数快照见附录 A；本仓库当前：C++（`cpp/` + `api/` + `shaders/` 的 `.cpp/.h`）≈ 28 200 行，QML（`components/` + `layout/` + `pages/` + `lyricsui/` + `main.qml` + `SettingsView.qml`）≈ 21 100 行，合计（含脚本与 CI）≈ 53 900 行。
-- 第三方 vendored 代码（`api/QCloudMusicApi/`、`ThirdParty/`）不计入上述规模，也不在本文档的接口梳理范围内；其中 `api/QCloudMusicApi/QCloudMusicApi/module.cpp` 单文件就有 5157 行，**不要整读**。
+- 第三方 vendored 代码（`api/QCloudMusicApi/`、`ThirdParty/`）不计入上述规模，也不在本文档的接口梳理范围内；其中 `api/QCloudMusicApi/module.cpp` 单文件就有 5157 行，**不要整读**。
 ---
 
 ← 返回 [索引 README.md](README.md)

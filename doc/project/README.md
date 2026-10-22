@@ -145,7 +145,7 @@
 
 | 文件 | 行数 | 建议 |
 |---|---|---|
-| `api/QCloudMusicApi/QCloudMusicApi/module.cpp` | 5157 | **第三方，勿读勿改** |
+| `api/QCloudMusicApi/module.cpp` | 5157 | **第三方，勿读勿改** |
 | `SettingsView.qml` | 2934 | 只 grep 设置项名字 |
 | `pages/FilePage.qml` | 1985 | 只 grep 控件 id |
 | `api/KugouApi.cpp` | 1497 | 按 action 名 grep |

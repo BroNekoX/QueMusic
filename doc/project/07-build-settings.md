@@ -21,8 +21,6 @@
 | `QUEMUSIC_FFMPEG_ROOT` | `${CMAKE_SOURCE_DIR}/ffmpeg`（CACHE PATH） | `cmake/external/ffmpeg.cmake:12` | FFmpeg 前缀（含 `include/`、`lib/`） |
 | `QUEMUSIC_FFMPEG_USE_QT` | `OFF` | `cmake/external/ffmpeg.cmake:65` | Linux 改为优先链接 Qt 自带 FFmpeg；**macOS 恒为启用** |
 | `QUEMUSIC_QWK_RUNTIME_COPY` | `ON`（`QWINDOWKIT_BUILD_STATIC=ON` 时置 `OFF`） | 根 `CMakeLists.txt:66-69` | 是否把 QWindowKit 动态库拷到 exe 旁 |
-| `QCLOUDMUSICAPI_BUILD_TEST` | `OFF`（`FORCE`） | 根 `CMakeLists.txt:302` | 关掉 QCloudMusicApi 测试 |
-| `QCLOUDMUSICAPI_BUILD_SHARED` | `OFF`（`FORCE`） | 根 `CMakeLists.txt:303` | 静态编入主程序 |
 | `QWINDOWKIT_BUILD_QUICK / WIDGETS / EXAMPLES / TESTS / STATIC / ENABLE_WINDOWS_SYSTEM_BORDERS` | `ON / OFF / OFF / OFF / ON / OFF`（均 `FORCE`） | `cmake/external/qwindowkit.cmake:17-22` | 只用 Quick + 静态库 |
 | `BUILD_BINDINGS` / `BUILD_TESTING`（TagLib） | `OFF` / `OFF`（`FORCE`） | `cmake/external/taglib.cmake:12-13` | 关 TagLib 绑定与测试 |
 | `BUILD_SHARED_LIBS`（局部） | 进 TagLib 前临时置 `OFF` | `cmake/external/taglib.cmake:17-21` | TagLib 固定静态；QWindowKit 会改写此全局变量 |
@@ -123,7 +121,7 @@ QML 侧引用前缀必须区分：`/shaders/...` 与 `/...`（两套 PREFIX 不�
 | QWindowKit | git submodule `ThirdParty/qwindowkit`（`shallow`，stdware/qwindowkit）；优先 `find_package(QWindowKit QUIET)`，未装才用子模块 | 1.5.1.0（子模块 `CMakeLists.txt` `project(VERSION)`） | 无边框窗口/系统标题栏，导出 `QWindowKit::Quick` | 见其仓库 LICENSE（未在本仓库复述） |
 | TagLib | git submodule `ThirdParty/taglib`（`shallow`，taglib/taglib）＋ `add_subdirectory`（构建目录 `build/_deps/taglib-build`，`EXCLUDE_FROM_ALL`） | 2.3.1（`taglib/toolkit/taglib.h`；`THIRD_PARTY_NOTICES.md` 同） | 本地音频元数据 / ID3v2 歌词读取；导出 `quemusic::taglib`（接口库 + `tag`） | LGPL-2.1-or-later / MPL-1.1 双许可 |
 | zlib | 系统包（`find_package(ZLIB QUIET)`）→ 回退 `find_library(z/zlib/zlib1)`（含 `-DZLIB_ROOT`、编译器 sysroot、Qt Tools 下 MinGW 的 `libz.a`）；Windows 用 `WIN32` 判断而非 `MINGW` | 随系统/工具链（未固定版本） | `api/KugouApi.cpp` 解 KRC 歌词 `uncompress()`；导出 `quemusic::zlib` | zlib license |
-| Crypto++ | `api/QCloudMusicApi/3rdparty/cryptopp`（submodule，weidai11/cryptopp）＋ `cryptopp-cmake`（随源码目录）`add_subdirectory(3rdparty/cryptopp-cmake/)`；`CRYPTOPP_SOURCES` 指向本地目录以避免联网 | 8.9（`3rdparty/cryptopp/config_ver.h`：`CRYPTOPP_MAJOR 8` / `CRYPTOPP_MINOR 9`） | 网易云 API 的加密（weapi/eapi 等）；导出 `cryptopp::cryptopp` | Crypto++ 自身许可（Boost-like，见其 License.txt） |
+| Crypto++ | `api/QCloudMusicApi/3rdparty/cryptopp`（submodule，weidai11/cryptopp）源码直接编静态库；`CRYPTOPP_DISABLE_ASM=1`（纯 C++，无需逐文件 SIMD 开关），不再有 `cryptopp-cmake` | 8.9（`3rdparty/cryptopp/config_ver.h`：`CRYPTOPP_MAJOR 8` / `CRYPTOPP_MINOR 9`） | 网易云 API 的加密（weapi/eapi 等）；导出 `cryptopp::cryptopp` | Crypto++ 自身许可（Boost-like，见其 License.txt） |
 | libqrencode | **随仓库源码存放但未接入构建**：`api/QCloudMusicApi/3rdparty/libqrencode`，无 `add_subdirectory`、无链接；仓库内仅在自身目录被引用 | 4.1.1（其 `CMakeLists.txt` `project(QRencode VERSION 4.1.1)`） | 无（当前未使用；二维码由 `api/qrcode.js` 实现） | LGPL-2.1（其 `COPYING`） |
 | QCloudMusicApi | `add_subdirectory(api/QCloudMusicApi)`（源码随仓库，非 submodule），强制 `BUILD_TEST/SHARED=OFF`；`set(PREFIX "")` | 工程 `VERSION 1.0`（无上游版本号，未确认） | 网易云音乐在线接口；导出 `QCloudMusicApi` | MIT（`api/QCloudMusicApi/LICENSE`，© 2023 s12mmm3） |
 | FFmpeg | Windows：仓库自带 `ffmpeg/{include,lib,bin}`（`find_library ... NO_DEFAULT_PATH`，缺任一导入库即 `FATAL_ERROR`）；Linux/macOS：`QUEMUSIC_FFMPEG_USE_QT`/macOS 默认用 Qt 自带 `libav*`，否则 `pkg_check_modules` 找系统包 | 7.1.3（libavcodec 61 / libavformat 61 / libavutil 59 / libswresample 5；`include/libavutil/version.h`：`LIBAVUTIL_VERSION_MAJOR 59`） | 音频解码/解封装/重采样（`cpp/audio/FfmpegDecoder`） | LGPL-2.1-or-later（Qt 6.10.3 自带分发；构建参数不含 `--enable-gpl/--enable-nonfree`，见 `THIRD_PARTY_NOTICES.md`） |

@@ -531,27 +531,25 @@ getComments / getPersonalFm / getPersonalRadar
 |---|---|
 | 位置 | `api/QCloudMusicApi/` |
 | 来源 | Qt 版网易云 API，翻译自 Node.js 项目 `Binaryify/NeteaseCloudMusicApi`，仓库 `s12mmm3/QCloudMusicApi` |
-| 版本 | `project(QCloudMusicApiProject VERSION 1.0)`（`api/QCloudMusicApi/CMakeLists.txt:3`）；`QCloudMusicApi` 子工程不再单独写版本 |
+| 版本 | `project(QCloudMusicApi LANGUAGES CXX)`（`api/QCloudMusicApi/CMakeLists.txt:2`），无自定义版本号 |
 | 许可证 | **MIT**（`api/QCloudMusicApi/LICENSE`，README `## License` → The MIT License） |
 | 语言标准 | 该子工程自己 `set(CMAKE_CXX_STANDARD 17)`（主工程是 C++20 与 `CMAKE_CXX_STANDARD 20` 无关） |
-| 最低 CMake | 3.14；另 `set(CMAKE_POLICY_VERSION_MINIMUM 3.5)` 兼容新版 CMake 的旧策略 |
-| 目录布局 | `QCloudMusicApi/`（源码：`apihelper.{h,cpp}`、`module.{h,cpp}`、`plugins.{h,cpp}`、`api_c.{h,cpp}`、`qcloudmusicapiglobal.h`、`qcloudmusicapiplugin.h`、`util/`）；`3rdparty/`（`cryptopp`、`cryptopp-cmake`、`libqrencode`）；`doc/`（`API.md`、`BINDINGS.md`）；`example/`（C# / Python / QCMPlugin / Rust 跨语言示例） |
+| 最低 CMake | 3.16 |
+| 目录布局 | 源码直接放在 `api/QCloudMusicApi/` 下（`apihelper.{h,cpp}`、`module.{h,cpp}`、`plugins.{h,cpp}`、`api_c.{h,cpp}`、`qcloudmusicapiglobal.h`、`qcloudmusicapiplugin.h`、`util/`）；`3rdparty/`（`cryptopp`、`libqrencode`）；`doc/`（`API.md`、`BINDINGS.md`）；`example/`（C# / Python / QCMPlugin / Rust 跨语言示例）。原先多套一层的 `QCloudMusicApi/QCloudMusicApi/` 已拍平，`cryptopp-cmake` 已删除 |
 | 提供的能力 | ① `ApiHelper`：cookie 管理 + `invoke(member, arg)` 反射调用 + `invokeUrl(url)` + `set_cookie` + `setFilterRules` + 插件加载（7 个 `Q_INVOKABLE`）；② `NeteaseCloudMusicApi`（`module.h`，**341 个 `Q_INVOKABLE QVariantMap xxx(QVariantMap)`**，覆盖 NeteaseCloudMusicApi 绝大多数接口）；③ C 接口（`invoke(char*, char*)`）与插件机制；④ `util/` 里的 weapi/eapi 加密与请求实现（`request.cpp`、`crypto.cpp`） |
 
 构建与链接（根 `CMakeLists.txt:301-323`）：
 
 ```cmake
-set(QCLOUDMUSICAPI_BUILD_TEST OFF CACHE BOOL "" FORCE)
-set(QCLOUDMUSICAPI_BUILD_SHARED OFF CACHE BOOL "" FORCE)   # → 静态库
 add_subdirectory(api/QCloudMusicApi)
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi/QCloudMusicApi)   # ← 实际使用的 include 路径
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/QCloudMusicApi)   # ← 实际使用的 include 路径
 target_link_libraries(${PROJECT_NAME} PRIVATE ... QCloudMusicApi cryptopp::cryptopp ...)
 ```
 
 - 因此源码里是 `#include "apihelper.h"`（`NeteaseCloudApi.cpp:5`），不是 `#include "QCloudMusicApi/apihelper.h"`（README 的示例写法与本地 include 路径不同）。
-- 子依赖 crypto++：git 子模块 `api/QCloudMusicApi/3rdparty/cryptopp`（`.gitmodules`，`weidai11/cryptopp`，`shallow = true`）。`api/QCloudMusicApi/CMakeLists.txt` 若发现该目录存在，就 `set(CRYPTOPP_SOURCES ... CACHE PATH ... FORCE)` 强制走本地源码**跳过联网下载**（否则 `message(WARNING ...)` 并可能联网拉取）；随后 `add_subdirectory(3rdparty/cryptopp-cmake/)` → 目标 `cryptopp` / 别名 `cryptopp::cryptopp`。
-- 子依赖 libqrencode：`3rdparty/libqrencode/` 已随仓库存在，但**当前 CMake 链路里没有被 `add_subdirectory`**（`api/QCloudMusicApi/CMakeLists.txt` 只加 `cryptopp-cmake` 与 `QCloudMusicApi`），且 `QCloudMusicApi/*.cpp`、`*.h` 中未出现任何 `qrencode` 引用 → 属未编译/未使用的 vendored 目录。
+- 子依赖 crypto++：git 子模块 `api/QCloudMusicApi/3rdparty/cryptopp`（`.gitmodules`，`weidai11/cryptopp`，`shallow = true`）。`api/QCloudMusicApi/CMakeLists.txt` 直接 `file(GLOB)` 该目录的 `*.cpp` 编静态库 `cryptopp`（别名 `cryptopp::cryptopp`），排除 test/bench/validat 等测试源；统一开 `CRYPTOPP_DISABLE_ASM=1` 走纯 C++ 实现，因此不需要逐文件的 SIMD 编译开关，也不再需要 `cryptopp-cmake`。
+- 子依赖 libqrencode：`3rdparty/libqrencode/` 已随仓库存在，但**当前 CMake 链路里没有被引用**（`api/QCloudMusicApi/CMakeLists.txt` 只编 `cryptopp` 与 `QCloudMusicApi`），且 `QCloudMusicApi/*.cpp`、`*.h` 中未出现任何 `qrencode` 引用 → 属未编译/未使用的 vendored 目录。
 - 工程内其他文件的 `Q_INVOKABLE` 计数（grep 时容易误判）：`api/QCloudMusicApi/**/*.h` 里全是第三方接口，本项目的在线层 `Q_INVOKABLE` 只分布在 `MusicApiService.h`（28 个）与 `OnlineListModel.h`（4 个）。
 - `AccountManager` 也直接链接 `ApiHelper`（`m_api`，用于 `login_qr_*`），因此该库有两个使用方。
 

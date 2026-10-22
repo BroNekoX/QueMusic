@@ -9,7 +9,7 @@
   <img alt="Qt" src="https://img.shields.io/badge/Qt-6.10.3-41CD52?style=flat-square">
   <img alt="Language" src="https://img.shields.io/badge/Language-C%2B%2B20%20%7C%20QML-orange?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/Version-0.6.0-informational?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square">
   <img alt="Stars" src="https://img.shields.io/github/stars/BroNekoX/QueMusic?style=flat-square">
   <img alt="Release" src="https://img.shields.io/github/v/release/BroNekoX/QueMusic?style=flat-square">
   <img alt="CI" src="https://github.com/BroNekoX/QueMusic/actions/workflows/ci.yml/badge.svg">
@@ -550,5 +550,5 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何 Pro、Ultr
 
 <p align="center">
   <sub>Written for QueMusic Project</sub><br/>
-  <sub>最后更新：2026-10-09 · 版本 0.6.0</sub>
+  <sub>最后更新：2026-10-22 · 版本 0.7.0</sub>
 </p>

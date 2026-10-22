@@ -400,7 +400,7 @@ cover: player.urlStr || "",
         onTriggered: root.writeHistory()
     }
 
-    // 工具：时长格式化（mm:ss）。全应用只此一份，桌面部件的本地副本已删
+    // 工具：时长格式化（mm:ss）
     function fmt(ms: real): string {
         if (isNaN(ms) || ms < 0)
             return "00:00"

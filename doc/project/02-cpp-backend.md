@@ -368,7 +368,7 @@
   例外是 `LocalMusicScanner::startScan()`，它独立算 `AppDataLocation + "/cache"`。
 - **CoverHelper 被依赖方**：`SongModel::enrichBatch()`、`LocalScanWorker::run()`（`CoverHelper::readCoverFromTag`）、`WebDavModel::warmCovers()`（静态方法，无需实例）。
 - **LocalLyricsReader 调用方**：`api/MusicApiService.cpp`（`QtConcurrent::run(&LocalLyricsReader::read, ...)` 等）。本层内无调用者。
-- **AccountManager 依赖**：`apihelper.h`（`api/QCloudMusicApi/QCloudMusicApi/apihelper.h`）与 `api/KugouApi.h`（均在 `cpp/` 之外）。
+- **AccountManager 依赖**：`apihelper.h`（`api/QCloudMusicApi/apihelper.h`）与 `api/KugouApi.h`（均在 `cpp/` 之外）。
 - **GetWave 依赖**：`audio/AudioEngine.h`（`setSpectrumSink`）、`audio/AudioRing.h`、`audio/AudioSpectrumSink.h`；引擎只认句柄，不认识 `GetWave` 类型。
 - **WebDAV 依赖链**：`WebDavModel` →（成员）`WebDavClient` + `WebDavCache` + `CoverHelper` + `MediaTypes` + `DbService`；`WebDavStore` → `WebDavClient::basicAuth`。
 - **单例清单（QML 侧可见）**：`AccountManager`、`LogManager`、`WebDav`、`WebDavCache`、`LyricsPlugins`、`FunctionPlugins`、`MyFolders`、`LocalFolders`、`Songs`、`FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`。

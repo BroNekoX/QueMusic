@@ -1611,7 +1611,7 @@ Item {
                         verticalAlignment: Text.AlignVCenter
                     }
                     Text {
-                        x: listLocalFile.width - 92
+                        x: localFileView.width - 92
                         y: 16
                         width: 60
                         height: 28

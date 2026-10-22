@@ -16,7 +16,14 @@ Rectangle {
     property string title: "Account"
     property string text: ""
     property url openUrl: ""
+    property bool fontEn: true
     Behavior on color { ColorAnimation { duration: 120 } }
+    Component.onCompleted: {
+        if(fontEn) {
+            titleText.font.family = Fonts.text;
+        }
+    }
+
     QPicture {
         x: 19
         y: 19
@@ -31,6 +38,7 @@ Rectangle {
         x: 80
         anchors.verticalCenter: root.verticalCenter
         Text {
+            id: titleText
             text: root.title
             color: Theme.fontColor
             verticalAlignment: Text.AlignVCenter

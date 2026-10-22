@@ -23,7 +23,7 @@ Button {
     property int borderWidth: 0   // 边框大小，0即无
     property color borderColor: Theme.borderColor   // 边框颜色
     property int radius: Style.noControlRadius ? Style.labelRadius : 20
-    property real pressedScale: 0.96                 // 按下缩放比例
+    property real pressedScale: 0.94                 // 按下缩放比例
     property color shadowColor: Theme.shadowColor    // 阴影颜色
     property color hoverColor: Theme.hoverColor
     property color buttonColor: Theme.primaryColor
@@ -34,11 +34,6 @@ Button {
     height: 36
     width: rowItem.width + 32//layout.width + horizontalPadding * 2
     Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    
-    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
-    onPressed: scale = pressedScale
-    onReleased: scale = 1.0
-    onCanceled: scale = 1.0
     
     background: Rectangle {
         width: root.width
@@ -71,6 +66,8 @@ Button {
     contentItem: Item {
         anchors.fill: parent
         clip: true
+        scale: root.pressed ? root.pressedScale : 1.0
+        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         Row {
             id: rowItem
             anchors.centerIn: parent

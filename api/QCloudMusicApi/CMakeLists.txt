@@ -1,26 +1,47 @@
-﻿cmake_minimum_required(VERSION 3.14)
-
-project(QCloudMusicApiProject VERSION 1.0)
+cmake_minimum_required(VERSION 3.16)
+project(QCloudMusicApi LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
 
-option(QCLOUDMUSICAPI_BUILD_TEST "Build QCloudMusicApi tests" OFF)
-option(QCLOUDMUSICAPI_BUILD_SHARED "Build QCloudMusicApi as a shared library" ON)
+find_package(Qt6 REQUIRED COMPONENTS Core Network Gui)
 
-# 设置第三方仓库
-include_directories(3rdparty)
-set(CRYPTOPP_BUILD_TESTING OFF)
-# 使用本地已解压的 crypto++ 源码，避免构建时联网下载
-set(CRYPTOPP_USE_MASTER_BRANCH OFF)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cryptopp")
-    # FORCE 确保即使旧 cache 里 CRYPTOPP_SOURCES 为空也会被覆盖为本地的值
-    set(CRYPTOPP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cryptopp" CACHE PATH "Local crypto++ sources" FORCE)
-    message(STATUS "QCloudMusicApi: 使用本地 crypto++ 源码 ${CRYPTOPP_SOURCES}（跳过联网下载）")
-else()
-    message(WARNING "QCloudMusicApi: 未找到 3rdparty/cryptopp，将联网下载 crypto++")
+# crypto++：只用仓库里的源码，直接编静态库（不再经过 cryptopp-cmake）
+set(CRYPTOPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cryptopp)
+file(GLOB CRYPTOPP_SOURCES CONFIGURE_DEPENDS ${CRYPTOPP_DIR}/*.cpp)
+list(FILTER CRYPTOPP_SOURCES EXCLUDE REGEX
+     "/(bench[0-9]|validat[0-9]+|regtest[0-9]+|test|datatest|dlltest|fipsalgt|fipstest|pch|simple)\\.cpp$")
+if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64|arm64|ARM64)")
+    list(FILTER CRYPTOPP_SOURCES EXCLUDE REGEX "/neon_simd\\.cpp$")
 endif()
-add_subdirectory(3rdparty/cryptopp-cmake/)
+if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(ppc|powerpc)")
+    list(FILTER CRYPTOPP_SOURCES EXCLUDE REGEX "/power[0-9]+_ppc\\.cpp$")
+endif()
 
-add_subdirectory(QCloudMusicApi)
-include_directories(QCloudMusicApi)
+add_library(cryptopp STATIC ${CRYPTOPP_SOURCES})
+add_library(cryptopp::cryptopp ALIAS cryptopp)
+target_include_directories(cryptopp PUBLIC
+    ${CRYPTOPP_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty)
+set_target_properties(cryptopp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# 纯 C++ 实现：不依赖每文件 SIMD 开关，各平台同一套配置
+target_compile_definitions(cryptopp PUBLIC CRYPTOPP_DISABLE_ASM=1)
+
+file(GLOB QCLOUD_HEADERS CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/util/*.h)
+file(GLOB QCLOUD_SOURCES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/util/*.cpp)
+
+add_library(QCloudMusicApi STATIC ${QCLOUD_HEADERS} ${QCLOUD_SOURCES})
+target_include_directories(QCloudMusicApi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(QCloudMusicApi PRIVATE
+    Qt6::Core
+    Qt6::Network
+    Qt6::Gui
+    cryptopp::cryptopp
+)
+target_compile_definitions(QCloudMusicApi PRIVATE
+    QCLOUDMUSICAPI_LIBRARY
+    PROJECT_NAME="QCloudMusicApi"
+)

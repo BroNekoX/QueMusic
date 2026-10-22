@@ -605,7 +605,7 @@ Item {
         }
     }
 
-    // 歌单/榜单/歌手歌曲共用窗口
+    // 歌单/榜单歌曲共用窗口
     PlayListWindow {
         id: playListSongsWindow
         mainTarget: playlistChildPage
@@ -622,9 +622,9 @@ Item {
             QListView {
                 id: playListsView
                 x: 24
-                y: 184
+                y: 170
                 width: playListSongsWindow.width - 32
-                height: playListSongsWindow.height - 184
+                height: playListSongsWindow.height - 170
                 model: MusicApi.playlistSong
                 clip: true
                 topMargin: 8

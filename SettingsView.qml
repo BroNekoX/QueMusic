@@ -378,6 +378,7 @@ Item {
         opacity: 1
         property color choiceColor: Theme.hoverColor
         property color choiceTextColor: Theme.fontColor
+        property int setChoiceIndex: 0
         color: settingsView.sidebarColor
         Connections {
             target: Options
@@ -534,85 +535,82 @@ Item {
             ListElement { display: "Debug"; iconChar: "\uf060" }
         }
 
-        Column {
-            id: navListViewSettings
-            x: 15
-            y: Options.isMacOS ? 90 : 70
-            width: 180
-            height: settingsView.height - 80
-            property int setChoiceIndex: 0
+        Repeater {
+            model: navModelSettings
 
-            spacing: 2
-            z: 10
-            Repeater {
-                model: navModelSettings
+            delegate: Rectangle {
+                id: navDelegateSettings
+                width: 180
+                height: 42
+                x: 15
+                radius: Style.labelRadius
+                color: isSelected ? leftSidebarSettings.choiceColor : "transparent"
+                Component.onCompleted: {
+                    if(Options.isMacOS) {
+                        y = 44 * index + 90
+                    } else {
+                        y = 44 * index + 70
+                    }
+                }
 
-                delegate: Rectangle {
-                    id: navDelegateSettings
-                    width: navListViewSettings.width
-                    height: 42
+                property bool isSelected: leftSidebarSettings.setChoiceIndex === index
+                required property int index
+                required property var model
+
+                scale: 1.0
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+
+
+                Rectangle {
+                    anchors.fill: parent
                     radius: Style.labelRadius
-                    color: isSelected ? leftSidebarSettings.choiceColor : "transparent"
+                    color: Theme.hoverColor
+                    opacity: barMouse.containsMouse ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 80 } }
+                }
 
-                    property bool isSelected: navListViewSettings.setChoiceIndex === index
-                    required property int index
-                    required property var model
-
-                    scale: 1.0
+                Text {
+                    x: 8
+                    y: 0
+                    z: 1
+                    width: 42
+                    height: 42
+                    text: navDelegateSettings.model.iconChar
+                    font.family: Fonts.icon
+                    font.pixelSize: Style.texticon
+                    color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                     Behavior on color { ColorAnimation { duration: 120 } }
-                    Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                }
+
+                Text {
+                    x: 56
+                    y: 0
+                    z: 2
+                    width: 140
+                    height: 42
+                    text: navDelegateSettings.model.display
+                    color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
+                    font.bold: navDelegateSettings.isSelected
+                    font.pixelSize: Style.textmain
+                    verticalAlignment: Text.AlignVCenter
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                }
 
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Style.labelRadius
-                        color: Theme.hoverColor
-                        opacity: barMouse.containsMouse ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 80 } }
-                    }
+                MouseArea {
+                    id: barMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
 
-                    Text {
-                        x: 8
-                        y: 0
-                        z: 1
-                        width: 42
-                        height: 42
-                        text: navDelegateSettings.model.iconChar
-                        font.family: Fonts.icon
-                        font.pixelSize: Style.texticon
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                    }
-
-                    Text {
-                        x: 56
-                        y: 0
-                        z: 2
-                        width: 140
-                        height: 42
-                        text: navDelegateSettings.model.display
-                        color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
-                        font.bold: navDelegateSettings.isSelected
-                        font.pixelSize: Style.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                    }
-
-
-                    MouseArea {
-                        id: barMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-
-                        onPressed: navDelegateSettings.scale = 0.96
-                        onReleased: navDelegateSettings.scale = 1.0
-                        onCanceled: navDelegateSettings.scale = 1.0
-                        onClicked: {
-                            leftSidebarSettings.index1ed(navDelegateSettings.index)
-                            navListViewSettings.setChoiceIndex = navDelegateSettings.index
-                        }
+                    onPressed: navDelegateSettings.scale = 0.96
+                    onReleased: navDelegateSettings.scale = 1.0
+                    onCanceled: navDelegateSettings.scale = 1.0
+                    onClicked: {
+                        leftSidebarSettings.index1ed(navDelegateSettings.index)
+                        leftSidebarSettings.setChoiceIndex = navDelegateSettings.index
                     }
                 }
             }
@@ -2454,6 +2452,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.version + " (" + Options.versionCode + ") (Beta)"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2467,6 +2466,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.pluginApi + " (Beta)"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2480,6 +2480,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "Qt-" + "6.10.3" + "(Community)"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2493,6 +2494,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "QRHI/Qt Scene Graph"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2506,6 +2508,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "C++/JS/QtQuick"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2656,7 +2659,7 @@ Item {
                     QButton {
                         height: 40
                         radius: 20
-                        text: "Bug反馈/issue"
+                        text: "Bug反馈"
                         iconCharacter: "\uf06e"
                         onClicked: {
                             Qt.openUrlExternally("https://github.com/bronekox/quemusic/issues");
@@ -2912,9 +2915,6 @@ Item {
     Item {
         id: updater
 
-        // 从文件或宏定义中获取的本地版本号
-        property int localVersion: Options.versionCode
-
         // 远程 version.txt 的 URL
         property string remoteVersionUrl: "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt"
         property int newVersion: Options.versionCode
@@ -2932,7 +2932,7 @@ Item {
                         const remoteVersion = parseInt(text.substring(0,3));
                         console.log("远程版本号:", remoteVersion);
 
-                        if (remoteVersion > updater.localVersion) {
+                        if (remoteVersion > Options.versionCode) {
                             console.log("发现新版本!");
                             newVersion = remoteVersion;
                             updater.versionDescription = text.substring(4);

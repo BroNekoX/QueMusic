@@ -703,9 +703,9 @@ Item {
             QListView {
                 id: hotlistsView
                 x: 24
-                y: 184
+                y: 170
                 width: hotlistsWindow.width - 32
-                height: hotlistsWindow.height - 184
+                height: hotlistsWindow.height - 170
                 model: MusicApi.playlistSong
                 clip: true
                 topMargin: 8

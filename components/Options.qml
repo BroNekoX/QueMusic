@@ -32,8 +32,8 @@ QtObject {
     property bool homeLoaded: false    // 首页是否已加载
     property bool playlistLoaded: false  // 分类是否已加载
     property bool recordingShortCut: false
-    readonly property string version: "0.6.0"
-    readonly property int versionCode: 60
+    readonly property string version: "0.7.0"
+    readonly property int versionCode: 70
     readonly property int pluginApi: 10
     property string searchText: ""
 
