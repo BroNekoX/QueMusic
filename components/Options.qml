@@ -51,29 +51,33 @@ QtObject {
     onDarkisChanged: Options.changeTheme()
 
     onChangeTheme: {
+        // 深色角色：secondaryColor=页面/侧栏，primaryColor=卡片/弹层（同时作为强调色上的前景），
+        // fullColor=最深表面；卡片必须比页面亮，否则层级会塌陷。
         const hue = Style.colorList[Style.color].hsvHue;
+        const seedSat = Style.colorList[Style.color].hsvSaturation;
         switch(Style.colorStyle) {
         case 0:
-            Theme.fontColor = darkis ? "#e8e8ec" : "#1d1d1f";
-            Theme.textColor = darkis ? "#a0a0a6" : "#5e5e61";
-            Theme.fullColor = darkis ? "#17171a" : "#ffffff";
+            Theme.fontColor = darkis ? "#e9eaee" : "#1d1d1f";
+            Theme.textColor = darkis ? "#a6abb6" : "#5e5e61";
+            Theme.fullColor = darkis ? Qt.hsva(hue, 0.04, 0.065, 1.0) : "#ffffff";
             Theme.hoverColor = darkis ? "#12ffffff" : "#0a000000";
-            Theme.sideColor = darkis ? "#5a5a60" : "#e9e9ee";
-            Theme.sideBlurColor = darkis ? "#955a5a60" : "#95e9e9ee";
+            Theme.sideColor = darkis ? Qt.hsva(hue, 0.05, 0.26, 1.0) : "#e9e9ee";
+            Theme.sideBlurColor = darkis ? Qt.hsva(hue, 0.05, 0.26, 0.55) : "#95e9e9ee";
 
-            Theme.containColor = darkis ? Qt.hsva(hue, 0.40, 0.42, 1.0) : Qt.hsva(hue, 0.14, 1.0, 1.0);
-            Theme.containOutColor = darkis ? Qt.hsva(hue, 0.20, 1.0, 1.0) : Qt.hsva(hue, 0.9, 0.4, 1.0);
-            Theme.themeColor = Style.colorList[Style.color];
+            // 深色：页面 < 卡片 < 分割线；强调色取亮色，保证选中项用深色文字时仍有对比
+            Theme.containColor = darkis ? Qt.hsva(hue, seedSat * 0.46, 0.29, 1.0) : Qt.hsva(hue, 0.14, 1.0, 1.0);
+            Theme.containOutColor = darkis ? Qt.hsva(hue, seedSat * 0.63, 0.90, 1.0) : Qt.hsva(hue, 0.9, 0.4, 1.0);
+            Theme.themeColor = darkis ? Qt.hsva(hue, Math.min(seedSat * 0.63, 0.55), 0.96, 1.0) : Style.colorList[Style.color];
 
-            Theme.primaryColor = darkis ? Qt.hsva(hue, 0.08, 0.22, 1.0) : Qt.hsva(hue, 0.01, 1.0, 1.0);
-            Theme.primaryBlurColor = darkis ? Qt.hsva(hue, 0.08, 0.22, 0.82) : Qt.hsva(hue, 0.01, 1.0, 0.72);
-            Theme.secondaryColor = darkis ? Qt.hsva(hue, 0.08, 0.16, 1.0) : Qt.hsva(hue, 0.015, 0.973, 1.0);
-            Theme.secondaryBlurColor = darkis ? Qt.hsva(hue, 0.08, 0.16, 0.82) : Qt.hsva(hue, 0.015, 0.973, 0.72);
-            Theme.borderColor = darkis ? Qt.hsva(hue, 0.06, 0.32, 1.0) : Qt.hsva(hue, 0.02, 0.97, 1.0);
-            Theme.blurOverlayColor = darkis ? Qt.hsva(hue, 0.07, 0.14, 0.62) : Qt.hsva(hue, 0.01, 1.0, 0.55);
-            Theme.blurSecondaryColor = darkis ? Qt.hsva(hue, 0.08, 0.17, 0.62) : Qt.hsva(hue, 0.02, 0.97, 0.55);
-            Theme.shadowColor = darkis ? Qt.hsva(hue, 0.9, 0.03, 0.40) : Qt.hsva(hue, 0.9, 0.2, 0.1);
-            Theme.themeShadowColor = darkis ? Qt.hsva(hue, 1.0, 0.5, 0.30) : Qt.hsva(hue, 1.0, 0.6, 0.3);
+            Theme.primaryColor = darkis ? Qt.hsva(hue, 0.06, 0.185, 1.0) : Qt.hsva(hue, 0.01, 1.0, 1.0);
+            Theme.primaryBlurColor = darkis ? Qt.hsva(hue, 0.06, 0.185, 0.82) : Qt.hsva(hue, 0.01, 1.0, 0.72);
+            Theme.secondaryColor = darkis ? Qt.hsva(hue, 0.05, 0.115, 1.0) : Qt.hsva(hue, 0.015, 0.973, 1.0);
+            Theme.secondaryBlurColor = darkis ? Qt.hsva(hue, 0.05, 0.115, 0.82) : Qt.hsva(hue, 0.015, 0.973, 0.72);
+            Theme.borderColor = darkis ? "#18ffffff" : Qt.hsva(hue, 0.02, 0.97, 1.0);
+            Theme.blurOverlayColor = darkis ? Qt.hsva(hue, 0.05, 0.115, 0.65) : Qt.hsva(hue, 0.01, 1.0, 0.55);
+            Theme.blurSecondaryColor = darkis ? Qt.hsva(hue, 0.06, 0.185, 0.62) : Qt.hsva(hue, 0.02, 0.97, 0.55);
+            Theme.shadowColor = darkis ? Qt.rgba(0, 0, 0, 0.42) : Qt.hsva(hue, 0.9, 0.2, 0.1);
+            Theme.themeShadowColor = darkis ? Qt.hsva(hue, Math.min(seedSat * 0.63, 0.55), 0.96, 0.22) : Qt.hsva(hue, 1.0, 0.6, 0.3);
             break;
 
         case 1: {
@@ -84,45 +88,45 @@ QtObject {
 
             // M3 强调色：浅色 T40，深色 T80
             const m3PrimaryLight = Qt.hsva(seedHue, seedSat * 0.9, 0.40, 1.0);
-            const m3PrimaryDark  = Qt.hsva(seedHue, seedSat * 0.70, 0.80, 1.0);
+            const m3PrimaryDark  = Qt.hsva(seedHue, seedSat * 0.35, 0.96, 1.0);
+            const m3PrimaryContainerDark = Qt.hsva(seedHue, seedSat * 0.50, 0.30, 1.0);
 
             // Neutral 色（浅色）
             const m3NeutralLight        = Qt.hsva(seedHue, 0.04, 0.97, 1.0);
             const m3NeutralVariantLight = Qt.hsva(seedHue, 0.08, 0.90, 1.0);
 
-            // Neutral 色（深色）——按 M3 的 Surface T10 / Container T15 / High T20 分层
-            const m3NeutralDark          = Qt.hsva(seedHue, 0.04, 0.11, 1.0); // Surface (背景)
-            const m3NeutralDarkContainer = Qt.hsva(seedHue, 0.05, 0.16, 1.0); // Container (卡片)
-            const m3NeutralDarkHigh      = Qt.hsva(seedHue, 0.06, 0.22, 1.0); // High (浮层/悬浮)
-            const m3NeutralVariantDark   = Qt.hsva(seedHue, 0.07, 0.26, 1.0); // 侧栏
+            // 深色使用 M3 tonal 层级：Surface(页面) < SurfaceContainer(卡片) < OutlineVariant(分隔)
+            const m3SurfaceDark          = Qt.hsva(seedHue, 0.03, 0.075, 1.0); // Surface
+            const m3SurfaceContainerDark = Qt.hsva(seedHue, 0.04, 0.14, 1.0);  // SurfaceContainer
+            const m3SurfaceLowestDark    = Qt.hsva(seedHue, 0.03, 0.05, 1.0);   // SurfaceContainerLowest
+            const m3OutlineVariantDark   = Qt.hsva(seedHue, 0.06, 0.27, 1.0);   // OutlineVariant
 
             Theme.themeColor = darkis ? m3PrimaryDark : m3PrimaryLight;
 
             if (darkis) {
-                // 深色：背景最暗，卡片更亮，浮层最亮，形成正向明度层级
-                Theme.fullColor = m3NeutralDark;
-                Theme.primaryColor = m3NeutralDarkContainer;
-                Theme.primaryBlurColor = Qt.rgba(m3NeutralDarkContainer.r, m3NeutralDarkContainer.g, m3NeutralDarkContainer.b, 0.82);
-                Theme.secondaryColor = m3NeutralDarkHigh;
-                Theme.secondaryBlurColor = Qt.rgba(m3NeutralDarkHigh.r, m3NeutralDarkHigh.g, m3NeutralDarkHigh.b, 0.82);
+                Theme.fullColor = m3SurfaceLowestDark;
+                Theme.primaryColor = m3SurfaceContainerDark;
+                Theme.primaryBlurColor = Qt.rgba(m3SurfaceContainerDark.r, m3SurfaceContainerDark.g, m3SurfaceContainerDark.b, 0.82);
+                Theme.secondaryColor = m3SurfaceDark;
+                Theme.secondaryBlurColor = Qt.rgba(m3SurfaceDark.r, m3SurfaceDark.g, m3SurfaceDark.b, 0.82);
 
-                Theme.sideColor = m3NeutralVariantDark;
-                Theme.sideBlurColor = Qt.rgba(m3NeutralVariantDark.r, m3NeutralVariantDark.g, m3NeutralVariantDark.b, 0.58);
+                Theme.sideColor = m3OutlineVariantDark;
+                Theme.sideBlurColor = Qt.rgba(m3OutlineVariantDark.r, m3OutlineVariantDark.g, m3OutlineVariantDark.b, 0.58);
                 Theme.hoverColor = Qt.rgba(1, 1, 1, 0.08);
 
                 // onSurface / onSurfaceVariant
-                Theme.fontColor = Qt.hsva(seedHue, 0.03, 0.92, 1.0);
+                Theme.fontColor = Qt.hsva(seedHue, 0.03, 0.91, 1.0);
                 Theme.textColor = Qt.hsva(seedHue, 0.06, 0.78, 1.0);
 
                 // Outline
-                Theme.borderColor = Qt.hsva(seedHue, 0.08, 0.30, 1.0);
+                Theme.borderColor = Qt.hsva(seedHue, 0.06, 0.36, 1.0);
 
-                // Primary Container T30（降低饱和度，避免暗背景上过艳）
-                Theme.containColor = Qt.hsva(seedHue, 0.26, 0.30, 1.0);
-                Theme.containOutColor = m3PrimaryDark;
+                // PrimaryContainer T30 / onPrimaryContainer T90
+                Theme.containColor = m3PrimaryContainerDark;
+                Theme.containOutColor = Qt.hsva(seedHue, seedSat * 0.18, 0.90, 1.0);
 
-                Theme.blurOverlayColor = Qt.rgba(m3NeutralDark.r, m3NeutralDark.g, m3NeutralDark.b, 0.62);
-                Theme.blurSecondaryColor = Qt.rgba(m3NeutralDarkContainer.r, m3NeutralDarkContainer.g, m3NeutralDarkContainer.b, 0.62);
+                Theme.blurOverlayColor = Qt.rgba(m3SurfaceDark.r, m3SurfaceDark.g, m3SurfaceDark.b, 0.62);
+                Theme.blurSecondaryColor = Qt.rgba(m3SurfaceContainerDark.r, m3SurfaceContainerDark.g, m3SurfaceContainerDark.b, 0.62);
 
                 Theme.shadowColor = Qt.rgba(0, 0, 0, 0.45);
                 Theme.themeShadowColor = Qt.rgba(m3PrimaryDark.r, m3PrimaryDark.g, m3PrimaryDark.b, 0.30);
@@ -158,28 +162,28 @@ QtObject {
         case 2:
             // Fluent WinUI 3
             if (darkis) {
-                // 强调色饱和度略降，深色下不刺眼
-                Theme.themeColor = Qt.hsva(hue, 0.55, 0.90, 1.0);
-                Theme.fontColor = Qt.rgba(1, 1, 1, 0.92);
-                Theme.textColor = Qt.rgba(1, 1, 1, 0.62);
-                // 正向层级：窗口 #1F1F1F < 内容 #272727 < 卡片/浮层 #323232
-                Theme.fullColor = "#272727";
-                Theme.primaryColor = "#1F1F1F";
-                Theme.secondaryColor = "#323232";
-                Theme.sideColor = "#232323";
+                // WinUI 3 深色层：Deep #181818 < Base #202020 < Card #2C2C2C
+                const accent = Qt.hsva(hue, 0.52, 0.96, 1.0);
+                Theme.themeColor = accent;
+                Theme.fontColor = Qt.rgba(1, 1, 1, 0.94);
+                Theme.textColor = Qt.rgba(1, 1, 1, 0.74);
+                Theme.fullColor = "#181818";
+                Theme.primaryColor = "#2C2C2C";
+                Theme.secondaryColor = "#202020";
+                Theme.sideColor = "#2A2A2A";
                 Theme.hoverColor = Qt.rgba(1, 1, 1, 0.06);
                 Theme.borderColor = Qt.rgba(1, 1, 1, 0.08);
-                Theme.containColor = Qt.hsva(hue, 0.80, 0.62, 1.0);
+                Theme.containColor = Qt.hsva(hue, 0.38, 0.28, 1.0);
 
-                Theme.primaryBlurColor = Qt.rgba(0.122, 0.122, 0.122, 0.82);
-                Theme.secondaryBlurColor = Qt.rgba(0.196, 0.196, 0.196, 0.82);
-                Theme.sideBlurColor = Qt.rgba(0.137, 0.137, 0.137, 0.58);
-                Theme.blurOverlayColor = Qt.rgba(0.122, 0.122, 0.122, 0.62);
-                Theme.blurSecondaryColor = Qt.rgba(0.196, 0.196, 0.196, 0.62);
+                Theme.primaryBlurColor = Qt.rgba(0.173, 0.173, 0.173, 0.82);
+                Theme.secondaryBlurColor = Qt.rgba(0.125, 0.125, 0.125, 0.82);
+                Theme.sideBlurColor = Qt.rgba(0.165, 0.165, 0.165, 0.58);
+                Theme.blurOverlayColor = Qt.rgba(0.125, 0.125, 0.125, 0.62);
+                Theme.blurSecondaryColor = Qt.rgba(0.173, 0.173, 0.173, 0.62);
 
-                Theme.containOutColor = Qt.hsva(hue, 0.55, 0.90, 1.0);
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.40);
-                Theme.themeShadowColor = Qt.rgba(0.38, 0.80, 1.0, 0.25);
+                Theme.containOutColor = accent;
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.35);
+                Theme.themeShadowColor = Qt.rgba(accent.r, accent.g, accent.b, 0.22);
             } else {
                 // 浅色（保持原逻辑）
                 Theme.themeColor = Qt.hsva(hue, 1.0, 0.72, 1.0);
@@ -208,27 +212,27 @@ QtObject {
         case 3:
             // Quiet UI
             if (darkis) {
-                // 深色：背景 0.09 → 卡片 0.18 → 浮层 0.13，纠正了原来 primary 比背景还暗的问题
-                Theme.themeColor = Qt.hsva(hue, 0.20, 0.68, 1.0);
+                // Quiet：低饱和、低对比；页面 0.105 < 卡片 0.16 < 分隔 0.21
+                Theme.themeColor = Qt.hsva(hue, 0.20, 0.78, 1.0);
                 Theme.fontColor = Qt.hsva(hue, 0.04, 0.90, 1.0);
-                Theme.textColor = Qt.hsva(hue, 0.06, 0.72, 1.0);
-                Theme.fullColor = Qt.hsva(hue, 0.06, 0.09, 1.0);        // 基础背景（最暗）
-                Theme.primaryColor = Qt.hsva(hue, 0.08, 0.18, 1.0);     // 卡片（更亮，可辨识）
-                Theme.secondaryColor = Qt.hsva(hue, 0.06, 0.13, 1.0);   // 次级表面
-                Theme.sideColor = Qt.hsva(hue, 0.07, 0.15, 1.0);        // 侧栏
-                Theme.hoverColor = Qt.rgba(1, 1, 1, 0.06);
-                Theme.borderColor = Qt.rgba(1, 1, 1, 0.10);
-                Theme.containColor = Qt.hsva(hue, 0.22, 0.26, 1.0);
+                Theme.textColor = Qt.hsva(hue, 0.06, 0.70, 1.0);
+                Theme.fullColor = Qt.hsva(hue, 0.04, 0.075, 1.0);
+                Theme.primaryColor = Qt.hsva(hue, 0.06, 0.16, 1.0);
+                Theme.secondaryColor = Qt.hsva(hue, 0.05, 0.105, 1.0);
+                Theme.sideColor = Qt.hsva(hue, 0.06, 0.21, 1.0);
+                Theme.hoverColor = Qt.rgba(1, 1, 1, 0.05);
+                Theme.borderColor = Qt.rgba(1, 1, 1, 0.08);
+                Theme.containColor = Qt.hsva(hue, 0.20, 0.25, 1.0);
 
-                Theme.primaryBlurColor = Qt.hsva(hue, 0.08, 0.18, 0.82);
-                Theme.secondaryBlurColor = Qt.hsva(hue, 0.06, 0.13, 0.82);
-                Theme.sideBlurColor = Qt.hsva(hue, 0.07, 0.15, 0.58);
-                Theme.blurOverlayColor = Qt.hsva(hue, 0.07, 0.11, 0.62);
-                Theme.blurSecondaryColor = Qt.hsva(hue, 0.06, 0.13, 0.62);
+                Theme.primaryBlurColor = Qt.hsva(hue, 0.06, 0.16, 0.82);
+                Theme.secondaryBlurColor = Qt.hsva(hue, 0.05, 0.105, 0.82);
+                Theme.sideBlurColor = Qt.hsva(hue, 0.06, 0.21, 0.58);
+                Theme.blurOverlayColor = Qt.hsva(hue, 0.05, 0.105, 0.62);
+                Theme.blurSecondaryColor = Qt.hsva(hue, 0.06, 0.16, 0.62);
 
-                Theme.containOutColor = Qt.hsva(hue, 0.20, 0.68, 1.0);
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.35);
-                Theme.themeShadowColor = Qt.hsva(hue, 0.20, 0.68, 0.20);
+                Theme.containOutColor = Qt.hsva(hue, 0.18, 0.78, 1.0);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.32);
+                Theme.themeShadowColor = Qt.hsva(hue, 0.20, 0.78, 0.18);
             } else {
                 // 浅色（保持原逻辑）
                 Theme.themeColor = Qt.hsva(hue, 0.22, 0.52, 1.0);
@@ -258,9 +262,9 @@ QtObject {
             // Material You
             const mySeedSat = Style.colorList[Style.color].hsvSaturation;
 
-            // Primary：深色 T80，饱和度略低于 MD3
+            // Primary：深色 T80，保留比 MD3 略高的 seed 色相存在感
             const myPrimary = darkis
-                ? Qt.hsva(hue, mySeedSat * 0.65, 0.82, 1.0)
+                ? Qt.hsva(hue, mySeedSat * 0.42, 0.96, 1.0)
                 : Qt.hsva(hue, mySeedSat * 0.95, 0.44, 1.0);
 
             // Neutral / Surface Container（浅色）
@@ -269,40 +273,39 @@ QtObject {
             const mySurfaceContainerL    = Qt.hsva(hue, 0.05, 0.95, 1.0);
             const mySurfaceContainerHL   = Qt.hsva(hue, 0.06, 0.92, 1.0);
 
-            // Neutral / Surface Container（深色）——补上卡片/浮层分层
-            const myNeutralDark          = Qt.hsva(hue, 0.07, 0.11, 1.0); // 背景
-            const mySurfaceContainerD    = Qt.hsva(hue, 0.08, 0.16, 1.0); // 卡片
-            const mySurfaceContainerHD   = Qt.hsva(hue, 0.08, 0.22, 1.0); // 浮层/悬浮
-            const myNeutralVariantDark   = Qt.hsva(hue, 0.09, 0.26, 1.0); // 侧栏
+            // 深色：页面 < 卡片 < 分隔；表面带 seed 色相
+            const myNeutralDark          = Qt.hsva(hue, 0.06, 0.085, 1.0); // 页面
+            const mySurfaceContainerD    = Qt.hsva(hue, 0.07, 0.155, 1.0); // 卡片
+            const mySurfaceLowestD       = Qt.hsva(hue, 0.05, 0.06, 1.0);  // 最深表面
+            const myNeutralVariantDark   = Qt.hsva(hue, 0.09, 0.29, 1.0);  // 侧栏/分隔
 
             Theme.themeColor = myPrimary;
 
             if (darkis) {
-                // 深色
-                Theme.fullColor = myNeutralDark;
+                Theme.fullColor = mySurfaceLowestD;
                 Theme.primaryColor = mySurfaceContainerD;
                 Theme.primaryBlurColor = Qt.rgba(mySurfaceContainerD.r, mySurfaceContainerD.g, mySurfaceContainerD.b, 0.82);
-                Theme.secondaryColor = mySurfaceContainerHD;
-                Theme.secondaryBlurColor = Qt.rgba(mySurfaceContainerHD.r, mySurfaceContainerHD.g, mySurfaceContainerHD.b, 0.82);
+                Theme.secondaryColor = myNeutralDark;
+                Theme.secondaryBlurColor = Qt.rgba(myNeutralDark.r, myNeutralDark.g, myNeutralDark.b, 0.82);
 
                 Theme.sideColor = myNeutralVariantDark;
                 Theme.sideBlurColor = Qt.rgba(myNeutralVariantDark.r, myNeutralVariantDark.g, myNeutralVariantDark.b, 0.58);
                 Theme.hoverColor = Qt.rgba(1, 1, 1, 0.08);
 
-                Theme.fontColor = Qt.hsva(hue, 0.05, 0.92, 1.0);
-                Theme.textColor = Qt.hsva(hue, 0.07, 0.78, 1.0);
+                Theme.fontColor = Qt.hsva(hue, 0.04, 0.92, 1.0);
+                Theme.textColor = Qt.hsva(hue, 0.07, 0.80, 1.0);
 
-                Theme.borderColor = Qt.hsva(hue, 0.08, 0.32, 1.0);
+                Theme.borderColor = Qt.hsva(hue, 0.08, 0.39, 1.0);
 
-                // Primary Container T30（比 MD3 稍高一点活力，但不过饱和）
-                Theme.containColor = Qt.hsva(hue, 0.30, 0.32, 1.0);
-                Theme.containOutColor = myPrimary;
+                // PrimaryContainer T30
+                Theme.containColor = Qt.hsva(hue, mySeedSat * 0.52, 0.31, 1.0);
+                Theme.containOutColor = Qt.hsva(hue, mySeedSat * 0.20, 0.91, 1.0);
 
                 Theme.blurOverlayColor = Qt.rgba(myNeutralDark.r, myNeutralDark.g, myNeutralDark.b, 0.62);
-                Theme.blurSecondaryColor = Qt.rgba(mySurfaceContainerHD.r, mySurfaceContainerHD.g, mySurfaceContainerHD.b, 0.62);
+                Theme.blurSecondaryColor = Qt.rgba(mySurfaceContainerD.r, mySurfaceContainerD.g, mySurfaceContainerD.b, 0.62);
 
                 Theme.shadowColor = Qt.rgba(0, 0, 0, 0.45);
-                Theme.themeShadowColor = Qt.rgba(myPrimary.r, myPrimary.g, myPrimary.b, 0.32);
+                Theme.themeShadowColor = Qt.rgba(myPrimary.r, myPrimary.g, myPrimary.b, 0.30);
             } else {
                 // 浅色（保持原逻辑）
                 Theme.fullColor = Qt.hsva(hue, 0.02, 0.995, 1.0);

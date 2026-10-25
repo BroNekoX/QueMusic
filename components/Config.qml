@@ -28,6 +28,7 @@ Settings {
     property bool autoPlay: true
     property int playerRateIndex: 2        // 倍速预设
     property int volumeStep: 5             // 音量步长(%)
+    property bool recursive: true          // 扫描子目录
 
     // 播放增强
     property int seekStep: 5               // 精确跳转步长（秒）

@@ -160,6 +160,15 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(&m_kugou, &KugouApi::resultReady, this, &MusicApiService::handleResult);
     connect(&m_bilibili, &BilibiliApi::resultReady, this, &MusicApiService::handleResult);
 
+    // JS 音源插件：<配置目录>/sources/*.js，异步加载，加载完刷新 sources
+    const QString sourcesDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                               + QStringLiteral("/BroNekoX/QueMusic/sources");
+    QDir().mkpath(sourcesDir);
+    m_scripts.setPluginDir(sourcesDir);
+    connect(&m_scripts, &ScriptSourceHost::resultReady, this, &MusicApiService::handleResult);
+    connect(&m_scripts, &ScriptSourceHost::pluginsChanged, this, &MusicApiService::sourcesChanged);
+    m_scripts.reload();
+
     // 音质初值：QML 侧还有 Binding 同步，这里读 ini 只为保证 Binding 生效前也正确
     QSettings opt(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                       + QStringLiteral("/BroNekoX/QueMusic.ini"),
@@ -227,6 +236,50 @@ void MusicApiService::setSoundQuality(int q)
         return;
     m_soundQuality = q;
     emit soundQualityChanged();
+}
+
+QVariantList MusicApiService::sources() const
+{
+    QVariantList list{
+        QVariantMap{{QStringLiteral("id"), kSourceKugou}, {QStringLiteral("name"), QStringLiteral("酷狗音乐")}, {QStringLiteral("plugin"), false}},
+        QVariantMap{{QStringLiteral("id"), kSourceNetease}, {QStringLiteral("name"), QStringLiteral("网易云音乐")}, {QStringLiteral("plugin"), false}},
+        QVariantMap{{QStringLiteral("id"), kSourceBilibili}, {QStringLiteral("name"), QStringLiteral("哔哩哔哩")}, {QStringLiteral("plugin"), false}},
+    };
+    list += m_scripts.plugins();
+    return list;
+}
+
+QStringList MusicApiService::sourceNames() const
+{
+    QStringList names;
+    const QVariantList list = sources();
+    names.reserve(list.size());
+    for (const QVariant &entry : list)
+        names << entry.toMap().value(QStringLiteral("name")).toString();
+    return names;
+}
+
+QVariantList MusicApiService::sourceIds() const
+{
+    QVariantList ids;
+    const QVariantList list = sources();
+    ids.reserve(list.size());
+    for (const QVariant &entry : list)
+        ids << entry.toMap().value(QStringLiteral("id")).toInt();
+    return ids;
+}
+
+int MusicApiService::sourceIdAt(int index) const
+{
+    const QVariantList list = sources();
+    if (index < 0 || index >= list.size())
+        return m_source;
+    return list.at(index).toMap().value(QStringLiteral("id")).toInt();
+}
+
+void MusicApiService::reloadSources()
+{
+    m_scripts.reload();
 }
 
 // 记录「同一首歌的不同音质 hash」
@@ -340,9 +393,11 @@ void MusicApiService::syncSource(int source)
     }
     if (!m_account)
         return;
-    if (source == kSourceNetease)
+    if (source == kSourceNetease) {
         // 带客户端身份（稳定 deviceId + os=pc）：未登录也要带，避免被网易云判为异常环境
         m_netease.setCookie(m_account->neteaseApiCookie());
+        m_netease.setQuality(m_soundQuality);
+    }
     else if (source == kSourceKugou) {
         m_kugou.setCookie(m_account->kugouCookie());
         m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
@@ -360,7 +415,8 @@ void MusicApiService::syncSource(int source)
         case kSourceKugou:    m_kugou.expr; break;                          \
         case kSourceBilibili: m_bilibili.expr; break;                       \
         default:                                                            \
-            qWarning() << "[api] 未实现的平台:" << quemusicSource;            \
+            qWarning() << "[api] 音源不支持该功能:" << quemusicSource;        \
+            endRequest();                                                    \
         }                                                                   \
     } while (0)
 
@@ -369,6 +425,15 @@ void MusicApiService::searchSongs(const QString &keyword, int type, int page, in
                                   int source)
 {
     beginRequest();
+    const int resolved = resolve(source);
+    if (m_scripts.isPlugin(resolved)) {
+        m_scripts.request(resolved, QStringLiteral("searchSongs"),
+                          QVariantMap{{QStringLiteral("keyword"), keyword},
+                                      {QStringLiteral("type"), type},
+                                      {QStringLiteral("page"), page},
+                                      {QStringLiteral("pageSize"), pageSize}});
+        return;
+    }
     DISPATCH(source, searchSongs(keyword, type, page, pageSize));
 }
 
@@ -489,6 +554,13 @@ void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
         m_playHash = playHash;
         m_playSource = resolvedSource;
     }
+    if (m_scripts.isPlugin(resolvedSource)) {
+        m_scripts.request(resolvedSource, QStringLiteral("getMusicInfo"),
+                          QVariantMap{{QStringLiteral("hash"), playHash},
+                                      {QStringLiteral("id"), playHash},
+                                      {QStringLiteral("type"), type}});
+        return;
+    }
     DISPATCH(source, getMusicInfo(playHash, type));
 }
 
@@ -515,6 +587,13 @@ void MusicApiService::getComments(const QString &hash, int page, int pageSize, i
 void MusicApiService::getLyricInfo(const QString &hash, int duration, int source)
 {
     // 歌词请求不单独改 loadState（由 getMusicInfo 链路管理）
+    const int resolved = resolve(source);
+    if (m_scripts.isPlugin(resolved)) {
+        m_scripts.request(resolved, QStringLiteral("getLyricInfo"),
+                          QVariantMap{{QStringLiteral("hash"), hash},
+                                      {QStringLiteral("duration"), duration}});
+        return;
+    }
     DISPATCH(source, getLyricInfo(hash, duration));
 }
 

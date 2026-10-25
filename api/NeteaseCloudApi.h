@@ -8,9 +8,12 @@
 #ifndef NETEASECLOUDAPI_H
 #define NETEASECLOUDAPI_H
 
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QVariant>
+
+#include <atomic>
 
 class CloudWorker;
 class QThread;
@@ -24,13 +27,12 @@ public:
 
 signals:
     void resultReady(const QString &action, const QVariant &data, int source);
-    // 仅供内部使用：把请求投递到工作线程执行
-    void runRequest(const QString &action, const QVariantMap &call);
-    // 仅供内部使用：把登录态 Cookie 投递到工作线程
+    // 仅供内部使用：把登录态 Cookie 投递到所有工作线程
     void setCookieRequest(const QString &cookie);
 
 public slots:
     void setCookie(const QString &cookie); // 同步 AccountManager 的网易云登录态
+    void setQuality(int quality);           // 0 标准 / 1 高清 / 2 无损 / 3 HiRes
     void searchSongs(const QString &keyword, int type, int page, int pageSize);
     void getPlaylistMenu(int type);
     void getMusicPlaylists(const QString &tagid, int page, int pageSize);
@@ -56,8 +58,10 @@ private slots:
 private:
     void enqueue(const QString &action, const QVariantMap &call);
 
-    CloudWorker *m_worker = nullptr;
-    QThread *m_thread = nullptr;
+    QList<CloudWorker *> m_workers;
+    QList<QThread *> m_threads;
+    int m_next = 0;
+    std::atomic<int> m_quality{1};
 };
 
 #endif // NETEASECLOUDAPI_H

@@ -122,13 +122,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 radius: 18
                 cardRadius: Style.labelRadius
-                choice: MusicApi.songSource
+                choice: Math.max(0, MusicApi.sourceIds.indexOf(MusicApi.songSource))
                 color: homePage.sourceSkin.tint
                 textColor: homePage.sourceSkin.ink
                 border.color: homePage.sourceSkin.line
-                model: ["酷狗音乐", "网易云音乐", "哔哩哔哩", "QQ音乐(x)", "自定义源(x)"]
+                model: MusicApi.sourceNames
                 onTransformed: (choiced) => {
-                    MusicApi.songSource = choiced;
+                    MusicApi.songSource = MusicApi.sourceIdAt(choiced);
                     homeView.scrollTop();
                     MusicApi.hotPlayLists.clear();
                     MusicApi.getHotPlaylists(1);
@@ -231,7 +231,6 @@ Item {
                         y: 0
                         width: headerMain.heroWidth
                         height: 168
-                        color: "transparent"
                         gradient: Gradient {
                             GradientStop { position: 0.0; color: Qt.rgba(Theme.containColor.r + 0.1, Theme.containColor.g + 0.1, Theme.containColor.b + 0.1, 1.0) }
                             GradientStop { position: 1.0; color: Theme.containColor }
@@ -492,7 +491,7 @@ Item {
                 width: homeView.cardWidth
                 height: width + 106
                 radius: Style.labelRadius
-                color: Theme.primaryColor
+                color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
                 Accessible.role: Accessible.ListItem
                 Accessible.name: hotPlayRow.title
                 Accessible.description: hotPlayRow.album

@@ -604,6 +604,7 @@ Item {
                 LocalMusicScanner {
                     id: localFileModel
                     nameFilters: ["*.mp3","*.wav","*.aac","*.flac","*.ogg","*.eac3","*.wma","*.ac3","*.alac","*.mkv","*.wmv","*.avi","*.mpeg4","*.m4a"]
+                    recursive: Config.recursive
                     showDirs: false
                     sortField: filePage.localSortField
                     sortReversed: filePage.localSortReversed

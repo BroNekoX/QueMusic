@@ -235,7 +235,8 @@ void DbService::migrateFrom(const QString &oldDbPath, const QString &newDbPath)
     if (oldDbPath == newDbPath || !QFile::exists(oldDbPath) || QFile::exists(newDbPath))
         return;
 
-    int rows = -1;
+    int favoriteRows = -1;
+    int playlistRows = -1;
     {
         // 只读打开旧库探内容：它多半就是那个写不进去的库，读是没问题的
         QSqlDatabase old = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("migrate_probe"));
@@ -244,17 +245,20 @@ void DbService::migrateFrom(const QString &oldDbPath, const QString &newDbPath)
         if (old.open()) {
             QSqlQuery q(old);
             if (q.exec(QStringLiteral("SELECT count(*) FROM favorites")) && q.next())
-                rows = q.value(0).toInt();
+                favoriteRows = q.value(0).toInt();
+            if (q.exec(QStringLiteral("SELECT count(*) FROM playlists")) && q.next())
+                playlistRows = q.value(0).toInt();
         }
         old.close();
         QSqlDatabase::removeDatabase(QStringLiteral("migrate_probe"));
     }
 
-    if (rows <= 0)
+    if (favoriteRows <= 0 && playlistRows <= 0)
         return;   // 旧库是空的，没什么可搬
 
     if (QFile::copy(oldDbPath, newDbPath)) {
-        qWarning() << "[db] 已把旧数据搬到可写目录:" << newDbPath << "收藏条数:" << rows;
+        qWarning() << "[db] 已把旧数据搬到可写目录:" << newDbPath
+                   << "收藏条数:" << favoriteRows << "保存列表数:" << playlistRows;
         qWarning() << "[db] 旧库仍留在:" << oldDbPath << "（确认无误后可自行删除）";
     } else {
         qWarning() << "[db] 旧库搬迁失败，源:" << oldDbPath << "目标:" << newDbPath;
@@ -302,6 +306,22 @@ void DbService::ensureSchema(QSqlDatabase &db)
         "folder_id INTEGER,"
         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
         "PRIMARY KEY (type, id))"));
+    query.exec(QStringLiteral(
+        "CREATE TABLE IF NOT EXISTS playlists ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL, "
+        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+        "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"));
+    query.exec(QStringLiteral(
+        "CREATE TABLE IF NOT EXISTS playlist_songs ("
+        "playlist_id INTEGER NOT NULL, "
+        "position INTEGER NOT NULL, "
+        "name TEXT NOT NULL, "
+        "path TEXT NOT NULL, "
+        "songer TEXT DEFAULT '', "
+        "source INTEGER DEFAULT 0, "
+        "PRIMARY KEY (playlist_id, position), "
+        "FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE)"));
 
     // TAG 结果落库，避免每次刷新都重跑 TagLib
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_title"), QStringLiteral("TEXT DEFAULT ''"));

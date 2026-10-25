@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QVariantMap>
 #include <QMap>
@@ -19,6 +20,7 @@
 #include "NeteaseCloudApi.h"   // 基于 QCloudMusicApi 的网易云实现（替代旧 NeteaseApi）
 #include "BilibiliApi.h"
 #include "OnlineListModel.h"
+#include "sources/ScriptSourceHost.h"
 #include "../cpp/DownloadManager.h"
 
 class AccountManager;
@@ -33,6 +35,11 @@ class MusicApiService : public QObject
 
     // 默认歌曲源（0 酷狗 / 1 网易云），source<0 时使用
     Q_PROPERTY(int songSource READ songSource WRITE setSongSource NOTIFY songSourceChanged FINAL)
+
+    // 可用音源：内置三家 + 用户目录下的 JS 插件（id >= 100）
+    Q_PROPERTY(QVariantList sources READ sources NOTIFY sourcesChanged FINAL)
+    Q_PROPERTY(QStringList sourceNames READ sourceNames NOTIFY sourcesChanged FINAL)
+    Q_PROPERTY(QVariantList sourceIds READ sourceIds NOTIFY sourcesChanged FINAL)
 
     // 音质设置（0 标准 128k / 1 高清 320k / 2+ 无损 flac），由 QML 的 Options.settings.soundQuality 同步
     Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged FINAL)
@@ -98,6 +105,12 @@ public:
 
     int soundQuality() const;
     void setSoundQuality(int q);
+
+    QVariantList sources() const;
+    QStringList sourceNames() const;
+    QVariantList sourceIds() const;
+    Q_INVOKABLE int sourceIdAt(int index) const;
+    Q_INVOKABLE void reloadSources();
 
     OnlineListModel *searchSongsResults() { return &m_searchSongsResults; }
     OnlineListModel *newSongs() { return &m_newSongs; }
@@ -210,6 +223,7 @@ signals:
     void warned(const QString &text, int type); // 下载等提示
     void songSourceChanged();
     void soundQualityChanged();
+    void sourcesChanged();
     void allPlaylistMenuChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
@@ -285,6 +299,7 @@ private:
     NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
     KugouApi m_kugou;
     BilibiliApi m_bilibili;      // 哔哩哔哩（源 2）：音乐区稿件 + DASH 音频流
+    ScriptSourceHost m_scripts;  // 用户 JS 音源（id >= 100）
     AccountManager *m_account = nullptr;
     static AccountManager *s_accountManager; // create() 使用，main.cpp 注入
 

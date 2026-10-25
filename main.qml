@@ -63,6 +63,13 @@ Window {
         Options.changeUi();
         Options.changeTheme();
 
+        // Qt.application.arguments[0] 是程序自身路径，从 1 开始才是参数
+        const args = Qt.application.arguments.slice(1).filter(a => !a.startsWith("-"))
+        if (args.length) {
+            const fileName = args.split('/').pop();
+            Playback.playLocalSong(args, fileName);
+        }
+
         // 会话恢复 / 历史加载 / 封面缓存维护都是磁盘与网络 I/O，全部移出首帧
         Qt.callLater(function() {
             Playback.loadHistory();
@@ -532,7 +539,7 @@ Window {
             to: mainLayout.height
             easing.type: Easing.BezierSpline
             easing.bezierCurve: [ 0.50, 0.08, 0.00, 1.00, 1, 1 ]
-            onStarted: barLeftWidgets.y = 12;
+            onStarted: if(!settingsView.visible) barLeftWidgets.y = 12;
             onFinished: {
                 musicControlMax.visible = false;
                 musicControlMax.hideHeight = 0;
@@ -548,7 +555,7 @@ Window {
                 const color2 = colors.length > 1 ? colors[1] : "#9d4edd";
                 const color3 = colors.length > 2 ? colors[2] : (colors.length === 2 ? colors[0] : "#00ea64");
                 musicControlMax.changeColor(color1,color2,color3);
-                const mainColor = Qt.hsva(color1.hsvHue, color1.hsvSaturation * 0.8, color1.hsvValue * 0.5 + 0.1, 1.0);
+                const mainColor = Qt.hsva(color1.hsvHue, color1.hsvSaturation * 0.6, color1.hsvValue * 0.5 + 0.1, 1.0);
                 musicControlMin.changeColor(mainColor);
                 colorExtractFinished();
             }
@@ -576,6 +583,7 @@ Window {
         onLoaded: {
             visible = true;
             settingAnime.running = true;
+            barLeftWidgets.y = -48;
         }
     }
 
@@ -626,44 +634,9 @@ Window {
 
     Loader {
         active: Config.debug
-        visible: active
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.topMargin: 68
-        anchors.leftMargin: 220
-        width: 260
-        height: 92
-        z: 99
-        sourceComponent: Item {
-            id: debugHud
-            property string info: ""
-            Rectangle {
-                anchors.fill: parent
-                radius: 12
-                color: Theme.shadowColor
-                opacity: 0.75
-            }
-            Text {
-                anchors.fill: parent
-                anchors.margins: 10
-                text: debugHud.info
-                color: Theme.fontColor
-                font.pixelSize: 11
-                font.family: Fonts.text
-            }
-            Timer {
-                interval: 500
-                repeat: true
-                running: debugHud.visible
-                onTriggered: {
-                    debugHud.info = "调试模式"
-                            + "\n媒体状态: " + mainMedia.mediaStatus
-                            + "\n进度: " + Math.floor(mainMedia.position / 1000) + "s / " + Math.floor(mainMedia.duration / 1000) + "s"
-                            + "\n队列: " + playListModel.count + " 首"
-                            + "\n音量: " + Math.round(Config.musicVolume * 100) + "%"
-                }
-            }
-        }
+        asynchronous: true
+        visible: status === Loader.Ready
+        source: "qrc:/QueMusic/components/ConsoleWindow.qml"
     }
 
     NumberAnimation {
@@ -687,7 +660,10 @@ Window {
         from: 1
         to: 0
         easing.type: Easing.OutCubic
-        onStarted: mainLayout.visible = true;
+        onStarted: {
+            mainLayout.visible = true;
+            barLeftWidgets.y = 12;
+        }
         onFinished: {
             settingsView.visible = false;
             settingsView.active = false;

@@ -45,7 +45,12 @@ void LocalScanWorker::run()
     QDir::Filters filters = QDir::Files | QDir::NoDotAndDotDot;
     if (showDirs)
         filters |= QDir::Dirs;
-    QDirIterator it(dir.absolutePath(), nameFilters, filters, QDirIterator::NoIteratorFlags);
+    // 递归开关Subdirectories下钻子目录
+    QDirIterator::IteratorFlags itFlags = QDirIterator::NoIteratorFlags;
+    if (recursive)
+        itFlags |= QDirIterator::Subdirectories;
+    QDirIterator it(dir.absolutePath(), nameFilters, filters, itFlags);
+
     QList<LocalFileEntry> list;
     list.reserve(1024);
     int reported = 0;
@@ -366,6 +371,7 @@ void LocalMusicScanner::startScan()
     m_worker->folder = m_folder.toLocalFile();
     m_worker->nameFilters = m_nameFilters;
     m_worker->showDirs = m_showDirs;
+    m_worker->recursive = m_recursive;
     m_worker->sortField = m_sortField;
     m_worker->sortReversed = m_sortReversed;
     // 与库里其它封面同目录（DbService 回退时也一致）
@@ -583,4 +589,14 @@ void LocalMusicScanner::removeEntriesByPath(const QStringList &paths)
     m_entries = std::move(kept);
     endResetModel();
     emit countChanged();
+}
+
+void LocalMusicScanner::setRecursive(bool v)
+{
+    if (m_recursive == v)
+        return;
+    m_recursive = v;
+    emit recursiveChanged();
+    if (!m_folder.isEmpty())
+        startScan();
 }

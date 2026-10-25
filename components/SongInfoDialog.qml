@@ -13,8 +13,8 @@ QOptionDialog {
     property var info
 
     readonly property string sourceName: {
-        const names = ["酷狗音乐", "网易云音乐", "哔哩哔哩", "QQ音乐", "自定义源"]
-        return (info && names[info.source] !== undefined) ? names[info.source] : "未知来源"
+        const index = MusicApi.sourceIds.indexOf(info ? info.source : -1)
+        return index >= 0 ? MusicApi.sourceNames[index] : "未知来源"
     }
     readonly property list<var> rows: {
         if (!info) return []

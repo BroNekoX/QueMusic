@@ -11,7 +11,11 @@ Item {
     property int spacing: 12
     property int index: 0
     property list<string> model: []
-    Component.onCompleted: tabsBar.width = tabsRepeat.itemAt(0).width;
+    property int preferWidth: tapRow.implicitWidth
+    property color textColor: Theme.textColor
+    property color activeColor: Theme.themeColor
+    readonly property Item currentTab: tabsRepeat.count > 0 && tabs.index >= 0 && tabs.index < tabsRepeat.count
+                                       ? tabsRepeat.itemAt(tabs.index) : null
     onIndexChanged: barAnime.running = true;
     Rectangle {
         id: tabsBar
@@ -19,7 +23,7 @@ Item {
         x: 0
         height: 2
         radius: 1
-        color: Theme.themeColor
+        color: tabs.activeColor
     }
     ParallelAnimation {
         id: barAnime
@@ -27,7 +31,7 @@ Item {
             target: tabsBar
             easing.overshoot: 1.2
             property: "x"
-            to: tabsRepeat.count > 0 ? tabsRepeat.itemAt(tabs.index).x : 0
+            to: tabs.currentTab ? tabs.currentTab.x : 0
             duration: 320
             easing.type: Easing.OutBack
         }
@@ -35,13 +39,14 @@ Item {
             target: tabsBar
             property: "width"
             easing.overshoot: 1.2
-            to: tabsRepeat.count > 0 ? tabsRepeat.itemAt(tabs.index).width : 0
+            to: tabs.currentTab ? tabs.currentTab.width : 0
             duration: 320
             easing.type: Easing.OutBack
         }
     }
 
     Row {
+        id: tapRow
         spacing: tabs.spacing
         anchors.fill: parent
         Repeater {
@@ -53,13 +58,14 @@ Item {
                 required property string modelData
                 width: tabLabel.implicitWidth + 12
                 height: tabs.height
+                Component.onCompleted: if(index === 0) tabsBar.width = width;
                 Text {
                     id: tabLabel
                     anchors.centerIn: parent
                     text: tabItem.modelData
                     font.pixelSize: Style.textmain
                     font.bold: tabs.index === tabItem.index
-                    color: tabs.index === tabItem.index ? Theme.themeColor : Theme.textColor
+                    color: tabs.index === tabItem.index ? tabs.activeColor : tabs.textColor
                 }
                 MouseArea {
                     anchors.fill: parent

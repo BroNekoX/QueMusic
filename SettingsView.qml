@@ -368,6 +368,21 @@ Item {
         }
     }
 
+    Text {
+        x: 236 + settingStack.containX
+        z: 3
+        height: 24
+        text: navModelSettings.get(leftSidebarSettings.setChoiceIndex).display
+        color: Theme.textColor
+        font.pixelSize: 14
+        verticalAlignment: Text.AlignVCenter
+        visible: settingStack.setPages[leftSidebarSettings.setChoiceIndex].contentY > 64
+        opacity: visible ? 1 : 0
+        y: visible ? 18 : 36
+        Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
+    }
+
     Rectangle {
         id: leftSidebarSettings
         x: 0
@@ -429,6 +444,8 @@ Item {
             choicebar1.indexOld = choice;
             if(choice !== settingStack.setPageIndex) {
                 setPageAnine.stop();
+                settingStack.setPages[leftSidebarSettings.setChoiceIndex].contentY = 0;
+                settingStack.setPages[leftSidebarSettings.setChoiceIndex].scrollToY = 0;
                 setPageAnimeo.target = settingStack.setPages[choice];
                 setPageAnimey.target = settingStack.setPages[choice];
                 setPageAnine.start();
@@ -1605,6 +1622,17 @@ Item {
                         }
 
                         SettingItemCard {
+                            label: "扫描子目录"
+                            tip: "本地文件夹中将显示子目录下的歌曲"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.recursive
+                                onToggled: Config.recursive = !Config.recursive
+                            }
+                        }
+
+                        SettingItemCard {
                             label: "音量步长"
                             tip: "每次滚轮或快捷键调节音量的幅度"
                             controlItem: QSlider {
@@ -2110,7 +2138,8 @@ Item {
             width: settingStack.width
             height: settingStack.height - 60
             visible: false
-            property int tabIndex: 0        // 子页签：0 歌词界面 / 1 功能 / 2 音乐源
+            property int contentY: 0    // 使用contentY代替：子页签：0 歌词界面 / 1 功能 / 2 音乐源
+            property int scrollToY: 0
 
             Text {
                 x: 24 + settingStack.containX
@@ -2135,43 +2164,11 @@ Item {
                 rectXy: Qt.rect(0, 10, width, 40)
                 blurSource: downloadChildPage
                 onTabChange: (index) => {
-                    modset.tabIndex = index
-                    downloadChildPage.stack(index)
+                    modset.contentY = index;
+                    downloadChildPage.stack(index);
                 }
             }
 
-            // 「音乐源」尚未实现，仅在该子页签提示
-            Rectangle {
-                visible: modset.tabIndex >= 2
-                x: 24 + settingStack.containX
-                y: 124
-                width: settingStack.standWidth
-                height: warnModText.implicitHeight + 48
-                color: Theme.containColor
-                radius: Style.cubeRadius
-                border.color: Theme.sideColor
-                border.width: 1
-                Text {
-                    x: 24
-                    y: 24
-                    font.family: Fonts.icon
-                    height: warnModText.implicitHeight
-                    text: "\uf11a"
-                    color: Theme.themeColor
-                    font.pixelSize: Style.texticon
-                }
-                Text {
-                    id: warnModText
-                    x: 48
-                    y: 24
-                    width: parent.width - 64
-                    text: "音乐源插件还未开发完成，等待开发者更新喵"
-                    wrapMode: Text.Wrap
-                    color: Theme.textColor
-                    font.bold: false
-                    font.pixelSize: Style.textmain
-                }
-            }
 
             QPages {
                 x: 24 + settingStack.containX
@@ -2202,6 +2199,36 @@ Item {
                     visible: false
                     width: downloadChildPage.width
                     height: downloadChildPage.height
+                    Rectangle {
+                        visible: modset.contentY >= 2
+                        y: 64
+                        width: settingStack.standWidth
+                        height: warnModText.implicitHeight + 48
+                        color: Theme.containColor
+                        radius: Style.cubeRadius
+                        border.color: Theme.sideColor
+                        border.width: 1
+                        Text {
+                            x: 24
+                            y: 24
+                            font.family: Fonts.icon
+                            height: warnModText.implicitHeight
+                            text: "\uf11a"
+                            color: Theme.themeColor
+                            font.pixelSize: Style.texticon
+                        }
+                        Text {
+                            id: warnModText
+                            x: 48
+                            y: 24
+                            width: parent.width - 64
+                            text: "音乐源插件还未开发完成，等待开发者更新喵"
+                            wrapMode: Text.Wrap
+                            color: Theme.textColor
+                            font.bold: false
+                            font.pixelSize: Style.textmain
+                        }
+                    }
                     Text {
                         anchors.fill: parent
                         text: "音乐源"
@@ -2223,6 +2250,36 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         color: Theme.textColor
                         font.pixelSize: 14
+                    }
+                    Rectangle {
+                        visible: modset.contentY >= 2
+                        y: 64
+                        width: settingStack.standWidth
+                        height: warnMod2Text.implicitHeight + 48
+                        color: Theme.containColor
+                        radius: Style.cubeRadius
+                        border.color: Theme.sideColor
+                        border.width: 1
+                        Text {
+                            x: 24
+                            y: 24
+                            font.family: Fonts.icon
+                            height: warnMod2Text.implicitHeight
+                            text: "\uf11a"
+                            color: Theme.themeColor
+                            font.pixelSize: Style.texticon
+                        }
+                        Text {
+                            id: warnMod2Text
+                            x: 48
+                            y: 24
+                            width: parent.width - 64
+                            text: "插件市场还未更新，请等待更新"
+                            wrapMode: Text.Wrap
+                            color: Theme.textColor
+                            font.bold: false
+                            font.pixelSize: Style.textmain
+                        }
                     }
                 }
             }
@@ -2812,7 +2869,7 @@ Item {
 
                         SettingItemCard {
                             label: "调试模式"
-                            tip: "显示运行状态调试面板"
+                            tip: "打开QueMusic Console调试窗口"
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true

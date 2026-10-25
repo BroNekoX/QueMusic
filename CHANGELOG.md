@@ -123,6 +123,9 @@
 - 修复空收藏自激查询并加 150ms 防抖；静态渐变停定时器，模糊按 0.5× 渲染，背景按窗口尺寸解码。
 - Windows 应用身份独立成模块；删除未用 PlayerDatabase；封面缓存统一目录；日志日期仅跨天重格式化，播放时间量化到秒
 - 精简 api/QCloudMusicApi：拍平多套一层的 QCloudMusicApi/QCloudMusicApi，删除 cryptopp-cmake，Crypto++ 改为直接用仓库源码编静态库（纯 C++ 实现），根工程不再需要相关 CMake 配置项
+- 在线层：网易云歌词改走 lyric_new 并解析 yrc 逐字歌词（无逐字时回退 lrc），翻译优先 ytlrc；播放链接按音质 standard→exhigh→lossless→hires 逐级回退
+- 在线层：网易云请求由单线程改为 3 个 worker 轮转（歌词/详情/链接并行），传输失败自动重试一次；音源下拉改为动态列表
+- 音源插件系统：每个 JS 插件跑在独立线程的 QJSEngine（http.get/getJson、meta、search/musicUrl/lyrics），目录 <配置>/BroNekoX/QueMusic/sources/*.js，MusicApi.sources 暴露给 QML
 
 ### 修复
 - 修复歌曲信息不显示内容的问题，能够正常显示在线和本地的歌曲信息

@@ -14,8 +14,17 @@ Rectangle {
     clip: false
     property int musicInfoX: 100
     signal centerChange()
-    property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.8, Theme.themeColor.hsvValue * 0.5 + 0.1, 1.0);
+    property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.6, Theme.themeColor.hsvValue * 0.5 + 0.2, 1.0);
+    property color secondColor: Qt.hsva(mainColor.hsvHue + 0.05, mainColor.hsvSaturation * 0.8, mainColor.hsvValue + 0.08, 1.0);
     property color iconColor: Style.noOpacityControl && Style.coverColorControl ? "#dae8e8ec" : Theme.textColor
+
+    gradient: color === mainColor ? controlGradient : null
+    Gradient {
+        id: controlGradient
+        orientation: Gradient.Horizontal
+        GradientStop { position: 0.1; color: musicControlMin.mainColor }
+        GradientStop { position: 0.8; color: musicControlMin.secondColor }
+    }
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player

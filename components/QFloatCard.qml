@@ -10,7 +10,7 @@ Rectangle {
     width: 240
     height: 120
     radius: Style.cubeRadius
-    color: Theme.primaryColor
+    color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
     border.color: Theme.sideColor
     border.width: 1
     signal clicked()

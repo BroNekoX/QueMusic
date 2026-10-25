@@ -26,6 +26,10 @@ Window {
     property var lyricsData: MusicApi.lyricsData || []
     property int currentIndex: 0
     property int nextIndex: 1
+    onClosing: {
+        Options.desktop.desktopPlayerMode = 0;
+        Options.desktopLyricsLoader.active = false;
+    }
 
     // 播放时下标只会前进，从上次位置增量推进，避免每 tick 全表扫描
     function updateCurrentIndex(): void {

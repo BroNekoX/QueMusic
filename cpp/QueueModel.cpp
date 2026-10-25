@@ -3,10 +3,224 @@
 
 #include "QueueModel.h"
 
+#include "DbService.h"
+
+#include <QDebug>
+#include <QPointer>
 #include <QSet>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QVariant>
+
+namespace {
+
+QString sqlError(const QString &prefix, const QSqlError &error)
+{
+    return prefix + QStringLiteral(": ") + error.text();
+}
+
+} // namespace
+
+// SavedPlaylistsModel
+
+SavedPlaylistsModel::SavedPlaylistsModel(QObject *parent)
+    : QAbstractListModel(parent)
+{
+    reload();
+}
+
+int SavedPlaylistsModel::rowCount(const QModelIndex &parent) const
+{
+    return parent.isValid() ? 0 : m_items.size();
+}
+
+QVariant SavedPlaylistsModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
+        return {};
+    const Item &item = m_items.at(index.row());
+    switch (role) {
+    case PlaylistIdRole:  return item.id;
+    case NameRole:        return item.name;
+    case SongCountRole:   return item.songCount;
+    case CreatedAtRole:   return item.createdAt;
+    }
+    return {};
+}
+
+QHash<int, QByteArray> SavedPlaylistsModel::roleNames() const
+{
+    return {
+        { PlaylistIdRole, "playlistId" },
+        { NameRole, "name" },
+        { SongCountRole, "songCount" },
+        { CreatedAtRole, "createdAt" }
+    };
+}
+
+void SavedPlaylistsModel::reload()
+{
+    const quint64 generation = m_generation.fetch_add(1) + 1;
+    QPointer<SavedPlaylistsModel> self(this);
+    DbService::instance()->submit([self, generation](QSqlDatabase &db) {
+        QVector<Item> rows;
+        QSqlQuery query(db);
+        if (query.exec(QStringLiteral(
+                "SELECT p.id, p.name, COUNT(s.playlist_id), p.created_at "
+                "FROM playlists p "
+                "LEFT JOIN playlist_songs s ON s.playlist_id = p.id "
+                "GROUP BY p.id "
+                "ORDER BY p.updated_at DESC, p.id DESC"))) {
+            while (query.next()) {
+                Item item;
+                item.id = query.value(0).toInt();
+                item.name = query.value(1).toString();
+                item.songCount = query.value(2).toInt();
+                item.createdAt = query.value(3).toDateTime();
+                rows.append(item);
+            }
+        } else {
+            qWarning() << "[playlist] 读取保存列表失败:" << query.lastError().text();
+        }
+        DbService::post(self, [self, generation, rows] {
+            if (self)
+                self->applyRows(generation, rows);
+        });
+    });
+}
+
+void SavedPlaylistsModel::applyRows(quint64 generation, const QVector<Item> &rows)
+{
+    if (generation != m_generation.load())
+        return;
+    const int previousCount = m_items.size();
+    beginResetModel();
+    m_items = rows;
+    endResetModel();
+    if (previousCount != rows.size())
+        emit countChanged();
+    emit loaded();
+}
+
+// PlaylistPreviewModel
+
+PlaylistPreviewModel::PlaylistPreviewModel(QObject *parent)
+    : QAbstractListModel(parent)
+{
+}
+
+int PlaylistPreviewModel::rowCount(const QModelIndex &parent) const
+{
+    return parent.isValid() ? 0 : m_songs.size();
+}
+
+QVariant PlaylistPreviewModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_songs.size())
+        return {};
+    const Song &song = m_songs.at(index.row());
+    switch (role) {
+    case NameRole:   return song.name;
+    case PathRole:   return song.path;
+    case SongerRole: return song.songer;
+    case SourceRole: return song.source;
+    }
+    return {};
+}
+
+QHash<int, QByteArray> PlaylistPreviewModel::roleNames() const
+{
+    return {
+        { NameRole, "name" },
+        { PathRole, "path" },
+        { SongerRole, "songer" },
+        { SourceRole, "source" }
+    };
+}
+
+void PlaylistPreviewModel::load(int playlistId)
+{
+    if (playlistId <= 0) {
+        clear();
+        return;
+    }
+
+    const quint64 generation = m_generation.fetch_add(1) + 1;
+    if (!m_songs.isEmpty()) {
+        beginResetModel();
+        m_songs.clear();
+        endResetModel();
+        emit countChanged();
+    }
+
+    QPointer<PlaylistPreviewModel> self(this);
+    DbService::instance()->submit([self, generation, playlistId](QSqlDatabase &db) {
+        QString name;
+        QVector<Song> songs;
+        QSqlQuery meta(db);
+        meta.prepare(QStringLiteral("SELECT name FROM playlists WHERE id = :id"));
+        meta.bindValue(QStringLiteral(":id"), playlistId);
+        if (meta.exec() && meta.next()) {
+            name = meta.value(0).toString();
+            QSqlQuery query(db);
+            query.prepare(QStringLiteral(
+                "SELECT name, path, songer, source FROM playlist_songs "
+                "WHERE playlist_id = :id ORDER BY position ASC"));
+            query.bindValue(QStringLiteral(":id"), playlistId);
+            if (query.exec()) {
+                while (query.next()) {
+                    Song song;
+                    song.name = query.value(0).toString();
+                    song.path = query.value(1).toString();
+                    song.songer = query.value(2).toString();
+                    song.source = query.value(3).toInt();
+                    songs.append(song);
+                }
+            } else {
+                qWarning() << "[playlist] 读取预览失败:" << query.lastError().text();
+            }
+        }
+        DbService::post(self, [self, generation, playlistId, name, songs] {
+            if (self)
+                self->applySongs(generation, playlistId, name, songs);
+        });
+    });
+}
+
+void PlaylistPreviewModel::clear()
+{
+    m_generation.fetch_add(1);
+    if (!m_songs.isEmpty()) {
+        beginResetModel();
+        m_songs.clear();
+        endResetModel();
+        emit countChanged();
+    }
+    m_name.clear();
+    m_playlistId = -1;
+    emit loaded();
+}
+
+void PlaylistPreviewModel::applySongs(quint64 generation, int playlistId,
+                                      const QString &name, const QVector<Song> &songs)
+{
+    if (generation != m_generation.load())
+        return;
+    beginResetModel();
+    m_songs = songs;
+    m_name = name;
+    m_playlistId = playlistId;
+    endResetModel();
+    emit countChanged();
+    emit loaded();
+}
+
+// QueueModel
 
 QueueModel::QueueModel(QObject *parent)
     : QAbstractListModel(parent)
+    , m_savedPlaylists(new SavedPlaylistsModel(this))
+    , m_preview(new PlaylistPreviewModel(this))
 {
 }
 
@@ -93,7 +307,6 @@ int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
     beginInsertRows(QModelIndex(), first, first + tracks.size() - 1);
     m_items += tracks;
     endInsertRows();
-    // 新行都在尾部，整体重建索引同样是 O(n)
     rebuildIndex();
     emit countChanged();
     return tracks.size();
@@ -105,10 +318,7 @@ void QueueModel::insert(int index, const QVariantMap &item)
     beginInsertRows(QModelIndex(), index, index);
     m_items.insert(index, toTrack(item));
     endInsertRows();
-    // 缓存永远与 m_items 行号一致：插入会让 index 及其后每一行的行号整体 +1，
-    // 只记录新行会让后续行的缓存索引全部失效，所以统一在模型变更信号之后整体重建。
     rebuildIndex();
-    // 当前播放行被顶到下一行：下标跟着挪，否则高亮会落到刚插入的这首上
     if (index <= m_playListIndex) {
         m_playListIndex += 1;
         emit playListIndexChanged();
@@ -116,7 +326,6 @@ void QueueModel::insert(int index, const QVariantMap &item)
     emit countChanged();
 }
 
-// to 是移动后想占据的下标：向前挪落点即 to；向后挪因先抽走自己，模型下标要 -1。
 void QueueModel::moveTo(int from, int to)
 {
     if (from < 0 || from >= m_items.size())
@@ -125,7 +334,6 @@ void QueueModel::moveTo(int from, int to)
     const int dest = qBound(0, to > from ? to - 1 : to, last);
     if (dest == from)
         return;
-    // beginMoveRows 的目的行是「移动后占据的下标」：向后移要 +1
     if (!beginMoveRows(QModelIndex(), from, from, QModelIndex(), dest > from ? dest + 1 : dest))
         return;
     m_items.move(from, dest);
@@ -155,7 +363,6 @@ void QueueModel::remove(int index, int count)
     beginRemoveRows(QModelIndex(), index, index + count - 1);
     m_items.remove(index, count);
     endRemoveRows();
-    // 与 insert() 同一套策略：删除后 index 之后的行号整体前移，统一整体重建。
     rebuildIndex();
     if (m_playListIndex >= index) {
         m_playListIndex = qMax(0, qMin(m_playListIndex - count, int(m_items.size()) - 1));
@@ -186,9 +393,6 @@ int QueueModel::indexOfPath(const QString &path) const
     return m_indexOfPath.value(path, -1);
 }
 
-// 唯一的不变量：缓存永远与 m_items 行号一致 —— indexOfPath(p) 等于「path == p 的第一行」的行号，
-// 重复 path 取首次出现，空 path 不入缓存，查不到返回 -1。
-// insert/remove/move 都在模型变更信号之后整体重建，不做增量维护。
 void QueueModel::rebuildIndex()
 {
     m_indexOfPath.clear();
@@ -207,4 +411,225 @@ void QueueModel::setPlayListIndex(int index)
         return;
     m_playListIndex = clamped;
     emit playListIndexChanged();
+}
+
+void QueueModel::savePlaylist(const QString &name)
+{
+    const QString trimmed = name.trimmed();
+    if (trimmed.isEmpty()) {
+        emit playlistError(QStringLiteral("请输入播放列表名称"));
+        return;
+    }
+    if (m_items.isEmpty()) {
+        emit playlistError(QStringLiteral("当前播放列表为空"));
+        return;
+    }
+
+    const QVector<Track> songs = m_items;
+    const int count = songs.size();
+    QPointer<QueueModel> self(this);
+    DbService::instance()->submit([self, trimmed, songs, count](QSqlDatabase &db) {
+        QString error;
+        int id = -1;
+        const bool inTransaction = db.transaction();
+
+        if (!inTransaction) {
+            DbService::markWriteFailed(db.lastError());
+            error = sqlError(QStringLiteral("保存播放列表失败"), db.lastError());
+        }
+
+        if (error.isEmpty()) {
+            QSqlQuery query(db);
+            if (!query.prepare(QStringLiteral("INSERT INTO playlists (name) VALUES (:name)"))) {
+                error = sqlError(QStringLiteral("保存播放列表失败"), query.lastError());
+            } else {
+                query.bindValue(QStringLiteral(":name"), trimmed);
+                if (!query.exec()) {
+                    DbService::markWriteFailed(query.lastError());
+                    error = sqlError(QStringLiteral("保存播放列表失败"), query.lastError());
+                } else {
+                    id = int(query.lastInsertId().toLongLong());
+                    if (id <= 0)
+                        error = QStringLiteral("保存播放列表失败");
+                }
+            }
+        }
+
+        if (error.isEmpty()) {
+            QSqlQuery query(db);
+            if (!query.prepare(QStringLiteral(
+                    "INSERT INTO playlist_songs "
+                    "(playlist_id, position, name, path, songer, source) "
+                    "VALUES (:playlist, :position, :name, :path, :songer, :source)"))) {
+                error = sqlError(QStringLiteral("保存播放列表失败"), query.lastError());
+            } else {
+                for (int i = 0; i < songs.size(); ++i) {
+                    const Track &track = songs.at(i);
+                    query.bindValue(QStringLiteral(":playlist"), id);
+                    query.bindValue(QStringLiteral(":position"), i);
+                    query.bindValue(QStringLiteral(":name"), track.name);
+                    query.bindValue(QStringLiteral(":path"), track.path);
+                    query.bindValue(QStringLiteral(":songer"), track.songer);
+                    query.bindValue(QStringLiteral(":source"), track.source);
+                    if (!query.exec()) {
+                        DbService::markWriteFailed(query.lastError());
+                        error = sqlError(QStringLiteral("保存播放列表失败"), query.lastError());
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (error.isEmpty() && !db.commit()) {
+            DbService::markWriteFailed(db.lastError());
+            error = sqlError(QStringLiteral("保存播放列表失败"), db.lastError());
+        }
+        if (!error.isEmpty() && inTransaction)
+            db.rollback();
+
+        DbService::post(self, [self, id, trimmed, count, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty()) {
+                emit self->playlistError(error);
+                return;
+            }
+            self->m_savedPlaylists->reload();
+            emit self->playlistSaved(id, trimmed, count);
+        });
+    });
+}
+
+void QueueModel::loadPlaylist(int id)
+{
+    if (id <= 0) {
+        emit playlistError(QStringLiteral("播放列表不存在"));
+        return;
+    }
+
+    QPointer<QueueModel> self(this);
+    DbService::instance()->submit([self, id](QSqlDatabase &db) {
+        QString error;
+        QString name;
+        QVector<Track> songs;
+
+        QSqlQuery meta(db);
+        meta.prepare(QStringLiteral("SELECT name FROM playlists WHERE id = :id"));
+        meta.bindValue(QStringLiteral(":id"), id);
+        if (!meta.exec()) {
+            error = sqlError(QStringLiteral("加载播放列表失败"), meta.lastError());
+        } else if (!meta.next()) {
+            error = QStringLiteral("播放列表不存在");
+        } else {
+            name = meta.value(0).toString();
+            QSqlQuery query(db);
+            query.prepare(QStringLiteral(
+                "SELECT name, path, songer, source FROM playlist_songs "
+                "WHERE playlist_id = :id ORDER BY position ASC"));
+            query.bindValue(QStringLiteral(":id"), id);
+            if (!query.exec()) {
+                error = sqlError(QStringLiteral("加载播放列表失败"), query.lastError());
+            } else {
+                while (query.next()) {
+                    Track track;
+                    track.name = query.value(0).toString();
+                    track.path = query.value(1).toString();
+                    track.songer = query.value(2).toString();
+                    track.source = query.value(3).toInt();
+                    songs.append(track);
+                }
+            }
+        }
+
+        DbService::post(self, [self, id, name, songs, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty()) {
+                emit self->playlistError(error);
+                return;
+            }
+            self->beginResetModel();
+            self->m_items = songs;
+            self->rebuildIndex();
+            self->endResetModel();
+            if (self->m_playListIndex != -1) {
+                self->m_playListIndex = -1;
+                emit self->playListIndexChanged();
+            }
+            emit self->countChanged();
+            emit self->playlistLoaded(id, name, songs.size());
+        });
+    });
+}
+
+void QueueModel::renamePlaylist(int id, const QString &name)
+{
+    const QString trimmed = name.trimmed();
+    if (trimmed.isEmpty()) {
+        emit playlistError(QStringLiteral("请输入播放列表名称"));
+        return;
+    }
+
+    QPointer<QueueModel> self(this);
+    DbService::instance()->submit([self, id, trimmed](QSqlDatabase &db) {
+        QString error;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "UPDATE playlists SET name = :name, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = :id"));
+        query.bindValue(QStringLiteral(":name"), trimmed);
+        query.bindValue(QStringLiteral(":id"), id);
+        if (!query.exec()) {
+            DbService::markWriteFailed(query.lastError());
+            error = sqlError(QStringLiteral("重命名失败"), query.lastError());
+        } else if (query.numRowsAffected() == 0) {
+            error = QStringLiteral("播放列表不存在");
+        }
+
+        DbService::post(self, [self, id, trimmed, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty()) {
+                emit self->playlistError(error);
+                return;
+            }
+            self->m_savedPlaylists->reload();
+            emit self->playlistRenamed(id, trimmed);
+        });
+    });
+}
+
+void QueueModel::deletePlaylist(int id)
+{
+    QPointer<QueueModel> self(this);
+    DbService::instance()->submit([self, id](QSqlDatabase &db) {
+        QString error;
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral("DELETE FROM playlists WHERE id = :id"));
+        query.bindValue(QStringLiteral(":id"), id);
+        if (!query.exec()) {
+            DbService::markWriteFailed(query.lastError());
+            error = sqlError(QStringLiteral("删除失败"), query.lastError());
+        } else if (query.numRowsAffected() == 0) {
+            error = QStringLiteral("播放列表不存在");
+        }
+
+        DbService::post(self, [self, id, error] {
+            if (!self)
+                return;
+            if (!error.isEmpty()) {
+                emit self->playlistError(error);
+                return;
+            }
+            self->m_savedPlaylists->reload();
+            if (self->m_preview->playlistId() == id)
+                self->m_preview->clear();
+            emit self->playlistRemoved(id);
+        });
+    });
+}
+
+void QueueModel::previewPlaylist(int id)
+{
+    m_preview->load(id);
 }

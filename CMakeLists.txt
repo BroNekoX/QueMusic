@@ -266,6 +266,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         api/OnlineListModel.h
         api/NeteaseCloudApi.cpp
         api/NeteaseCloudApi.h
+        api/sources/ScriptSourceHost.cpp
+        api/sources/ScriptSourceHost.h
         api/KugouApi.cpp
         api/KugouApi.h
         api/BilibiliApi.cpp

@@ -25,6 +25,10 @@ Window {
 
     // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
     readonly property AudioEngine player: Playback.player
+    onClosing: {
+        Options.desktop.desktopPlayerMode = 0;
+        Options.desktopPlayerLoader.active = false;
+    }
 
     // 右侧缩放
     MouseArea {

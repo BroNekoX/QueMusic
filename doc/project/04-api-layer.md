@@ -553,6 +553,25 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ... QCloudMusicApi cryptopp::crypt
 - 工程内其他文件的 `Q_INVOKABLE` 计数（grep 时容易误判）：`api/QCloudMusicApi/**/*.h` 里全是第三方接口，本项目的在线层 `Q_INVOKABLE` 只分布在 `MusicApiService.h`（28 个）与 `OnlineListModel.h`（4 个）。
 - `AccountManager` 也直接链接 `ApiHelper`（`m_api`，用于 `login_qr_*`），因此该库有两个使用方。
 
+### 4.9.x 音源插件系统（JS / 独立线程）
+
+在线层已抽象成「音源 = 搜索 + 播放链接 + 歌词」三件事，内置三家只是其中三个 provider：
+
+| id | 音源 | 说明 |
+|---|---|---|
+| 0 | 酷狗音乐 | 内置 `KugouApi` |
+| 1 | 网易云音乐 | 内置 `NeteaseCloudApi` |
+| 2 | 哔哩哔哩 | 内置 `BilibiliApi` |
+| >= 100 | 用户插件 | `ScriptSourceHost` 加载 |
+
+- 插件目录：`<ConfigLocation>/BroNekoX/QueMusic/sources/*.js`，启动时创建并扫描；改完文件调 `MusicApi.reloadSources()`。
+- 宿主 `api/sources/ScriptSourceHost`：每个插件一个 `QJSEngine`，全部跑在单独的工作线程；`http.get(url, headers)` / `http.getJson(url, headers)` 是宿主提供的阻塞 GET（12 s 超时，只在插件线程里跑），`console.*` 可用。
+- 插件契约：`var meta = { id, name, capabilities }`，按需实现 `search(q)` / `musicUrl(t)` / `lyrics(t)`；返回结构见 `doc/plugins/example-source.js`。
+- QML 接口：`MusicApi.sources`（`[{id,name,plugin}]`）、`sourceNames`、`sourceIds`、`sourceIdAt(index)`、`reloadSources()`；三段音源下拉已改为绑定这三个属性，因此插件会自动出现在列表里。
+- 插件结果被归一成与内置源相同的外壳（搜索 `{info:[...]}`、链接 `{url,backup_url,hash,type}`、歌词 `{info,translate}`），`handleResult()` 无需平台分支。
+- 歌词字段：`{time, text, info}`；`info` 为逐字数组 `[{offset, duration, text}]`，`offset`/`duration` 均为相对行首的毫秒。网易云走 `lyric_new`（`/api/song/lyric/v1`）解析 `yrc`（逐字），无逐字时回退 `lrc`；翻译优先 `ytlrc`，其次 `tlyric`；酷狗解析 KRC 的 `<offset,duration,0>`。
+- 网易云稳定性：`CloudWorker` 由单线程改为 3 个 worker 轮转（歌词/详情/链接并行，慢请求不再排队），`invoke` 遇到 `status >= 500` 重试一次；播放链接按音质 `standard → exhigh → lossless → hires` 逐级回退。
+
 ---
 
 ## 4.10 坑与约定

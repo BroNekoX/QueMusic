@@ -36,6 +36,7 @@ public:
     QString folder;
     QStringList nameFilters;
     bool showDirs = false;
+    bool recursive = false;
     int sortField = 0;
     bool sortReversed = false;
     QString cacheDir;
@@ -78,6 +79,7 @@ class LocalMusicScanner : public QAbstractListModel
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged FINAL)
     Q_PROPERTY(bool deleting READ deleting NOTIFY deletingChanged FINAL)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged FINAL)
+    Q_PROPERTY(bool recursive READ recursive WRITE setRecursive NOTIFY recursiveChanged FINAL)
     Q_PROPERTY(bool searchActive READ searchActive NOTIFY searchActiveChanged FINAL)
     Q_PROPERTY(SearchResultModel *searchResults READ searchResults CONSTANT FINAL)
 public:
@@ -108,10 +110,7 @@ public:
     Q_INVOKABLE void startSearch(const QString &text);
     Q_INVOKABLE void clearSearch();
 
-    // 重新扫描当前目录（刷新按钮用）。直接复用 startScan()，
-    // 避免 QML 侧用 folder="" → folder=原值 去"骗"一次重扫：
-    // 那会让 setFolder("") 真的触发 clearEntries() 把列表先清空一次，
-    // 紧接着再扫一遍，等于连续两次模型重置。
+    // 重新扫描当前目录:startScan()
     Q_INVOKABLE void rescan();
     bool searchActive() const { return m_searchActive; }
     SearchResultModel *searchResults() const { return m_searchResults; }
@@ -128,6 +127,8 @@ public:
     void setSortReversed(bool v);
     bool scanning() const { return m_scanning; }
     bool deleting() const { return m_deleting; }
+    bool recursive() const { return m_recursive; }
+    void setRecursive(bool v);
 
 signals:
     void folderChanged();
@@ -143,6 +144,7 @@ signals:
     void searchActiveChanged();
     void searchFinished(int count);
     void deletingChanged();
+    void recursiveChanged();
     void deleteProgress(int processed, int total);
     void deleteFinished(int removed, int failedCount);
 
@@ -169,6 +171,7 @@ private:
     bool m_sortReversed = false;
     bool m_scanning = false;
     bool m_deleting = false;
+    bool m_recursive = false;
     QList<LocalFileEntry> m_entries;
     QThread m_thread;
     LocalScanWorker *m_worker = nullptr;

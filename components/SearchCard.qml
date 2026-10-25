@@ -14,7 +14,7 @@ Popup {
     x: 226
     y: 64
     z: 3
-    height: cardFlow.height + 42 > 200 ? 200 : cardFlow.height + 42
+    height: cardFlow.height + 42 > 240 ? 240 : cardFlow.height + 42
     width: 320
     signal searchIndex(int index)
     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
@@ -39,14 +39,14 @@ Popup {
             y: 12
         }
 
-        // 清空搜索记录（右上角）
+        // 清理搜索记录
         Text {
             id: clearButton
             anchors.right: parent.right
             anchors.rightMargin: 16
             anchors.top: parent.top
             anchors.topMargin: 10
-            text: "清空"
+            text: "清理"
             visible: Config.searchList.length > 0
             font.pixelSize: Style.textTip
             color: clearArea.containsMouse ? Theme.fontColor : Theme.textColor
@@ -54,7 +54,24 @@ Popup {
                 id: clearArea
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: Config.searchList = []
+                onClicked: titleMenu.popup();
+            }
+            QMenu {
+                id: titleMenu
+                model: ["清空所有","保留10条","保留20条"]
+                onClicked: (index) => {
+                    switch(index) {
+                        case 0:
+                            Config.searchList = [];
+                            break;
+                        case 1:
+                            if(Config.searchList.length > 10) Config.searchList.length = 10;
+                            break;
+                        case 1:
+                            if(Config.searchList.length > 20) Config.searchList.length = 20;
+                            break;
+                    }
+                }
             }
         }
 
