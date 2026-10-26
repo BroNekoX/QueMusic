@@ -14,7 +14,33 @@
 
 #include <atomic>
 
-// 已保存播放列表：只存元数据，歌曲在 playlist_songs 表。
+struct QueueTrack {
+    QString name;
+    QString path;
+    QString songer;
+    int source = 0;
+
+    static QueueTrack fromMap(const QVariantMap &item)
+    {
+        QueueTrack track;
+        track.name = item.value(QStringLiteral("name")).toString();
+        track.path = item.value(QStringLiteral("path")).toString();
+        track.songer = item.value(QStringLiteral("songer")).toString();
+        track.source = item.value(QStringLiteral("source"), 0).toInt();
+        return track;
+    }
+
+    QVariantMap toMap() const
+    {
+        return {
+            {QStringLiteral("name"), name},
+            {QStringLiteral("path"), path},
+            {QStringLiteral("songer"), songer},
+            {QStringLiteral("source"), source}
+        };
+    }
+};
+
 class SavedPlaylistsModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -55,7 +81,6 @@ private:
     std::atomic<quint64> m_generation{0};
 };
 
-// 预览已保存播放列表：与当前队列同角色，ListView 可直接复用 delegate。
 class PlaylistPreviewModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -89,17 +114,10 @@ signals:
     void loaded();
 
 private:
-    struct Song {
-        QString name;
-        QString path;
-        QString songer;
-        int source = 0;
-    };
-
     void applySongs(quint64 generation, int playlistId, const QString &name,
-                    const QVector<Song> &songs);
+                    const QVector<QueueTrack> &songs);
 
-    QVector<Song> m_songs;
+    QVector<QueueTrack> m_songs;
     QString m_name;
     int m_playlistId = -1;
     std::atomic<quint64> m_generation{0};
@@ -144,7 +162,7 @@ public:
     Q_INVOKABLE void deletePlaylist(int id);
     Q_INVOKABLE void previewPlaylist(int id);
 
-    int count() const { return m_items.size(); }
+    int count() const { return int(m_items.size()); }
     int playListIndex() const { return m_playListIndex; }
     void setPlayListIndex(int index);
 
@@ -161,22 +179,15 @@ signals:
     void playlistError(const QString &message);
 
 private:
-    struct Track
-    {
-        QString name;
-        QString path;
-        QString songer;
-        int source = 0;
-    };
-
     void rebuildIndex();
-    Track toTrack(const QVariantMap &item) const;
+    void appendIndex(int first);
+    void reindexFrom(int index);
 
-    QVector<Track> m_items;
+    QVector<QueueTrack> m_items;
     QHash<QString, int> m_indexOfPath;
     int m_playListIndex = -1;
     SavedPlaylistsModel *m_savedPlaylists = nullptr;
     PlaylistPreviewModel *m_preview = nullptr;
 };
 
-#endif // QUEUEMODEL_H
+#endif

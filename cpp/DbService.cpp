@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #include "DbService.h"
 
 #include <QCoreApplication>
@@ -14,12 +14,14 @@
 #include <QStandardPaths>
 #include <QThread>
 
+#include <atomic>
+
 namespace {
 
 const QString kConnName = QStringLiteral("quemusic_db_worker");
 
-// 查列，缺了才 ALTER（老库升级无需用户干预）
-void addColumnIfMissing(QSqlDatabase &db, const QString &table, const QString &column, const QString &definition)
+void addColumnIfMissing(QSqlDatabase &db, const QString &table, const QString &column,
+                        const QString &definition)
 {
     QSqlQuery info(db);
     if (!info.exec(QStringLiteral("PRAGMA table_info(%1)").arg(table)))
@@ -33,7 +35,7 @@ void addColumnIfMissing(QSqlDatabase &db, const QString &table, const QString &c
         qWarning() << "add column failed:" << table << column << alter.lastError().text();
 }
 
-} // namespace
+}
 
 class DbWorker;
 
@@ -42,7 +44,6 @@ struct DbService::Impl {
     DbWorker *worker = nullptr;
 };
 
-// 只活在 DB 线程上的执行体
 class DbWorker : public QObject
 {
     Q_OBJECT
@@ -50,9 +51,8 @@ public:
     QMutex mutex;
     std::deque<DbService::Job> queue;
     QSqlDatabase db;
-    // SQLite 的 readonly 是「连接级」粘性状态：某次写失败后这条连接会一直报 readonly，
-    // 之后所有写操作（收藏、歌单…）全部失效。所以写失败时要重开连接，而不是继续用它。
-    bool writeFailed = false;
+    bool drainScheduled = false;
+    std::atomic_bool writeFailed{false};
 
 public slots:
     void open()
@@ -67,16 +67,13 @@ public slots:
             qWarning() << "[db] 打开失败:" << db.lastError().text();
             return;
         }
-        // 所有写都走这一条线程（GUI 侧只读），不需要 WAL 的读写并发；
-        // 而 WAL 依赖 -wal/-shm 两个附属文件，被杀软/同步盘拦住时会让整库写不进去
-        //（表现为 attempt to write a readonly database）。所以用单文件的 DELETE 日志。
+
         QSqlQuery pragma(db);
         pragma.exec(QStringLiteral("PRAGMA journal_mode = DELETE"));
         pragma.exec(QStringLiteral("PRAGMA synchronous = NORMAL"));
         pragma.exec(QStringLiteral("PRAGMA foreign_keys = ON"));
         DbService::ensureSchema(db);
 
-        // 建表也是写操作：拿不到写锁就是一整库只读，开机就说清楚，别等用户点收藏才发现
         QSqlQuery probe(db);
         if (probe.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS db_probe (x INTEGER)"))) {
             probe.exec(QStringLiteral("DROP TABLE db_probe"));
@@ -101,17 +98,18 @@ public slots:
             DbService::Job job;
             {
                 QMutexLocker lock(&mutex);
-                if (queue.empty())
+                if (queue.empty()) {
+                    drainScheduled = false;
                     return;
+                }
                 job = std::move(queue.front());
                 queue.pop_front();
             }
             if (!job)
                 continue;
             job(db);
-            if (writeFailed) {
-                writeFailed = false;
-                qWarning() << "[db] 写失败（连接已转为只读），重开连接后重试一次";
+            if (writeFailed.exchange(false)) {
+                qWarning() << "[db] 写失败，连接已重开，任务重试一次";
                 reopen();
                 job(db);
             }
@@ -121,16 +119,19 @@ public slots:
     void markWriteFailed(const QSqlError &error)
     {
         const QString text = error.databaseText() + error.driverText();
-        if (error.nativeErrorCode() == QLatin1String("8")   // SQLITE_READONLY
+        if (error.nativeErrorCode() == QLatin1String("8")
             || text.contains(QLatin1String("readonly"), Qt::CaseInsensitive)
-            || text.contains(QLatin1String("read-only"), Qt::CaseInsensitive))
-            writeFailed = true;
+            || text.contains(QLatin1String("read-only"), Qt::CaseInsensitive)) {
+            writeFailed.store(true, std::memory_order_relaxed);
+        }
     }
 
     void close()
     {
         if (db.isOpen())
             db.close();
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(kConnName);
     }
 };
 
@@ -163,11 +164,18 @@ void DbService::submit(Job job)
 {
     if (!job)
         return;
+
+    bool schedule = false;
     {
         QMutexLocker lock(&m_impl->worker->mutex);
         m_impl->worker->queue.push_back(std::move(job));
+        if (!m_impl->worker->drainScheduled) {
+            m_impl->worker->drainScheduled = true;
+            schedule = true;
+        }
     }
-    QMetaObject::invokeMethod(m_impl->worker, "drain", Qt::QueuedConnection);
+    if (schedule)
+        QMetaObject::invokeMethod(m_impl->worker, "drain", Qt::QueuedConnection);
 }
 
 void DbService::markWriteFailed(const QSqlError &error)
@@ -177,9 +185,6 @@ void DbService::markWriteFailed(const QSqlError &error)
 
 QString DbService::dataDir()
 {
-    // 路径语义保持 QStandardPaths 原样（AppDataLocation），不人为改写；
-    // 只多加一层保险：该目录若写不进 SQLite（受限令牌/安全软件拦截），
-    // 就退到程序目录，避免收藏这类写操作直接失效。
     static const QString dir = [] {
         QStringList candidates;
         const QString preferred = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -199,7 +204,6 @@ QString DbService::dataDir()
         if (chosen.isEmpty())
             chosen = preferred;
 
-        // 换了目录就把旧库搬过去，别让用户的收藏凭空消失
         const QString target = chosen + QStringLiteral("/player_data.db");
         if (chosen != preferred && !QFile::exists(target))
             migrateFrom(preferred + QStringLiteral("/player_data.db"), target);
@@ -210,7 +214,6 @@ QString DbService::dataDir()
     return dir;
 }
 
-// 只判断目录权限不够：安全软件会在 SQLite 真正写入时才拦，所以建个表试一次
 bool DbService::dbWritable(const QString &dbPath)
 {
     const QString name = QStringLiteral("writable_probe");
@@ -229,7 +232,6 @@ bool DbService::dbWritable(const QString &dbPath)
     return ok;
 }
 
-// 换目录后旧库里的收藏/歌单要跟着走，否则用户看到的是空列表
 void DbService::migrateFrom(const QString &oldDbPath, const QString &newDbPath)
 {
     if (oldDbPath == newDbPath || !QFile::exists(oldDbPath) || QFile::exists(newDbPath))
@@ -238,8 +240,8 @@ void DbService::migrateFrom(const QString &oldDbPath, const QString &newDbPath)
     int favoriteRows = -1;
     int playlistRows = -1;
     {
-        // 只读打开旧库探内容：它多半就是那个写不进去的库，读是没问题的
-        QSqlDatabase old = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("migrate_probe"));
+        QSqlDatabase old = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                     QStringLiteral("migrate_probe"));
         old.setDatabaseName(oldDbPath);
         old.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));
         if (old.open()) {
@@ -254,12 +256,12 @@ void DbService::migrateFrom(const QString &oldDbPath, const QString &newDbPath)
     }
 
     if (favoriteRows <= 0 && playlistRows <= 0)
-        return;   // 旧库是空的，没什么可搬
+        return;
 
     if (QFile::copy(oldDbPath, newDbPath)) {
         qWarning() << "[db] 已把旧数据搬到可写目录:" << newDbPath
                    << "收藏条数:" << favoriteRows << "保存列表数:" << playlistRows;
-        qWarning() << "[db] 旧库仍留在:" << oldDbPath << "（确认无误后可自行删除）";
+        qWarning() << "[db] 旧库仍留在:" << oldDbPath;
     } else {
         qWarning() << "[db] 旧库搬迁失败，源:" << oldDbPath << "目标:" << newDbPath;
     }
@@ -323,20 +325,19 @@ void DbService::ensureSchema(QSqlDatabase &db)
         "PRIMARY KEY (playlist_id, position), "
         "FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE)"));
 
-    // TAG 结果落库，避免每次刷新都重跑 TagLib
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_title"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_artist"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tag_cover"), QStringLiteral("TEXT DEFAULT ''"));
     addColumnIfMissing(db, QStringLiteral("songs"), QStringLiteral("tagged"), QStringLiteral("INTEGER DEFAULT 0"));
     addColumnIfMissing(db, QStringLiteral("favorites"), QStringLiteral("folder_id"), QStringLiteral("INTEGER"));
-    // 文件夹手动排序：老库没有这一列时补上，-1 表示"尚未编号"
     addColumnIfMissing(db, QStringLiteral("folders"), QStringLiteral("sort_order"), QStringLiteral("INTEGER DEFAULT -1"));
+
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_songs_folder ON songs(folder_id)"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_folders_type ON folders(type)"));
     query.exec(QStringLiteral("CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_path ON songs(folder_id, path)"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_favorites_folder ON favorites(folder_id)"));
+    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_favorites_type_created ON favorites(type, created_at DESC)"));
 
-    // 首次运行时补一个默认歌单
     query.prepare(QStringLiteral("SELECT COUNT(*) FROM folders WHERE type='my' AND name='默认文件夹'"));
     if (query.exec() && query.next() && query.value(0).toInt() == 0) {
         query.prepare(QStringLiteral("INSERT INTO folders (name, type) VALUES (:name, :type)"));
@@ -345,7 +346,6 @@ void DbService::ensureSchema(QSqlDatabase &db)
         query.exec();
     }
 
-    // 收藏夹：没有就建默认夹，并把历史上没归属的歌曲收藏迁进去（保证老收藏不丢）
     int favRoot = -1;
     if (query.exec(QStringLiteral("SELECT id FROM folders WHERE type='fav' ORDER BY id ASC LIMIT 1")) && query.next())
         favRoot = query.value(0).toInt();
@@ -354,7 +354,7 @@ void DbService::ensureSchema(QSqlDatabase &db)
         insert.prepare(QStringLiteral("INSERT INTO folders (name, type) VALUES (:name, 'fav')"));
         insert.bindValue(QStringLiteral(":name"), QStringLiteral("默认收藏夹"));
         if (insert.exec())
-            favRoot = insert.lastInsertId().toInt();
+            favRoot = int(insert.lastInsertId().toLongLong());
     }
     if (favRoot >= 0) {
         QSqlQuery adopt(db);
@@ -364,7 +364,6 @@ void DbService::ensureSchema(QSqlDatabase &db)
         adopt.exec();
     }
 
-    // 还没编号的文件夹按 id 补一次，效果等于原来的 created_at 先后（只跑一次，之后序号都 >= 0）
     query.exec(QStringLiteral("UPDATE folders SET sort_order = id WHERE sort_order < 0"));
 }
 

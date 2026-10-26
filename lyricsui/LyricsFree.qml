@@ -288,6 +288,7 @@ Item {
         height: parent.height - 120
         visible: mainLyrics.lyricType !== 1
         layer.enabled: true
+        layer.smooth: true
         layer.effect: ShaderEffect {
             property real fadeTop: 0.15
             property real fadeBottom: 0.3
@@ -297,7 +298,6 @@ Item {
             property vector2d srcSize: Qt.vector2d(lyricContent.width * Screen.devicePixelRatio, lyricContent.height * Screen.devicePixelRatio)
             fragmentShader: "qrc:/shaders/shaders/lyricfade.frag.qsb"
         }
-        // 卡片翻转：整块歌词（lyricContent）统一向左翻，不再逐行不同角度
         transformOrigin: Item.Center
         transform: Rotation {
             origin.x: lyricContent.width / 2

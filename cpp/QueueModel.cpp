@@ -19,9 +19,47 @@ QString sqlError(const QString &prefix, const QSqlError &error)
     return prefix + QStringLiteral(": ") + error.text();
 }
 
-} // namespace
+bool readPlaylist(QSqlDatabase &db, int id, QString &name, QVector<QueueTrack> &songs,
+                  QString *error)
+{
+    QSqlQuery meta(db);
+    meta.prepare(QStringLiteral("SELECT name FROM playlists WHERE id = :id"));
+    meta.bindValue(QStringLiteral(":id"), id);
+    if (!meta.exec()) {
+        if (error)
+            *error = sqlError(QStringLiteral("加载播放列表失败"), meta.lastError());
+        return false;
+    }
+    if (!meta.next()) {
+        if (error)
+            *error = QStringLiteral("播放列表不存在");
+        return false;
+    }
+    name = meta.value(0).toString();
 
-// SavedPlaylistsModel
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "SELECT name, path, songer, source FROM playlist_songs "
+        "WHERE playlist_id = :id ORDER BY position ASC"));
+    query.bindValue(QStringLiteral(":id"), id);
+    if (!query.exec()) {
+        if (error)
+            *error = sqlError(QStringLiteral("加载播放列表失败"), query.lastError());
+        return false;
+    }
+
+    while (query.next()) {
+        QueueTrack track;
+        track.name = query.value(0).toString();
+        track.path = query.value(1).toString();
+        track.songer = query.value(2).toString();
+        track.source = query.value(3).toInt();
+        songs.append(track);
+    }
+    return true;
+}
+
+}
 
 SavedPlaylistsModel::SavedPlaylistsModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -31,7 +69,7 @@ SavedPlaylistsModel::SavedPlaylistsModel(QObject *parent)
 
 int SavedPlaylistsModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_items.size();
+    return parent.isValid() ? 0 : int(m_items.size());
 }
 
 QVariant SavedPlaylistsModel::data(const QModelIndex &index, int role) const
@@ -40,21 +78,21 @@ QVariant SavedPlaylistsModel::data(const QModelIndex &index, int role) const
         return {};
     const Item &item = m_items.at(index.row());
     switch (role) {
-    case PlaylistIdRole:  return item.id;
-    case NameRole:        return item.name;
-    case SongCountRole:   return item.songCount;
-    case CreatedAtRole:   return item.createdAt;
+    case PlaylistIdRole: return item.id;
+    case NameRole:       return item.name;
+    case SongCountRole:  return item.songCount;
+    case CreatedAtRole:  return item.createdAt;
+    default:             return {};
     }
-    return {};
 }
 
 QHash<int, QByteArray> SavedPlaylistsModel::roleNames() const
 {
     return {
-        { PlaylistIdRole, "playlistId" },
-        { NameRole, "name" },
-        { SongCountRole, "songCount" },
-        { CreatedAtRole, "createdAt" }
+        {PlaylistIdRole, "playlistId"},
+        {NameRole, "name"},
+        {SongCountRole, "songCount"},
+        {CreatedAtRole, "createdAt"}
     };
 }
 
@@ -93,16 +131,14 @@ void SavedPlaylistsModel::applyRows(quint64 generation, const QVector<Item> &row
 {
     if (generation != m_generation.load())
         return;
-    const int previousCount = m_items.size();
+    const int previousCount = int(m_items.size());
     beginResetModel();
     m_items = rows;
     endResetModel();
-    if (previousCount != rows.size())
+    if (previousCount != int(rows.size()))
         emit countChanged();
     emit loaded();
 }
-
-// PlaylistPreviewModel
 
 PlaylistPreviewModel::PlaylistPreviewModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -111,30 +147,30 @@ PlaylistPreviewModel::PlaylistPreviewModel(QObject *parent)
 
 int PlaylistPreviewModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_songs.size();
+    return parent.isValid() ? 0 : int(m_songs.size());
 }
 
 QVariant PlaylistPreviewModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_songs.size())
         return {};
-    const Song &song = m_songs.at(index.row());
+    const QueueTrack &song = m_songs.at(index.row());
     switch (role) {
     case NameRole:   return song.name;
     case PathRole:   return song.path;
     case SongerRole: return song.songer;
     case SourceRole: return song.source;
+    default:         return {};
     }
-    return {};
 }
 
 QHash<int, QByteArray> PlaylistPreviewModel::roleNames() const
 {
     return {
-        { NameRole, "name" },
-        { PathRole, "path" },
-        { SongerRole, "songer" },
-        { SourceRole, "source" }
+        {NameRole, "name"},
+        {PathRole, "path"},
+        {SongerRole, "songer"},
+        {SourceRole, "source"}
     };
 }
 
@@ -156,30 +192,9 @@ void PlaylistPreviewModel::load(int playlistId)
     QPointer<PlaylistPreviewModel> self(this);
     DbService::instance()->submit([self, generation, playlistId](QSqlDatabase &db) {
         QString name;
-        QVector<Song> songs;
-        QSqlQuery meta(db);
-        meta.prepare(QStringLiteral("SELECT name FROM playlists WHERE id = :id"));
-        meta.bindValue(QStringLiteral(":id"), playlistId);
-        if (meta.exec() && meta.next()) {
-            name = meta.value(0).toString();
-            QSqlQuery query(db);
-            query.prepare(QStringLiteral(
-                "SELECT name, path, songer, source FROM playlist_songs "
-                "WHERE playlist_id = :id ORDER BY position ASC"));
-            query.bindValue(QStringLiteral(":id"), playlistId);
-            if (query.exec()) {
-                while (query.next()) {
-                    Song song;
-                    song.name = query.value(0).toString();
-                    song.path = query.value(1).toString();
-                    song.songer = query.value(2).toString();
-                    song.source = query.value(3).toInt();
-                    songs.append(song);
-                }
-            } else {
-                qWarning() << "[playlist] 读取预览失败:" << query.lastError().text();
-            }
-        }
+        QVector<QueueTrack> songs;
+        readPlaylist(db, playlistId, name, songs, nullptr);
+
         DbService::post(self, [self, generation, playlistId, name, songs] {
             if (self)
                 self->applySongs(generation, playlistId, name, songs);
@@ -202,7 +217,7 @@ void PlaylistPreviewModel::clear()
 }
 
 void PlaylistPreviewModel::applySongs(quint64 generation, int playlistId,
-                                      const QString &name, const QVector<Song> &songs)
+                                      const QString &name, const QVector<QueueTrack> &songs)
 {
     if (generation != m_generation.load())
         return;
@@ -215,8 +230,6 @@ void PlaylistPreviewModel::applySongs(quint64 generation, int playlistId,
     emit loaded();
 }
 
-// QueueModel
-
 QueueModel::QueueModel(QObject *parent)
     : QAbstractListModel(parent)
     , m_savedPlaylists(new SavedPlaylistsModel(this))
@@ -226,59 +239,50 @@ QueueModel::QueueModel(QObject *parent)
 
 int QueueModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_items.size();
+    return parent.isValid() ? 0 : int(m_items.size());
 }
 
 QVariant QueueModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
         return {};
-    const Track &t = m_items.at(index.row());
+    const QueueTrack &track = m_items.at(index.row());
     switch (role) {
-    case NameRole:   return t.name;
-    case PathRole:   return t.path;
-    case SongerRole: return t.songer;
-    case SourceRole: return t.source;
+    case NameRole:   return track.name;
+    case PathRole:   return track.path;
+    case SongerRole: return track.songer;
+    case SourceRole: return track.source;
+    default:         return {};
     }
-    return {};
 }
 
 QHash<int, QByteArray> QueueModel::roleNames() const
 {
     return {
-        { NameRole, "name" },
-        { PathRole, "path" },
-        { SongerRole, "songer" },
-        { SourceRole, "source" }
+        {NameRole, "name"},
+        {PathRole, "path"},
+        {SongerRole, "songer"},
+        {SourceRole, "source"}
     };
-}
-
-QueueModel::Track QueueModel::toTrack(const QVariantMap &item) const
-{
-    Track t;
-    t.name = item.value(QStringLiteral("name")).toString();
-    t.path = item.value(QStringLiteral("path")).toString();
-    t.songer = item.value(QStringLiteral("songer")).toString();
-    t.source = item.value(QStringLiteral("source"), 0).toInt();
-    return t;
 }
 
 QVariantMap QueueModel::get(int index) const
 {
     if (index < 0 || index >= m_items.size())
         return {};
-    const Track &t = m_items.at(index);
-    return {
-        { QStringLiteral("name"), t.name },
-        { QStringLiteral("path"), t.path },
-        { QStringLiteral("songer"), t.songer },
-        { QStringLiteral("source"), t.source }
-    };
+    return m_items.at(index).toMap();
 }
 
 void QueueModel::append(const QVariantMap &item)
 {
-    insert(m_items.size(), item);
+    const QueueTrack track = QueueTrack::fromMap(item);
+    const int index = int(m_items.size());
+    beginInsertRows(QModelIndex(), index, index);
+    m_items.append(track);
+    endInsertRows();
+    if (!track.path.isEmpty() && !m_indexOfPath.contains(track.path))
+        m_indexOfPath.insert(track.path, index);
+    emit countChanged();
 }
 
 int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
@@ -286,41 +290,41 @@ int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
     if (items.isEmpty())
         return 0;
 
-    QVector<Track> tracks;
+    QVector<QueueTrack> tracks;
     tracks.reserve(items.size());
     QSet<QString> seen;
     for (const QVariant &entry : items) {
-        const Track t = toTrack(entry.toMap());
-        if (t.path.isEmpty())
+        const QueueTrack track = QueueTrack::fromMap(entry.toMap());
+        if (track.path.isEmpty())
             continue;
         if (skipExisting) {
-            if (m_indexOfPath.contains(t.path) || seen.contains(t.path))
+            if (m_indexOfPath.contains(track.path) || seen.contains(track.path))
                 continue;
-            seen.insert(t.path);
+            seen.insert(track.path);
         }
-        tracks.append(t);
+        tracks.append(track);
     }
     if (tracks.isEmpty())
         return 0;
 
-    const int first = m_items.size();
-    beginInsertRows(QModelIndex(), first, first + tracks.size() - 1);
+    const int first = int(m_items.size());
+    beginInsertRows(QModelIndex(), first, first + int(tracks.size()) - 1);
     m_items += tracks;
     endInsertRows();
-    rebuildIndex();
+    appendIndex(first);
     emit countChanged();
-    return tracks.size();
+    return int(tracks.size());
 }
 
 void QueueModel::insert(int index, const QVariantMap &item)
 {
     index = qBound(0, index, int(m_items.size()));
     beginInsertRows(QModelIndex(), index, index);
-    m_items.insert(index, toTrack(item));
+    m_items.insert(index, QueueTrack::fromMap(item));
     endInsertRows();
-    rebuildIndex();
-    if (index <= m_playListIndex) {
-        m_playListIndex += 1;
+    reindexFrom(index);
+    if (m_playListIndex >= 0 && index <= m_playListIndex) {
+        ++m_playListIndex;
         emit playListIndexChanged();
     }
     emit countChanged();
@@ -359,7 +363,7 @@ void QueueModel::remove(int index, int count)
 {
     if (index < 0 || count <= 0 || index >= m_items.size())
         return;
-    count = qMin(count, int(m_items.size() - index));
+    count = qMin(count, int(m_items.size()) - index);
     beginRemoveRows(QModelIndex(), index, index + count - 1);
     m_items.remove(index, count);
     endRemoveRows();
@@ -396,16 +400,45 @@ int QueueModel::indexOfPath(const QString &path) const
 void QueueModel::rebuildIndex()
 {
     m_indexOfPath.clear();
+    m_indexOfPath.reserve(m_items.size());
     for (int i = 0; i < m_items.size(); ++i) {
-        const QString &p = m_items.at(i).path;
-        if (!p.isEmpty() && !m_indexOfPath.contains(p))
-            m_indexOfPath.insert(p, i);
+        const QString &path = m_items.at(i).path;
+        if (!path.isEmpty() && !m_indexOfPath.contains(path))
+            m_indexOfPath.insert(path, i);
+    }
+}
+
+void QueueModel::appendIndex(int first)
+{
+    for (int i = first; i < m_items.size(); ++i) {
+        const QString &path = m_items.at(i).path;
+        if (!path.isEmpty() && !m_indexOfPath.contains(path))
+            m_indexOfPath.insert(path, i);
+    }
+}
+
+void QueueModel::reindexFrom(int index)
+{
+    QSet<QString> handled;
+    handled.reserve(int(m_items.size()) - index);
+    for (int i = index; i < m_items.size(); ++i) {
+        const QString &path = m_items.at(i).path;
+        if (path.isEmpty() || handled.contains(path))
+            continue;
+        auto it = m_indexOfPath.find(path);
+        if (it == m_indexOfPath.end()) {
+            m_indexOfPath.insert(path, i);
+            handled.insert(path);
+        } else if (it.value() >= index) {
+            it.value() = i;
+            handled.insert(path);
+        }
     }
 }
 
 void QueueModel::setPlayListIndex(int index)
 {
-    const int size = m_items.size();
+    const int size = int(m_items.size());
     const int clamped = size == 0 ? -1 : qBound(-1, index, size - 1);
     if (m_playListIndex == clamped)
         return;
@@ -425,14 +458,13 @@ void QueueModel::savePlaylist(const QString &name)
         return;
     }
 
-    const QVector<Track> songs = m_items;
-    const int count = songs.size();
+    const QVector<QueueTrack> songs = m_items;
+    const int count = int(songs.size());
     QPointer<QueueModel> self(this);
     DbService::instance()->submit([self, trimmed, songs, count](QSqlDatabase &db) {
         QString error;
         int id = -1;
         const bool inTransaction = db.transaction();
-
         if (!inTransaction) {
             DbService::markWriteFailed(db.lastError());
             error = sqlError(QStringLiteral("保存播放列表失败"), db.lastError());
@@ -464,7 +496,7 @@ void QueueModel::savePlaylist(const QString &name)
                 error = sqlError(QStringLiteral("保存播放列表失败"), query.lastError());
             } else {
                 for (int i = 0; i < songs.size(); ++i) {
-                    const Track &track = songs.at(i);
+                    const QueueTrack &track = songs.at(i);
                     query.bindValue(QStringLiteral(":playlist"), id);
                     query.bindValue(QStringLiteral(":position"), i);
                     query.bindValue(QStringLiteral(":name"), track.name);
@@ -511,43 +543,18 @@ void QueueModel::loadPlaylist(int id)
     DbService::instance()->submit([self, id](QSqlDatabase &db) {
         QString error;
         QString name;
-        QVector<Track> songs;
-
-        QSqlQuery meta(db);
-        meta.prepare(QStringLiteral("SELECT name FROM playlists WHERE id = :id"));
-        meta.bindValue(QStringLiteral(":id"), id);
-        if (!meta.exec()) {
-            error = sqlError(QStringLiteral("加载播放列表失败"), meta.lastError());
-        } else if (!meta.next()) {
-            error = QStringLiteral("播放列表不存在");
-        } else {
-            name = meta.value(0).toString();
-            QSqlQuery query(db);
-            query.prepare(QStringLiteral(
-                "SELECT name, path, songer, source FROM playlist_songs "
-                "WHERE playlist_id = :id ORDER BY position ASC"));
-            query.bindValue(QStringLiteral(":id"), id);
-            if (!query.exec()) {
-                error = sqlError(QStringLiteral("加载播放列表失败"), query.lastError());
-            } else {
-                while (query.next()) {
-                    Track track;
-                    track.name = query.value(0).toString();
-                    track.path = query.value(1).toString();
-                    track.songer = query.value(2).toString();
-                    track.source = query.value(3).toInt();
-                    songs.append(track);
-                }
-            }
+        QVector<QueueTrack> songs;
+        if (!readPlaylist(db, id, name, songs, &error)) {
+            DbService::post(self, [self, error] {
+                if (self)
+                    emit self->playlistError(error);
+            });
+            return;
         }
 
-        DbService::post(self, [self, id, name, songs, error] {
+        DbService::post(self, [self, id, name, songs] {
             if (!self)
                 return;
-            if (!error.isEmpty()) {
-                emit self->playlistError(error);
-                return;
-            }
             self->beginResetModel();
             self->m_items = songs;
             self->rebuildIndex();
@@ -557,7 +564,7 @@ void QueueModel::loadPlaylist(int id)
                 emit self->playListIndexChanged();
             }
             emit self->countChanged();
-            emit self->playlistLoaded(id, name, songs.size());
+            emit self->playlistLoaded(id, name, int(songs.size()));
         });
     });
 }

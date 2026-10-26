@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #include "BilibiliApi.h"
 
 #include "ApiCommon.h"
@@ -21,20 +21,18 @@
 #include <climits>
 
 namespace {
-constexpr int kMusicTid = 3;    // 音乐区总区
-constexpr int kUpLimit = 5;     // 合集检索最多查几个 UP 主
+constexpr int kMusicTid = 3;
+constexpr int kUpLimit = 5;
 const char *kUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const QString kApi = QStringLiteral("https://api.bilibili.com");
 const QString kSearchPath = QStringLiteral("/x/web-interface/wbi/search/type");
 
-// WBI 混淆表（bilibili-API-collect 公开算法）
 const int kMixinTab[64] = {46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
                            27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
                            37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
                            22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52};
 
-// 音乐区子分区：name 作为分类检索关键词，tid 用于分区过滤与榜单标识
 struct Region {
     const char *name;
     int tid;
@@ -54,7 +52,6 @@ QString regionName(int tid)
     return QString();
 }
 
-// 搜索结果标题带 <em class="keyword"> 高亮标签
 QString cleanTitle(QString t)
 {
     static const QRegularExpression tag(QStringLiteral("<[^>]*>"));
@@ -71,7 +68,6 @@ QString httpsUrl(QString u)
     return u;
 }
 
-// 搜索接口给 "m:ss"/"h:mm:ss"，排行与详情接口直接给秒
 int durationSeconds(const QJsonValue &v)
 {
     if (v.isDouble())
@@ -82,7 +78,6 @@ int durationSeconds(const QJsonValue &v)
     return total;
 }
 
-// 取最接近目标音质（30216 标准 / 30280 高清 / 30251 Hi-Res）的音频流
 QJsonObject pickAudio(const QJsonArray &audios, int quality)
 {
     const int target = quality >= 2 ? 30251 : (quality == 1 ? 30280 : 30216);
@@ -98,7 +93,7 @@ QJsonObject pickAudio(const QJsonArray &audios, int quality)
     }
     return best;
 }
-} // namespace
+}
 
 BilibiliApi::BilibiliApi(QObject *parent)
     : QObject(parent)
@@ -120,19 +115,18 @@ QString BilibiliApi::mixinKey(const QString &imgKey, const QString &subKey)
 
 void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
 {
-    // 评论接口要的是 aid，而 hash 是 bvid；翻页时用缓存的 aid，省一次 view 请求
+
     const auto requestComments = [this, hash, page, pageSize](qint64 aid) {
-        // 走签名版：旧的 /x/v2/reply 对未登录只给 3 条热门，wbi/main 能取满一页
+
         QVariantMap params;
-        params.insert(QStringLiteral("type"), QStringLiteral("1")); // 1 = 视频稿件
+        params.insert(QStringLiteral("type"), QStringLiteral("1"));
         params.insert(QStringLiteral("oid"), QString::number(aid));
-        params.insert(QStringLiteral("mode"), QStringLiteral("3")); // 3 = 按热度
+        params.insert(QStringLiteral("mode"), QStringLiteral("3"));
         params.insert(QStringLiteral("next"),
                       QString::number(page <= 1 ? 0 : m_commentCursors.value(hash)));
         params.insert(QStringLiteral("ps"), QString::number(qBound(1, pageSize, 30)));
         params.insert(QStringLiteral("web_location"), QStringLiteral("1315875"));
 
-        // 只带登录态：纯 buvid 指纹会被风控把结果砍到 3 条
         getSigned(QStringLiteral("/x/v2/reply/wbi/main"), params,
                   [this, hash](const QJsonObject &obj) {
                       const QJsonObject data = obj.value(QStringLiteral("data")).toObject();
@@ -154,7 +148,7 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
                               c.value(QStringLiteral("rcount")).toInt());
                       }
                       QVariantMap result = ApiCommon::listResult(info);
-                      // B 站游标自带 is_end，直接透出给上层判断还有没有下一页
+
                       result.insert(QStringLiteral("hasMore"),
                                     !cursor.value(QStringLiteral("is_end")).toBool());
                       if (obj.contains(QStringLiteral("error")))
@@ -173,7 +167,7 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
         [this, hash, requestComments](const QJsonObject &json) {
             const qint64 aid = json.value(QStringLiteral("data")).toObject()
                                    .value(QStringLiteral("aid")).toVariant().toLongLong();
-            if (aid <= 0) {                      // 稿件不存在或接口失败
+            if (aid <= 0) {
                 emitList(QStringLiteral("getComments"), {});
                 return;
             }
@@ -195,7 +189,6 @@ void BilibiliApi::get(const QString &url, const Callback &cb, bool withCookie)
     ApiHttp::getJson(m_nam, this, QUrl(url), kUa, "https://www.bilibili.com", cookie, cb);
 }
 
-// WBI 密钥与 buvid 指纹只取一次，并发调用排队等待
 void BilibiliApi::ensureKeys(const Task &then)
 {
     if (!m_mixinKey.isEmpty() && !m_buvid3.isEmpty()) {
@@ -222,7 +215,7 @@ void BilibiliApi::ensureKeys(const Task &then)
                     m_buvid3 = d.value(QStringLiteral("b_3")).toString();
                     m_buvid4 = d.value(QStringLiteral("b_4")).toString();
                     m_keyRequesting = false;
-                    // 发起这次取密钥的调用方也在等，漏掉它会让「启动后第一次签名请求」被静默丢弃
+
                     then();
                     const QList<Task> waiters = m_keyWaiters;
                     m_keyWaiters.clear();
@@ -280,7 +273,7 @@ QVariantMap BilibiliApi::toSong(const QJsonObject &v, const QString &fallbackArt
         play = v.value(QStringLiteral("play")).toVariant().toLongLong();
 
     if (!artist.isEmpty() && !mid.isEmpty())
-        m_upNames.insert(mid, artist); // 歌手页与合集作者都按 mid 反查昵称
+        m_upNames.insert(mid, artist);
     return ApiCommon::song(cleanTitle(v.value(QStringLiteral("title")).toString()), artist,
                            httpsUrl(v.value(QStringLiteral("pic")).toString()),
                            v.value(QStringLiteral("bvid")).toString(),
@@ -346,7 +339,6 @@ void BilibiliApi::searchVideos(const QString &keyword, int tid, int page, const 
     });
 }
 
-// B 站没有歌单实体：先用关键词搜稿件，再取命中 UP 主的合集充当
 void BilibiliApi::searchPlaylists(const QString &keyword, int page, int limit,
                                   const QString &action)
 {
@@ -367,7 +359,6 @@ void BilibiliApi::searchPlaylists(const QString &keyword, int page, int limit,
     });
 }
 
-// 并发查各 UP 主的合集，全部返回后合并成一次结果
 void BilibiliApi::seasonsOf(const QString &action, const QStringList &mids, int limit)
 {
     if (mids.isEmpty()) {
@@ -395,7 +386,7 @@ void BilibiliApi::fetchSeasons(const QString &mid, const QSharedPointer<Playlist
                 const QJsonObject meta = v.toObject().value(QStringLiteral("meta")).toObject();
                 const QString sid = meta.value(QStringLiteral("season_id")).toVariant().toString();
                 const int total = meta.value(QStringLiteral("total")).toInt();
-                // 单集合集不成歌单，且常是 UP 主与音乐无关的杂项
+
                 if (sid.isEmpty() || total < 2 || st->seen.contains(sid))
                     continue;
                 st->seen.insert(sid);
@@ -430,7 +421,6 @@ void BilibiliApi::seasonSongs(const QString &sid, const QString &mid, int page, 
         });
 }
 
-// rid 只有 3（音乐区）可用，一次返回全部榜单，本地切片
 void BilibiliApi::ranking(int rid, int page, int pageSize, const QString &action)
 {
     get(kApi + QStringLiteral("/x/web-interface/ranking/v2?rid=%1&type=all").arg(rid),
@@ -460,7 +450,6 @@ void BilibiliApi::newVideos(int page, int pageSize, const QString &action)
         });
 }
 
-// 歌手用音乐区排行的 UP 主去重代替
 void BilibiliApi::rankingUsers(const QString &action, int limit)
 {
     get(kApi + QStringLiteral("/x/web-interface/ranking/v2?rid=%1&type=all").arg(kMusicTid),
@@ -486,7 +475,6 @@ void BilibiliApi::rankingUsers(const QString &action, int limit)
         });
 }
 
-// type: 0 歌曲 / 1 歌单（合集）；2 专辑、3 歌词在 B 站无对应实体
 void BilibiliApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
 {
     if (type == 0)
@@ -511,17 +499,15 @@ void BilibiliApi::getPlaylistMenu(int type)
     emitList(QStringLiteral("getPlaylistMenu"), info);
 }
 
-// 分区内容：tids 严格过滤，只会返回该分区稿件
 void BilibiliApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
-    Q_UNUSED(pageSize); // 搜索接口每页固定 20 条
+    Q_UNUSED(pageSize);
     bool ok = false;
     const int tid = tagid.toInt(&ok);
     searchVideos(QStringLiteral("音乐"), ok && tid > 0 ? tid : kMusicTid, page,
                  QStringLiteral("getMusicPlaylists"), QStringLiteral("click"));
 }
 
-// "season:<sid>:<mid>" → 合集内稿件；否则按 bvid 返回单曲
 void BilibiliApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     const QStringList parts = listid.split(QLatin1Char(':'));
@@ -562,7 +548,6 @@ void BilibiliApi::getHotPlaylistMenu(int type)
     emitList(QStringLiteral("getHotPlaylistMenu"), info);
 }
 
-// 热门歌单：音乐区排行的 UP 主 → 其真实合集
 void BilibiliApi::getHotPlaylists(int page, int pageSize)
 {
     const QString action = QStringLiteral("getHotPlaylists");
@@ -599,7 +584,7 @@ void BilibiliApi::getAllToplist()
 void BilibiliApi::getMusicToplist(int page, int pageSize, int rankid)
 {
     const QString name = regionName(rankid);
-    if (name.isEmpty() || rankid == kMusicTid) // 音乐区总榜走排行接口
+    if (name.isEmpty() || rankid == kMusicTid)
         ranking(kMusicTid, page, pageSize, QStringLiteral("getMusicToplist"));
     else
         searchVideos(name, rankid, page, QStringLiteral("getMusicToplist"));
@@ -618,7 +603,6 @@ void BilibiliApi::getSingerCategory(int area, int page, int pageSize)
     rankingUsers(QStringLiteral("getSingerCategory"), pageSize);
 }
 
-// 歌手 = UP 主：按昵称搜索其投稿，再按 mid 过滤
 void BilibiliApi::getSingerSongs(const QString &singerid, int page, int pageSize)
 {
     Q_UNUSED(pageSize);
@@ -645,7 +629,6 @@ void BilibiliApi::getSingerSongs(const QString &singerid, int page, int pageSize
     });
 }
 
-// type: 0 播放 / 1 下载
 void BilibiliApi::getMusicInfo(const QString &hash, int type)
 {
     const auto fail = [this, hash, type](int error = 0) {
@@ -684,14 +667,14 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
                     const QJsonArray audios = pd.value(QStringLiteral("dash")).toObject()
                                                   .value(QStringLiteral("audio")).toArray();
                     QString url;
-                    bool fromDurl = false; // durl 是音视频合流，扩展名不能用 .m4a
+                    bool fromDurl = false;
                     if (!audios.isEmpty()) {
                         const QJsonObject best = pickAudio(audios, m_quality);
                         url = httpsUrl(best.value(QStringLiteral("baseUrl")).toString());
                         if (url.isEmpty())
                             url = httpsUrl(best.value(QStringLiteral("base_url")).toString());
                     }
-                    if (url.isEmpty()) { // 少数稿件只有 durl（音视频合流）
+                    if (url.isEmpty()) {
                         const QJsonArray durl = pd.value(QStringLiteral("durl")).toArray();
                         if (!durl.isEmpty()) {
                             url = httpsUrl(durl.first().toObject()
@@ -729,7 +712,6 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
         });
 }
 
-// 歌词取稿件 CC 字幕；没有字幕返回空，由 MusicApiService 复用在线搜词链路补全
 void BilibiliApi::getLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration);
@@ -784,7 +766,6 @@ void BilibiliApi::getLyricInfo(const QString &hash, int duration)
         });
 }
 
-// 私人漫游 → 音乐区排行；私人雷达 → 音乐区最新投稿
 void BilibiliApi::getPersonalFm(int page, int pageSize)
 {
     ranking(kMusicTid, page, pageSize, QStringLiteral("getPersonalFm"));

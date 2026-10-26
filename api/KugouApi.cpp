@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #include "KugouApi.h"
 
 #include <QDebug>
@@ -23,7 +23,6 @@
 #include "ApiCommon.h"
 #include "ApiHttp.h"
 
-// zlib 手动声明
 extern "C" {
 typedef unsigned char Bytef;
 typedef unsigned long uLong;
@@ -43,13 +42,12 @@ int uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong sourceLe
 namespace {
 const char *kUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-// 概念版（lite）接口只认 Android 客户端身份，用浏览器 UA 会被判非法
+
 const char *kAndroidUa = "Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi";
-// 酷狗 KRC 歌词 XOR 密钥（16 字节）
+
 const unsigned char kKrcKey[16] = {64, 71, 97, 119, 94, 50, 116, 71,
                                    81, 54, 49, 45, 206, 210, 110, 105};
 
-// "歌手 - 歌名"：歌手名可能含 '-'，只在第一个 '-' 处分割
 QString artistFromFilename(const QString &filename)
 {
     const int i = filename.indexOf(QLatin1Char('-'));
@@ -62,16 +60,12 @@ QString titleFromFilename(const QString &filename, const QString &fallback = QSt
     return i > 0 ? filename.mid(i + 1).trimmed() : fallback;
 }
 
-// 部分歌单接口用 4294967295 表示播放量缺失，统一按 0 处理（否则卡片会显示成 429496 万）
 qint64 playCount(const QJsonObject &o)
 {
     const qint64 v = qint64(o.value(QStringLiteral("playcount")).toDouble());
     return v >= 4294967295 ? 0 : v;
 }
 
-// 歌单列表 → 统一字段（imgurl 的 {size} 占位符换成小图）。
-// 歌单卡片的 duration 槽位存的是「曲目数」：网易云用 trackCount、B 站用 total，酷狗用 songcount。
-// 接口不带这个字段时为 0，卡片会隐藏曲目数而不是显示「0 首」
 QVariantList parsePlaylists(const QJsonArray &arr)
 {
     QVariantList info;
@@ -93,8 +87,6 @@ QVariantList parsePlaylists(const QJsonArray &arr)
     return info;
 }
 
-// 高清(320k) hash：pay_type_320 == 3 表示需付费，回退普通 hash；
-// 没有 320hash 时用 trans_param.ogg_320_hash（部分曲目只提供 ogg）。
 QString hqHashFrom(const QJsonObject &song, const QString &base)
 {
     if (song.value(QStringLiteral("pay_type_320")).toInt() == 3)
@@ -109,7 +101,6 @@ QString hqHashFrom(const QJsonObject &song, const QString &base)
     return ogg.isEmpty() ? base : ogg;
 }
 
-// 无损(SQ) hash：pay_type_sq != 0 表示需付费，回退普通 hash
 QString sqHashFrom(const QJsonObject &song, const QString &base)
 {
     if (song.value(QStringLiteral("pay_type_sq")).toInt() != 0)
@@ -118,21 +109,12 @@ QString sqHashFrom(const QJsonObject &song, const QString &base)
     return sq.isEmpty() ? base : sq;
 }
 
-// 酷狗 pay_type → 统一 paytype（取值约定见 ApiCommon::kPaytypePaid）。
-// 实测 920 条搜索结果：pay_type 只会出现 0 / 1 / 3，其中 1 与 3 的 privilege 都是
-// 8 或 10（1 从不与 privilege=0 同现），即**非 0 一律是「需要会员/付费」**。
-// 旧实现把原始值直传，于是 pay_type=1 的会员曲目落进消费端不认的槽位、永不显示
-// VIP 角标（pay_type=3 只是恰好等于约定值才碰巧正常）。
-// 字段缺失时按免费算：宁可漏标，也不要把拿不到付费信息的曲目一律标成 VIP。
 int paytypeFromKugou(const QJsonObject &song)
 {
     return song.value(QStringLiteral("pay_type")).toInt() == 0 ? ApiCommon::kPaytypeFree
                                                               : ApiCommon::kPaytypePaid;
 }
 
-// 歌手名：优先 authors[0].author_name，取不到回退 singername。
-// 榜单/漫游接口偶发不带 authors，而 QJsonArray::at(0) 对空数组是越界访问
-// （release 下是未定义行为，Q_ASSERT 会被编译掉），必须先判空。
 QString artistOfSong(const QJsonObject &song)
 {
     const QJsonArray authors = song.value(QStringLiteral("authors")).toArray();
@@ -145,7 +127,6 @@ QString artistOfSong(const QJsonObject &song)
     return song.value(QStringLiteral("singername")).toString();
 }
 
-// 裸 zlib 流解压（等价 Python 的 zlib.decompress）
 QByteArray zlibInflate(const QByteArray &data)
 {
     if (data.isEmpty())
@@ -160,7 +141,7 @@ QByteArray zlibInflate(const QByteArray &data)
             out.resize(int(destLen));
             return out;
         }
-        if (ret == Z_BUF_ERROR || ret == Z_MEM_ERROR) { // 缓冲区不够，翻倍重试
+        if (ret == Z_BUF_ERROR || ret == Z_MEM_ERROR) {
             destLen = qMax(destLen * 2, destLen + 1024);
             continue;
         }
@@ -170,14 +151,13 @@ QByteArray zlibInflate(const QByteArray &data)
     return {};
 }
 
-// raw-deflate（RFC1951，无 zlib 头）→ 补 zlib 头 + adler32 → uncompress
 QByteArray rawDeflateInflate(const QByteArray &raw)
 {
     QByteArray zlib;
     zlib.append(char(0x78));
     zlib.append(char(0x9C));
     zlib.append(raw);
-    quint32 a = 1, b = 0; // adler32
+    quint32 a = 1, b = 0;
     for (char c : raw) {
         a = (a + uchar(c)) % 65521;
         b = (b + a) % 65521;
@@ -190,7 +170,6 @@ QByteArray rawDeflateInflate(const QByteArray &raw)
     return zlibInflate(zlib);
 }
 
-// 先试裸 zlib，失败再试 raw-deflate 补头
 QByteArray inflateSmart(const QByteArray &data)
 {
     QByteArray out = zlibInflate(data);
@@ -202,7 +181,6 @@ QByteArray inflateSmart(const QByteArray &data)
     return out;
 }
 
-// play/songinfo 取址结果：新版是 play_url/play_backup_url，老版 backup_url 可能是数组
 QString playUrlOf(const QJsonObject &data, QString *backup)
 {
     if (backup) {
@@ -217,10 +195,10 @@ QString playUrlOf(const QJsonObject &data, QString *backup)
     }
     return data.value(QStringLiteral("play_url")).toString();
 }
-} // namespace
+}
 
 namespace {
-// 简易大整数，仅用于将 MD5 摘要转为十进制字符串（生成 kugou mid）
+
 class BigUint {
 public:
     static BigUint fromBytes(const QByteArray &bytes)
@@ -300,7 +278,6 @@ QByteArray md5Hex(const QByteArray &data)
     return QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex();
 }
 
-// 酷狗签名：salt + 按 key 排序的 k=v 拼接 + salt 的 MD5，各端只差 salt
 QByteArray kugouSignature(const QByteArray &salt, const QStringList &keyValues)
 {
     QStringList sorted = keyValues;
@@ -308,7 +285,6 @@ QByteArray kugouSignature(const QByteArray &salt, const QStringList &keyValues)
     return md5Hex(salt + sorted.join(QString()).toUtf8() + salt);
 }
 
-// 概念版（lite）签名与标准版只差盐；tracker 的 key 另有一套算法
 QByteArray liteAndroidSignature(const QVariantMap &params)
 {
     QStringList keyValues;
@@ -325,7 +301,7 @@ QString liteSignKey(const QString &hash, const QString &appid, const QString &mi
         md5Hex((hash + QStringLiteral("185672dd44712f60bb1736df5a377e82") + appid + mid + userid)
                    .toUtf8()));
 }
-} // namespace
+}
 
 QByteArray KugouApi::kugouWebSignature(const QJsonObject &params)
 {
@@ -374,11 +350,9 @@ KugouApi::KugouApi(QObject *parent)
     m_nam = new QNetworkAccessManager(this);
 }
 
-// 通用 GET 请求（带 UA / Cookie，清理 KG_TAG 包裹后解析 JSON）。
-// 传输失败时在解析结果里补 "error" 键，供上层区分「网络失败」与「业务成功但空数据」。
 void KugouApi::getComments(const QString &hash, int page, int pageSize)
 {
-    // 评论网关要数字 mixsongid（播放信息接口返回的 album_audio_id），按安卓端规则签名
+
     const auto requestComments = [this, page, pageSize](const QString &mixId) {
         if (m_mid.isEmpty())
             m_mid = kugouMidFromGuid(randomGuid());
@@ -420,7 +394,7 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
                     c.value(QStringLiteral("reply_num")).toInt());
             }
             QVariantMap result = ApiCommon::listResult(info);
-            // 一页拿满就认为可能还有下一页；拿不满就没有更多了
+
             result.insert(QStringLiteral("hasMore"), info.size() >= pageSize);
             if (json.contains(QStringLiteral("error")))
                 result.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
@@ -428,7 +402,6 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
         });
     };
 
-    // 翻页时直接用缓存，省掉一次 getSongInfo 往返
     const QString cached = m_mixIdCache.value(hash);
     if (!cached.isEmpty()) {
         requestComments(cached);
@@ -450,7 +423,7 @@ void KugouApi::get(const QString &url, const Callback &cb)
 {
     ApiHttp::get(m_nam, this, QUrl(url), kUa, "https://www.kugou.com/", m_cookie.toUtf8(),
                  [cb](const QByteArray &body, QNetworkReply::NetworkError error) {
-                     // 部分接口的 JSON 被 KG_TAG 注释包裹，先剥掉再解析
+
                      QByteArray data = body;
                      data.replace("<!--KG_TAG_RES_START-->", "").replace("<!--KG_TAG_RES_END-->", "");
                      QJsonObject object = QJsonDocument::fromJson(data).object();
@@ -460,7 +433,6 @@ void KugouApi::get(const QString &url, const Callback &cb)
                  });
 }
 
-// 概念版（lite）网关请求：Android UA + 设备头，失败同样补 "error" 键
 void KugouApi::getLite(const QString &url, const Callback &cb)
 {
     const QByteArray clienttime = QByteArray::number(QDateTime::currentSecsSinceEpoch());
@@ -484,7 +456,6 @@ void KugouApi::getLite(const QString &url, const Callback &cb)
                  headers);
 }
 
-// KRC 歌词解码（替代 pako.mjs：Base64 → 跳4 → XOR → 跳2 → raw inflate）
 QString KugouApi::decodeKrc(const QByteArray &base64)
 {
     QByteArray bytes = QByteArray::fromBase64(base64);
@@ -492,14 +463,12 @@ QString KugouApi::decodeKrc(const QByteArray &base64)
         qWarning() << "[krc] 数据太短，无法解码";
         return {};
     }
-    bytes = bytes.mid(4); // 跳过前 4 字节（krc1 magic 头）
+    bytes = bytes.mid(4);
 
-    // XOR 解密（酷狗固定 16 字节密钥）
     QByteArray decrypted(bytes.size(), Qt::Uninitialized);
     for (int i = 0; i < bytes.size(); ++i)
         decrypted[i] = char(uchar(bytes.at(i)) ^ kKrcKey[i % 16]);
 
-    // 偏移4/2 兼容旧格式（带版本标记）
     const int offsets[] = {0, 4, 2};
     for (int skip : offsets) {
         if (decrypted.size() <= skip + 4)
@@ -523,17 +492,15 @@ QVariantList KugouApi::krcToLyrics(const QString &krc)
     for (const QString &rawLine : lines) {
         const QString line = rawLine.trimmed();
         if (line.isEmpty())
-            continue; // 空行跳过
+            continue;
         const QRegularExpressionMatch m = lineRe.match(line);
         if (!m.hasMatch())
             continue;
 
         QString rawContent = m.captured(3).trimmed();
 
-        // 判断是否为对唱（整行被全角括号包裹）
         const bool isOther = rawContent.endsWith("）");
 
-        // 字级：<偏移,持续,0>文本
         QVariantList words;
         QString fullText;
         QRegularExpressionMatchIterator it = wordRe.globalMatch(m.captured(3));
@@ -588,15 +555,13 @@ QVariantList KugouApi::krcTranslations(const QString &krc)
     QVariantList result;
     for (const QJsonValue &v : c.value(QStringLiteral("lyricContent")).toArray()) {
         const QJsonArray item = v.toArray();
-        // 与 oldjs extractTranslations 一致：纯空格行 → 空字符串。
-        // 否则 QML 显示时空白行还会占位，造成"翻译区空一大片"。
+
         const QString text = item.isEmpty() ? QString() : item.first().toString();
         result << (text.trimmed().isEmpty() ? QString() : text);
     }
     return result;
 }
 
-// 搜索（type: 0 歌曲 / 1 歌单 / 2 专辑 / 3 歌词）
 void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
 {
     QUrl url;
@@ -646,7 +611,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
         const QJsonArray arr = json.value(QStringLiteral("data")).toObject()
                                    .value(QStringLiteral("info")).toArray();
         QVariantList info;
-        if (type == 0) { // 歌曲
+        if (type == 0) {
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
@@ -663,7 +628,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     hq, sq,
                     paytypeFromKugou(s));
             }
-        } else if (type == 1) { // 歌单
+        } else if (type == 1) {
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 info << ApiCommon::song(
@@ -676,7 +641,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     QString(), QString(), 0,
                     playCount(s));
             }
-        } else if (type == 2) { // 专辑
+        } else if (type == 2) {
             for (const QJsonValue &v : arr) {
                 const QJsonObject a = v.toObject();
                 info << ApiCommon::song(
@@ -687,7 +652,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                     a.value(QStringLiteral("songcount")).toInt(),
                     a.value(QStringLiteral("albumname")).toString());
             }
-        } else if (type == 3) { // 歌词搜索结果
+        } else if (type == 3) {
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 const QString filename = s.value(QStringLiteral("filename")).toString();
@@ -713,7 +678,6 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
     });
 }
 
-// 歌单分类：category/list 给出 21 个真实分类
 void KugouApi::getPlaylistMenu(int type)
 {
     Q_UNUSED(type);
@@ -742,8 +706,6 @@ void KugouApi::getPlaylistMenu(int type)
     });
 }
 
-// 分类歌单：sort=1 为热度排序，返回真实播放量；每个分类各自一套歌单、可持续翻页。
-// withsong=1 才会带 songcount（曲目数），代价是每个歌单多回一小段歌曲预览（实测约 4 倍体积）
 void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/special"));
@@ -766,7 +728,6 @@ void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pag
     });
 }
 
-// 分类下歌单列表
 void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/specialList"));
@@ -788,7 +749,6 @@ void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
     });
 }
 
-// 歌单内歌曲
 void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/special/song"));
@@ -807,7 +767,7 @@ void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
                                      .value(QStringLiteral("info")).toArray()) {
             const QJsonObject s = v.toObject();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            // 文件名形如 "歌手 - 歌名"
+
             const QString filename = s.value(QStringLiteral("filename")).toString();
             const QString title = titleFromFilename(filename, filename);
             const QString artist = artistFromFilename(filename);
@@ -828,7 +788,6 @@ void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
     });
 }
 
-// 推荐歌曲（新歌榜 type=1）
 void KugouApi::getRecommendSongs(int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/newsong"));
@@ -868,7 +827,6 @@ void KugouApi::getRecommendSongs(int page, int pageSize)
     });
 }
 
-// 热门歌单分类
 void KugouApi::getHotPlaylistMenu(int type)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/recommend"));
@@ -895,8 +853,6 @@ void KugouApi::getHotPlaylistMenu(int type)
     });
 }
 
-// 热门歌单：按热度搜歌单，结果自带真实播放量与歌曲数，与分类歌单不同源。
-// 关键词逐页轮换，每个词 20 页（实测各词均 ≥22 页，不会翻空），共 160 页持续出新。
 void KugouApi::getHotPlaylists(int page, int pageSize)
 {
     static const QStringList kKeywords{
@@ -936,7 +892,6 @@ void KugouApi::getHotPlaylists(int page, int pageSize)
     });
 }
 
-// 新歌（type: 1 华语 / 2 欧美 / 3 日韩）
 void KugouApi::getNewSongs(int type, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/newsong"));
@@ -984,10 +939,9 @@ void KugouApi::getNewSongs(int type, int page, int pageSize)
     });
 }
 
-// 榜单列表
 void KugouApi::getAllToplist()
 {
-    // 酷狗榜单列表（rank/list 动态接口，返回全部榜单 + 封面）
+
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/list"));
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
@@ -1009,7 +963,7 @@ void KugouApi::getAllToplist()
                 total.value(QStringLiteral("all_total")).toInt(),
                 t.value(QStringLiteral("intro")).toString());
         }
-        // 接口异常时回退到内置热门榜单
+
         if (info.isEmpty()) {
             info << ApiCommon::song(QStringLiteral("酷狗飙升榜"), QString(), QString(),
                                     QStringLiteral("6666"));
@@ -1021,7 +975,6 @@ void KugouApi::getAllToplist()
     });
 }
 
-// 榜单歌曲
 void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
@@ -1063,7 +1016,6 @@ void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
     });
 }
 
-// 热门歌手（歌手榜）
 void KugouApi::getHotSingers(int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/rank"));
@@ -1077,7 +1029,7 @@ void KugouApi::getHotSingers(int page, int pageSize)
 
     get(url.toString(), [this](const QJsonObject &json) {
         QVariantList info;
-        // 兼容 data.singers / data.info 两种结构
+
         QJsonArray arr = json.value(QStringLiteral("data")).toObject()
                              .value(QStringLiteral("singers")).toArray();
         if (arr.isEmpty())
@@ -1096,7 +1048,6 @@ void KugouApi::getHotSingers(int page, int pageSize)
     });
 }
 
-// 歌手分类（area: 1 华语 / 2 欧美 / 3 日本 / 4 韩国）
 void KugouApi::getSingerCategory(int area, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/list"));
@@ -1111,7 +1062,7 @@ void KugouApi::getSingerCategory(int area, int page, int pageSize)
 
     get(url.toString(), [this](const QJsonObject &json) {
         QVariantList info;
-        // 兼容 data.singers / data.info 两种结构
+
         QJsonArray arr = json.value(QStringLiteral("data")).toObject()
                              .value(QStringLiteral("singers")).toArray();
         if (arr.isEmpty())
@@ -1130,7 +1081,6 @@ void KugouApi::getSingerCategory(int area, int page, int pageSize)
     });
 }
 
-// 歌手歌曲
 void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/song"));
@@ -1144,7 +1094,7 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
 
     get(url.toString(), [this](const QJsonObject &json) {
         QVariantList info;
-        // 兼容 data.songs / data.info 两种结构
+
         QJsonArray arr = json.value(QStringLiteral("data")).toObject()
                              .value(QStringLiteral("songs")).toArray();
         if (arr.isEmpty())
@@ -1173,9 +1123,6 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
     });
 }
 
-// 歌曲播放信息（type: 0 播放 / 1 下载）
-// 酷狗音质由 hash 决定（普通/高清/无损是三个不同 hash），而免费接口 getSongInfo.php
-// 只返回 128k 文件，所以地址用 trackercdn 按传入 hash 取，元信息仍取 getSongInfo.php，两者并行。
 void KugouApi::getMusicInfo(const QString &hash, int type)
 {
     if (hash.isEmpty()) {
@@ -1192,18 +1139,16 @@ void KugouApi::getMusicInfo(const QString &hash, int type)
     requestTrackerUrl(hash, type, st);
 }
 
-// 元信息（歌名/歌手/封面/时长）+ 128k 地址兜底
 void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
 {
     QUrl url(QStringLiteral("https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=")
              + hash);
     get(url.toString(), [this, hash, type, st](const QJsonObject &json) {
-        // 与 JS 版一致：兼容 {data:{...}} 和直接 {...} 两种返回结构
+
         QJsonObject d = json.value(QStringLiteral("data")).toObject();
         if (d.isEmpty())
             d = json;
 
-        // backup_url 新版返回数组，旧版为字符串，统一兼容
         const QJsonValue bv = d.value(QStringLiteral("backup_url"));
         QString backupUrl;
         if (bv.isArray()) {
@@ -1239,14 +1184,14 @@ void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPoint
                         ? d.value(QStringLiteral("timeLength")).toDouble()
                         : d.value(QStringLiteral("duration")).toDouble());
         data.insert(QStringLiteral("fileName"), fileName);
-        // 传输失败：让上层按「网络错误」提示，而不是回退到旧的 128k 地址
+
         if (json.contains(QStringLiteral("error")))
             data.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
 
         st->meta = data;
         st->metaUrl = playUrl;
         st->metaBackupUrl = backupUrl;
-        // 概念版取址要专辑与音频 id；这里顺手从元数据接口带出来
+
         st->albumId = d.value(QStringLiteral("albumid")).toVariant().toString();
         if (st->albumId.isEmpty())
             st->albumId = d.value(QStringLiteral("req_albumid")).toVariant().toString();
@@ -1256,7 +1201,6 @@ void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPoint
     });
 }
 
-// 按 hash 精确取址（trackercdn v2）：status=1 有权，status=2 表示该音质需会员/无版权
 void KugouApi::requestTrackerUrl(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
 {
     const QString key = QString::fromLatin1(
@@ -1266,7 +1210,7 @@ void KugouApi::requestTrackerUrl(const QString &hash, int type, const QSharedPoi
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("key"), key);
     q.addQueryItem(QStringLiteral("hash"), hash);
-    q.addQueryItem(QStringLiteral("br"), QStringLiteral("hq")); // 音质由 hash 决定，br 无实际作用
+    q.addQueryItem(QStringLiteral("br"), QStringLiteral("hq"));
     q.addQueryItem(QStringLiteral("appid"), QStringLiteral("1005"));
     q.addQueryItem(QStringLiteral("pid"), QStringLiteral("2"));
     q.addQueryItem(QStringLiteral("cmd"), QStringLiteral("25"));
@@ -1298,25 +1242,22 @@ void KugouApi::requestTrackerUrl(const QString &hash, int type, const QSharedPoi
     });
 }
 
-// 两路返回后合并：优先 trackercdn（精确音质）→ 回退 128k → 再回退登录签名接口
 void KugouApi::finishPlayInfo(const QString &hash, int type, const QSharedPointer<PlayRequest> &st)
 {
     if (!st->metaDone || !st->trackerDone)
         return;
 
-    // trackercdn status=2 说明该曲对该账号无权限（会员/购买），用于给出准确提示
     const QString reason = st->trackerStatus == 2 ? QStringLiteral("vip")
                                                  : QStringLiteral("unavailable");
     if (cookieValue({QStringLiteral("token"), QStringLiteral("t")}).isEmpty()) {
-        finishWithFallback(hash, type, st, reason); // 未登录：只能用免费/128k 兜底
+        finishWithFallback(hash, type, st, reason);
         return;
     }
-    // 已登录：先走两条 VIP 取址（概念版 → web 签名），免费地址留到最后兜底
+
     qInfo() << "[kugou] 先试 VIP 取址（概念版 → web 签名）hash:" << hash.left(8);
     requestLitePlayInfo(hash, type, st, reason);
 }
 
-// 两条 VIP 取址都失败后的收尾：能用免费/128k 地址就用，否则回传失败原因
 void KugouApi::finishWithFallback(const QString &hash, int type,
                                   const QSharedPointer<PlayRequest> &st, const QString &reason,
                                   int transportError)
@@ -1325,7 +1266,6 @@ void KugouApi::finishWithFallback(const QString &hash, int type,
     const QString fallbackUrl = st->metaUrl.isEmpty() ? st->metaBackupUrl : st->metaUrl;
     const QString freeUrl = st->trackerUrl.isEmpty() ? fallbackUrl : st->trackerUrl;
 
-    // 文件名后缀跟随实际音质（无损存 .flac，而不是 .mp3）
     if (!st->trackerUrl.isEmpty() && !st->trackerExt.isEmpty()) {
         QString fileName = data.value(QStringLiteral("fileName")).toString();
         const int dot = fileName.lastIndexOf(QLatin1Char('.'));
@@ -1337,7 +1277,7 @@ void KugouApi::finishWithFallback(const QString &hash, int type,
     data.insert(QStringLiteral("backup_url"), fallbackUrl);
     data.insert(QStringLiteral("hash"), hash);
     data.insert(QStringLiteral("type"), type);
-    // VIP 通道是传输失败时，让上层提示「网络错误」而不是「需要会员」
+
     if (transportError != 0)
         data.insert(QStringLiteral("error"), transportError);
     if (freeUrl.isEmpty()) {
@@ -1365,7 +1305,7 @@ QString KugouApi::cookieValue(const QStringList &keys) const
 
 QJsonObject KugouApi::songInfoBaseParams() const
 {
-    // 参数集与 web 端一致：多余参数会参与签名，反而可能被判非法
+
     const QString mid = m_mid.isEmpty() ? kugouMidFromGuid(randomGuid()) : m_mid;
     QJsonObject params;
     params.insert(QStringLiteral("appid"), 1014);
@@ -1386,7 +1326,6 @@ QJsonObject KugouApi::songInfoBaseParams() const
     return params;
 }
 
-// wwwapi 播放接口（web 签名 + 登录 token）：VIP/付费曲要到第二步才给 play_url
 void KugouApi::requestSignedPlayInfo(const QString &hash, int type,
                                      const QSharedPointer<PlayRequest> &st, const QString &reason)
 {
@@ -1414,7 +1353,7 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
     get(url.toString(),
         [this, hash, type, st, reason, secondStep, metaFallback](const QJsonObject &json) {
             const QJsonObject d = json.value(QStringLiteral("data")).toObject();
-            // 第二步的响应可能少字段，缺失时回落到第一步
+
             const auto pick = [&](const char *key) {
                 const QString v = d.value(QLatin1String(key)).toString();
                 return v.isEmpty() ? metaFallback.value(QLatin1String(key)).toString() : v;
@@ -1430,7 +1369,7 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
                 const QString encodeId =
                     d.value(QStringLiteral("encode_album_audio_id")).toString();
                 if (!secondStep && !encodeId.isEmpty()) {
-                    // 第一步只给 encode_album_audio_id，要再请求一次才拿得到播放地址
+
                     qInfo() << "[kugou] songinfo 第一步返回 encode_album_audio_id，继续取址"
                             << hash.left(8);
                     QJsonObject next = songInfoBaseParams();
@@ -1465,7 +1404,6 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
         });
 }
 
-// 概念版（lite）公共参数：设备 + 登录态，appid/clientver 用概念版自己的
 QVariantMap KugouApi::liteBaseParams() const
 {
     QVariantMap params;
@@ -1485,8 +1423,6 @@ QVariantMap KugouApi::liteBaseParams() const
     return params;
 }
 
-// 概念版取址第一步：hash + album_audio_id 换 auth / open_time
-// 概念版取址第一步：/v1/user_verify 换用户级 auth（同一登录态内缓存复用）
 void KugouApi::requestLitePlayInfo(const QString &hash, int type,
                                    const QSharedPointer<PlayRequest> &st, const QString &reason)
 {
@@ -1520,7 +1456,6 @@ void KugouApi::requestLitePlayInfo(const QString &hash, int type,
             });
 }
 
-// 概念版取址第二步：/v1/authorization 换歌曲级 auth + open_time
 void KugouApi::requestLiteSongAuth(const QString &hash, int type,
                                    const QSharedPointer<PlayRequest> &st, const QString &userAuth,
                                    const QString &reason)
@@ -1530,7 +1465,7 @@ void KugouApi::requestLiteSongAuth(const QString &hash, int type,
     params.insert(QStringLiteral("module_id"), 51);
     params.insert(QStringLiteral("album_audio_id"),
                   st->albumAudioId.isEmpty() ? 0 : st->albumAudioId.toLongLong());
-    params.insert(QStringLiteral("clientver"), 11561); // 歌曲授权接口版本与其它 lite 接口不同
+    params.insert(QStringLiteral("clientver"), 11561);
     params.insert(QStringLiteral("hash"), hash.toLower());
     params.insert(QStringLiteral("signature"), QString::fromLatin1(liteAndroidSignature(params)));
 
@@ -1545,7 +1480,7 @@ void KugouApi::requestLiteSongAuth(const QString &hash, int type,
                 const QString openTime =
                     d.value(QStringLiteral("open_time")).toVariant().toString();
                 if (auth.isEmpty() || openTime.isEmpty()) {
-                    // 用户级 auth 可能已过期：清掉缓存，本次落回 web 签名
+
                     m_liteUserAuth.clear();
                     qWarning() << "[kugou] 概念版歌曲授权失败，落回 web 签名 status:"
                                << json.value(QStringLiteral("status")).toInt()
@@ -1558,7 +1493,6 @@ void KugouApi::requestLiteSongAuth(const QString &hash, int type,
             });
 }
 
-// 概念版取址第二步：auth + open_time 换播放地址；音质被拒时降级到标准音质再试一次
 void KugouApi::requestLiteUrlStep(const QString &hash, int type,
                                   const QSharedPointer<PlayRequest> &st, const QString &auth,
                                   const QString &openTime, int quality, const QString &reason)
@@ -1597,7 +1531,7 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
     params.insert(QStringLiteral("key"),
                   liteSignKey(lower, QStringLiteral("3116"), m_mid,
                               userid.isEmpty() ? QStringLiteral("0") : userid));
-    // 参考实现里 notSign 是笔误（底层只认 notSignature），tracker 实际仍要 android 签名
+
     params.insert(QStringLiteral("signature"), QString::fromLatin1(liteAndroidSignature(params)));
 
     QUrlQuery q;
@@ -1606,7 +1540,7 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
 
     getLite(QStringLiteral("https://gateway.kugou.com/tracker/v5/url?") + q.toString(),
             [this, hash, type, st, auth, openTime, quality, reason](const QJsonObject &json) {
-                // url 可能落在顶层或 data 下，且可能是字符串或数组
+
                 QString url;
                 const auto takeUrl = [&url](const QJsonValue &value) {
                     if (value.isArray()) {
@@ -1656,10 +1590,9 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
             });
 }
 
-// 歌词（两步：搜索候选 → 下载 KRC → 解码）
 void KugouApi::getLyricInfo(const QString &hash, int duration)
 {
-    // 歌词搜索接口期望 duration 是"秒"。QML 侧可能传毫秒（如 245000），这里归一化成秒
+
     if (duration > 10000)
         duration = duration / 1000;
 
@@ -1674,13 +1607,13 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
 
     get(url.toString(), [this, hash](const QJsonObject &json) {
         const QJsonArray candidates = json.value(QStringLiteral("candidates")).toArray();
-        if (candidates.isEmpty()) { // 无歌词
+        if (candidates.isEmpty()) {
             qWarning() << "[lyric] 没有找到歌词候选（可能是歌曲没有歌词，或 hash/duration 不对）";
             QVariantMap empty;
             empty.insert(QStringLiteral("info"), QVariantList{});
             empty.insert(QStringLiteral("translate"), QVariantList{});
             empty.insert(QStringLiteral("hash"), hash);
-            // 请求失败不能当成「这首歌没有歌词」，否则界面会显示成纯音乐
+
             if (json.contains(QStringLiteral("error")))
                 empty.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
             emit resultReady(QStringLiteral("getLyricInfo"), empty, Source);
@@ -1722,8 +1655,6 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
     });
 }
 
-// 私人漫游/私人雷达：酷狗无 personal_fm/recommend_songs，用榜单等价实现。
-// rankid 6666 = 飙升榜（最新潮流），8888 = TOP500（全网热门）。
 void KugouApi::getPersonalFm(int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));

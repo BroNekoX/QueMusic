@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
-// NeteaseCloudApi —— 基于 QCloudMusicApi（第三方网易云音乐在线接口，
-// 完整复刻 NeteaseCloudMusicApi 的 weapi 加密协议）的网易云实现，
-// 用于替代旧的 NeteaseApi（老 web 接口，已废弃、缺陷多、字段不全）。
 
 #ifndef NETEASECLOUDAPI_H
 #define NETEASECLOUDAPI_H
@@ -27,12 +23,11 @@ public:
 
 signals:
     void resultReady(const QString &action, const QVariant &data, int source);
-    // 仅供内部使用：把登录态 Cookie 投递到所有工作线程
     void setCookieRequest(const QString &cookie);
 
 public slots:
-    void setCookie(const QString &cookie); // 同步 AccountManager 的网易云登录态
-    void setQuality(int quality);           // 0 标准 / 1 高清 / 2 无损 / 3 HiRes
+    void setCookie(const QString &cookie);
+    void setQuality(int quality);
     void searchSongs(const QString &keyword, int type, int page, int pageSize);
     void getPlaylistMenu(int type);
     void getMusicPlaylists(const QString &tagid, int page, int pageSize);
@@ -44,19 +39,20 @@ public slots:
     void getAllToplist();
     void getMusicToplist(int page, int pageSize, int rankid);
     void getHotSingers(int page, int pageSize);
-    void getSingerCategory(int area, int page, int pageSize); // 歌手分类（artist_list）
+    void getSingerCategory(int area, int page, int pageSize);
     void getSingerSongs(const QString &singerid, int page, int pageSize);
     void getMusicInfo(const QString &hash, int type);
     void getLyricInfo(const QString &hash, int duration);
     void getComments(const QString &hash, int page, int pageSize);
-    void getPersonalFm(int page, int pageSize);     // 私人漫游 → personal_fm
-    void getPersonalRadar(int page, int pageSize);  // 私人雷达 → recommend_songs
+    void getPersonalFm(int page, int pageSize);
+    void getPersonalRadar(int page, int pageSize);
 
 private slots:
     void onWorkerResult(const QString &action, const QVariant &data, int source);
 
 private:
-    void enqueue(const QString &action, const QVariantMap &call);
+    void enqueue(const QString &action, const QString &member,
+                 const QVariantMap &arg, const QVariantMap &extra = {});
 
     QList<CloudWorker *> m_workers;
     QList<QThread *> m_threads;
@@ -64,4 +60,4 @@ private:
     std::atomic<int> m_quality{1};
 };
 
-#endif // NETEASECLOUDAPI_H
+#endif

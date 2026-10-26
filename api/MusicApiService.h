@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #ifndef MUSICAPISERVICE_H
 #define MUSICAPISERVICE_H
 
-#include <QFutureWatcher>
 #include <QHash>
+#include <QList>
+#include <QMap>
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariant>
 #include <QVariantMap>
-#include <QMap>
-#include <QList>
-#include <QTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
-#include "KugouApi.h"
-#include "NeteaseCloudApi.h"   // 基于 QCloudMusicApi 的网易云实现（替代旧 NeteaseApi）
 #include "BilibiliApi.h"
+#include "KugouApi.h"
+#include "NeteaseCloudApi.h"
 #include "OnlineListModel.h"
 #include "sources/ScriptSourceHost.h"
 #include "../cpp/DownloadManager.h"
@@ -33,18 +32,12 @@ class MusicApiService : public QObject
     QML_NAMED_ELEMENT(MusicApi)
     QML_SINGLETON
 
-    // 默认歌曲源（0 酷狗 / 1 网易云），source<0 时使用
     Q_PROPERTY(int songSource READ songSource WRITE setSongSource NOTIFY songSourceChanged FINAL)
-
-    // 可用音源：内置三家 + 用户目录下的 JS 插件（id >= 100）
     Q_PROPERTY(QVariantList sources READ sources NOTIFY sourcesChanged FINAL)
     Q_PROPERTY(QStringList sourceNames READ sourceNames NOTIFY sourcesChanged FINAL)
     Q_PROPERTY(QVariantList sourceIds READ sourceIds NOTIFY sourcesChanged FINAL)
-
-    // 音质设置（0 标准 128k / 1 高清 320k / 2+ 无损 flac），由 QML 的 Options.settings.soundQuality 同步
     Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged FINAL)
 
-    // 在线数据列表模型（QML 侧 .count/.get()/.clear() 与旧 ListModel 一致）
     Q_PROPERTY(OnlineListModel* searchSongsResults READ searchSongsResults CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel* newSongs READ newSongs CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel* recommendSongs READ recommendSongs CONSTANT FINAL)
@@ -57,12 +50,9 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT FINAL)
-    // 歌曲评论（在线音乐才有）
     Q_PROPERTY(OnlineListModel* comments READ comments CONSTANT FINAL)
-    // 评论是否还有下一页（平台在结果里透出，避免 QML 用条数取模猜）
     Q_PROPERTY(bool commentsHasMore READ commentsHasMore NOTIFY commentsHasMoreChanged FINAL)
 
-    // 非模型数据
     Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged FINAL)
     Q_PROPERTY(QVariantList lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
     Q_PROPERTY(QVariantList lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged FINAL)
@@ -72,33 +62,23 @@ class MusicApiService : public QObject
     Q_PROPERTY(int lyricOffsetMs READ lyricOffsetMs WRITE setLyricOffsetMs NOTIFY lyricOffsetMsChanged FINAL)
     Q_PROPERTY(int lyricIndex READ lyricIndex NOTIFY lyricIndexChanged FINAL)
 
-    // 状态与全局变量
     Q_PROPERTY(bool loadState READ loadState WRITE setLoadState NOTIFY loadStateChanged FINAL)
     Q_PROPERTY(QVariant globalid READ globalid WRITE setGlobalid NOTIFY globalidChanged FINAL)
     Q_PROPERTY(QVariant globaltagid READ globaltagid WRITE setGlobaltagid NOTIFY globaltagidChanged FINAL)
     Q_PROPERTY(QVariant globalinfo READ globalinfo WRITE setGlobalinfo NOTIFY globalinfoChanged FINAL)
     Q_PROPERTY(int nowIndex READ nowIndex WRITE setNowIndex NOTIFY nowIndexChanged FINAL)
-
-    // 歌曲列表过滤（分类页「筛选」）：0 全部 / 1 仅免费 / 2 仅 VIP 付费
-    // 只作用于歌曲列表（新歌/歌单歌曲/歌手歌曲/榜单歌曲），歌单与歌手列表不受影响
     Q_PROPERTY(int songFilter MEMBER m_songFilter NOTIFY songFilterChanged FINAL)
-
-    // 下载管理器（DownloadPage 直接绑定 MusicApi.downloader）
     Q_PROPERTY(DownloadManager* downloader READ downloader CONSTANT FINAL)
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged FINAL)
 
 public:
-    // 不能给 parent 默认值：否则引擎走"默认构造"分支、create() 被跳过，
-    // setAccountManager() 里的登录态注入就永远不会执行（详见 cpp/AppModels.h 说明）
     explicit MusicApiService(QObject *parent);
     ~MusicApiService() override;
 
-    // QML_SINGLETON 工厂：首次访问 MusicApi 时由 QML 引擎调用
     static MusicApiService *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
-    // main.cpp 注入共享的 AccountManager，供 create() 使用
     static void setSharedAccountManager(AccountManager *am);
 
-    void setAccountManager(AccountManager *am); // 请求自动携带登录态 Cookie
+    void setAccountManager(AccountManager *am);
 
     int songSource() const;
     void setSongSource(int source);
@@ -144,7 +124,7 @@ public:
     int lyricIndex() const { return m_lyricIndex; }
 
     bool loadState() const { return m_loadState; }
-    void setLoadState(bool s);
+    void setLoadState(bool state);
     QVariant globalid() const { return m_globalid; }
     void setGlobalid(const QVariant &v);
     QVariant globaltagid() const { return m_globaltagid; }
@@ -152,19 +132,17 @@ public:
     QVariant globalinfo() const { return m_globalinfo; }
     void setGlobalinfo(const QVariant &v);
     int nowIndex() const { return m_nowIndex; }
-    void setNowIndex(int v);
+    void setNowIndex(int index);
 
     DownloadManager *downloader() { return &m_downloader; }
     QString downloadPath() const { return m_downloader.downloadPath(); }
-    void setDownloadPath(const QString &p) { m_downloader.setDownloadPath(p); }
+    void setDownloadPath(const QString &path) { m_downloader.setDownloadPath(path); }
 
-    // 统一接口（缺省 source 时用当前默认源）
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);
     Q_INVOKABLE void getPlaylistMenu(int type, int source = -1);
     Q_INVOKABLE void getMusicPlaylists(const QString &tagid, int page = 1, int pageSize = 20,
                                        int source = -1);
-    // 分类页的歌单列表（酷狗用 category/special，与首页热门分类卡片不同源）
     Q_INVOKABLE void getCategoryPlaylists(const QString &id, int page = 1, int pageSize = 20,
                                           int source = -1);
     Q_INVOKABLE void getPlaylistSongs(const QString &listid, int page = 1, int pageSize = 20,
@@ -173,54 +151,41 @@ public:
     Q_INVOKABLE void getHotPlaylistMenu(int type, int source = -1);
     Q_INVOKABLE void getHotPlaylists(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getNewSongs(int type, int page = 1, int pageSize = 20, int source = -1);
-    Q_INVOKABLE void getAllToplist(int source = -1);   // 榜单列表（单平台）
-    Q_INVOKABLE void getAllToplists();           // 酷狗 + 网易云榜单
-    Q_INVOKABLE void getMusicToplist(int page, int pageSize, int rankid, int source = -1); // 榜单歌曲
+    Q_INVOKABLE void getAllToplist(int source = -1);
+    Q_INVOKABLE void getAllToplists();
+    Q_INVOKABLE void getMusicToplist(int page, int pageSize, int rankid, int source = -1);
     Q_INVOKABLE void getHotSingers(int page = 1, int pageSize = 20, int source = -1);
-    // 歌手分类：area 由 QML 按平台映射（酷狗 1 华语/2 欧美/3 日本/4 韩国；网易云 7/96/8/16）
     Q_INVOKABLE void getSingerCategory(int area, int page = 1, int pageSize = 30,
                                        int source = -1);
     Q_INVOKABLE void getSingerSongs(const QString &singerid, int page = 1, int pageSize = 20,
                                     int source = -1);
     Q_INVOKABLE void getMusicInfo(const QString &hash, int type = 0, int source = -1);
     Q_INVOKABLE void getLyricInfo(const QString &hash, int duration, int source = -1);
-    // 私人漫游（每日推荐式流媒体，网易云 personal_fm / 酷狗推荐榜）
     Q_INVOKABLE void getPersonalFm(int page = 1, int pageSize = 20, int source = -1);
-    // 私人雷达（基于用户口味的推荐，网易云 recommend_songs / 酷狗新歌榜）
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
-    // 歌曲评论（分页）；结果进 comments 模型，失败/无评论时为空表
     Q_INVOKABLE void getComments(const QString &hash, int page = 1, int pageSize = 30,
                                  int source = -1);
-    // 本地音乐（无歌词）时调用：清掉在线歌词残留，显示占位歌词 [{time:0, text:"纯音乐，请欣赏"}]
     Q_INVOKABLE void setLocalLyrics();
-    // 工作线程读取本地元数据，经 localMetadataReady 回传（GUI 线程零文件 IO）
     Q_INVOKABLE void readLocalMetadataAsync(const QString &filePath);
-    // 仅读取同目录同名 .json 中的 cover 字段（不解析音频文件），带缓存
     Q_INVOKABLE QString readLocalCoverHint(const QString &filePath);
-    // TagLib 只读：标签 + 音频属性
     Q_INVOKABLE QVariantMap readLocalAudioInfo(const QString &filePath);
-    // 同目录 .lrc 优先，其次内嵌
     Q_INVOKABLE QString readLocalLyricsText(const QString &filePath);
-    // 写回标签（meta 可含 lyrics 文本与 cover 图片路径）；写盘在工作线程
     Q_INVOKABLE void writeLocalMetadata(const QString &filePath, const QVariantMap &meta);
-    // 工作线程解析内嵌标签（避免卡 UI）；命中经 localLyricsReady 回传，未命中自动转在线匹配
     Q_INVOKABLE void readLocalLyricsAsync(const QString &filePath, const QString &title,
                                           const QString &artist, int duration = 0,
                                           bool allowOnlineSearch = true);
-    // 本地歌词不存在时，按标题/歌手搜索在线歌词；结果与翻译通过信号返回。
     Q_INVOKABLE void findLocalLyrics(const QString &filePath, const QString &title,
                                      const QString &artist, int duration = 0,
                                      int source = -1);
-    // B 站稿件没有字幕时，复用上面的在线搜词链路（默认回退到酷狗）补全歌词
     void findOnlineLyrics(const QString &title, const QString &artist, int duration,
                           int source = 0);
 
 signals:
-    void loaded();   // loadState 置 true（QLoadSign 显示加载动画）
-    void finished(); // loadState 置 false（QLoadSign 结束动画）
+    void loaded();
+    void finished();
     void urlplay(const QString &playurl, const QString &title, const QString &artist,
                  const QString &cover, const QString &solve, const QString &hash, int source);
-    void warned(const QString &text, int type); // 下载等提示
+    void warned(const QString &text, int type);
     void songSourceChanged();
     void soundQualityChanged();
     void sourcesChanged();
@@ -249,32 +214,27 @@ private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
 
 private:
-    // 歌曲列表专用入口：统一字段后再按 m_songFilter 过滤（歌单/歌手/榜单列表不走这里）
+    void rebuildSources();
     QVariantList songList(const QVariant &data);
     int m_songFilter = 0;
 
-private:
-    int resolve(int source) const; // source<0 → 默认源
+    int resolve(int source) const;
     static QVariantMap readLocalMetadataBlocking(const QString &filePath);
     static bool writeLocalMetadataBlocking(const QString &filePath, const QVariantMap &meta);
-    // 未完成请求数，loadState 由它派生
     void beginRequest();
     void endRequest();
-    // 兜底：平台有请求不回结果时计数永不归零，加载动画停不下来
     QTimer m_requestWatchdog;
-    // 播放代次：只有最新一次播放请求的响应才允许切音源/歌词
     bool isStalePlayResponse(const QString &playHash, int source) const;
-    // 音质：记录 hash ↔ hashhq/hashsq，按设置把 hash 升级成高清；映射落盘以便重启后仍可用
     void rememberHashes(const QVariantList &items);
     QString resolveQualityHash(const QString &hash) const;
     QString qualityCachePath() const;
     void loadQualityCache();
     void scheduleSaveQualityCache();
     void saveQualityCache();
-    void syncSource(int source);   // 同步各平台请求所需的登录态 / 音质设置
-    QVariantMap normalizeItem(const QVariantMap &raw); // 字段归一化 + 旧字段别名
-    QVariantList normalizeList(const QVariant &v);
-    void handleMusicInfo(const QVariantMap &d, int source);
+    void syncSource(int source);
+    QVariantMap normalizeItem(const QVariantMap &raw);
+    QVariantList normalizeList(const QVariant &value);
+    void handleMusicInfo(const QVariantMap &data, int source);
 
     struct LocalLyricsRequest {
         QString filePath;
@@ -283,25 +243,33 @@ private:
         int duration = 0;
     };
 
-    int m_source = 0;
-    int m_soundQuality = 1; // 与 Options/soundQuality 同步（0 128k / 1 320k / 2+ flac）
-    int m_localLyricsGeneration = 0; // 连续切歌时丢弃过期的歌词解析结果
-    QHash<QString, QString> m_coverHintCache;
-    // 同首歌的不同音质 hash（酷狗：普通 128k / 高清 320k / 无损 flac 是三个不同 hash）
     struct QualityAlts {
         QString hq;
         QString sq;
     };
-    QHash<QString, QualityAlts> m_alts; // 普通 hash → 高清/无损 hash
-    QHash<QString, QString> m_baseOf;   // 任意 hash → 普通 hash（一首歌的身份）
+
+    struct OnlineTrack {
+        QString hash;
+        QString title;
+        QString artist;
+        int duration = 0;
+    };
+
+    int m_source = 0;
+    int m_soundQuality = 1;
+    int m_localLyricsGeneration = 0;
+    QHash<QString, QString> m_coverHintCache;
+    QHash<QString, QualityAlts> m_alts;
+    QHash<QString, QString> m_baseOf;
     bool m_altsDirty = false;
     QTimer m_altsSaveTimer;
-    NeteaseCloudApi m_netease;   // 网易云（源 1）：基于 QCloudMusicApi（weapi 加密协议）
+    QVariantList m_sourceList;
+    NeteaseCloudApi m_netease;
     KugouApi m_kugou;
-    BilibiliApi m_bilibili;      // 哔哩哔哩（源 2）：音乐区稿件 + DASH 音频流
-    ScriptSourceHost m_scripts;  // 用户 JS 音源（id >= 100）
+    BilibiliApi m_bilibili;
+    ScriptSourceHost m_scripts;
     AccountManager *m_account = nullptr;
-    static AccountManager *s_accountManager; // create() 使用，main.cpp 注入
+    static AccountManager *s_accountManager;
 
     OnlineListModel m_searchSongsResults;
     OnlineListModel m_newSongs;
@@ -322,26 +290,17 @@ private:
     QVariantList m_lyricsData;
     QVariantList m_lyricsTranslate;
 
-    // 下载流程：按 hash 暂存待下载元数据，等歌词返回后一起发起下载
     QMap<QString, QVariantMap> m_pendingDownloads;
     QMap<int, LocalLyricsRequest> m_localLyricsSearches;
     QMap<QString, LocalLyricsRequest> m_pendingLocalLyrics;
-    // 当前请求的 B 站稿件；没有字幕时用它复用在线搜词链路
-    struct OnlineTrack {
-        QString hash;
-        QString title;
-        QString artist;
-        int duration = 0;
-    };
     OnlineTrack m_biliTrack;
     QMap<int, LocalLyricsRequest> m_biliFallbackSearches;
 
     bool m_loadState = false;
-    int m_pendingRequests = 0;          // 未完成请求数，loadState 由它派生
-    int m_playGeneration = 0;           // 每次新的播放请求 +1
-    QString m_playHash;                 // 当前代次的播放 hash（音质升级后的实际请求值）
-    int m_playSource = -1;              // 当前代次的平台
-    // 播放链路的歌词请求：hash → 代次，过期响应据此丢弃
+    int m_pendingRequests = 0;
+    int m_playGeneration = 0;
+    QString m_playHash;
+    int m_playSource = -1;
     QHash<QString, int> m_playLyricGenerations;
     QVariant m_globalid;
     QVariant m_globaltagid;
@@ -361,4 +320,4 @@ private:
     DownloadManager m_downloader;
 };
 
-#endif // MUSICAPISERVICE_H
+#endif

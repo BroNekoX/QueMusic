@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #include "Favorites.h"
 
 #include "DbService.h"
 
+#include <QCoreApplication>
 #include <QDebug>
+#include <QHash>
 #include <QPointer>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 
 #include <utility>
 
 namespace {
+
+const QString kFavoriteColumns =
+    QStringLiteral("id, title, artist, cover, source, duration, type, created_at");
 
 FavoriteItem readFavorite(const QSqlQuery &query)
 {
@@ -28,15 +34,28 @@ FavoriteItem readFavorite(const QSqlQuery &query)
     return item;
 }
 
-const QString kFavoriteColumns =
-    QStringLiteral("id, title, artist, cover, source, duration, type, created_at");
+struct FavoriteIndex {
+    QHash<QString, QSet<QString>> byType;
+    bool loaded = false;
+    bool loading = false;
+    quint64 generation = 0;
+};
 
-} // namespace
+FavoriteIndex g_index;
+
+void ensureTypes(QHash<QString, QSet<QString>> &ids)
+{
+    for (const char *type : {"song", "playlist", "artist"})
+        ids.insert(QString::fromLatin1(type), QSet<QString>());
+}
+
+}
 
 FavoritesModel::FavoritesModel(QObject *parent)
     : QAbstractListModel(parent)
 {
     s_instances.append(this);
+    refreshIndex();
     refreshModel();
 }
 
@@ -47,12 +66,12 @@ FavoritesModel::~FavoritesModel()
 
 int FavoritesModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_items.size();
+    return parent.isValid() ? 0 : int(m_items.size());
 }
 
 QVariant FavoritesModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() >= m_items.size())
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
         return {};
 
     const FavoriteItem &item = m_items.at(index.row());
@@ -65,7 +84,7 @@ QVariant FavoritesModel::data(const QModelIndex &index, int role) const
     case DurationRole:  return item.duration;
     case TypeRole:      return item.type;
     case CreatedAtRole: return item.createdAt;
-    case PaytypeRole:   return 0;   // 收藏表不存付费类型，恒免费
+    case PaytypeRole:   return 0;
     default:            return {};
     }
 }
@@ -82,7 +101,7 @@ QHash<int, QByteArray> FavoritesModel::roleNames() const
         {TypeRole,      "type"},
         {CreatedAtRole, "createdAt"},
         {PaytypeRole,   "paytype"}
-        };
+    };
 }
 
 QVariantMap FavoritesModel::get(int row) const
@@ -124,32 +143,70 @@ void FavoritesModel::setFolderId(int folderId)
 
 void FavoritesModel::reloadAll()
 {
+    refreshIndex(true);
     for (FavoritesModel *model : std::as_const(s_instances))
         model->refreshModel();
+}
+
+void FavoritesModel::refreshIndex(bool force)
+{
+    if (g_index.loading && !force)
+        return;
+    if (g_index.loaded && !force)
+        return;
+
+    g_index.loading = true;
+    const quint64 generation = ++g_index.generation;
+
+    DbService::instance()->submit([generation](QSqlDatabase &db) {
+        QHash<QString, QSet<QString>> ids;
+        QSqlQuery query(db);
+        if (query.exec(QStringLiteral("SELECT type, id FROM favorites"))) {
+            while (query.next())
+                ids[query.value(0).toString()].insert(query.value(1).toString());
+        }
+        ensureTypes(ids);
+
+        DbService::post(QCoreApplication::instance(), [generation, ids] {
+            if (!g_index.loading || generation != g_index.generation)
+                return;
+            g_index.byType = ids;
+            g_index.loaded = true;
+            g_index.loading = false;
+            notifyAll();
+        });
+    });
+}
+
+void FavoritesModel::notifyAll()
+{
+    for (FavoritesModel *model : std::as_const(s_instances))
+        emit model->favoriteStateChanged();
 }
 
 void FavoritesModel::refreshModel()
 {
     setLoading(true);
-    const int generation = m_generation.fetch_add(1) + 1;
+    const int generation = ++m_generation;
     const QString filter = m_filterType;
     const int folder = m_folderId;
     QPointer<FavoritesModel> self(this);
 
-    m_refreshInFlight = true;
     DbService::instance()->submit([self, filter, folder, generation](QSqlDatabase &db) {
-        QVector<FavoriteItem> items;
-        QSqlQuery query(db);
         QString where;
         if (!filter.isEmpty())
             where = QStringLiteral("type = :type");
         if (folder >= 0)
             where += where.isEmpty() ? QStringLiteral("folder_id = :folder")
                                      : QStringLiteral(" AND folder_id = :folder");
+
         QString sql = QStringLiteral("SELECT %1 FROM favorites").arg(kFavoriteColumns);
         if (!where.isEmpty())
             sql += QStringLiteral(" WHERE ") + where;
         sql += QStringLiteral(" ORDER BY created_at DESC");
+
+        QVector<FavoriteItem> items;
+        QSqlQuery query(db);
         query.prepare(sql);
         if (!filter.isEmpty())
             query.bindValue(QStringLiteral(":type"), filter);
@@ -158,32 +215,14 @@ void FavoritesModel::refreshModel()
         if (query.exec()) {
             while (query.next())
                 items.append(readFavorite(query));
+        } else {
+            qWarning() << "[favorites] 读取失败:" << query.lastError().text();
         }
 
-        // 顺带把所有类型（song/playlist/artist）的 id 都取回来：isFavorite 在委托里逐行调用，
-        // 不能在 GUI 线程查库（同一连接名被 DB 线程持有），只能靠这份内存答案
-        QHash<QString, QSet<QString>> allIds = [&db] {
-            QHash<QString, QSet<QString>> out;
-            QSqlQuery q(db);
-            if (q.exec(QStringLiteral("SELECT type, id FROM favorites"))) {
-                while (q.next())
-                    out[q.value(0).toString()].insert(q.value(1).toString());
-            }
-            return out;
-        }();
-        // 预置三种类型的键，否则 isFavorite 会反复补加载
-        for (const char *type : {"song", "playlist", "artist"})
-            allIds.insert(QString::fromLatin1(type), QSet<QString>());
-
-        DbService::post(self, [self, generation, items, allIds] {
-            if (!self)
+        DbService::post(self, [self, generation, items] {
+            if (!self || generation != self->m_generation)
                 return;
-            self->m_refreshInFlight = false;
-            if (generation != self->m_generation.load())
-                return;
-            self->m_idsByType = allIds;
             self->applyItems(items);
-            emit self->favoriteStateChanged();
         });
     });
 }
@@ -205,7 +244,6 @@ void FavoritesModel::setSearchText(const QString &text)
     applyFilter();
 }
 
-// 过滤在内存完成：当前夹已全量在手，不产生任何 SQL
 void FavoritesModel::applyFilter()
 {
     QVector<FavoriteItem> filtered;
@@ -215,12 +253,13 @@ void FavoritesModel::applyFilter()
         filtered.reserve(m_allItems.size());
         for (const FavoriteItem &item : std::as_const(m_allItems)) {
             if (item.title.contains(m_searchText, Qt::CaseInsensitive)
-                || item.artist.contains(m_searchText, Qt::CaseInsensitive))
+                || item.artist.contains(m_searchText, Qt::CaseInsensitive)) {
                 filtered.append(item);
+            }
         }
     }
     beginResetModel();
-    m_items = filtered;
+    m_items = std::move(filtered);
     endResetModel();
     emit countChanged();
 }
@@ -233,12 +272,10 @@ void FavoritesModel::setLoading(bool loading)
     emit loadingChanged();
 }
 
-// 三个收藏单例共用一张表：任一实例改动都让所有列表的收藏图标重算
 void FavoritesModel::bumpRevision()
 {
     ++s_revision;
-    for (FavoritesModel *model : std::as_const(s_instances))
-        emit model->favoriteStateChanged();
+    notifyAll();
 }
 
 void FavoritesModel::addFavorite(const QString &id, const QString &title,
@@ -256,7 +293,6 @@ void FavoritesModel::addToFolder(const QString &id, const QString &title,
                   folderId, true);
 }
 
-// 一条 UPSERT 取代「先查再写」；moveExisting=false 时新收藏进默认夹，已归属的保持原夹
 void FavoritesModel::writeFavorite(const QString &id, const QString &title,
                                    const QString &artist, const QString &cover,
                                    int source, int duration, const QString &type,
@@ -276,6 +312,7 @@ void FavoritesModel::writeFavorite(const QString &id, const QString &title,
         const QString folderUpdate = moveExisting
             ? QStringLiteral("folder_id = :folder")
             : QStringLiteral("folder_id = COALESCE(favorites.folder_id, excluded.folder_id)");
+
         QSqlQuery query(db);
         query.prepare(QStringLiteral(
             "INSERT INTO favorites (id, title, artist, cover, source, duration, type, folder_id) "
@@ -291,24 +328,23 @@ void FavoritesModel::writeFavorite(const QString &id, const QString &title,
         query.bindValue(QStringLiteral(":type"), type);
         if (moveExisting)
             query.bindValue(QStringLiteral(":folder"), folderId);
+
         const bool ok = query.exec();
+        QString error;
         if (!ok) {
             DbService::markWriteFailed(query.lastError());
-            qWarning() << "[收藏] 写库失败 id=" << id << "type=" << type
-                       << "原因=" << query.lastError().text() << "库=" << db.databaseName();
+            error = QStringLiteral("收藏失败：") + query.lastError().text();
+            qWarning() << "[favorites]" << error << id << type;
         }
-        const QString error = ok ? QString() : QStringLiteral("收藏失败：") + query.lastError().text();
 
         DbService::post(self, [self, id, type, error] {
             if (!self)
                 return;
             if (!error.isEmpty()) {
-                // 不更新内存缓存：图标保持未收藏，用户看到的就是真实状态
-                qWarning() << "[favorites]" << error;
                 emit self->errorOccurred(error);
                 return;
             }
-            self->m_idsByType[type].insert(id);
+            g_index.byType[type].insert(id);
             emit self->favoriteChanged(id, type, true);
             self->bumpRevision();
             if (self->m_filterType == type)
@@ -325,23 +361,24 @@ void FavoritesModel::removeFavorite(const QString &id, const QString &type)
         query.prepare(QStringLiteral("DELETE FROM favorites WHERE type = :type AND id = :id"));
         query.bindValue(QStringLiteral(":type"), type);
         query.bindValue(QStringLiteral(":id"), id);
+
         const bool ok = query.exec();
+        QString error;
         if (!ok) {
             DbService::markWriteFailed(query.lastError());
-            qWarning() << "[收藏] 删库失败 id=" << id << "type=" << type
-                       << "原因=" << query.lastError().text() << "库=" << db.databaseName();
+            error = QStringLiteral("取消收藏失败：") + query.lastError().text();
+            qWarning() << "[favorites]" << error << id << type;
         }
-        const QString error = ok ? QString() : QStringLiteral("取消收藏失败：") + query.lastError().text();
 
         DbService::post(self, [self, id, type, error] {
             if (!self)
                 return;
             if (!error.isEmpty()) {
-                qWarning() << "[favorites]" << error;
                 emit self->errorOccurred(error);
                 return;
             }
-            self->m_idsByType[type].remove(id);
+            if (auto it = g_index.byType.find(type); it != g_index.byType.end())
+                it->remove(id);
             emit self->favoriteChanged(id, type, false);
             self->bumpRevision();
             if (self->m_filterType == type)
@@ -352,19 +389,12 @@ void FavoritesModel::removeFavorite(const QString &id, const QString &type)
 
 bool FavoritesModel::isFavorite(const QString &id, const QString &type) const
 {
-    // 只读内存答案：委托每行都会调用，绝不能在这里查库
-    const auto it = m_idsByType.constFind(type);
-    if (it == m_idsByType.cend()) {
-        // 该类型还没装进内存（加载失败/换了数据目录）：补一次，但只在没有在途任务时
-        auto *self = const_cast<FavoritesModel *>(this);
-        if (!self->m_refreshInFlight)
-            self->refreshModel();
-        return false;
-    }
-    return it->contains(id);
+    if (!g_index.loaded)
+        refreshIndex();
+    const auto it = g_index.byType.constFind(type);
+    return it != g_index.byType.cend() && it->contains(id);
 }
 
-// FavoriteFoldersModel
 FavoriteFoldersModel::FavoriteFoldersModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -373,12 +403,12 @@ FavoriteFoldersModel::FavoriteFoldersModel(QObject *parent)
 
 int FavoriteFoldersModel::rowCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : m_items.size();
+    return parent.isValid() ? 0 : int(m_items.size());
 }
 
 QVariant FavoriteFoldersModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() >= m_items.size())
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size())
         return {};
 
     const FolderItem &item = m_items.at(index.row());
@@ -451,7 +481,7 @@ void FavoriteFoldersModel::mutate(DbMutator mutator, bool reloadFavorites)
             if (!error.isEmpty())
                 emit self->errorOccurred(error);
             self->reload();
-            if (reloadFavorites)   // 只有删夹会动到 favorites 行
+            if (reloadFavorites)
                 FavoritesModel::reloadAll();
         });
     });
@@ -483,16 +513,31 @@ void FavoriteFoldersModel::renameFolder(int folderId, const QString &newName)
 void FavoriteFoldersModel::deleteFolder(int folderId)
 {
     mutate([folderId](QSqlDatabase &db, QString &error) {
-        db.transaction();
+        if (!db.transaction()) {
+            error = QStringLiteral("删除收藏夹失败: ") + db.lastError().text();
+            return;
+        }
+
         QSqlQuery songs(db);
         songs.prepare(QStringLiteral("DELETE FROM favorites WHERE type = 'song' AND folder_id = :id"));
         songs.bindValue(QStringLiteral(":id"), folderId);
-        songs.exec();
+        if (!songs.exec()) {
+            DbService::markWriteFailed(songs.lastError());
+            error = QStringLiteral("删除收藏夹失败: ") + songs.lastError().text();
+            db.rollback();
+            return;
+        }
+
         QSqlQuery folder(db);
         folder.prepare(QStringLiteral("DELETE FROM folders WHERE id = :id AND type = 'fav'"));
         folder.bindValue(QStringLiteral(":id"), folderId);
-        if (!folder.exec())
+        if (!folder.exec()) {
+            DbService::markWriteFailed(folder.lastError());
             error = QStringLiteral("删除收藏夹失败: ") + folder.lastError().text();
-        db.commit();
+            db.rollback();
+            return;
+        }
+        if (!db.commit())
+            error = QStringLiteral("删除收藏夹失败: ") + db.lastError().text();
     }, true);
 }

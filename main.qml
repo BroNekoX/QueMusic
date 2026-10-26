@@ -465,7 +465,6 @@ Window {
             height: parent.height
             visible: false
             asynchronous: true
-            // 按窗口尺寸解码，别整图上显存
             sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
 

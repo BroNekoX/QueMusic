@@ -189,10 +189,10 @@ Popup {
                     Behavior on color { ColorAnimation { duration: 100 } }
 
                     Text {
-                        x: 10
+                        x: 12
                         anchors.verticalCenter: parent.verticalCenter
                         text: savedListRow.index
-                        font.pixelSize: Style.texticon
+                        font.pixelSize: Style.text
                         color: Theme.textColor
                     }
                     Text {

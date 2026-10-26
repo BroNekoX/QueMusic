@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
+
 #include "MusicApiService.h"
 
 #include <QDebug>
-#include <QQmlEngine>
-#include <QJSEngine>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
+#include <QJSEngine>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QQmlEngine>
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
 #include <QtConcurrent>
 
+#include <algorithm>
+
 #include "../cpp/AccountManager.h"
 #include "../cpp/LocalLyricsReader.h"
 
-#include "ApiCommon.h"   // paytype 取值约定（kPaytypeFree / kPaytypePaid）
+#include "ApiCommon.h"
 
 #include <attachedpictureframe.h>
 #include <audioproperties.h>
@@ -42,28 +45,24 @@ namespace {
 constexpr int kSourceKugou = 0;
 constexpr int kSourceNetease = 1;
 constexpr int kSourceBilibili = 2;
-// 超过这么久没有任何平台响应就强制结束加载态
 constexpr int kRequestWatchdogMs = 20000;
 constexpr int kLyricTickMs = 320;
 
-// 取多个候选字段中第一个非空字符串（模拟 JS 的 a || b || c || ""）
-QString firstNonEmpty(const QVariantMap &m, std::initializer_list<const char *> keys)
+QString firstNonEmpty(const QVariantMap &map, std::initializer_list<const char *> keys)
 {
-    for (const char *k : keys) {
-        const QVariant v = m.value(QLatin1String(k));
-        if (v.isValid() && !v.toString().isEmpty())
-            return v.toString();
+    for (const char *key : keys) {
+        const QVariant value = map.value(QLatin1String(key));
+        if (value.isValid() && !value.toString().isEmpty())
+            return value.toString();
     }
     return QString();
 }
 
-// TagLib 字符串统一转 UTF-8，避免中文歌词/标题乱码
 QString tagString(const TagLib::String &value)
 {
     return QString::fromUtf8(value.toCString(true));
 }
 
-// file:// URL 与纯路径统一归一成磁盘路径
 QString localPath(const QString &filePath)
 {
     const QString path = QUrl::fromUserInput(filePath).toLocalFile();
@@ -91,7 +90,6 @@ QString imageMime(const QByteArray &data)
     return QStringLiteral("image/jpeg");
 }
 
-// MP3(APIC) / FLAC(Picture) / MP4(covr)，其余容器忽略
 bool embedCover(TagLib::File *file, const QByteArray &data)
 {
     const QString mime = imageMime(data);
@@ -134,7 +132,7 @@ bool embedCover(TagLib::File *file, const QByteArray &data)
     }
     return false;
 }
-} // namespace
+}
 
 AccountManager *MusicApiService::s_accountManager = nullptr;
 
@@ -155,21 +153,19 @@ void MusicApiService::setSharedAccountManager(AccountManager *am)
 MusicApiService::MusicApiService(QObject *parent)
     : QObject(parent)
 {
-    // 平台结果直接在本类处理（填模型 / 属性 / 发信号）
     connect(&m_netease, &NeteaseCloudApi::resultReady, this, &MusicApiService::handleResult);
     connect(&m_kugou, &KugouApi::resultReady, this, &MusicApiService::handleResult);
     connect(&m_bilibili, &BilibiliApi::resultReady, this, &MusicApiService::handleResult);
 
-    // JS 音源插件：<配置目录>/sources/*.js，异步加载，加载完刷新 sources
     const QString sourcesDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                                + QStringLiteral("/BroNekoX/QueMusic/sources");
     QDir().mkpath(sourcesDir);
     m_scripts.setPluginDir(sourcesDir);
     connect(&m_scripts, &ScriptSourceHost::resultReady, this, &MusicApiService::handleResult);
-    connect(&m_scripts, &ScriptSourceHost::pluginsChanged, this, &MusicApiService::sourcesChanged);
+    connect(&m_scripts, &ScriptSourceHost::pluginsChanged, this, &MusicApiService::rebuildSources);
+    rebuildSources();
     m_scripts.reload();
 
-    // 音质初值：QML 侧还有 Binding 同步，这里读 ini 只为保证 Binding 生效前也正确
     QSettings opt(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
                       + QStringLiteral("/BroNekoX/QueMusic.ini"),
                   QSettings::IniFormat);
@@ -179,7 +175,6 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(&m_altsSaveTimer, &QTimer::timeout, this, &MusicApiService::saveQualityCache);
     loadQualityCache();
 
-    // 兜底：任一平台不回结果也不能让加载动画一直转（超时强制销账）
     m_requestWatchdog.setSingleShot(true);
     m_requestWatchdog.setInterval(kRequestWatchdogMs);
     connect(&m_requestWatchdog, &QTimer::timeout, this, [this] {
@@ -240,41 +235,50 @@ void MusicApiService::setSoundQuality(int q)
 
 QVariantList MusicApiService::sources() const
 {
+    return m_sourceList;
+}
+
+void MusicApiService::rebuildSources()
+{
     QVariantList list{
-        QVariantMap{{QStringLiteral("id"), kSourceKugou}, {QStringLiteral("name"), QStringLiteral("酷狗音乐")}, {QStringLiteral("plugin"), false}},
-        QVariantMap{{QStringLiteral("id"), kSourceNetease}, {QStringLiteral("name"), QStringLiteral("网易云音乐")}, {QStringLiteral("plugin"), false}},
-        QVariantMap{{QStringLiteral("id"), kSourceBilibili}, {QStringLiteral("name"), QStringLiteral("哔哩哔哩")}, {QStringLiteral("plugin"), false}},
+        QVariantMap{{QStringLiteral("id"), kSourceKugou},
+                    {QStringLiteral("name"), QStringLiteral("酷狗音乐")},
+                    {QStringLiteral("plugin"), false}},
+        QVariantMap{{QStringLiteral("id"), kSourceNetease},
+                    {QStringLiteral("name"), QStringLiteral("网易云音乐")},
+                    {QStringLiteral("plugin"), false}},
+        QVariantMap{{QStringLiteral("id"), kSourceBilibili},
+                    {QStringLiteral("name"), QStringLiteral("哔哩哔哩")},
+                    {QStringLiteral("plugin"), false}}
     };
     list += m_scripts.plugins();
-    return list;
+    m_sourceList = list;
+    emit sourcesChanged();
 }
 
 QStringList MusicApiService::sourceNames() const
 {
     QStringList names;
-    const QVariantList list = sources();
-    names.reserve(list.size());
-    for (const QVariant &entry : list)
-        names << entry.toMap().value(QStringLiteral("name")).toString();
+    names.reserve(m_sourceList.size());
+    for (const QVariant &entry : m_sourceList)
+        names.append(entry.toMap().value(QStringLiteral("name")).toString());
     return names;
 }
 
 QVariantList MusicApiService::sourceIds() const
 {
     QVariantList ids;
-    const QVariantList list = sources();
-    ids.reserve(list.size());
-    for (const QVariant &entry : list)
-        ids << entry.toMap().value(QStringLiteral("id")).toInt();
+    ids.reserve(m_sourceList.size());
+    for (const QVariant &entry : m_sourceList)
+        ids.append(entry.toMap().value(QStringLiteral("id")).toInt());
     return ids;
 }
 
 int MusicApiService::sourceIdAt(int index) const
 {
-    const QVariantList list = sources();
-    if (index < 0 || index >= list.size())
+    if (index < 0 || index >= m_sourceList.size())
         return m_source;
-    return list.at(index).toMap().value(QStringLiteral("id")).toInt();
+    return m_sourceList.at(index).toMap().value(QStringLiteral("id")).toInt();
 }
 
 void MusicApiService::reloadSources()
@@ -282,20 +286,18 @@ void MusicApiService::reloadSources()
     m_scripts.reload();
 }
 
-// 记录「同一首歌的不同音质 hash」
-// 搜索、歌单、榜单结果里都带：hash / hashhq / hashsq）
 void MusicApiService::rememberHashes(const QVariantList &items)
 {
-    if (m_alts.size() > 5000) // 只做加速用，不做无界增长
+    if (m_alts.size() > 5000)
         return;
     bool changed = false;
-    for (const QVariant &v : items) {
-        const QVariantMap it = v.toMap();
-        const QString base = it.value(QStringLiteral("hash")).toString();
+    for (const QVariant &value : items) {
+        const QVariantMap item = value.toMap();
+        const QString base = item.value(QStringLiteral("hash")).toString();
         if (base.isEmpty())
             continue;
-        const QString hq = it.value(QStringLiteral("hashhq")).toString();
-        const QString sq = it.value(QStringLiteral("hashsq")).toString();
+        const QString hq = item.value(QStringLiteral("hashhq")).toString();
+        const QString sq = item.value(QStringLiteral("hashsq")).toString();
         QualityAlts alts = m_alts.value(base);
         if (!hq.isEmpty() && hq != base && alts.hq != hq) {
             alts.hq = hq;
@@ -347,7 +349,7 @@ void MusicApiService::loadQualityCache()
 void MusicApiService::scheduleSaveQualityCache()
 {
     m_altsDirty = true;
-    m_altsSaveTimer.start(1500); // 合并连续列表解析，避免频繁写盘
+    m_altsSaveTimer.start(1500);
 }
 
 void MusicApiService::saveQualityCache()
@@ -372,7 +374,6 @@ void MusicApiService::saveQualityCache()
         m_altsDirty = false;
 }
 
-// 音质设置 → 实际请求的 hash（0 标准 128k / 1 高清 320k / 2+ 无损 flac）
 QString MusicApiService::resolveQualityHash(const QString &hash) const
 {
     const QString base = m_baseOf.value(hash, hash);
@@ -386,26 +387,23 @@ QString MusicApiService::resolveQualityHash(const QString &hash) const
 
 void MusicApiService::syncSource(int source)
 {
-    // B 站无需登录：只同步音质（决定取哪条 DASH 音频流）
     if (source == kSourceBilibili) {
         m_bilibili.setQuality(m_soundQuality);
         return;
     }
-    if (!m_account)
-        return;
     if (source == kSourceNetease) {
-        // 带客户端身份（稳定 deviceId + os=pc）：未登录也要带，避免被网易云判为异常环境
-        m_netease.setCookie(m_account->neteaseApiCookie());
+        if (m_account)
+            m_netease.setCookie(m_account->neteaseApiCookie());
         m_netease.setQuality(m_soundQuality);
-    }
-    else if (source == kSourceKugou) {
-        m_kugou.setCookie(m_account->kugouCookie());
-        m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
+    } else if (source == kSourceKugou) {
+        if (m_account) {
+            m_kugou.setCookie(m_account->kugouCookie());
+            m_kugou.setDeviceInfo(m_account->kugouMid(), m_account->kugouDfid());
+        }
         m_kugou.setQuality(m_soundQuality);
     }
 }
 
-// 内部变量名加前缀：避免调用点传入与外层同名变量时被自身初始化式遮蔽（曾误传 s 导致读到未初始化值）
 #define DISPATCH(source, expr)                                              \
     do {                                                                    \
         const int quemusicSource = resolve(source);                         \
@@ -420,7 +418,6 @@ void MusicApiService::syncSource(int source)
         }                                                                   \
     } while (0)
 
-// 统一请求入口（请求开始置 loadState=true）
 void MusicApiService::searchSongs(const QString &keyword, int type, int page, int pageSize,
                                   int source)
 {
@@ -450,20 +447,29 @@ void MusicApiService::getMusicPlaylists(const QString &tagid, int page, int page
     DISPATCH(source, getMusicPlaylists(tagid, page, pageSize));
 }
 
-// 分类页的歌单（酷狗走 category/special，与首页热门分类卡片的 tag 体系不同源）
 void MusicApiService::getCategoryPlaylists(const QString &id, int page, int pageSize, int source)
 {
-    // 必须走统一入口：否则平台结果回来时的 endRequest() 会偷别的请求的计数，
-    // 而本请求挂起时又没有任何看门狗兜底
     beginRequest();
     const int resolved = resolve(source);
+    if (m_scripts.isPlugin(resolved)) {
+        m_scripts.request(resolved, QStringLiteral("getCategoryPlaylists"),
+                          QVariantMap{{QStringLiteral("id"), id},
+                                      {QStringLiteral("page"), page},
+                                      {QStringLiteral("pageSize"), pageSize}});
+        return;
+    }
+
     syncSource(resolved);
-    if (resolved == kSourceKugou)
+    if (resolved == kSourceKugou) {
         m_kugou.getCategoryPlaylists(id, page, pageSize);
-    else if (resolved == kSourceNetease)
-        m_netease.getMusicPlaylists(id, page, pageSize);   // 菜单里的 id 即分类名(cat)
-    else
+    } else if (resolved == kSourceNetease) {
+        m_netease.getMusicPlaylists(id, page, pageSize);
+    } else if (resolved == kSourceBilibili) {
         m_bilibili.getMusicPlaylists(id, page, pageSize);
+    } else {
+        qWarning() << "[api] 音源不支持该功能:" << resolved;
+        endRequest();
+    }
 }
 
 void MusicApiService::getPlaylistSongs(const QString &listid, int page, int pageSize,
@@ -504,11 +510,9 @@ void MusicApiService::getAllToplist(int source)
     DISPATCH(source, getAllToplist());
 }
 
-// 同时拉取酷狗 + 网易云的榜单列表，合并进 toplistList（每条带 source）
 void MusicApiService::getAllToplists()
 {
     m_toplistList.clear();
-    // 两个平台各算一个未完成请求，任何一方先回来都不提前结束加载动画
     beginRequest();
     syncSource(kSourceKugou);
     m_kugou.getAllToplist();
@@ -545,10 +549,8 @@ void MusicApiService::getSingerSongs(const QString &singerid, int page, int page
 void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
 {
     beginRequest();
-    // 酷狗同一首歌按音质是不同 hash：按设置换成高清/无损 hash，没有就回退原 hash
     const int resolvedSource = resolve(source);
     const QString playHash = (resolvedSource == kSourceKugou) ? resolveQualityHash(hash) : hash;
-    // type=0 播放：每次点击开新代次、旧代次响应丢弃；type=1 下载不参与代次
     if (type == 0) {
         ++m_playGeneration;
         m_playHash = playHash;
@@ -586,7 +588,6 @@ void MusicApiService::getComments(const QString &hash, int page, int pageSize, i
 
 void MusicApiService::getLyricInfo(const QString &hash, int duration, int source)
 {
-    // 歌词请求不单独改 loadState（由 getMusicInfo 链路管理）
     const int resolved = resolve(source);
     if (m_scripts.isPlugin(resolved)) {
         m_scripts.request(resolved, QStringLiteral("getLyricInfo"),
@@ -597,16 +598,13 @@ void MusicApiService::getLyricInfo(const QString &hash, int duration, int source
     DISPATCH(source, getLyricInfo(hash, duration));
 }
 
-// 本地音乐（无歌词）时调用：覆盖在线歌词残留，显示占位歌词
 void MusicApiService::setLocalLyrics()
 {
-    QVariantMap line;
-    line.insert(QStringLiteral("time"), 0);
-    line.insert(QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏"));
-    QVariantList placeholder;
-    placeholder << line;
-    setLyricsData(placeholder);
-    setLyricsTranslate(QVariantList()); // 清空翻译，避免残留
+    setLyricsData({QVariantMap{
+        {QStringLiteral("time"), 0},
+        {QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏")}
+    }});
+    setLyricsTranslate({});
 }
 
 void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QString &title,
@@ -626,21 +624,20 @@ void MusicApiService::readLocalLyricsAsync(const QString &filePath, const QStrin
                 const QVariantMap result = watcher->result();
                 watcher->deleteLater();
 
-                if (generation != m_localLyricsGeneration) // 期间又切了歌，丢弃
+                if (generation != m_localLyricsGeneration)
                     return;
 
                 const QVariantList lyrics = result.value(QStringLiteral("lyrics")).toList();
                 if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty()) {
                     emit localLyricsReady(filePath, lyrics,
                                           result.value(QStringLiteral("translate")).toList());
-                    // 逐音节重建的内嵌 SYLT 没有翻译：顺手在线取一份（拿到会覆盖，失败保留这份）
                     if (result.value(QStringLiteral("source")).toString()
-                        == QLatin1String("embedded-sylt"))
+                        == QLatin1String("embedded-sylt")) {
                         findLocalLyrics(filePath, title, artist, duration);
+                    }
                 } else if (allowOnlineSearch) {
                     findLocalLyrics(filePath, title, artist, duration);
                 }
-                // 其余情况保留当前歌词（如 .json 自带），不覆盖
             });
     watcher->setFuture(QtConcurrent::run(&LocalLyricsReader::read, filePath));
 }
@@ -662,15 +659,12 @@ void MusicApiService::findLocalLyrics(const QString &filePath, const QString &ti
     request.duration = duration;
     m_localLyricsSearches.insert(resolvedSource, request);
 
-    // Search only songs so the result can be resolved to a hash and then sent
-    // through the existing platform-specific lyric endpoint.
     const QString keyword = request.artist.isEmpty()
         ? request.title
         : request.title + QLatin1Char(' ') + request.artist;
     searchSongs(keyword, 0, 1, 10, resolvedSource);
 }
 
-// B 站稿件没有字幕：复用本地搜词链路，按标题/歌手在回退平台（默认酷狗）搜词
 void MusicApiService::findOnlineLyrics(const QString &title, const QString &artist,
                                        int duration, int source)
 {
@@ -688,7 +682,6 @@ void MusicApiService::findOnlineLyrics(const QString &title, const QString &arti
     searchSongs(keyword, 0, 1, 10, source);
 }
 
-// 读取本地音频同目录同名 .json 元数据；不存在时回退读取音频内嵌 TAG 元数据
 QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
 {
     QVariantMap meta;
@@ -708,7 +701,6 @@ QVariantMap MusicApiService::readLocalMetadataBlocking(const QString &filePath)
         }
     }
 
-    // 无 .json 时读取音频内嵌 TAG，本地歌曲同样能拿到标题/歌手/歌词元数据
     const QByteArray encodedPath = QFile::encodeName(path);
     TagLib::FileRef ref(encodedPath.constData(), false);
     if (ref.isNull() || ref.file() == nullptr)
@@ -764,14 +756,12 @@ QString MusicApiService::readLocalCoverHint(const QString &filePath)
         const QVariantMap meta = QJsonDocument::fromJson(f.readAll()).object().toVariantMap();
         hint = meta.value(QStringLiteral("cover")).toString();
     }
-    // 逐行兜底会缓存整库路径，设个上限
     if (m_coverHintCache.size() > 8192)
         m_coverHintCache.clear();
     m_coverHintCache.insert(path, hint);
     return hint;
 }
 
-// 只读表头，毫秒级，可同步调用
 QVariantMap MusicApiService::readLocalAudioInfo(const QString &filePath)
 {
     QVariantMap info;
@@ -828,8 +818,6 @@ bool MusicApiService::writeLocalMetadataBlocking(const QString &filePath, const 
     tag->setYear(meta.value(QStringLiteral("year")).toString().toUInt());
     tag->setTrack(meta.value(QStringLiteral("track")).toString().toUInt());
 
-    // LYRICS 会映射到各容器对应字段（USLT / Vorbis LYRICS / ©lyr）。
-    // setProperties 会删掉表里没有的既有属性，所以必须先取出全部现有属性再替换。
     const QString lyrics = meta.value(QStringLiteral("lyrics")).toString().trimmed();
     if (!lyrics.isEmpty()) {
         TagLib::PropertyMap props = ref.file()->properties();
@@ -846,7 +834,6 @@ bool MusicApiService::writeLocalMetadataBlocking(const QString &filePath, const 
     return ref.save();
 }
 
-// 同目录 .lrc 优先，其次内嵌
 QString MusicApiService::readLocalLyricsText(const QString &filePath)
 {
     const QString path = localPath(filePath);
@@ -880,7 +867,6 @@ void MusicApiService::writeLocalMetadata(const QString &filePath, const QVariant
         QtConcurrent::run(&MusicApiService::writeLocalMetadataBlocking, filePath, meta));
 }
 
-// setter
 void MusicApiService::setAllPlaylistMenu(const QVariant &v)
 {
     if (m_allPlaylistMenu == v)
@@ -933,18 +919,14 @@ void MusicApiService::setCommentsHasMore(bool hasMore)
 
 void MusicApiService::advanceLyricIndex()
 {
-    const int count = int(m_lyricTimes.size());
-    if (count == 0) {
+    if (m_lyricTimes.isEmpty()) {
         setLyricIndex(0);
         return;
     }
 
-    const qlonglong pos = m_lyricPositionMs + m_lyricOffsetMs + kLyricTickMs;
-    int index = qBound(0, m_lyricIndex, count - 1);
-    while (index + 1 < count && pos >= m_lyricTimes.at(index + 1))
-        ++index;
-    while (index > 0 && pos < m_lyricTimes.at(index))
-        --index;
+    const qlonglong position = m_lyricPositionMs + m_lyricOffsetMs + kLyricTickMs;
+    const auto it = std::upper_bound(m_lyricTimes.cbegin(), m_lyricTimes.cend(), position);
+    const int index = it == m_lyricTimes.cbegin() ? 0 : int(it - m_lyricTimes.cbegin()) - 1;
     setLyricIndex(index);
 }
 
@@ -990,11 +972,9 @@ void MusicApiService::setLoadState(bool s)
         emit finished();
 }
 
-// 计数归零才结束加载态，否则并发请求里先回来的会把动画提前关掉
 void MusicApiService::beginRequest()
 {
     ++m_pendingRequests;
-    // 有响应回来就重启计时（距上次响应超时即强制销账）
     m_requestWatchdog.start();
     setLoadState(true);
 }
@@ -1011,7 +991,6 @@ void MusicApiService::endRequest()
     }
 }
 
-// 代次/hash 不符即上一首歌的过期响应；hash 为空不参与判断，不吞真实错误
 bool MusicApiService::isStalePlayResponse(const QString &playHash, int source) const
 {
     if (playHash.isEmpty() || m_playHash.isEmpty())
@@ -1051,170 +1030,159 @@ void MusicApiService::setNowIndex(int v)
     emit nowIndexChanged();
 }
 
-// 字段归一化：统一字段兜底 + 旧字段名别名（兼容旧 QML 页面）
 QVariantMap MusicApiService::normalizeItem(const QVariantMap &raw)
 {
     QVariantMap item = raw;
-    const auto has = [&item](const char *k) {
-        return item.contains(QLatin1String(k)) && item.value(QLatin1String(k)).isValid();
+    if (item.isEmpty())
+        return item;
+
+    const auto has = [&item](const char *key) {
+        const QVariant value = item.value(QLatin1String(key));
+        return value.isValid() && !value.isNull();
     };
-    const auto val = [&item](const char *k) { return item.value(QLatin1String(k)); };
+    const auto fill = [&item, &has](const char *key, const char *fallback) {
+        if (!has(key) && has(fallback))
+            item.insert(QLatin1String(key), item.value(QLatin1String(fallback)));
+    };
 
-    if (!has("title"))
-        item.insert(QStringLiteral("title"), firstNonEmpty(item, {"specialname", "songname"}));
-    if (!has("artist"))
-        item.insert(QStringLiteral("artist"), firstNonEmpty(item, {"username", "singername", "author_name"}));
-    if (!has("cover"))
-        item.insert(QStringLiteral("cover"), firstNonEmpty(item, {"imgurl", "album_img"}));
-    if (!has("hash"))
-        item.insert(QStringLiteral("hash"), firstNonEmpty(item, {"specialid", "albumid", "id"}));
-    if (!has("duration"))
-        item.insert(QStringLiteral("duration"), 0);
-    if (!has("album"))
-        item.insert(QStringLiteral("album"), firstNonEmpty(item, {"intro", "album_name"}));
-    if (!has("playcount"))
-        item.insert(QStringLiteral("playcount"), 0);
-    if (!has("paytype"))
-        item.insert(QStringLiteral("paytype"), ApiCommon::kPaytypeFree);
-    if (!has("hashhq"))
-        item.insert(QStringLiteral("hashhq"), val("hash"));
-    if (!has("hashsq"))
-        item.insert(QStringLiteral("hashsq"), val("hash"));
+    fill("title", "name");
+    fill("artist", "singer");
+    fill("cover", "pic");
+    fill("hash", "id");
 
-    // 旧字段名别名
-    if (!has("specialname")) item.insert(QStringLiteral("specialname"), val("title"));
-    if (!has("username"))   item.insert(QStringLiteral("username"),   val("artist"));
-    if (!has("imgurl"))     item.insert(QStringLiteral("imgurl"),     val("cover"));
-    if (!has("songname"))   item.insert(QStringLiteral("songname"),   val("title"));
-    if (!has("singername")) item.insert(QStringLiteral("singername"), val("artist"));
-    if (!has("intro"))      item.insert(QStringLiteral("intro"),      val("album"));
-    if (!has("album_name")) item.insert(QStringLiteral("album_name"), val("album"));
-    if (!has("specialid"))  item.insert(QStringLiteral("specialid"),  val("hash"));
-    if (!has("albumid"))    item.insert(QStringLiteral("albumid"),    val("hash"));
+    if (!has("title"))     item.insert(QStringLiteral("title"), QString());
+    if (!has("artist"))    item.insert(QStringLiteral("artist"), QString());
+    if (!has("cover"))     item.insert(QStringLiteral("cover"), QString());
+    if (!has("hash"))      item.insert(QStringLiteral("hash"), QString());
+    if (!has("album"))     item.insert(QStringLiteral("album"), QString());
+    if (!has("duration"))  item.insert(QStringLiteral("duration"), 0);
+    if (!has("playcount")) item.insert(QStringLiteral("playcount"), 0);
+    if (!has("paytype"))   item.insert(QStringLiteral("paytype"), ApiCommon::kPaytypeFree);
+    if (!has("hashhq"))    item.insert(QStringLiteral("hashhq"), item.value(QStringLiteral("hash")));
+    if (!has("hashsq"))    item.insert(QStringLiteral("hashsq"), item.value(QStringLiteral("hash")));
     return item;
 }
 
-QVariantList MusicApiService::normalizeList(const QVariant &v)
+QVariantList MusicApiService::normalizeList(const QVariant &value)
 {
-    QVariantList out;
-    const QVariantList list = v.toList();
-    for (const QVariant &it : list)
-        out << normalizeItem(it.toMap());
-    return out;
+    const QVariantList list = value.toList();
+    QVariantList result;
+    result.reserve(list.size());
+    for (const QVariant &entry : list)
+        result.append(normalizeItem(entry.toMap()));
+    return result;
 }
 
-// 歌曲列表：归一 + 按「筛选」丢掉不符合的条目。
-// paytype 由各平台归一到 ApiCommon::kPaytypeFree / kPaytypePaid（约定见 ApiCommon.h），
-// 取不到就按免费算。**消费端只认 kPaytypePaid**，平台侧别把自家枚举原样透传。
 QVariantList MusicApiService::songList(const QVariant &data)
 {
-    const QVariantList items = normalizeList(data);
-    if (m_songFilter == 0)
-        return items;
-    QVariantList kept;
-    kept.reserve(items.size());
-    for (const QVariant &item : items) {
-        const bool free =
-            item.toMap().value(QStringLiteral("paytype")).toInt() != ApiCommon::kPaytypePaid;
-        if ((m_songFilter == 1 && free) || (m_songFilter == 2 && !free))
-            kept << item;
+    const QVariantList list = data.toList();
+    QVariantList result;
+    result.reserve(list.size());
+    for (const QVariant &entry : list) {
+        QVariantMap item = normalizeItem(entry.toMap());
+        if (m_songFilter != 0) {
+            const bool free = item.value(QStringLiteral("paytype")).toInt()
+                              != ApiCommon::kPaytypePaid;
+            if ((m_songFilter == 1 && !free) || (m_songFilter == 2 && free))
+                continue;
+        }
+        result.append(item);
     }
-    return kept;
+    return result;
 }
 
-// 平台结果统一处理（填模型 / 属性 / 发信号）
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
-    // 进来先销账：本函数中间有提前 return，放出口会漏减导致动画不结束
-    // 歌词请求不计数（见 getLyricInfo），跟着减会让别的请求的加载态提前收尾
     if (action != QLatin1String("getLyricInfo"))
         endRequest();
 
-    const QVariantMap d = data.toMap();
-    // 带 error 的失败响应不能当成「没有数据/歌词」，否则网络故障会显示成纯音乐
-    const bool requestFailed = d.contains(QStringLiteral("error"));
-    if (requestFailed)
+    const QVariantMap message = data.toMap();
+    const bool requestFailed = message.contains(QStringLiteral("error"));
+    if (requestFailed) {
         qWarning() << "[api] 请求失败:" << action
-                   << "error:" << d.value(QStringLiteral("error")).toInt()
+                   << "error:" << message.value(QStringLiteral("error")).toInt()
                    << "source:" << source;
-    const QVariant info = d.contains(QStringLiteral("info"))
-                              ? d.value(QStringLiteral("info"))
+    }
+    const QVariant info = message.contains(QStringLiteral("info"))
+                              ? message.value(QStringLiteral("info"))
                               : data;
 
-    // 评论：直接灌评论模型，不参与歌曲 hash 等后续处理
     if (action == QLatin1String("getComments")) {
         m_comments.append(requestFailed ? QVariantList() : info.toList());
-        setCommentsHasMore(!requestFailed && d.value(QStringLiteral("hasMore")).toBool());
+        setCommentsHasMore(!requestFailed
+                           && message.value(QStringLiteral("hasMore")).toBool());
         return;
     }
 
-    // 列表结果里带 hashhq/hashsq：记下来，播放时才能按音质设置升级 hash
     if (info.typeId() == QMetaType::QVariantList)
         rememberHashes(info.toList());
 
     if (action == QLatin1String("searchSongs")) {
         const bool localLookup = m_localLyricsSearches.contains(source);
         const bool onlineLookup = m_biliFallbackSearches.contains(source);
-        if (localLookup || onlineLookup) {
-            const LocalLyricsRequest request = localLookup
-                ? m_localLyricsSearches.take(source)
-                : m_biliFallbackSearches.take(source);
-            const QVariantList songs = normalizeList(info);
-            QVariantMap best;
-            int bestScore = -1;
-            for (const QVariant &value : songs) {
-                const QVariantMap candidate = value.toMap();
-                const QString candidateTitle = candidate.value(QStringLiteral("title")).toString();
-                const QString candidateArtist = candidate.value(QStringLiteral("artist")).toString();
-                int score = 0;
-                if (candidateTitle.compare(request.title, Qt::CaseInsensitive) == 0)
-                    score += 4;
-                else if (candidateTitle.contains(request.title, Qt::CaseInsensitive)
-                         || request.title.contains(candidateTitle, Qt::CaseInsensitive))
-                    score += 2;
-                if (!request.artist.isEmpty()
-                    && (candidateArtist.contains(request.artist, Qt::CaseInsensitive)
-                        || request.artist.contains(candidateArtist, Qt::CaseInsensitive)))
-                    score += 2;
-                if (!candidate.value(QStringLiteral("hash")).toString().isEmpty())
-                    score += 1;
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = candidate;
-                }
-            }
-
-            const QString hash = best.value(QStringLiteral("hash")).toString();
-            if (hash.isEmpty()) {
-                // 请求失败 ≠ 没搜到，不要把失败说成没有歌词
-                if (localLookup && !requestFailed)
-                    emit localLyricsFailed(request.filePath);
-            } else if (localLookup) {
-                m_pendingLocalLyrics.insert(hash, request);
-                getLyricInfo(hash, request.duration, source);
-            } else { // 回退歌词：直接走该平台歌词接口，结果覆盖占位歌词
-                getLyricInfo(hash, request.duration, source);
-            }
-        } else {
+        if (!localLookup && !onlineLookup) {
             m_searchSongsResults.append(normalizeList(info));
+            return;
         }
+
+        const LocalLyricsRequest request = localLookup
+            ? m_localLyricsSearches.take(source)
+            : m_biliFallbackSearches.take(source);
+        const QVariantList songs = normalizeList(info);
+        QVariantMap best;
+        int bestScore = -1;
+        for (const QVariant &value : songs) {
+            const QVariantMap candidate = value.toMap();
+            const QString title = candidate.value(QStringLiteral("title")).toString();
+            const QString artist = candidate.value(QStringLiteral("artist")).toString();
+            int score = 0;
+            if (title.compare(request.title, Qt::CaseInsensitive) == 0) {
+                score += 4;
+            } else if (title.contains(request.title, Qt::CaseInsensitive)
+                       || request.title.contains(title, Qt::CaseInsensitive)) {
+                score += 2;
+            }
+            if (!request.artist.isEmpty()
+                && (artist.contains(request.artist, Qt::CaseInsensitive)
+                    || request.artist.contains(artist, Qt::CaseInsensitive))) {
+                score += 2;
+            }
+            if (!candidate.value(QStringLiteral("hash")).toString().isEmpty())
+                score += 1;
+            if (score > bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        const QString hash = best.value(QStringLiteral("hash")).toString();
+        if (hash.isEmpty()) {
+            if (localLookup && !requestFailed)
+                emit localLyricsFailed(request.filePath);
+            return;
+        }
+        if (localLookup)
+            m_pendingLocalLyrics.insert(hash, request);
+        getLyricInfo(hash, request.duration, source);
     } else if (action == QLatin1String("getPlaylistMenu")) {
-        // 歌单分类：map 数组（QML 侧 text: modelData.title / [i].id 访问）
         QVariantList menu;
-        for (const QVariant &v : info.toList()) {
-            const QVariantMap it = normalizeItem(v.toMap());
-            QVariantMap s;
-            s.insert(QStringLiteral("title"), it.value(QStringLiteral("title")));
-            s.insert(QStringLiteral("category"), it.value(QStringLiteral("category")));
-            s.insert(QStringLiteral("id"), it.value(QStringLiteral("id")));
-            menu << s;
+        const QVariantList items = info.toList();
+        menu.reserve(items.size());
+        for (const QVariant &value : items) {
+            const QVariantMap item = normalizeItem(value.toMap());
+            menu.append(QVariantMap{
+                {QStringLiteral("title"), item.value(QStringLiteral("title"))},
+                {QStringLiteral("category"), item.value(QStringLiteral("category"))},
+                {QStringLiteral("id"), item.value(QStringLiteral("id"))}
+            });
         }
         setAllPlaylistMenu(menu);
-    } else if (action == QLatin1String("getMusicPlaylists")) {
+    } else if (action == QLatin1String("getMusicPlaylists")
+               || action == QLatin1String("getCategoryPlaylists")) {
         m_musicPlaylists.append(normalizeList(info));
-    } else if (action == QLatin1String("getCategoryPlaylists")) {
-        m_musicPlaylists.append(normalizeList(info));
-    } else if (action == QLatin1String("getPlaylistSongs")) {
+    } else if (action == QLatin1String("getPlaylistSongs")
+               || action == QLatin1String("getMusicToplist")
+               || action == QLatin1String("getSingerSongs")) {
         m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getRecommendSongs")) {
         m_recommendSongs.append(normalizeList(info));
@@ -1225,49 +1193,36 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
         m_hotPlayLists.append(normalizeList(info));
     } else if (action == QLatin1String("getNewSongs")) {
         m_newSongs.append(songList(info));
-    } else if (action == QLatin1String("getMusicToplist")) {
-        // 榜单歌曲 → 填 playlistSong（供 playListSongsWindow 展示）
-        m_playlistSong.append(songList(info));
     } else if (action == QLatin1String("getAllToplist")) {
-        // 单平台榜单列表：保留旧模型 + 累积到双平台模型（注入 source 供点击强制指定平台）
-        // 只归一化一次（榜单数据量最大）
         const QVariantList normalized = normalizeList(info);
         m_musicToplist.clear();
         m_musicToplist.append(normalized);
-        QVariantList list;
-        list.reserve(normalized.size());
-        for (const QVariant &it : normalized) {
-            QVariantMap m = it.toMap();
-            m.insert(QStringLiteral("source"), source);
-            list.append(m);
+
+        QVariantList withSource;
+        withSource.reserve(normalized.size());
+        for (const QVariant &value : normalized) {
+            QVariantMap item = value.toMap();
+            item.insert(QStringLiteral("source"), source);
+            withSource.append(item);
         }
-        m_toplistList.append(list);
-    } else if (action == QLatin1String("getHotSingers")) {
-        // 分页累积：第一页由 UI 侧 clear，后续页直接 append
+        m_toplistList.append(withSource);
+    } else if (action == QLatin1String("getHotSingers")
+               || action == QLatin1String("getSingerCategory")) {
         m_singerList.append(normalizeList(info));
-    } else if (action == QLatin1String("getSingerCategory")) {
-        m_singerList.append(normalizeList(info));
-    } else if (action == QLatin1String("getSingerSongs")) {
-        m_playlistSong.append(songList(info));
-    } else if (action == QLatin1String("getPersonalFm")) {
-        // 分页累积：第一页由 UI 侧 clear，后续页直接 append
+    } else if (action == QLatin1String("getPersonalFm")
+               || action == QLatin1String("getPersonalRadar")) {
+        const bool fm = action == QLatin1String("getPersonalFm");
         const QVariantList items = info.toList();
-        // 空列表只在请求成功时才等于「未登录」
-        if (items.isEmpty() && !requestFailed) // 网易云 personal_fm 未登录返回空
-            emit warned(QStringLiteral("私人漫游需要先在设置中登录账号"), 2);
-        else
-            m_personalFm.append(normalizeList(items));
-    } else if (action == QLatin1String("getPersonalRadar")) {
-        const QVariantList items = info.toList();
-        if (items.isEmpty() && !requestFailed) // 网易云 recommend_songs 未登录返回空
-            emit warned(QStringLiteral("私人雷达需要先在设置中登录账号"), 2);
-        else
-            m_personalRadar.append(normalizeList(items));
+        if (items.isEmpty() && !requestFailed) {
+            emit warned(fm ? QStringLiteral("私人漫游需要先在设置中登录账号")
+                           : QStringLiteral("私人雷达需要先在设置中登录账号"), 2);
+        } else {
+            (fm ? m_personalFm : m_personalRadar).append(normalizeList(items));
+        }
     } else if (action == QLatin1String("getMusicInfo")) {
-        handleMusicInfo(d, source);
+        handleMusicInfo(message, source);
     } else if (action == QLatin1String("getLyricInfo")) {
-        const QString lyricHash = d.value(QStringLiteral("hash")).toString();
-        // 代次不符说明已在放下一首，丢弃
+        const QString lyricHash = message.value(QStringLiteral("hash")).toString();
         if (m_playLyricGenerations.contains(lyricHash)) {
             const int generation = m_playLyricGenerations.take(lyricHash);
             if (generation != m_playGeneration) {
@@ -1275,52 +1230,49 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
                 return;
             }
         }
-        // 请求失败时保留当前歌词并提示重试，不能显示成纯音乐
+
         if (requestFailed) {
             emit warned(QStringLiteral("歌词加载失败，请检查网络后重试"), 0);
-            // 本地歌词等待者也要销账，否则该文件之后不再重新匹配
             if (!lyricHash.isEmpty() && m_pendingLocalLyrics.contains(lyricHash))
                 emit localLyricsFailed(m_pendingLocalLyrics.take(lyricHash).filePath);
         } else {
-            QVariantList onlineLyrics = d.value(QStringLiteral("info")).toList();
-            // B 站稿件没有字幕：复用在线搜词链路补词（结果覆盖占位歌词）
+            QVariantList onlineLyrics = message.value(QStringLiteral("info")).toList();
             const bool biliNoSubtitle = source == kSourceBilibili && !lyricHash.isEmpty()
                                         && lyricHash == m_biliTrack.hash;
             if (biliNoSubtitle && onlineLyrics.isEmpty())
                 findOnlineLyrics(m_biliTrack.title, m_biliTrack.artist, m_biliTrack.duration);
 
-            // 只有请求成功且确实没有歌词才显示纯音乐占位
             if (onlineLyrics.isEmpty()) {
-                QVariantMap line;
-                line.insert(QStringLiteral("time"), 0);
-                line.insert(QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏"));
-                onlineLyrics << line;
+                onlineLyrics.append(QVariantMap{
+                    {QStringLiteral("time"), 0},
+                    {QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏")}
+                });
             }
             setLyricsData(onlineLyrics);
-            setLyricsTranslate(d.value(QStringLiteral("translate")).toList());
+            setLyricsTranslate(message.value(QStringLiteral("translate")).toList());
 
             if (!lyricHash.isEmpty() && m_pendingLocalLyrics.contains(lyricHash)) {
                 const LocalLyricsRequest request = m_pendingLocalLyrics.take(lyricHash);
-                const QVariantList lyrics = d.value(QStringLiteral("info")).toList();
-                if (lyrics.isEmpty())
+                const QVariantList lyrics = message.value(QStringLiteral("info")).toList();
+                if (lyrics.isEmpty()) {
                     emit localLyricsFailed(request.filePath);
-                else
+                } else {
                     emit localLyricsReady(request.filePath, lyrics,
-                                          d.value(QStringLiteral("translate")).toList());
+                                          message.value(QStringLiteral("translate")).toList());
+                }
             }
         }
 
-        // 歌词返回后发起下载
-        const QString hash = lyricHash;
-        if (!hash.isEmpty() && m_pendingDownloads.contains(hash)) {
-            QVariantMap meta = m_pendingDownloads.take(hash);
-            meta.insert(QStringLiteral("lyrics"), d.value(QStringLiteral("info")));
-            meta.insert(QStringLiteral("translate"), d.value(QStringLiteral("translate")));
+        if (!lyricHash.isEmpty() && m_pendingDownloads.contains(lyricHash)) {
+            QVariantMap meta = m_pendingDownloads.take(lyricHash);
+            meta.insert(QStringLiteral("lyrics"), message.value(QStringLiteral("info")));
+            meta.insert(QStringLiteral("translate"),
+                        message.value(QStringLiteral("translate")));
             m_downloader.addDownload(meta.value(QStringLiteral("url")).toString(),
                                      meta.value(QStringLiteral("fileName")).toString(),
                                      meta);
             emit warned(QStringLiteral("已添加下载: ")
-                        + meta.value(QStringLiteral("fileName")).toString(), 1);
+                            + meta.value(QStringLiteral("fileName")).toString(), 1);
         }
     } else {
         qWarning() << "MusicApiService: 未知消息类型:" << action;
@@ -1331,62 +1283,56 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
 {
     const int type = d.value(QStringLiteral("type")).toInt();
     const QString playUrl = firstNonEmpty(d, {"url", "backup_url"});
-    // 接口回传的是实际请求的（可能是高清）hash；队列/收藏统一用普通 hash 当身份，
-    // 否则同一首歌会因音质不同在队列里出现多条。
     const QString playHash = d.value(QStringLiteral("hash")).toString();
-    // 过期响应若继续处理会把音源切回上一首并按它的 hash 改队列索引
     if (type == 0 && isStalePlayResponse(playHash, source)) {
         qDebug() << "[api] 丢弃过期播放响应 hash:" << playHash.left(8)
                  << "当前代次 hash:" << m_playHash.left(8);
         return;
     }
-    const QString identityHash = m_baseOf.value(playHash, playHash);
-    if (playUrl.isEmpty()) { // 无可用地址：按原因提示（接口层已保证一定会回结果，这里必须给出提示）
-        // 网络失败 → 提示检查网络；接口成功但无地址 → 版权/会员问题
+
+    if (playUrl.isEmpty()) {
         const bool networkFailed = d.contains(QStringLiteral("error"));
         const QString reason = d.value(QStringLiteral("errReason")).toString();
         const bool kugouNotLoggedIn = source == kSourceKugou && m_account
                                       && !m_account->isKugouLoggedIn();
-        QString msg;
-        if (networkFailed)
-            msg = QStringLiteral("网络请求失败，请检查网络后重试");
-        else if (reason == QLatin1String("vip"))
-            msg = kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
-                                   : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放");
-        else if (kugouNotLoggedIn)
-            msg = QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试");
-        else
-            msg = QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
-        qDebug() << "[api] 无法播放:" << msg << "hash:" << playHash.left(8);
-        emit warned(msg, 2);
+        QString message;
+        if (networkFailed) {
+            message = QStringLiteral("网络请求失败，请检查网络后重试");
+        } else if (reason == QLatin1String("vip")) {
+            message = kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
+                                       : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放");
+        } else if (kugouNotLoggedIn) {
+            message = QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试");
+        } else {
+            message = QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
+        }
+        qDebug() << "[api] 无法播放:" << message << "hash:" << playHash.left(8);
+        emit warned(message, 2);
         return;
     }
-    // B 站稿件没有字幕时，要靠标题/歌手去其他平台搜词
+
+    const QString identityHash = m_baseOf.value(playHash, playHash);
+    const QString songName = d.value(QStringLiteral("songName")).toString();
+    const QString author = d.value(QStringLiteral("author_name")).toString();
+    const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
+    const int timeMs = int(timeLength * (timeLength < 1000 ? 1000 : 1));
+
     if (source == kSourceBilibili) {
         m_biliTrack.hash = playHash;
-        m_biliTrack.title = d.value(QStringLiteral("songName")).toString();
-        m_biliTrack.artist = d.value(QStringLiteral("author_name")).toString();
-        m_biliTrack.duration = int(d.value(QStringLiteral("timeLength")).toDouble()); // 秒
+        m_biliTrack.title = songName;
+        m_biliTrack.artist = author;
+        m_biliTrack.duration = int(timeLength);
     }
-    if (type == 0) { // 播放
+
+    if (type == 0) {
         QString cover = d.value(QStringLiteral("album_img")).toString();
-        if (cover.contains(QLatin1String("{size}")))
-            cover.replace(QLatin1String("{size}"), QLatin1String("512"));
+        cover.replace(QLatin1String("{size}"), QLatin1String("512"));
         QString solve = d.value(QStringLiteral("album_img")).toString();
-        if (solve.contains(QLatin1String("{size}")))
-            solve.replace(QLatin1String("{size}"), QLatin1String("128"));
-        // 秒 → 毫秒
-        const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
-        const int time = int(timeLength * (timeLength < 1000 ? 1000 : 1));
-        emit urlplay(playUrl,
-                     d.value(QStringLiteral("songName")).toString(),
-                     d.value(QStringLiteral("author_name")).toString(),
-                     cover, solve,
-                     identityHash,
-                     source);
-        // 记下该请求的代次，响应回来时再校验
+        solve.replace(QLatin1String("{size}"), QLatin1String("128"));
+        emit urlplay(playUrl, songName, author, cover, solve, identityHash, source);
+
         if (m_playLyricGenerations.size() > 32) {
-            for (auto it = m_playLyricGenerations.begin(); it != m_playLyricGenerations.end(); ) {
+            for (auto it = m_playLyricGenerations.begin(); it != m_playLyricGenerations.end();) {
                 if (it.value() != m_playGeneration)
                     it = m_playLyricGenerations.erase(it);
                 else
@@ -1394,29 +1340,21 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
             }
         }
         m_playLyricGenerations.insert(playHash, m_playGeneration);
-        getLyricInfo(playHash, time, source);
-    } else if (type == 1) { // 下载
-        // 秒 → 毫秒
-        const double timeLength = d.value(QStringLiteral("timeLength")).toDouble();
-        const int time = int(timeLength * (timeLength < 1000 ? 1000 : 1));
-
+        getLyricInfo(playHash, timeMs, source);
+    } else if (type == 1) {
         QString cover = d.value(QStringLiteral("album_img")).toString();
-        if (cover.contains(QLatin1String("{size}")))
-            cover.replace(QLatin1String("{size}"), QLatin1String("512"));
-
-        const QString hash = d.value(QStringLiteral("hash")).toString();
+        cover.replace(QLatin1String("{size}"), QLatin1String("512"));
 
         QVariantMap meta;
-        meta.insert(QStringLiteral("title"), d.value(QStringLiteral("songName")).toString());
-        meta.insert(QStringLiteral("artist"), d.value(QStringLiteral("author_name")).toString());
+        meta.insert(QStringLiteral("title"), songName);
+        meta.insert(QStringLiteral("artist"), author);
         meta.insert(QStringLiteral("cover"), cover);
-        meta.insert(QStringLiteral("duration"), int(timeLength)); // 秒
-        meta.insert(QStringLiteral("hash"), hash);
+        meta.insert(QStringLiteral("duration"), int(timeLength));
+        meta.insert(QStringLiteral("hash"), playHash);
         meta.insert(QStringLiteral("url"), playUrl);
         meta.insert(QStringLiteral("fileName"), d.value(QStringLiteral("fileName")).toString());
 
-        // 先取歌词再下载
-        m_pendingDownloads.insert(hash, meta);
-        getLyricInfo(hash, time, source);
+        m_pendingDownloads.insert(playHash, meta);
+        getLyricInfo(playHash, timeMs, source);
     }
 }

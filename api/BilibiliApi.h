@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
-// BilibiliApi — 哔哩哔哩音乐（源码 2）。
-// B 站音频区已下线，音乐载体为音乐区稿件：一条稿件即一首歌（hash 为 bvid），
-// 播放地址取 DASH 音频流。歌单用真实的合集 Season（hash 为 "season:<sid>:<mid>"），
-// 分类用真实的音乐区子分区（tid）。搜索类接口需 WBI 签名 + buvid 指纹，自动获取并缓存。
+
 #ifndef BILIBILIAPI_H
 #define BILIBILIAPI_H
 
@@ -27,11 +23,11 @@ class BilibiliApi : public QObject
 {
     Q_OBJECT
 public:
-    static constexpr int Source = 2; // 平台编号（0 酷狗 / 1 网易云 / 2 哔哩哔哩）
+    static constexpr int Source = 2;
 
     explicit BilibiliApi(QObject *parent = nullptr);
 
-    void setQuality(int q) { m_quality = q; } // 0 标准 / 1 高清 / 2+ 无损
+    void setQuality(int q) { m_quality = q; }
     void setCookie(const QString &cookie) { m_loginCookie = cookie; }
 
     void searchSongs(const QString &keyword, int type, int page, int pageSize);
@@ -60,7 +56,6 @@ private:
     using Callback = std::function<void(const QJsonObject &)>;
     using Task = std::function<void()>;
 
-    // 合集检索的多路请求合并状态（一次搜索会并发查若干 UP 主）
     struct PlaylistSearch {
         QString action;
         int pending = 0;
@@ -69,7 +64,6 @@ private:
         QSet<QString> seen;
     };
 
-    // withCookie=false 时不带 buvid 指纹：B 站对「有指纹、无登录票据」的请求会降级结果
     void get(const QString &url, const Callback &cb, bool withCookie = true);
     void getSigned(const QString &path, QVariantMap params, const Callback &cb,
                    bool withCookie = true);
@@ -83,10 +77,10 @@ private:
     void ranking(int rid, int page, int pageSize, const QString &action);
     void newVideos(int page, int pageSize, const QString &action);
     void rankingUsers(const QString &action, int limit);
-    QStringList upMids(const QJsonArray &items, int limit); // 去重的 UP 主 mid，并记下昵称
+    QStringList upMids(const QJsonArray &items, int limit);
     void emitList(const QString &action, const QVariantList &info);
     void emitLyrics(const QString &hash, const QVariantList &lyrics, int error = 0);
-    // 稿件 → 统一歌曲字段；合集条目不含作者，需调用方补
+
     QVariantMap toSong(const QJsonObject &v, const QString &fallbackArtist = QString());
 
     static QString mixinKey(const QString &imgKey, const QString &subKey);
@@ -97,12 +91,12 @@ private:
     QString m_buvid4;
     QString m_loginCookie;
     int m_quality = 1;
-    // 评论翻页游标按稿件分开存：多首歌并发取评论时不会互相串页
+
     QHash<QString, qint64> m_commentCursors;
-    QHash<QString, qint64> m_aidCache;      // bvid → aid，省一次 view 请求
+    QHash<QString, qint64> m_aidCache;
     bool m_keyRequesting = false;
     QList<Task> m_keyWaiters;
-    QHash<QString, QString> m_upNames; // UP 主 mid → 昵称
+    QHash<QString, QString> m_upNames;
 };
 
-#endif // BILIBILIAPI_H
+#endif

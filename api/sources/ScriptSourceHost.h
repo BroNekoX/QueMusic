@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
-// JS 音源插件宿主：每个插件在独立线程的 QJSEngine 内运行，
-// 约定全局 meta = { id, name, capabilities }，并实现 search(q) / musicUrl(t) / lyrics(t)。
+
 #pragma once
 
 #include <QList>

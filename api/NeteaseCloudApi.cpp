@@ -1,74 +1,76 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
+
 #include "NeteaseCloudApi.h"
 
-#include "apihelper.h"   // QCloudMusicApi::ApiHelper
+#include "apihelper.h"
 #include "ApiCommon.h"
 
 #include <QDebug>
+#include <QHash>
 #include <QRegularExpression>
+#include <QStringList>
 #include <QThread>
 #include <QVariantList>
 #include <QVariantMap>
 #include <algorithm>
+#include <utility>
 
 namespace {
 
 constexpr int kSource = 1;
 
-QString songId(const QVariant &v)
+QString songId(const QVariant &value)
 {
-    return QString::number(v.toLongLong());
+    return QString::number(value.toLongLong());
 }
 
-// fee：1 VIP 专享 / 4 数字专辑 → 需付费；0 免费 / 8 低音质可播 → 免费
 int paytypeFromFee(qint64 fee)
 {
     return (fee == 1 || fee == 4) ? ApiCommon::kPaytypePaid : ApiCommon::kPaytypeFree;
 }
 
-// 优先 privilege.fee，回退 song.fee
-qint64 feeOf(const QVariantMap &s)
+qint64 feeOf(const QVariantMap &song)
 {
-    return s.value(QStringLiteral("privilege")).toMap().value(QStringLiteral("fee"),
-                                                              s.value(QStringLiteral("fee")))
+    return song.value(QStringLiteral("privilege")).toMap()
+        .value(QStringLiteral("fee"), song.value(QStringLiteral("fee")))
         .toLongLong();
 }
 
+QVariantMap songFromMap(const QVariantMap &song)
+{
+    const QVariantList ar = song.value(QStringLiteral("ar")).toList();
+    const QVariantList artists = ar.isEmpty()
+        ? song.value(QStringLiteral("artists")).toList() : ar;
+    const QVariantMap al = song.value(QStringLiteral("al")).toMap();
+    const QVariantMap album = al.isEmpty()
+        ? song.value(QStringLiteral("album")).toMap() : al;
+    const QString id = songId(song.value(QStringLiteral("id")));
+    const qint64 dt = song.value(QStringLiteral("dt")).toLongLong();
+    const int duration = dt > 0
+        ? int(dt / 1000)
+        : int(song.value(QStringLiteral("duration")).toLongLong() / 1000);
+    return ApiCommon::song(
+        song.value(QStringLiteral("name")).toString(),
+        artists.isEmpty() ? QStringLiteral("未知歌手")
+                          : artists.first().toMap().value(QStringLiteral("name")).toString(),
+        album.value(QStringLiteral("picUrl")).toString(),
+        id,
+        duration,
+        album.value(QStringLiteral("name")).toString(),
+        id, id,
+        paytypeFromFee(feeOf(song)));
+}
 
 QVariantList parseSongList(const QVariantList &songs)
 {
     QVariantList info;
-    for (const QVariant &sv : songs) {
-        const QVariantMap s = sv.toMap();
-        const QVariantList ar = s.value(QStringLiteral("ar")).toList();
-        const QVariantList artists = ar.isEmpty()
-            ? s.value(QStringLiteral("artists")).toList() : ar;
-        const QVariantMap al = s.value(QStringLiteral("al")).toMap();
-        const QVariantMap album = al.isEmpty()
-            ? s.value(QStringLiteral("album")).toMap() : al;
-        const QString id = songId(s.value(QStringLiteral("id")));
-        const QString artist = artists.isEmpty()
-            ? QStringLiteral("未知歌手")
-            : artists.first().toMap().value(QStringLiteral("name")).toString();
-        const qint64 dt = s.value(QStringLiteral("dt")).toLongLong();
-        const int duration = dt > 0
-            ? int(dt / 1000)
-            : int(s.value(QStringLiteral("duration")).toLongLong() / 1000);
-        info << ApiCommon::song(
-            s.value(QStringLiteral("name")).toString(),
-            artist,
-            album.value(QStringLiteral("picUrl")).toString(),
-            id,
-            duration,
-            album.value(QStringLiteral("name")).toString(),
-            id, id,
-            paytypeFromFee(feeOf(s)));
-    }
+    info.reserve(songs.size());
+    for (const QVariant &value : songs)
+        info.append(songFromMap(value.toMap()));
     return info;
 }
 
-// 逐字歌词（yrc）：[行首,行时长](字首,字时长,标志)字…，字时间为绝对毫秒
 QVariantList parseYrc(const QString &text)
 {
     QVariantList result;
@@ -79,33 +81,33 @@ QVariantList parseYrc(const QString &text)
         const QString line = raw.trimmed();
         if (line.isEmpty())
             continue;
-        const QRegularExpressionMatch m = lineRe.match(line);
-        if (!m.hasMatch())
+        const QRegularExpressionMatch match = lineRe.match(line);
+        if (!match.hasMatch())
             continue;
-        const qint64 lineStart = m.captured(1).toLongLong();
+        const qint64 lineStart = match.captured(1).toLongLong();
         QVariantList words;
         QString fullText;
-        QRegularExpressionMatchIterator it = wordRe.globalMatch(m.captured(3));
+        QRegularExpressionMatchIterator it = wordRe.globalMatch(match.captured(3));
         while (it.hasNext()) {
-            const QRegularExpressionMatch w = it.next();
-            const QString word = w.captured(4);
-            if (word.isEmpty())
+            const QRegularExpressionMatch word = it.next();
+            const QString wordText = word.captured(4);
+            if (wordText.isEmpty())
                 continue;
-            const qint64 wordStart = w.captured(1).toLongLong();
-            words << QVariantMap{
+            const qint64 wordStart = word.captured(1).toLongLong();
+            words.append(QVariantMap{
                 {QStringLiteral("offset"), int(wordStart >= lineStart ? wordStart - lineStart : wordStart)},
-                {QStringLiteral("duration"), w.captured(2).toInt()},
-                {QStringLiteral("text"), word},
-            };
-            fullText += word;
+                {QStringLiteral("duration"), word.captured(2).toInt()},
+                {QStringLiteral("text"), wordText}
+            });
+            fullText += wordText;
         }
         if (words.isEmpty() || fullText.trimmed().isEmpty())
             continue;
-        result << QVariantMap{
+        result.append(QVariantMap{
             {QStringLiteral("time"), lineStart},
             {QStringLiteral("text"), fullText},
-            {QStringLiteral("info"), words},
-        };
+            {QStringLiteral("info"), words}
+        });
     }
     std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
         return a.toMap().value(QStringLiteral("time")).toLongLong()
@@ -114,12 +116,12 @@ QVariantList parseYrc(const QString &text)
     return result;
 }
 
-// 解析 LRC 文本为 [{time, text, info}]，与旧 NeteaseApi::parseLyrics 行为一致
 QVariantList parseLyrics(const QString &text)
 {
     QVariantList result;
     static const QRegularExpression re(QStringLiteral("^(\\d{2}):(\\d{2})[.:](\\d{2,3})$"));
     const QStringList parts = text.split(QLatin1Char('['));
+    result.reserve(parts.size());
     for (int i = 1; i < parts.size(); ++i) {
         const QString part = parts.at(i);
         const int close = part.indexOf(QLatin1Char(']'));
@@ -128,17 +130,17 @@ QVariantList parseLyrics(const QString &text)
         const QString lyric = part.mid(close + 1).trimmed();
         if (lyric.isEmpty())
             continue;
-        const QRegularExpressionMatch m = re.match(part.left(close));
-        if (!m.hasMatch())
+        const QRegularExpressionMatch match = re.match(part.left(close));
+        if (!match.hasMatch())
             continue;
-        const QString msStr = m.captured(3);
-        const int ms = msStr.size() == 2 ? msStr.toInt() * 10 : msStr.toInt();
-        result << QVariantMap{
-            {QStringLiteral("time"), m.captured(1).toInt() * 60000
-                                         + m.captured(2).toInt() * 1000 + ms},
+        const QString msText = match.captured(3);
+        const int ms = msText.size() == 2 ? msText.toInt() * 10 : msText.toInt();
+        result.append(QVariantMap{
+            {QStringLiteral("time"), match.captured(1).toInt() * 60000
+                                         + match.captured(2).toInt() * 1000 + ms},
             {QStringLiteral("text"), lyric},
-            {QStringLiteral("info"), QVariant()},
-        };
+            {QStringLiteral("info"), QVariant()}
+        });
     }
     std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
         return a.toMap().value(QStringLiteral("time")).toInt()
@@ -147,48 +149,46 @@ QVariantList parseLyrics(const QString &text)
     return result;
 }
 
-// 评论对象 → 统一评论字段（热门与普通评论同构）
 QVariantList parseComments(const QVariantList &items)
 {
     QVariantList info;
     info.reserve(items.size());
     for (const QVariant &value : items) {
-        const QVariantMap c = value.toMap();
-        const QVariantMap user = c.value(QStringLiteral("user")).toMap();
-        info << ApiCommon::comment(
+        const QVariantMap comment = value.toMap();
+        const QVariantMap user = comment.value(QStringLiteral("user")).toMap();
+        info.append(ApiCommon::comment(
             user.value(QStringLiteral("nickname")).toString(),
             user.value(QStringLiteral("avatarUrl")).toString(),
-            c.value(QStringLiteral("content")).toString(),
-            c.value(QStringLiteral("time")).toLongLong() / 1000,
-            c.value(QStringLiteral("likedCount")).toInt(),
-            int(c.value(QStringLiteral("beReplied")).toList().size()));
+            comment.value(QStringLiteral("content")).toString(),
+            comment.value(QStringLiteral("time")).toLongLong() / 1000,
+            comment.value(QStringLiteral("likedCount")).toInt(),
+            int(comment.value(QStringLiteral("beReplied")).toList().size())));
     }
     return info;
 }
 
-// 把 QCloudMusicApi 的歌单对象数组（playlists[]）转换成统一歌单字段
 QVariantList parsePlaylists(const QVariantList &playlists)
 {
     QVariantList info;
-    for (const QVariant &v : playlists) {
-        const QVariantMap p = v.toMap();
-        const QVariantMap creator = p.value(QStringLiteral("creator")).toMap();
-        info << ApiCommon::song(
-            p.value(QStringLiteral("name")).toString(),
+    info.reserve(playlists.size());
+    for (const QVariant &value : playlists) {
+        const QVariantMap playlist = value.toMap();
+        const QVariantMap creator = playlist.value(QStringLiteral("creator")).toMap();
+        info.append(ApiCommon::song(
+            playlist.value(QStringLiteral("name")).toString(),
             creator.value(QStringLiteral("nickname")).toString(),
-            p.value(QStringLiteral("coverImgUrl")).toString(),
-            songId(p.value(QStringLiteral("id"))),
-            p.value(QStringLiteral("trackCount")).toInt(),
-            p.value(QStringLiteral("description")).toString(),
+            playlist.value(QStringLiteral("coverImgUrl")).toString(),
+            songId(playlist.value(QStringLiteral("id"))),
+            playlist.value(QStringLiteral("trackCount")).toInt(),
+            playlist.value(QStringLiteral("description")).toString(),
             QString(), QString(), 0,
-            p.value(QStringLiteral("playCount")).toLongLong());
+            playlist.value(QStringLiteral("playCount")).toLongLong()));
     }
     return info;
 }
 
-} // namespace
+}
 
-// CloudWorker：运行在独立线程，持有 ApiHelper，执行真正的 invoke 并做字段映射
 class CloudWorker : public QObject
 {
     Q_OBJECT
@@ -201,23 +201,20 @@ public slots:
         const QString member = call.value(QStringLiteral("member")).toString();
         const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
         auto invoke = [this](const QString &name, const QVariantMap &args) {
-            QVariantMap r = helper()->invoke(name, args);
-            if (r.value(QStringLiteral("status")).toInt() >= 500) {
+            QVariantMap result = helper()->invoke(name, args);
+            if (result.value(QStringLiteral("status")).toInt() >= 500) {
                 QThread::msleep(150);
-                r = helper()->invoke(name, args);
+                result = helper()->invoke(name, args);
             }
-            return r;
+            return result;
         };
-        const QVariantMap raw = invoke(member, arg);
-        // QCloudMusicApi 把 HTTP 层错误收敛成 status >= 500；补一个 error 键，
-        // 让上层能区分「网络失败」与「业务成功但空数据」
-        const bool transportFailed = raw.value(QStringLiteral("status")).toInt() >= 500;
 
-        // 播放信息：song_detail 之后追加 song_url_v1 拿真实播放链接，
-        // 免登录可得 128k，带登录态 Cookie 可得 exhigh(320k) 及以上
+        const QVariantMap raw = invoke(member, arg);
+        const bool transportFailed = raw.value(QStringLiteral("status")).toInt() >= 500;
         QVariantMap effective = raw;
         if (transportFailed)
             effective.insert(QStringLiteral("error"), raw.value(QStringLiteral("status")));
+
         if (action == QLatin1String("getMusicInfo")) {
             static const char *kLevels[] = {"standard", "exhigh", "lossless", "hires"};
             const int requested = qBound(0, call.value(QStringLiteral("quality")).toInt(), 3);
@@ -233,7 +230,7 @@ public slots:
                     break;
                 }
                 const QVariantList urlData = urlRaw.value(QStringLiteral("body")).toMap()
-                                                  .value(QStringLiteral("data")).toList();
+                                                 .value(QStringLiteral("data")).toList();
                 if (urlData.isEmpty())
                     continue;
                 const QVariantMap first = urlData.first().toMap();
@@ -260,7 +257,6 @@ signals:
     void result(const QString &action, const QVariant &data, int source);
 
 private:
-    // ApiHelper 的 debug 日志是「每个请求三行」，会刷满控制台，首次创建时就关掉
     ApiHelper *helper()
     {
         if (!m_api) {
@@ -270,21 +266,17 @@ private:
         return m_api;
     }
 
-    // 把 QCloudMusicApi 原始返回映射为 MusicApiService 期望的 data
     static QVariant mapResult(const QString &action, const QVariantMap &raw,
                               const QVariantMap &call)
     {
         const bool transportFailed = raw.contains(QStringLiteral("error"));
         const QVariant transportError = raw.value(QStringLiteral("error"));
-        // QCloudMusicApi 的 invoke() 返回 { status, body, cookie }，真正的业务
-        // 数据在 body 里（顶层还有 code 等）。这里统一解包，后续一律从 body 读。
         const QVariantMap body = raw.value(QStringLiteral("body")).toMap();
         const QVariantMap &data = body.isEmpty() ? raw : body;
         QVariantList info;
         bool commentsHasMore = false;
 
         if (action == QLatin1String("getComments")) {
-            // 首屏会有 hotComments，翻页后只有 comments
             info = parseComments(data.value(QStringLiteral("hotComments")).toList());
             info += parseComments(data.value(QStringLiteral("comments")).toList());
             commentsHasMore = data.value(QStringLiteral("more")).toBool();
@@ -296,51 +288,49 @@ private:
             } else if (ntype == 1000) {
                 info = parsePlaylists(result.value(QStringLiteral("playlists")).toList());
             } else if (ntype == 10) {
-                for (const QVariant &v : result.value(QStringLiteral("albums")).toList()) {
-                    const QVariantMap a = v.toMap();
-                    info << ApiCommon::song(
-                        a.value(QStringLiteral("name")).toString(),
-                        a.value(QStringLiteral("artist")).toMap().value(QStringLiteral("name")).toString(),
-                        a.value(QStringLiteral("picUrl")).toString(),
-                        songId(a.value(QStringLiteral("id"))),
-                        0, a.value(QStringLiteral("name")).toString());
+                const QVariantList albums = result.value(QStringLiteral("albums")).toList();
+                info.reserve(albums.size());
+                for (const QVariant &value : albums) {
+                    const QVariantMap album = value.toMap();
+                    info.append(ApiCommon::song(
+                        album.value(QStringLiteral("name")).toString(),
+                        album.value(QStringLiteral("artist")).toMap()
+                            .value(QStringLiteral("name")).toString(),
+                        album.value(QStringLiteral("picUrl")).toString(),
+                        songId(album.value(QStringLiteral("id"))),
+                        0, album.value(QStringLiteral("name")).toString()));
                 }
             }
-        }
-        else if (action == QLatin1String("getPlaylistMenu")) {
-            // catalogue 有 70 个标签，只保留平台标记的热门标签（约 15 个）。
-            // top_playlist 的 cat 只认分类名（传数字 id 会返回无关歌单），故 id 直接给分类名。
+        } else if (action == QLatin1String("getPlaylistMenu")) {
             const QVariantMap categories = data.value(QStringLiteral("categories")).toMap();
-            for (const QVariant &v : data.value(QStringLiteral("sub")).toList()) {
-                const QVariantMap s = v.toMap();
-                if (!s.value(QStringLiteral("hot")).toBool())
+            const QVariantList subs = data.value(QStringLiteral("sub")).toList();
+            info.reserve(subs.size());
+            for (const QVariant &value : subs) {
+                const QVariantMap sub = value.toMap();
+                if (!sub.value(QStringLiteral("hot")).toBool())
                     continue;
-                const QString name = s.value(QStringLiteral("name")).toString();
+                const QString name = sub.value(QStringLiteral("name")).toString();
                 if (name.isEmpty())
                     continue;
-                info << QVariantMap{
+                info.append(QVariantMap{
                     {QStringLiteral("title"), name},
                     {QStringLiteral("id"), name},
                     {QStringLiteral("tagid"), name},
                     {QStringLiteral("category"),
-                     categories.value(s.value(QStringLiteral("category")).toString()).toString()},
-                };
+                     categories.value(sub.value(QStringLiteral("category")).toString()).toString()}
+                });
             }
-        }
-        else if (action == QLatin1String("getMusicPlaylists")
-                 || action == QLatin1String("getHotPlaylists")) {
+        } else if (action == QLatin1String("getMusicPlaylists")
+                   || action == QLatin1String("getHotPlaylists")) {
             info = parsePlaylists(data.value(QStringLiteral("playlists")).toList());
-        }
-        else if (action == QLatin1String("getPlaylistSongs")
-                 || action == QLatin1String("getMusicToplist")
-                 || action == QLatin1String("getSingerSongs")) {
-            // playlist_track_all 返回 songs[]；top_list 返回 playlist.tracks[]；
-            // artist_top_song 返回 songs[]。统一兜底三种结构。
+        } else if (action == QLatin1String("getPlaylistSongs")
+                   || action == QLatin1String("getMusicToplist")
+                   || action == QLatin1String("getSingerSongs")) {
             QVariantList songs = data.value(QStringLiteral("songs")).toList();
-            if (songs.isEmpty())
+            if (songs.isEmpty()) {
                 songs = data.value(QStringLiteral("playlist")).toMap()
                             .value(QStringLiteral("tracks")).toList();
-            // top_list(playlist/v4/detail) 不支持服务端分页，一次返回全部曲目，客户端切片
+            }
             if (action == QLatin1String("getMusicToplist")) {
                 const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
                 const int offset = arg.value(QStringLiteral("offset")).toInt();
@@ -349,191 +339,164 @@ private:
                     songs = offset < songs.size() ? songs.mid(offset, limit) : QVariantList();
             }
             info = parseSongList(songs);
-        }
-        else if (action == QLatin1String("getPersonalFm")) {
-            // personal_fm 返回 data[]（标准歌曲对象，部分场景带 song 包装，统一解包）
+        } else if (action == QLatin1String("getPersonalFm")) {
             QVariantList songs;
-            for (const QVariant &v : data.value(QStringLiteral("data")).toList()) {
-                const QVariantMap w = v.toMap();
-                songs << (w.contains(QStringLiteral("song"))
-                              ? w.value(QStringLiteral("song")) : w);
+            const QVariantList list = data.value(QStringLiteral("data")).toList();
+            songs.reserve(list.size());
+            for (const QVariant &value : list) {
+                const QVariantMap wrapper = value.toMap();
+                songs.append(wrapper.contains(QStringLiteral("song"))
+                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
             }
             info = parseSongList(songs);
-        }
-        else if (action == QLatin1String("getPersonalRadar")) {
-            // recommend_songs 返回 data.dailySongs[]（标准歌曲对象）
-            const QVariantList daily = data.value(QStringLiteral("data")).toMap()
-                                           .value(QStringLiteral("dailySongs")).toList();
-            info = parseSongList(daily);
-        }
-        else if (action == QLatin1String("getRecommendSongs")) {
+        } else if (action == QLatin1String("getPersonalRadar")) {
+            info = parseSongList(data.value(QStringLiteral("data")).toMap()
+                                     .value(QStringLiteral("dailySongs")).toList());
+        } else if (action == QLatin1String("getRecommendSongs")) {
             const QVariantList list = data.contains(QStringLiteral("data"))
                 ? data.value(QStringLiteral("data")).toList()
                 : data.value(QStringLiteral("result")).toList();
-            for (const QVariant &v : list) {
-                const QVariantMap song = v.toMap().value(QStringLiteral("song")).toMap();
-                // personalized_newsong 的内嵌 song 同样用 ar / al / dt
-                const QVariantList ar = song.value(QStringLiteral("ar")).toList();
-                const QVariantList artists = ar.isEmpty()
-                    ? song.value(QStringLiteral("artists")).toList() : ar;
-                const QVariantMap al = song.value(QStringLiteral("al")).toMap();
-                const QVariantMap album = al.isEmpty()
-                    ? song.value(QStringLiteral("album")).toMap() : al;
-                const QString id = songId(song.value(QStringLiteral("id")));
-                const qint64 dt = song.value(QStringLiteral("dt")).toLongLong();
-                const int duration = dt > 0
-                    ? int(dt / 1000)
-                    : int(song.value(QStringLiteral("duration")).toLongLong() / 1000);
-                info << ApiCommon::song(
-                    song.value(QStringLiteral("name")).toString(),
-                    artists.isEmpty() ? QString()
-                                      : artists.first().toMap().value(QStringLiteral("name")).toString(),
-                    album.value(QStringLiteral("picUrl")).toString(),
-                    id,
-                    duration,
-                    album.value(QStringLiteral("name")).toString(),
-                    id, id,
-                    paytypeFromFee(feeOf(song)));
-            }
-        }
-        else if (action == QLatin1String("getHotPlaylistMenu")) {
-            for (const QVariant &v : data.value(QStringLiteral("tags")).toList()) {
-                const QVariantMap t = v.toMap();
-                // tagid 复用分类名：网易云 top_playlist 的 cat 参数需要分类名，
-                // 首页分类卡片点击后直接 getMusicPlaylists(model.tagid)，故 tagid=分类名。
-                info << QVariantMap{
-                    {QStringLiteral("title"), t.value(QStringLiteral("name")).toString()},
-                    {QStringLiteral("id"), songId(t.value(QStringLiteral("id")))},
-                    {QStringLiteral("tagid"), t.value(QStringLiteral("name")).toString()},
-                };
-            }
-        }
-        else if (action == QLatin1String("getNewSongs")) {
-            // top_song 返回 data[]，每个元素是 { alg, id, name, song:{...} } 包装对象，
-            // 真正的歌曲在 song 字段里。先解包再交给 parseSongList。
             QVariantList songs;
-            for (const QVariant &v : data.value(QStringLiteral("data")).toList()) {
-                const QVariantMap w = v.toMap();
-                if (w.contains(QStringLiteral("song")))
-                    songs << w.value(QStringLiteral("song"));
-                else
-                    songs << w;
+            songs.reserve(list.size());
+            for (const QVariant &value : list) {
+                const QVariantMap wrapper = value.toMap();
+                songs.append(wrapper.contains(QStringLiteral("song"))
+                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
             }
             info = parseSongList(songs);
-        }
-        else if (action == QLatin1String("getAllToplist")) {
-            for (const QVariant &v : data.value(QStringLiteral("list")).toList()) {
-                const QVariantMap t = v.toMap();
-                info << ApiCommon::song(
-                    t.value(QStringLiteral("name")).toString(),
-                    t.value(QStringLiteral("updateFrequency")).toString(),
-                    t.value(QStringLiteral("coverImgUrl")).toString(),
-                    songId(t.value(QStringLiteral("id"))),
-                    0, t.value(QStringLiteral("description")).toString());
+        } else if (action == QLatin1String("getHotPlaylistMenu")) {
+            const QVariantList tags = data.value(QStringLiteral("tags")).toList();
+            info.reserve(tags.size());
+            for (const QVariant &value : tags) {
+                const QVariantMap tag = value.toMap();
+                info.append(QVariantMap{
+                    {QStringLiteral("title"), tag.value(QStringLiteral("name")).toString()},
+                    {QStringLiteral("id"), songId(tag.value(QStringLiteral("id")))},
+                    {QStringLiteral("tagid"), tag.value(QStringLiteral("name")).toString()}
+                });
             }
-        }
-        else if (action == QLatin1String("getHotSingers")
-                 || action == QLatin1String("getSingerCategory")) {
-            // top_artists / artist_list 均返回 artists[]（name/picUrl/id）
-            for (const QVariant &v : data.value(QStringLiteral("artists")).toList()) {
-                const QVariantMap a = v.toMap();
-                info << ApiCommon::song(
-                    a.value(QStringLiteral("name")).toString(),
+        } else if (action == QLatin1String("getNewSongs")) {
+            QVariantList songs;
+            const QVariantList list = data.value(QStringLiteral("data")).toList();
+            songs.reserve(list.size());
+            for (const QVariant &value : list) {
+                const QVariantMap wrapper = value.toMap();
+                songs.append(wrapper.contains(QStringLiteral("song"))
+                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
+            }
+            info = parseSongList(songs);
+        } else if (action == QLatin1String("getAllToplist")) {
+            const QVariantList list = data.value(QStringLiteral("list")).toList();
+            info.reserve(list.size());
+            for (const QVariant &value : list) {
+                const QVariantMap toplist = value.toMap();
+                info.append(ApiCommon::song(
+                    toplist.value(QStringLiteral("name")).toString(),
+                    toplist.value(QStringLiteral("updateFrequency")).toString(),
+                    toplist.value(QStringLiteral("coverImgUrl")).toString(),
+                    songId(toplist.value(QStringLiteral("id"))),
+                    0, toplist.value(QStringLiteral("description")).toString()));
+            }
+        } else if (action == QLatin1String("getHotSingers")
+                   || action == QLatin1String("getSingerCategory")) {
+            const QVariantList artists = data.value(QStringLiteral("artists")).toList();
+            info.reserve(artists.size());
+            for (const QVariant &value : artists) {
+                const QVariantMap artist = value.toMap();
+                info.append(ApiCommon::song(
+                    artist.value(QStringLiteral("name")).toString(),
                     QString(),
-                    a.value(QStringLiteral("picUrl")).toString(),
-                    songId(a.value(QStringLiteral("id"))));
+                    artist.value(QStringLiteral("picUrl")).toString(),
+                    songId(artist.value(QStringLiteral("id")))));
             }
-        }
-        else if (action == QLatin1String("getMusicInfo")) {
+        } else if (action == QLatin1String("getMusicInfo")) {
             const QString hash = call.value(QStringLiteral("hash")).toString();
             const int type = call.value(QStringLiteral("type")).toInt();
-            // 优先 song_url_v1 真实链接（登录后可拿更高音质）；
-            // 服务端明确不给地址（版权/VIP）时保持为空由上层提示；
-            // 仅在请求本身成功时才回退公开外链 —— 传输失败时回退会让上层
-            // 把网络错误当成可播地址，解码失败后再触发自动跳歌
-            QString playUrl = data.value(QStringLiteral("play_url")).toString();
+            QString playUrl = raw.value(QStringLiteral("play_url")).toString();
             if (!transportFailed && playUrl.isEmpty()
-                && !data.value(QStringLiteral("url_unavailable")).toBool())
+                && !raw.value(QStringLiteral("url_unavailable")).toBool()) {
                 playUrl = QStringLiteral("http://music.163.com/song/media/outer/url?id=")
                           + hash + QStringLiteral(".mp3");
+            }
 
             const QVariantList songs = data.value(QStringLiteral("songs")).toList();
-            const QVariantMap s = songs.isEmpty() ? QVariantMap() : songs.first().toMap();
+            const QVariantMap song = songs.isEmpty() ? QVariantMap() : songs.first().toMap();
 
             QString author;
             QString singerImg;
-            const QVariantList ar = s.value(QStringLiteral("ar")).toList();
+            const QVariantList ar = song.value(QStringLiteral("ar")).toList();
             if (!ar.isEmpty()) {
-                const QVariantMap a0 = ar.first().toMap();
-                author = a0.value(QStringLiteral("name")).toString();
-                singerImg = a0.value(QStringLiteral("img1v1Url")).toString();
+                const QVariantMap artist = ar.first().toMap();
+                author = artist.value(QStringLiteral("name")).toString();
+                singerImg = artist.value(QStringLiteral("img1v1Url")).toString();
                 if (singerImg.isEmpty())
-                    singerImg = a0.value(QStringLiteral("picUrl")).toString();
+                    singerImg = artist.value(QStringLiteral("picUrl")).toString();
             }
-            const QString albumImg = s.value(QStringLiteral("al")).toMap()
+            const QString albumImg = song.value(QStringLiteral("al")).toMap()
                                          .value(QStringLiteral("picUrl")).toString();
 
-            QVariantMap d;
-            d.insert(QStringLiteral("backup_url"), playUrl);
-            d.insert(QStringLiteral("url"), playUrl);
-            d.insert(QStringLiteral("songName"), s.value(QStringLiteral("name")).toString());
-            d.insert(QStringLiteral("author_name"), author);
-            d.insert(QStringLiteral("singer_img"), singerImg);
-            d.insert(QStringLiteral("album_img"), albumImg);
-            const qint64 dt = s.value(QStringLiteral("dt")).toLongLong();
-            d.insert(QStringLiteral("timeLength"),
-                     dt > 0 ? int(dt / 1000)
-                            : int(s.value(QStringLiteral("duration")).toLongLong() / 1000));
-            const QString fileNameBase = [&]() -> QString {
-                const QString nm = s.value(QStringLiteral("name")).toString();
-                return nm.isEmpty() ? QStringLiteral("unknown") : nm;
-            }();
-            d.insert(QStringLiteral("fileName"), fileNameBase + QStringLiteral(".mp3"));
-            d.insert(QStringLiteral("hash"), hash);
-            d.insert(QStringLiteral("type"), type);
+            QVariantMap detail;
+            detail.insert(QStringLiteral("backup_url"), playUrl);
+            detail.insert(QStringLiteral("url"), playUrl);
+            detail.insert(QStringLiteral("songName"), song.value(QStringLiteral("name")).toString());
+            detail.insert(QStringLiteral("author_name"), author);
+            detail.insert(QStringLiteral("singer_img"), singerImg);
+            detail.insert(QStringLiteral("album_img"), albumImg);
+            const qint64 dt = song.value(QStringLiteral("dt")).toLongLong();
+            detail.insert(QStringLiteral("timeLength"),
+                          dt > 0 ? int(dt / 1000)
+                                 : int(song.value(QStringLiteral("duration")).toLongLong() / 1000));
+            QString fileName = song.value(QStringLiteral("name")).toString();
+            if (fileName.isEmpty())
+                fileName = QStringLiteral("unknown");
+            detail.insert(QStringLiteral("fileName"), fileName + QStringLiteral(".mp3"));
+            detail.insert(QStringLiteral("hash"), hash);
+            detail.insert(QStringLiteral("type"), type);
             if (transportFailed)
-                d.insert(QStringLiteral("error"), transportError);
-            return d;
-        }
-        else if (action == QLatin1String("getLyricInfo")) {
-            QVariantList lrcInfo = parseYrc(data.value(QStringLiteral("yrc"))
-                                                .toMap().value(QStringLiteral("lyric")).toString());
-            if (lrcInfo.isEmpty())
-                lrcInfo = parseLyrics(data.value(QStringLiteral("lrc"))
-                                          .toMap().value(QStringLiteral("lyric")).toString());
+                detail.insert(QStringLiteral("error"), transportError);
+            return detail;
+        } else if (action == QLatin1String("getLyricInfo")) {
+            QVariantList lyrics = parseYrc(data.value(QStringLiteral("yrc"))
+                                               .toMap().value(QStringLiteral("lyric")).toString());
+            if (lyrics.isEmpty()) {
+                lyrics = parseLyrics(data.value(QStringLiteral("lrc"))
+                                         .toMap().value(QStringLiteral("lyric")).toString());
+            }
 
+            QString translationText = data.value(QStringLiteral("ytlrc"))
+                                          .toMap().value(QStringLiteral("lyric")).toString();
+            if (translationText.isEmpty()) {
+                translationText = data.value(QStringLiteral("tlyric"))
+                                      .toMap().value(QStringLiteral("lyric")).toString();
+            }
+            const QVariantList translations = parseLyrics(translationText);
             QVariantList translate;
-            QString trc = data.value(QStringLiteral("ytlrc"))
-                              .toMap().value(QStringLiteral("lyric")).toString();
-            if (trc.isEmpty())
-                trc = data.value(QStringLiteral("tlyric"))
-                          .toMap().value(QStringLiteral("lyric")).toString();
-            const QVariantList trans = parseLyrics(trc);
-            if (!trans.isEmpty()) {
-                for (int i = 0; i < lrcInfo.size(); ++i) {
-                    QString text;
-                    const int t = lrcInfo.at(i).toMap().value(QStringLiteral("time")).toInt();
-                    for (int j = i; j >= 0; --j) {
-                        if (j < trans.size()
-                            && trans.at(j).toMap().value(QStringLiteral("time")).toInt() == t) {
-                            text = trans.at(j).toMap().value(QStringLiteral("text")).toString();
-                            break;
-                        }
-                    }
-                    translate << text;
+            if (!translations.isEmpty()) {
+                QHash<qlonglong, QString> byTime;
+                byTime.reserve(translations.size());
+                for (const QVariant &value : translations) {
+                    const QVariantMap line = value.toMap();
+                    byTime.insert(line.value(QStringLiteral("time")).toLongLong(),
+                                  line.value(QStringLiteral("text")).toString());
+                }
+                translate.reserve(lyrics.size());
+                for (const QVariant &value : std::as_const(lyrics)) {
+                    const qlonglong time = value.toMap()
+                                               .value(QStringLiteral("time")).toLongLong();
+                    translate.append(byTime.value(time));
                 }
             }
-            QVariantMap d;
-            d.insert(QStringLiteral("info"), lrcInfo);
-            d.insert(QStringLiteral("translate"), translate);
-            d.insert(QStringLiteral("hash"),
-                     call.value(QStringLiteral("arg")).toMap()
-                         .value(QStringLiteral("id")).toString());
+
+            QVariantMap detail;
+            detail.insert(QStringLiteral("info"), lyrics);
+            detail.insert(QStringLiteral("translate"), translate);
+            detail.insert(QStringLiteral("hash"),
+                          call.value(QStringLiteral("arg")).toMap()
+                              .value(QStringLiteral("id")).toString());
             if (transportFailed)
-                d.insert(QStringLiteral("error"), transportError);
-            return d;
-        }
-        else {
+                detail.insert(QStringLiteral("error"), transportError);
+            return detail;
+        } else {
             qWarning() << "[NeteaseCloudApi] 未知 action:" << action;
         }
 
@@ -548,11 +511,9 @@ private:
     ApiHelper *m_api = nullptr;
 };
 
-// NeteaseCloudApi
 NeteaseCloudApi::NeteaseCloudApi(QObject *parent)
     : QObject(parent)
 {
-    // 请求并行：歌词/详情/播放链接互不排队，避免单个慢请求拖住整页
     for (int i = 0; i < 3; ++i) {
         auto *thread = new QThread(this);
         auto *worker = new CloudWorker;
@@ -571,7 +532,7 @@ NeteaseCloudApi::~NeteaseCloudApi()
         thread->quit();
     for (QThread *thread : std::as_const(m_threads))
         thread->wait();
-    qDeleteAll(m_workers); // 线程已退出，ApiHelper 可安全释放
+    qDeleteAll(m_workers);
 }
 
 void NeteaseCloudApi::onWorkerResult(const QString &action, const QVariant &data, int source)
@@ -579,10 +540,15 @@ void NeteaseCloudApi::onWorkerResult(const QString &action, const QVariant &data
     emit resultReady(action, data, source);
 }
 
-void NeteaseCloudApi::enqueue(const QString &action, const QVariantMap &call)
+void NeteaseCloudApi::enqueue(const QString &action, const QString &member,
+                              const QVariantMap &arg, const QVariantMap &extra)
 {
     if (m_workers.isEmpty())
         return;
+    QVariantMap call = extra;
+    call.insert(QStringLiteral("member"), member);
+    call.insert(QStringLiteral("arg"), arg);
+
     CloudWorker *worker = m_workers.at(m_next);
     m_next = (m_next + 1) % m_workers.size();
     QMetaObject::invokeMethod(worker, "request", Qt::QueuedConnection,
@@ -601,232 +567,162 @@ void NeteaseCloudApi::setQuality(int quality)
 
 void NeteaseCloudApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
 {
-    // 1 单曲 / 1000 歌单 / 10 专辑 / 1006 歌词
     int ntype = 1;
-    if (type == 1) ntype = 1000;
-    else if (type == 2) ntype = 10;
-    else if (type == 3) ntype = 1006;
-    QVariantMap arg;
-    arg.insert(QStringLiteral("keywords"), keyword);
-    arg.insert(QStringLiteral("type"), ntype);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("cloudsearch"));
-    call.insert(QStringLiteral("arg"), arg);
-    call.insert(QStringLiteral("ntype"), ntype);
-    enqueue(QStringLiteral("searchSongs"), call);
+    if (type == 1)
+        ntype = 1000;
+    else if (type == 2)
+        ntype = 10;
+    else if (type == 3)
+        ntype = 1006;
+
+    enqueue(QStringLiteral("searchSongs"), QStringLiteral("cloudsearch"),
+            {{QStringLiteral("keywords"), keyword},
+             {QStringLiteral("type"), ntype},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("offset"), (page - 1) * pageSize}},
+            {{QStringLiteral("ntype"), ntype}});
 }
 
 void NeteaseCloudApi::getPlaylistMenu(int type)
 {
     Q_UNUSED(type);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("playlist_catlist"));
-    call.insert(QStringLiteral("arg"), QVariantMap());
-    enqueue(QStringLiteral("getPlaylistMenu"), call);
+    enqueue(QStringLiteral("getPlaylistMenu"), QStringLiteral("playlist_catlist"), {});
 }
 
 void NeteaseCloudApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
-    QVariantMap arg;
-    arg.insert(QStringLiteral("cat"), tagid);
-    arg.insert(QStringLiteral("order"), QStringLiteral("hot"));
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("top_playlist"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getMusicPlaylists"), call);
+    enqueue(QStringLiteral("getMusicPlaylists"), QStringLiteral("top_playlist"),
+            {{QStringLiteral("cat"), tagid},
+             {QStringLiteral("order"), QStringLiteral("hot")},
+             {QStringLiteral("offset"), (page - 1) * pageSize},
+             {QStringLiteral("limit"), pageSize}});
 }
 
 void NeteaseCloudApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
 {
-    QVariantMap arg;
-    arg.insert(QStringLiteral("id"), listid);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("playlist_track_all"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getPlaylistSongs"), call);
+    enqueue(QStringLiteral("getPlaylistSongs"), QStringLiteral("playlist_track_all"),
+            {{QStringLiteral("id"), listid},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("offset"), (page - 1) * pageSize}});
 }
 
 void NeteaseCloudApi::getRecommendSongs(int page, int pageSize)
 {
     Q_UNUSED(page);
-    QVariantMap arg;
-    arg.insert(QStringLiteral("limit"), pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("personalized_newsong"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getRecommendSongs"), call);
+    enqueue(QStringLiteral("getRecommendSongs"), QStringLiteral("personalized_newsong"),
+            {{QStringLiteral("limit"), pageSize}});
 }
 
 void NeteaseCloudApi::getHotPlaylistMenu(int type)
 {
     Q_UNUSED(type);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("playlist_hot"));
-    call.insert(QStringLiteral("arg"), QVariantMap());
-    enqueue(QStringLiteral("getHotPlaylistMenu"), call);
+    enqueue(QStringLiteral("getHotPlaylistMenu"), QStringLiteral("playlist_hot"), {});
 }
 
 void NeteaseCloudApi::getHotPlaylists(int page, int pageSize)
 {
-    QVariantMap arg;
-    arg.insert(QStringLiteral("cat"), QStringLiteral("全部"));
-    arg.insert(QStringLiteral("order"), QStringLiteral("hot"));
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("top_playlist"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getHotPlaylists"), call);
+    enqueue(QStringLiteral("getHotPlaylists"), QStringLiteral("top_playlist"),
+            {{QStringLiteral("cat"), QStringLiteral("全部")},
+             {QStringLiteral("order"), QStringLiteral("hot")},
+             {QStringLiteral("offset"), (page - 1) * pageSize},
+             {QStringLiteral("limit"), pageSize}});
 }
 
 void NeteaseCloudApi::getNewSongs(int type, int page, int pageSize)
 {
-    int ntype = 0; // 全部
+    int ntype = 0;
     switch (type) {
-    case 1: ntype = 7;  break; // 华语
-    case 2: ntype = 96; break; // 欧美
-    case 3: ntype = 8;  break; // 日本
-    case 4: ntype = 16; break; // 韩国
-    case 5: ntype = 8;  break; // 日本
-    default: ntype = 0;  break;
+    case 1: ntype = 7;  break;
+    case 2: ntype = 96; break;
+    case 3: ntype = 8;  break;
+    case 4: ntype = 16; break;
+    case 5: ntype = 8;  break;
+    default: ntype = 0; break;
     }
-    QVariantMap arg;
-    arg.insert(QStringLiteral("type"), ntype);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("top_song"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getNewSongs"), call);
+    enqueue(QStringLiteral("getNewSongs"), QStringLiteral("top_song"),
+            {{QStringLiteral("type"), ntype},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("offset"), (page - 1) * pageSize}});
 }
 
 void NeteaseCloudApi::getAllToplist()
 {
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("toplist"));
-    call.insert(QStringLiteral("arg"), QVariantMap());
-    enqueue(QStringLiteral("getAllToplist"), call);
+    enqueue(QStringLiteral("getAllToplist"), QStringLiteral("toplist"), {});
 }
 
 void NeteaseCloudApi::getMusicToplist(int page, int pageSize, int rankid)
 {
-    // 榜单 id 本质是歌单 id，用 top_list（playlist/v4/detail）拉取榜单歌曲
-    QVariantMap arg;
-    arg.insert(QStringLiteral("id"), rankid);
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("top_list"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getMusicToplist"), call);
+    enqueue(QStringLiteral("getMusicToplist"), QStringLiteral("top_list"),
+            {{QStringLiteral("id"), rankid},
+             {QStringLiteral("offset"), (page - 1) * pageSize},
+             {QStringLiteral("limit"), pageSize}});
 }
 
 void NeteaseCloudApi::getHotSingers(int page, int pageSize)
 {
-    QVariantMap arg;
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("top_artists"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getHotSingers"), call);
+    enqueue(QStringLiteral("getHotSingers"), QStringLiteral("top_artists"),
+            {{QStringLiteral("offset"), (page - 1) * pageSize},
+             {QStringLiteral("limit"), pageSize}});
 }
 
 void NeteaseCloudApi::getSingerCategory(int area, int page, int pageSize)
 {
-    // artist_list：area 为地区编码（7 华语 / 96 欧美 / 8 日本 / 16 韩国）
-    QVariantMap arg;
-    arg.insert(QStringLiteral("offset"), (page - 1) * pageSize);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    arg.insert(QStringLiteral("type"), QStringLiteral("1"));
-    arg.insert(QStringLiteral("area"), area);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("artist_list"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getSingerCategory"), call);
+    enqueue(QStringLiteral("getSingerCategory"), QStringLiteral("artist_list"),
+            {{QStringLiteral("offset"), (page - 1) * pageSize},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("type"), QStringLiteral("1")},
+             {QStringLiteral("area"), area}});
 }
 
 void NeteaseCloudApi::getSingerSongs(const QString &singerid, int page, int pageSize)
 {
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
-    QVariantMap arg;
-    arg.insert(QStringLiteral("id"), singerid);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("artist_top_song"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getSingerSongs"), call);
+    enqueue(QStringLiteral("getSingerSongs"), QStringLiteral("artist_top_song"),
+            {{QStringLiteral("id"), singerid}});
 }
 
 void NeteaseCloudApi::getMusicInfo(const QString &hash, int type)
 {
-    QVariantMap arg;
-    // 注意 ids 必须是字符串（QCloudMusicApi 的 song_detail 内部会 split(",")），
-    // 之前传 QVariantList 会被 toString() 转成空串，导致详情拉取返回空。
-    arg.insert(QStringLiteral("ids"), hash);
-    arg.insert(QStringLiteral("id"), hash);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("song_detail"));
-    call.insert(QStringLiteral("arg"), arg);
-    call.insert(QStringLiteral("hash"), hash);
-    call.insert(QStringLiteral("type"), type);
-    call.insert(QStringLiteral("quality"), m_quality.load(std::memory_order_relaxed));
-    enqueue(QStringLiteral("getMusicInfo"), call);
+    enqueue(QStringLiteral("getMusicInfo"), QStringLiteral("song_detail"),
+            {{QStringLiteral("ids"), hash},
+             {QStringLiteral("id"), hash}},
+            {{QStringLiteral("hash"), hash},
+             {QStringLiteral("type"), type},
+             {QStringLiteral("quality"), m_quality.load(std::memory_order_relaxed)}});
 }
 
 void NeteaseCloudApi::getLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration);
-    QVariantMap arg;
-    arg.insert(QStringLiteral("id"), hash);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("lyric_new"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getLyricInfo"), call);
+    enqueue(QStringLiteral("getLyricInfo"), QStringLiteral("lyric_new"),
+            {{QStringLiteral("id"), hash}});
 }
 
 void NeteaseCloudApi::getComments(const QString &hash, int page, int pageSize)
 {
-    QVariantMap arg;
-    arg.insert(QStringLiteral("id"), hash);
-    arg.insert(QStringLiteral("limit"), pageSize);
-    arg.insert(QStringLiteral("offset"), qMax(0, (page - 1) * pageSize));
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("comment_music"));
-    call.insert(QStringLiteral("arg"), arg);
-    enqueue(QStringLiteral("getComments"), call);
+    enqueue(QStringLiteral("getComments"), QStringLiteral("comment_music"),
+            {{QStringLiteral("id"), hash},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("offset"), qMax(0, (page - 1) * pageSize)}});
 }
 
 void NeteaseCloudApi::getPersonalFm(int page, int pageSize)
 {
-    // personal_fm（私人漫游）本身不分页，每次返回一批，忽略分页参数
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("personal_fm"));
-    call.insert(QStringLiteral("arg"), QVariantMap());
-    enqueue(QStringLiteral("getPersonalFm"), call);
+    enqueue(QStringLiteral("getPersonalFm"), QStringLiteral("personal_fm"), {});
 }
 
 void NeteaseCloudApi::getPersonalRadar(int page, int pageSize)
 {
     Q_UNUSED(pageSize);
-    // recommend_songs（每日推荐）不支持分页，仅第一页有数据；后续页返回空避免重复追加
     if (page > 1) {
         emit resultReady(QStringLiteral("getPersonalRadar"),
                          ApiCommon::listResult(QVariantList()), kSource);
         return;
     }
-    QVariantMap call;
-    call.insert(QStringLiteral("member"), QStringLiteral("recommend_songs"));
-    call.insert(QStringLiteral("arg"), QVariantMap());
-    enqueue(QStringLiteral("getPersonalRadar"), call);
+    enqueue(QStringLiteral("getPersonalRadar"), QStringLiteral("recommend_songs"), {});
 }
 
 #include "NeteaseCloudApi.moc"

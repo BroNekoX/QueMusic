@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
+
 #include "ScriptSourceHost.h"
 
 #include <QDebug>
@@ -15,7 +16,6 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 
-// 插件可用全局 http.get / http.getJson（阻塞，运行在插件自己的线程）
 class ScriptHttp : public QObject
 {
     Q_OBJECT
