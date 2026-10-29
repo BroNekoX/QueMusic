@@ -43,9 +43,17 @@ layout(std140, binding = 0) uniform buf {
 layout(binding = 1) uniform sampler2D uLyrics;
 layout(location = 0) out vec4 fragColor;
 
-const vec2 kDirs[8] = vec2[8](
-    vec2(1.0, 0.0), vec2(0.7071, 0.7071), vec2(0.0, 1.0), vec2(-0.7071, 0.7071),
-    vec2(-1.0, 0.0), vec2(-0.7071, -0.7071), vec2(0.0, -1.0), vec2(0.7071, -0.7071));
+// GLSL ES 1.00 不支持数组构造/常量数组（qsb 的 100es 变体会编译失败），用函数返回方向
+vec2 dirAt(int i) {
+    if (i == 0) return vec2( 1.0000,  0.0000);
+    if (i == 1) return vec2( 0.7071,  0.7071);
+    if (i == 2) return vec2( 0.0000,  1.0000);
+    if (i == 3) return vec2(-0.7071,  0.7071);
+    if (i == 4) return vec2(-1.0000,  0.0000);
+    if (i == 5) return vec2(-0.7071, -0.7071);
+    if (i == 6) return vec2( 0.0000, -1.0000);
+    return vec2(0.7071, -0.7071);
+}
 
 mat3 lookAt(vec3 ro, vec3 ta) {
     vec3 cw = normalize(ta - ro);
@@ -117,8 +125,9 @@ void main() {
             // 两圈 8 向辉光：近圈贴字形、远圈大范围晕
             float gNear = 0.0, gFar = 0.0;
             for (int i = 0; i < 8; ++i) {
-                gNear += textureLod(uLyrics, uv + kDirs[i] * texel * (2.2 + 2.0 * far), lod).a;
-                gFar  += textureLod(uLyrics, uv + kDirs[i] * texel * (10.0 + 6.0 * far), lod).a;
+                const vec2 dir = dirAt(i);
+                gNear += textureLod(uLyrics, uv + dir * texel * (2.2 + 2.0 * far), lod).a;
+                gFar  += textureLod(uLyrics, uv + dir * texel * (10.0 + 6.0 * far), lod).a;
             }
             float curLine = exp(-abs(py) * 8.0 / halfH);           // 当前行遮罩
             float glowAmt = uGlow * (0.40 + 1.05 * uLevel * uBeatGlow + 0.85 * uBeat)

@@ -46,9 +46,8 @@ Menu {
                 radius: Style.labelRadius - 2
                 width: menuItem.width - 4
                 height: menuItem.height - 4
-                color: menuItem.index === dialog.current ? Theme.containColor
-                     : menuItem.hovered ? Theme.hoverColor
-                     : "transparent"
+                color: menuItem.index === dialog.current ? Theme.containColor : menuItem.hovered ? Theme.hoverColor : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
             }
             text: modelData
             //显式指定contentItem，

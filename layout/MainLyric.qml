@@ -23,7 +23,7 @@ Item {
     property int currentIndex: 0            // 当前行索引（宿主定时器遍历列表后注入）
     property string title: ""
     property string artist: ""
-    property string coverUrl: ""
+    property string coverUrl: "qrc:/QueMusic/resources/app/musicpic.png"
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
     property color thirdColor: "#9d4edd"
@@ -93,7 +93,7 @@ Item {
     // 静态渐变模式下被上层 Rectangle 遮住，停掉着色器与定时器
     MeshGradientItem {
         anchors.fill: parent
-        coverUrl: mainLyrics.coverUrl || "qrc:/QueMusic/resources/app/musicpic.png"
+        coverUrl: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
         color1: mainLyrics.mainColor
         color2: mainLyrics.secondColor
         color3: mainLyrics.thirdColor
@@ -457,11 +457,11 @@ Item {
                     text: lyricItem.modelData.text || ""
                     font.weight: Style.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: lyricItem.modelData.info ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
+                    color: "#ffffff"
                     transformOrigin: lyricItem.modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
                     scale: lyricItem.isCurrent && !lyricItem.modelData.info ? 1.02 : 1.00
-                    opacity: lyricItem.modelData.info ? 0.5 : (0.5 + lyricItem.opacityAnime * 0.4)
+                    opacity: lyricItem.modelData.info ? 0.26 : 0.26 + lyricItem.opacityAnime * 0.74
                     visible: lyricItem.modelData.info ? !lyricItem.isFlowActive : true
                     horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -479,8 +479,8 @@ Item {
                     horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.textWidth
-                    color: "#ffe8e8e8"
-                    opacity: 0.5 + lyricItem.opacityAnime * 0.2
+                    color: "#ffffff"
+                    opacity: 0.30 + lyricItem.opacityAnime * 0.12
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
@@ -515,6 +515,7 @@ Item {
                             property real softnessPx: 16 * Screen.devicePixelRatio
                             property real progressOpacity: lyricItem.opacityAnime
                             property color progressColor: "#ffffff"
+                            property real unsungAlpha: 0.26 + lyricItem.opacityAnime * 0.14
                             fragmentShader: "qrc:/shaders/shaders/lyricFill.frag.qsb"
 
                             transform: Translate { id: textTransform; y: 0 }
@@ -528,7 +529,7 @@ Item {
                                 font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
-                                color: "#ffe8e8e8"
+                                color: "#ffffff"
                                 visible: false
                                 layer.enabled: true
                                 layer.smooth: true
@@ -638,7 +639,7 @@ Item {
             onWheel: (event) => {
                 lyricContent.isUserScrolling = true;
                 scrollAnime.running = false;
-                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
+                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
                 scrollAnime.to = to;
                 scrollAnime.running = true;
                 event.accepted = true;

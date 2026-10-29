@@ -19,8 +19,14 @@ class WebDavStore : public QObject
     Q_PROPERTY(QVariantList servers READ servers NOTIFY serversChanged FINAL)
 
 public:
-    explicit WebDavStore(QObject *parent = nullptr);
-    static WebDavStore *create(QQmlEngine *, QJSEngine *) { return new WebDavStore(); }
+    explicit WebDavStore(QObject *parent);
+    static WebDavStore *create(QQmlEngine *, QJSEngine *)
+    {
+        auto *store = new WebDavStore(nullptr);
+        s_instance = store;
+        return store;
+    }
+    static WebDavStore *instance() { return s_instance; }
 
     QVariantList servers() const;
 
@@ -47,6 +53,7 @@ private:
     void load();
     void save() const;
     int indexOf(const QString &id) const;
+    inline static WebDavStore *s_instance = nullptr;
     QVariantList m_servers;
     // servers() 读得频繁：缓存剥掉密码的副本，配置变更时置脏
     mutable QVariantList m_publicServers;

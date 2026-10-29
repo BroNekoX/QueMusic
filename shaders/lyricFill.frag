@@ -11,6 +11,7 @@ layout(std140, binding = 0) uniform buf {
     float itemWidthPx;      // 字宽
     float fillPx;           // 过渡位置
     float softnessPx;       // 过渡宽度
+    float unsungAlpha;
     float progressOpacity;  // 过渡区显示程度
     vec4  progressColor;    // 过渡颜色
 };
@@ -26,7 +27,7 @@ void main() {
     float soft = max(softnessPx, 1.0);
     float m = smoothstep(fillPx - soft, fillPx, qt_TexCoord0.x * itemWidthPx);
 
-    vec4 dimmed = c * 0.5;
+    vec4 dimmed = c * unsungAlpha;
 
     vec4 progress = vec4(progressColor.rgb * progressColor.a, progressColor.a) * c.a;
 

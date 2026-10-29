@@ -122,7 +122,6 @@ set_source_files_properties(
     components/Config.qml
     components/ShortCut.qml
     components/Options.qml
-    components/Playback.qml
     components/PluginSlots.qml
     components/Fonts.qml
     lyricsui/LyricsFreeConfig.qml
@@ -156,6 +155,12 @@ if(NOT QUEMUSIC_QML_LINT)
 endif()
 if(QUE_MUSIC_QMLTC_ACTIVE)
     list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS ENABLE_TYPE_COMPILER)
+endif()
+# Qt 6.12 新增的「AOT 查找签名运行期校验」会让 qmlcachegen 在部分 JS 代码上崩溃
+# （QQmlJSLookupSignaturesRecorder::cantDesync 空指针；本项目 pages/FilePage.qml 命中）。
+# 这是 Qt 编译器的缺陷，关掉校验即可，字节码与 AOT 编译仍然照常进行。
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.12)
+    list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS NO_GENERATE_AOT_VALIDATION)
 endif()
 
 qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
@@ -222,6 +227,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/CustomFlow.h
         cpp/QueueModel.cpp
         cpp/QueueModel.h
+        cpp/PlaybackController.cpp
+        cpp/PlaybackController.h
         cpp/LocalMusicScanner.cpp
         cpp/LocalMusicScanner.h
         cpp/webdav/WebDavCache.cpp

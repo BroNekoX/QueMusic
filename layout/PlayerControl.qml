@@ -14,7 +14,7 @@ Rectangle {
     clip: false
     property int musicInfoX: 100
     signal centerChange()
-    property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.6, Theme.themeColor.hsvValue * 0.5 + 0.2, 1.0);
+    property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.6, Options.darkis ? Theme.themeColor.hsvValue * 0.5 + 0.1 : Theme.themeColor.hsvValue * 0.5 + 0.2, 1.0);
     property color secondColor: Qt.hsva(mainColor.hsvHue + 0.05, mainColor.hsvSaturation * 0.8, mainColor.hsvValue + 0.08, 1.0);
     property color iconColor: Style.noOpacityControl && Style.coverColorControl ? "#dae8e8ec" : Theme.textColor
 
@@ -81,6 +81,7 @@ Rectangle {
         duration: 360
         target: musicControlMin
         property: "mainColor"
+        easing.type: Easing.OutCubic
     }
 
     //控制条
@@ -378,11 +379,7 @@ Rectangle {
             shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
-                if(Config.cycleIndex < 3) {
-                    Config.cycleIndex += 1;
-                } else {
-                    Config.cycleIndex = 0;
-                }
+                Playback.cycleIndex = Playback.cycleIndex < 3 ? Playback.cycleIndex + 1 : 0;
             }
             tipText: Playback.cycleTip
         }
@@ -520,7 +517,7 @@ Rectangle {
             }
         }
         SButton {
-            iconCharacter: "\uf0b2"
+            iconCharacter: "\uf123"
             width: 40
             height: 40
             radius: 40
@@ -611,9 +608,9 @@ Rectangle {
             implicitWidth: 130
             implicitHeight: 36
             valueText: Math.floor(value)
-            value: Config.musicVolume * 100
+            value: Playback.volume * 100
             onMoved: {
-                Config.musicVolume = value / 100
+                Playback.setVolume(value / 100)
             }
         }
         enter: Transition {

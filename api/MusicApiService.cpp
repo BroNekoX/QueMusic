@@ -3,6 +3,8 @@
 
 #include "MusicApiService.h"
 
+#include "PlaybackController.h"
+
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -135,14 +137,21 @@ bool embedCover(TagLib::File *file, const QByteArray &data)
 }
 
 AccountManager *MusicApiService::s_accountManager = nullptr;
+MusicApiService *MusicApiService::s_instance = nullptr;
 
 MusicApiService *MusicApiService::create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
 {
-    Q_UNUSED(qmlEngine);
     Q_UNUSED(jsEngine);
     auto *service = new MusicApiService(qmlEngine);
     service->setAccountManager(s_accountManager);
+    s_instance = service;
+    PlaybackController::notifyApiReady(service);
     return service;
+}
+
+MusicApiService *MusicApiService::instance()
+{
+    return s_instance;
 }
 
 void MusicApiService::setSharedAccountManager(AccountManager *am)
@@ -193,6 +202,8 @@ MusicApiService::MusicApiService(QObject *parent)
 
 MusicApiService::~MusicApiService()
 {
+    if (s_instance == this)
+        s_instance = nullptr;
     if (m_altsDirty)
         saveQualityCache();
 }
@@ -564,6 +575,21 @@ void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
         return;
     }
     DISPATCH(source, getMusicInfo(playHash, type));
+}
+
+void MusicApiService::prefetchMusicInfo(const QString &hash, int source)
+{
+    const int resolvedSource = resolve(source);
+    if (hash.isEmpty() || m_scripts.isPlugin(resolvedSource))
+        return;
+    const QString playHash = (resolvedSource == kSourceKugou) ? resolveQualityHash(hash) : hash;
+    syncSource(resolvedSource);
+    switch (resolvedSource) {
+    case kSourceNetease:  m_netease.getMusicInfo(playHash, 2); break;
+    case kSourceKugou:    m_kugou.getMusicInfo(playHash, 2); break;
+    case kSourceBilibili: m_bilibili.getMusicInfo(playHash, 2); break;
+    default: break;
+    }
 }
 
 void MusicApiService::getPersonalFm(int page, int pageSize, int source)
@@ -991,6 +1017,13 @@ void MusicApiService::endRequest()
     }
 }
 
+void MusicApiService::invalidatePlayRequest()
+{
+    ++m_playGeneration;
+    m_playHash = QStringLiteral("\x1f");
+    m_playSource = -1;
+}
+
 bool MusicApiService::isStalePlayResponse(const QString &playHash, int source) const
 {
     if (playHash.isEmpty() || m_playHash.isEmpty())
@@ -1093,10 +1126,12 @@ QVariantList MusicApiService::songList(const QVariant &data)
 
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
-    if (action != QLatin1String("getLyricInfo"))
+    const QVariantMap message = data.toMap();
+    const bool prefetch = action == QLatin1String("getMusicInfo")
+                          && message.value(QStringLiteral("type")).toInt() == 2;
+    if (action != QLatin1String("getLyricInfo") && !prefetch)
         endRequest();
 
-    const QVariantMap message = data.toMap();
     const bool requestFailed = message.contains(QStringLiteral("error"));
     if (requestFailed) {
         qWarning() << "[api] 请求失败:" << action
@@ -1290,6 +1325,18 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
         return;
     }
 
+    if (type == 2) {
+        QString cover = d.value(QStringLiteral("album_img")).toString();
+        cover.replace(QLatin1String("{size}"), QLatin1String("512"));
+        const double length = d.value(QStringLiteral("timeLength")).toDouble();
+        const int durationMs = int(length * (length < 1000 ? 1000 : 1));
+        emit playUrlReady(m_baseOf.value(playHash, playHash), playUrl,
+                          d.value(QStringLiteral("songName")).toString(),
+                          d.value(QStringLiteral("author_name")).toString(),
+                          cover, durationMs, source);
+        return;
+    }
+
     if (playUrl.isEmpty()) {
         const bool networkFailed = d.contains(QStringLiteral("error"));
         const QString reason = d.value(QStringLiteral("errReason")).toString();
@@ -1307,6 +1354,7 @@ void MusicApiService::handleMusicInfo(const QVariantMap &d, int source)
             message = QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
         }
         qDebug() << "[api] 无法播放:" << message << "hash:" << playHash.left(8);
+        emit playFailed(m_baseOf.value(playHash, playHash), source);
         emit warned(message, 2);
         return;
     }

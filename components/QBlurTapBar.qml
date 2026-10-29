@@ -89,7 +89,7 @@ Item {
         width: root.tabWidth
         height: root.height - 6
         radius: root.borderRadius
-        color: Theme.primaryColor
+        color: Theme.fullColor
         Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
     }
     Row {

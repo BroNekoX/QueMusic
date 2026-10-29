@@ -58,14 +58,16 @@ QOptionDialog {
                     verticalAlignment: Text.AlignVCenter
                     opacity: 0.65
                 }
-                Text {
+                TextInput {
                     width: parent.width - 80
                     height: parent.height
                     text: infoRow.value
+                    readOnly: true
+                    selectByMouse: true
+                    selectionColor: Theme.themeColor
                     color: Theme.fontColor
                     font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideMiddle
                 }
             }
         }

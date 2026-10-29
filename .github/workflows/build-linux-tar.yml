@@ -1,7 +1,8 @@
 name: Build Linux tar 包（便携版）
 
 # 和 AppImage 的区别：这个包**不**把 Qt 打进去，而是依赖用户机器上的 Qt。
-# 包内容 = build/bin + build/_deps + Qt 自带的 FFmpeg 运行库 + run.sh + 使用注意事项.txt
+# 包内容 = build/bin + build/_deps + Qt 自带的 FFmpeg 运行库（含 libQt6FFmpegStub-*）
+#          + run.sh + 使用注意事项.txt
 # 目标环境：Linux x86_64 + Qt 6.10+，解压后 ./run.sh 即用（FFmpeg 运行库已随包自带，
 #           用户不需要再装任何 ffmpeg）。
 #
@@ -50,7 +51,7 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libegl1-mesa-dev libx11-dev \
             libpulse-dev libpulse0 \
-            extra-cmake-modules ninja-build cmake wget file patchelf
+            extra-cmake-modules ninja-build cmake wget file patchelf binutils
           # libpulse-dev/libpulse0 是必须的：Qt 官方 libQt6Multimedia.so 的 DT_NEEDED 里有
           # libpulse.so.0，链接期找不到它就会报一长串 pa_*@PULSE_0 未定义（和 x86 AppImage
           # / arm64 流程保持一致）。运行期这个库由用户机器提供（装了 Qt 6.10 就有）。
@@ -83,6 +84,12 @@ jobs:
           need "$QTDIR/lib/libavcodec.so.61"                   "Qt 自带 FFmpeg：libavcodec.so.61（7.1.3）"
           need "$QTDIR/lib/libavformat.so.61"                  "libavformat.so.61"
           need "$QTDIR/lib/libavutil.so.59"                    "libavutil.so.59"
+          # Qt 6.10 的 FFmpeg 运行库（libavcodec 等）依赖 Qt 内部的 stub 库
+          # （libQt6FFmpegStub-*）。只复制 libav*/libsw* 而漏掉 stub，用户机器上会报
+          #   libQt6FFmpegStub-va.so.2: cannot open shared object file
+          for needlib in $(readelf -d "$QTDIR/lib/libavcodec.so.61" "$QTDIR/lib/libavformat.so.61" "$QTDIR/lib/libavutil.so.59" 2>/dev/null | grep -o 'libQt6FFmpegStub-[A-Za-z0-9._-]*' | sort -u); do
+              need "$QTDIR/lib/$needlib" "Qt FFmpeg stub：$needlib"
+          done
           [ -e "$QTDIR/lib/libavcodec.so" ] \
             && echo "✅ libavcodec.so（开发用链接名）" \
             || { echo "❌ 缺少 libavcodec.so，CMake 无法链接"; FAIL=1; }
@@ -121,6 +128,11 @@ jobs:
           cp -a build/bin   "$STAGE/bin"
           cp -a build/_deps "$STAGE/_deps"
 
+          # qt.conf 是构建机生成的（[Paths] QmlImports 指向 /home/runner/.../build），
+          # 带到用户机器上只会指向不存在的目录；Account.ini 是本地跑过一次留下的账号数据，
+          # 都不应该进发布包。
+          rm -f "$STAGE/bin/qt.conf" "$STAGE/bin/Account.ini"
+
           # ---- 1.5) Qt 自带的 FFmpeg 运行库：必须随包带 ----
           # 本流程 Configure 用的是 -DQUEMUSIC_FFMPEG_USE_QT=ON，主程序链的是 Qt 自带那份
           # libavcodec.so.61（FFmpeg 7.1.3，官方 Qt 包随 QtMultimedia 一起装），
@@ -141,6 +153,35 @@ jobs:
             exit 1
           fi
           echo "✅ 已随包带上 Qt 自带 FFmpeg 运行库 $FF_N 个文件: $(ls -1 "$STAGE/bin" | grep -E '^lib(av|sw)' | tr '\n' ' ')"
+          # Qt 的 libav*/libsw* 还依赖 Qt 内部的 stub（libQt6FFmpegStub-*）：
+          # 它们负责延迟加载 va/va-drm/va-x11/ssl/crypto，只存在于 Qt 安装目录，
+          # 用户机器上的发行版 Qt 不一定提供（例如 Arch 的 Qt 6.12 就没有这些文件）。
+          # 不复制它们，包在启动阶段就会报 "libQt6FFmpegStub-va.so.2: cannot open ..."。
+          STUB_N=0
+          for f in "$QTLIB"/libQt6FFmpegStub-*.so*; do
+            [ -e "$f" ] || continue
+            cp -a "$f" "$STAGE/bin/"
+            STUB_N=$((STUB_N + 1))
+          done
+          if [ "$STUB_N" -gt 0 ]; then
+            echo "✅ 已随包带上 Qt FFmpeg stub $STUB_N 个文件: $(ls -1 "$STAGE/bin" | grep -E '^libQt6FFmpegStub-' | tr '\n' ' ')"
+          fi
+
+          # 兜底：包内每个 libav*/libsw* 声明的 stub 依赖，都必须已经躺在 bin/ 里
+          MISS_STUB=""
+          for f in "$STAGE"/bin/libav*.so.* "$STAGE"/bin/libsw*.so.*; do
+            [ -f "$f" ] || continue
+            [ -L "$f" ] && continue          # 符号链接和真实文件内容一样，只扫一遍
+            for needlib in $(readelf -d "$f" 2>/dev/null | grep -o 'libQt6FFmpegStub-[A-Za-z0-9._-]*'); do
+              [ -e "$STAGE/bin/$needlib" ] || MISS_STUB="$MISS_STUB $needlib"
+            done
+          done
+          if [ -n "$MISS_STUB" ]; then
+            MISS_STUB="$(printf '%s\n' $MISS_STUB | sort -u | tr '\n' ' ')"
+            echo "::error::包内 FFmpeg 缺少 stub:$MISS_STUB（用户机器上会启动失败）"
+            exit 1
+          fi
+          echo "✅ 包内 FFmpeg 的 stub 依赖已全部就位"
           ls -1 "$STAGE/bin" | grep -qE '^libavcodec\.so\.' || {
             echo "::error::包里没有 libavcodec.so.* （主程序直接依赖它，缺了必然起不来）"; exit 1; }
 
@@ -251,14 +292,15 @@ jobs:
             fi
           done
 
-          # 1.6) 模拟「用户机器上只有 Qt、没有系统 ffmpeg」：不给任何 LD_LIBRARY_PATH，
+          # 1.6) 模拟「用户机器上只有 Qt、没有任何 Qt 内部 stub」：不给任何 LD_LIBRARY_PATH，
           #      只靠包内 $ORIGIN 相对 RPATH。此时 Qt 库缺失是正常的（用户自备），
-          #      但 libav*/libsw* 必须已经由包内解析，否则打包就是漏了。
+          #      但 libav*/libsw* 以及它们依赖的 libQt6FFmpegStub-* 必须由包内解析，
+          #      否则用户机器上会直接报 libQt6FFmpegStub-va.so.2 找不到。
           MISS_NO_LP="$(ldd "$ROOT/bin/QueMusic" 2>/dev/null | awk '/not found/{print $1}' | sort -u)"
-          if printf '%s\n' "$MISS_NO_LP" | grep -qE '^lib(av|sw)'; then
-            bad "不给 LD_LIBRARY_PATH 时仍缺：$(printf '%s' "$MISS_NO_LP" | grep -E '^lib(av|sw)' | tr '\n' ' ')"
+          if printf '%s\n' "$MISS_NO_LP" | grep -qE '^(lib(av|sw)|libQt6FFmpegStub)'; then
+            bad "不给 LD_LIBRARY_PATH 时仍缺：$(printf '%s' "$MISS_NO_LP" | grep -E '^(lib(av|sw)|libQt6FFmpegStub)' | tr '\n' ' ')"
           else
-            ok "FFmpeg 运行库已随包自带（不依赖宿主 ffmpeg）"
+            ok "FFmpeg 运行库 + Qt FFmpeg stub 已随包自带（不依赖宿主 ffmpeg / Qt stub）"
           fi
 
           # 2) 不能残留构建机绝对路径（RPATH），并且必须绑在 FFmpeg 7.1.3 上

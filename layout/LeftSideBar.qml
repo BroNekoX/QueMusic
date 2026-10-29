@@ -9,12 +9,13 @@ import QueMusic 1.0
 Rectangle {
     z: 1
     id: sidebar
-    width: 210
+    width: Options.barWidth
     property color choiceColor: Theme.hoverColor
     property color choiceTextColor: Theme.fontColor
     property int choiceIndex: 0
     required property MainContent mainCont
     color: Theme.secondaryColor
+
     Connections {
         target: Options
         function onChangeTheme(): void {
@@ -72,7 +73,7 @@ Rectangle {
         x: 18
         width: 4
         height: barBottom - y//22
-        radius: 2 //Style.labelRadius
+        radius: 2
         topRightRadius: 2
         bottomRightRadius: 2
         color: Theme.themeColor
@@ -145,6 +146,7 @@ Rectangle {
             font.bold: true
             verticalAlignment: Text.AlignVCenter
             color: Theme.fontColor
+            visible: !Options.isSmall
         }
         Rectangle {
             x: 140
@@ -153,6 +155,7 @@ Rectangle {
             height: 20
             color: Theme.themeColor
             radius: 6
+            visible: !Options.isSmall
             Text {
                 anchors.centerIn: parent
                 text: "Beta"
@@ -167,7 +170,7 @@ Rectangle {
     //分隔条
     Rectangle {
         x: 20
-        width: 170
+        width: Options.isSmall ? 34 : 170
         height: 1
         color: Theme.sideColor
         y: 173
@@ -191,7 +194,7 @@ Rectangle {
             required property int index
             required property var model
             x: 15
-            width: 180
+            width: sidebar.width - 30//sidebar.isSmall ? 44 : 180
             height: 42
             radius: Style.labelRadius
             Component.onCompleted: {
@@ -209,6 +212,7 @@ Rectangle {
             scale: 1.0
             Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
             Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+            //Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
 
 
             // Hover Background (fades in/out)
@@ -221,7 +225,7 @@ Rectangle {
             }
 
             Text {
-                x: 8
+                x: Options.isSmall ? 1 : 8
                 y: 0
                 z: 1
                 width: 42
@@ -242,6 +246,7 @@ Rectangle {
                 width: 140
                 height: 42
                 text: navDelegate.model.display
+                visible: !Options.isSmall
                 color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
                 font.bold: navDelegate.isSelected
                 font.pixelSize: Style.textmain

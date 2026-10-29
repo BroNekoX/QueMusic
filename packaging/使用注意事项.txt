@@ -3,14 +3,15 @@ QueMusic Linux 便携包 —— 使用注意事项
 
 一、运行环境要求
 --------------------------------------------------------------------
-1. Linux x86_64（glibc 2.35 及以上，也就是 Ubuntu 22.04+/Fedora 36+ 这类）
-2. Qt 6.10 或更高版本，而且要是**完整**的 Qt：
-   发行版经常把 Qt 多媒体的 ffmpeg 后端拆成单独包，缺了它启动会报
-       libQt6FFmpegStub-va.so.2: cannot open shared object file
-   （Arch/Manjaro 装 qt6-multimedia-ffmpeg；也可用 pacman -F <库名> 查是哪个包提供）
+1. Linux x86_64（glibc 2.38 及以上，也就是 Ubuntu 24.04+/Fedora 39+/Arch 这类）
+2. Qt 6.10 或更高版本（发行版包装的 Qt 就行）。注意发行版经常把 Qt 多媒体的
+   ffmpeg 后端插件拆成单独包，缺了它播放会失败（Arch/Manjaro 装
+   qt6-multimedia-ffmpeg；也可用 pacman -F <库名> 查是哪个包提供）。
    用官方在线安装器（aqt / Qt Maintenance Tool）装的 Qt 是完整的，不用管这条。
-   本包已自带 FFmpeg 7.1.3 运行库（libavcodec.so.61 等），宿主机不需要另装 ffmpeg；
-   如果你系统或你的 Qt 里本来就有 ffmpeg 7.x，会优先用你那份。
+   本包已自带 FFmpeg 7.1.3 运行库（libavcodec.so.61 等）**以及它们依赖的
+   Qt FFmpeg stub（libQt6FFmpegStub-*）**，所以宿主机不需要另装 ffmpeg，
+   也不再要求系统 Qt 提供这些 stub；如果你系统或你的 Qt 里本来就有 ffmpeg 7.x，
+   会优先用你那份。
 除 Qt 之外没有其它依赖：其它库（FFmpeg、QWindowKit、TagLib、本程序自己的模块）都在包内。
 
 二、怎么运行

@@ -20,8 +20,14 @@ class WebDavCache : public QObject
     QML_SINGLETON
 
 public:
-    explicit WebDavCache(QObject *parent = nullptr);
-    static WebDavCache *create(QQmlEngine *, QJSEngine *) { return new WebDavCache(); }
+    explicit WebDavCache(QObject *parent);
+    static WebDavCache *create(QQmlEngine *, QJSEngine *)
+    {
+        auto *cache = new WebDavCache(nullptr);
+        s_instance = cache;
+        return cache;
+    }
+    static WebDavCache *instance() { return s_instance; }
 
     // 已落地则返回本地音频路径；未落地返回空（调用方直接流式播）
     Q_INVOKABLE QString localPathFor(const QString &url) const { return cachedAudioFor(url); }
@@ -53,6 +59,7 @@ private:
     void prune();
 
     QNetworkAccessManager *m_nam = nullptr;
+    inline static WebDavCache *s_instance = nullptr;
     QList<Task> m_queue;
     bool m_busy = false;
     QElapsedTimer m_pruneStamp;      // prune 要扫全目录，限频

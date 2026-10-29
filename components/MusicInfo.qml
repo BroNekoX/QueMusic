@@ -243,7 +243,7 @@ Popup {
                         height: 36
                         anchors.right: parent.right
                         font.pixelSize: Style.textmain
-                        text: Math.round(Playback.player.bitRate / 1000) + " kbps"
+                        text: Playback.player.bitRate + " kbps"
                         color: Theme.textColor
                         readOnly: true
                         selectByMouse: true
@@ -338,7 +338,7 @@ Popup {
             }
             WheelHandler {
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+                readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
                 readonly property int scrollBottom: commentView.contentHeight - commentView.height + commentView.bottomMargin + commentView.originY
                 onWheel: (event) => {
                     listViewAnime.running = false;

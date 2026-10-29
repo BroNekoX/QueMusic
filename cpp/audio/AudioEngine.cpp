@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
-//
+
 #include "AudioEngine.h"
 
 #include "AudioSpectrumSink.h"
@@ -29,13 +29,13 @@ constexpr int kMaxChunkFrames = 4096;
 constexpr int kMaxStretchInputFrames = 24576;
 constexpr int kPollIntervalMs = 50;
 constexpr qint64 kSeekThrottleMs = 90;
-// 缓冲 10~100ms：再小易爆音，再大拖慢进度与切歌响应
+
 constexpr int kBufferMsMin = 10;
 constexpr int kBufferMsMax = 100;
 constexpr int kBufferMsDefault = 30;
-// 设备缓冲的帧数下限：10ms@48k 仅 480 帧，下限过大会把它顶回去
+
 constexpr int kMinBufferFrames = 256;
-// 每次切换数据段的最小淡入长度，消除切换爆音
+
 constexpr int kClickGuardMs = 12;
 
 qint64 steadyMs()
@@ -45,7 +45,6 @@ qint64 steadyMs()
         .count();
 }
 
-// QML 侧既可能传 file:// URL，也可能直接传裸路径（Windows 盘符会被 QUrl 当成 scheme）
 QString toSourceUrl(const QUrl &url)
 {
     if (url.isEmpty())
@@ -54,9 +53,7 @@ QString toSourceUrl(const QUrl &url)
     QStringList candidates;
     if (url.isLocalFile())
         candidates.append(url.toLocalFile());
-    // 不能用 url.toString(QUrl::FullyDecoded)：Qt 重建完整 URL 时会警告
-    // 「QUrl::FullyDecoded is not permitted when reconstructing the full URL」，
-    // 且该模式下百分号转义无法可靠还原。fromPercentEncoding(toEncoded()) 是等价且安全的写法。
+
     const QString raw = QUrl::fromPercentEncoding(url.toEncoded());
     candidates.append(raw);
     if (url.scheme().size() == 1)
@@ -76,7 +73,7 @@ int framesForBytes(const QAudioFormat &format, qsizetype bytes)
     return frameBytes > 0 ? int(bytes / frameBytes) : 0;
 }
 
-} // namespace
+}
 
 class EngineIoDevice : public QIODevice
 {
@@ -143,7 +140,7 @@ AudioEngine::~AudioEngine()
     m_quit.store(true);
     stopThread();
     teardownSink();
-    // 输出线程还活着时在本线程内释放设备，避免跨线程析构
+
     invokeOnOutput([this] {
         if (m_io) {
             m_io->close();
@@ -153,13 +150,11 @@ AudioEngine::~AudioEngine()
     });
     m_outputThread.quit();
     m_outputThread.wait();
-    // 音频/输出线程都已退出，此时才释放订阅句柄：之后不会再有回调进入订阅者
+
     publishSpectrumHandle(nullptr);
     delete m_outputContext;
     m_outputContext = nullptr;
 }
-
-// ---------------------------------------------------------------- 设备与输出
 
 QAudioDevice AudioEngine::resolveDevice() const
 {
@@ -173,11 +168,9 @@ QAudioDevice AudioEngine::resolveDevice() const
     return QMediaDevices::defaultAudioOutput();
 }
 
-// 解码输出采样率与倍速成反比：设备每秒固定取走 deviceRate 个样本，
-// 采样率越低则每秒消耗的源时长越多，播放越快。
 int AudioEngine::decodeRateFor(int deviceRate) const
 {
-    // 保持音高或变调时，变速交给 SOLA/重采样链，解码按原速
+
     if (m_pitchCompensation.load(std::memory_order_relaxed)
         || m_pitchMilli.load(std::memory_order_relaxed) != 1000)
         return deviceRate;
@@ -206,7 +199,6 @@ bool AudioEngine::setupSink()
     if (format.channelCount() <= 0)
         format.setChannelCount(2);
 
-    // 指定采样率只在设备支持时生效，否则回退到设备首选
     if (m_requestedRate > 0) {
         QAudioFormat requested = format;
         requested.setSampleRate(m_requestedRate);
@@ -220,14 +212,8 @@ bool AudioEngine::setupSink()
     m_outSampleRate.store(rate, std::memory_order_relaxed);
     m_outChannels.store(channels, std::memory_order_relaxed);
 
-    // 重建缓冲必须与两个音频线程互斥：resize/configure 会释放旧内存，
-    // 而音频线程手里还攥着旧指针，并发就是直接踩坏堆。
-    // 解码线程先停靠，缓冲本身在输出线程内重建（与 render 同线程，天然互斥）
     m_audioFrozen.store(true, std::memory_order_release);
-    // 只有解码线程在跑时才需要等它停靠。构造期 startThread() 尚未执行，没有任何线程会
-    // 置位 m_decodeParked，这个循环必然跑满 200 次；而 Windows 上 sleep_for(1ms) 实际按
-    // 系统计时粒度（约 15.6ms）休眠，200 次就是约 3.1 秒的启动阻塞。
-    // 解码线程不活跃时它只在 sleep 循环里等待、不触碰环形缓冲，因此跳过等待是安全的。
+
     if (m_thread.joinable()) {
         for (int i = 0; i < 200 && !m_decodeParked.load(std::memory_order_acquire); ++i)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -253,22 +239,18 @@ bool AudioEngine::setupSink()
         m_paramsPending.store(true, std::memory_order_release);
     }
 
-    // sink 必须在输出线程里创建：拉取定时器跟着 sink 所在线程走，
-    // 否则 readData 会落在 GUI 线程上，窗口一卡音频就断
     invokeOnOutput([&] {
         m_sink = new QAudioSink(device, m_format);
         m_sink->setBufferSize(qMax<qsizetype>(
             m_format.bytesForDuration(qBound(kBufferMsMin, m_bufferMs, kBufferMsMax) * 1000),
             m_format.bytesForFrames(kMinBufferFrames)));
         m_sink->setVolume(1.0);
-        // 设备对象跨重建复用：Qt 音频后端可能在 sink 销毁后仍投递一次读取，此时设备必须还活着
+
         if (!m_io) {
             m_io = new EngineIoDevice(this);
             m_io->open(QIODevice::ReadOnly);
         }
 
-        // 信号经队列投递到 GUI 线程，届时 m_sink 可能已换成新对象；
-        // 只有发出者仍是当前 sink 时才采信，否则切歌会被误判成设备故障而重建输出
         connect(m_sink, &QAudioSink::stateChanged, this, [this](QAudio::State state) {
             auto *sink = qobject_cast<QAudioSink *>(sender());
             if (!sink || sink != m_sink)
@@ -343,12 +325,12 @@ QString AudioEngine::outputFormatName() const
         .arg(m_outChannels.load(std::memory_order_relaxed));
 }
 
-// ------------------------------------------------------------------ 播放控制
-
 void AudioEngine::setSource(const QUrl &url)
 {
-    if (m_source == url)
+    if (m_source == url && m_mediaStatus != InvalidMedia && m_mediaStatus != NoMedia)
         return;
+    clearNextSource();
+    m_autoSwitchPending.store(false, std::memory_order_release);
     m_source = url;
     emit sourceChanged();
     if (url.isEmpty()) {
@@ -367,7 +349,7 @@ void AudioEngine::setSource(const QUrl &url)
     m_decodeEof.store(false, std::memory_order_relaxed);
     m_drained.store(false, std::memory_order_relaxed);
     m_seekRequest.store(-1, std::memory_order_relaxed);
-    // 新音源从 0 开始：在首段落地前不发布位置，避免进度条弹回上一首
+
     m_pendingSeekMs.store(0, std::memory_order_release);
 
     {
@@ -385,7 +367,7 @@ void AudioEngine::play()
 {
     if (m_source.isEmpty())
         return;
-    // 上次若停在静音（淡出/睡眠），起播时补一次淡入，避免"能播但没声"
+
     if (m_fadeTargetMilli.load(std::memory_order_relaxed) < 1000)
         fadeInOnNextAudio(180);
     if (m_mediaStatus == EndOfMedia) {
@@ -409,6 +391,8 @@ void AudioEngine::pause()
 
 void AudioEngine::stop()
 {
+    clearNextSource();
+    m_autoSwitchPending.store(false, std::memory_order_release);
     stopSink();
     m_drained.store(false, std::memory_order_relaxed);
     m_positionMs.store(0, std::memory_order_relaxed);
@@ -421,12 +405,45 @@ void AudioEngine::stop()
     requestSeek(0);
 }
 
+void AudioEngine::prepareNextSource(const QUrl &url, const QVariantMap &headers)
+{
+    if (url.isEmpty())
+        return;
+    {
+        QMutexLocker lock(&m_pendingUrlMutex);
+        m_nextUrl = url;
+        m_nextHeaders = headers;
+    }
+    m_nextReady.store(true, std::memory_order_release);
+}
+
+void AudioEngine::clearNextSource()
+{
+    m_nextReady.store(false, std::memory_order_relaxed);
+    QMutexLocker lock(&m_pendingUrlMutex);
+    m_nextUrl.clear();
+    m_nextHeaders.clear();
+}
+
+void AudioEngine::setTrackAdvancedCallback(std::function<void()> callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_advanceCallback = std::move(callback);
+}
+
+void AudioEngine::adoptSource(const QUrl &url)
+{
+    if (m_source == url)
+        return;
+    m_source = url;
+    emit sourceChanged();
+}
+
 void AudioEngine::setPosition(qint64 ms)
 {
     const qint64 bound = m_durationMs > 0 ? qMin(ms, m_durationMs) : ms;
     const qint64 target = qMax<qint64>(0, bound);
-    // 挂起位置发布，直到新数据段落地；无人执行 seek 时不能挂起，
-    // 否则标记没人清除，位置会永久停住
+
     const bool canSeek = m_decodeActive.load(std::memory_order_relaxed)
                          || m_openRequest.load(std::memory_order_relaxed);
     m_pendingSeekMs.store(canSeek ? target : -1, std::memory_order_release);
@@ -443,7 +460,7 @@ void AudioEngine::setPosition(qint64 ms)
 void AudioEngine::requestSeek(qint64 ms)
 {
     if (!m_decodeActive.load(std::memory_order_relaxed) && !m_openRequest.load(std::memory_order_relaxed)) {
-        // 没人执行就丢掉，别留到下次解码时莫名生效
+
         m_seekRequest.store(-1, std::memory_order_relaxed);
         return;
     }
@@ -506,7 +523,7 @@ void AudioEngine::setPlaybackRate(qreal rate)
     m_stretchSpeedMilli.store(m_rateMilli.load(std::memory_order_relaxed), std::memory_order_relaxed);
     emit playbackRateChanged();
     emit outputFormatChanged();
-    // 变速会改变解码输出采样率，必须重建数据段并从当前位置续播
+
     requestSeek(position());
 }
 
@@ -534,7 +551,7 @@ int AudioEngine::bufferMs() const { return m_bufferMs; }
 
 void AudioEngine::setBufferMs(int ms)
 {
-    // 非正数视为未设置，落回默认缓冲
+
     const int clamped = ms <= 0 ? kBufferMsDefault : qBound(kBufferMsMin, ms, kBufferMsMax);
     if (m_bufferMs == clamped)
         return;
@@ -562,7 +579,6 @@ void AudioEngine::setEqQ(qreal q)
     publishParams(true, true, false, false);
 }
 
-// 改设备格式/缓冲后重开输出：保留当前曲目与播放位置
 void AudioEngine::reconfigureOutput()
 {
     const bool wasPlaying = (m_playbackState == PlayingState);
@@ -600,7 +616,6 @@ void AudioEngine::setDeviceId(const QString &id)
     reconfigureOutput();
 }
 
-// 展示用属性：只在 GUI 线程读写，音频线程完全不碰
 void AudioEngine::setUrlStr(const QString &url)
 {
     if (m_urlStr == url)
@@ -624,8 +639,6 @@ void AudioEngine::setAlbum(const QString &name)
     m_album = name;
     emit albumChanged();
 }
-
-// ------------------------------------------------------------------ 状态发布
 
 void AudioEngine::setPlaybackState(PlaybackState state)
 {
@@ -696,7 +709,7 @@ void AudioEngine::pollState()
     reportSinkError();
 
     if (m_drained.exchange(false, std::memory_order_relaxed)) {
-        // 不停止输出：保持设备常开，下一首起播时无设备重开的空档
+
         setPlaybackState(StoppedState);
         if (m_durationMs > 0)
             m_positionMs.store(m_durationMs, std::memory_order_relaxed);
@@ -714,11 +727,9 @@ void AudioEngine::pollState()
     }
 }
 
-// ------------------------------------------------------------------- 音频线程
-
 void AudioEngine::applyPendingParams()
 {
-    // 热路径快速返回：稳态下音频线程不触碰互斥量
+
     if (!m_paramsPending.load(std::memory_order_acquire))
         return;
 
@@ -755,8 +766,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
     const int rate = qMax(8000, m_outSampleRate.load(std::memory_order_relaxed));
     const QAudioFormat::SampleFormat sampleFormat = m_format.sampleFormat();
     const bool floatFormat = (sampleFormat == QAudioFormat::Float);
-    // 设备首选格式可能是 Int32/UInt8 等：帧长按真实格式计算，写出时再分支转换，
-    // 否则帧数会被算成两倍、缓冲区只写一半（表现为噪声）
+
     const int bytesPerSample = int(qMax<qsizetype>(1, m_format.bytesPerSample()));
     const int frameBytes = channels * bytesPerSample;
 
@@ -772,11 +782,11 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
         m_localMs = m_ringBaseMs.load(std::memory_order_relaxed);
         m_stretch.reset();
         m_dsp.reset();
-        // 数据段起点与挂起的 seek 目标一致时，说明 seek 已落地，恢复位置发布
+
         const qint64 pending = m_pendingSeekMs.load(std::memory_order_acquire);
         if (pending >= 0 && qint64(m_localMs) == pending)
             m_pendingSeekMs.store(-1, std::memory_order_release);
-        // 切段时至少给一个极短淡入防爆音，请求更长淡入时以请求为准
+
         const int guard = qMax(1, kClickGuardMs * qMax(8000, rate) / 1000);
         m_genFadeInFrames = qMax(m_pendingFadeInFrames.exchange(0, std::memory_order_acq_rel), guard);
         m_genFrames = 0;
@@ -784,7 +794,6 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
 
     applyPendingParams();
 
-    // 音量与淡变：音频线程自行取值，不被 GUI 线程调度拖住
     m_dsp.setVolume(m_volumeAtomic.load(std::memory_order_relaxed));
     const int fadeSeq = m_fadeSeq.load(std::memory_order_acquire);
     if (fadeSeq != m_fadeLocalSeq) {
@@ -797,7 +806,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
     const int pitchMilli = m_pitchMilli.load(std::memory_order_relaxed);
     const bool speedChanged = speedMilli != 1000;
     const bool pitchChanged = pitchMilli != 1000;
-    // 变调，或倍速且要求保持音高时，才走时长伸缩 + 重采样链
+
     const bool stretching = pitchChanged
                             || (m_pitchCompensation.load(std::memory_order_relaxed) && speedChanged);
     if (stretching) {
@@ -808,7 +817,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
     }
 
     AudioRing &ring = m_rings[gen & 1];
-    // 浮点输出且不伸缩时直接写设备缓冲，省掉每块一次整块拷贝
+
     const bool direct = floatFormat && !stretching;
     int produced = 0;
 
@@ -835,7 +844,6 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
         if (got <= 0)
             break;
 
-        // 新数据段的第一批样本到位时才开始淡入
         if (m_genFrames == 0 && m_genFadeInFrames > 0) {
             m_dsp.jumpFade(0.0);
             m_dsp.rampFade(1.0, m_genFadeInFrames);
@@ -844,7 +852,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
         m_genFrames += got;
 
         m_dsp.process(buf, got, channels);
-        // 句柄是共享所有权对象：订阅者析构与音频线程调用之间不存在悬空指针窗口
+
         if (auto handle = acquireSpectrumHandle())
             handle->push(buf, got, channels, rate);
 
@@ -881,13 +889,39 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
                     size_t(frames - produced) * frameBytes);
         if (produced == 0 && ring.available() == 0
             && m_decodeEof.load(std::memory_order_relaxed)
-            && m_playingFlag.load(std::memory_order_relaxed)) {
-            m_drained.store(true, std::memory_order_relaxed);
+            && m_playingFlag.load(std::memory_order_relaxed)
+            && !m_autoSwitchPending.load(std::memory_order_acquire)) {
+            if (m_nextReady.exchange(false, std::memory_order_acq_rel)) {
+                QUrl nextUrl;
+                QVariantMap nextHeaders;
+                {
+                    QMutexLocker lock(&m_pendingUrlMutex);
+                    nextUrl = m_nextUrl;
+                    nextHeaders = m_nextHeaders;
+                    m_nextUrl.clear();
+                    m_nextHeaders.clear();
+                    m_pendingUrl = nextUrl;
+                    m_pendingHeaders = nextHeaders;
+                }
+                if (nextUrl.isEmpty()) {
+                    m_drained.store(true, std::memory_order_relaxed);
+                } else {
+                    m_pendingSeekMs.store(0, std::memory_order_release);
+                    m_autoSwitchPending.store(true, std::memory_order_release);
+                    m_openRequest.store(true, std::memory_order_relaxed);
+                    m_drained.store(false, std::memory_order_relaxed);
+                    std::lock_guard<std::mutex> lock(m_callbackMutex);
+                    if (m_advanceCallback)
+                        m_advanceCallback();
+                }
+            } else {
+                m_drained.store(true, std::memory_order_relaxed);
+            }
         }
     }
 
     if (produced > 0) {
-        // 进度按“源时长”推进：倍速/保持音高时环形缓冲的采样率与设备不同
+
         const double posHz = stretching ? double(rate) / m_stretch.speed()
                                         : double(m_decodeRate.load(std::memory_order_relaxed));
         if (posHz > 1.0)
@@ -898,16 +932,14 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
     return qint64(frames) * frameBytes;
 }
 
-// ------------------------------------------------------------------- 解码线程
-
 void AudioEngine::beginGeneration(qint64 baseMs)
 {
     const int next = m_ringGen.load(std::memory_order_relaxed) + 1;
-    // 解码线程绝不改动缓冲尺寸：尺寸只由重建路径更新（更新前会先停靠本线程）
+
     m_rings[next & 1].clear();
     m_ringBaseMs.store(double(baseMs), std::memory_order_relaxed);
     m_ringGen.store(next, std::memory_order_release);
-    // 拖动会排队多个 seek：旧请求落地时不能覆盖 GUI 刚发布的目标位置
+
     const qint64 pending = m_pendingSeekMs.load(std::memory_order_acquire);
     if (pending < 0 || pending == baseMs)
         m_positionMs.store(baseMs, std::memory_order_relaxed);
@@ -933,7 +965,7 @@ void AudioEngine::decodeLoop()
     std::vector<float> buffer(size_t(kMaxChunkFrames) * 2);
 
     while (!m_quit.load(std::memory_order_relaxed)) {
-        // 停靠点：置位后本线程不再触碰环形缓冲，重建路径才会改动它们
+
         if (m_audioFrozen.load(std::memory_order_acquire)) {
             m_decodeParked.store(true, std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -961,8 +993,11 @@ void AudioEngine::decodeLoop()
                 headerText += it.key().toUtf8() + ": " + it.value().toString().toUtf8() + "\r\n";
             const bool ok = !url.isEmpty()
                             && m_decoder.open(toSourceUrl(url), &error, headerText);
+            const bool autoSwitch = m_autoSwitchPending.exchange(false, std::memory_order_acq_rel);
             if (!ok) {
                 m_decodeActive.store(false, std::memory_order_relaxed);
+                if (autoSwitch)
+                    m_drained.store(true, std::memory_order_relaxed);
                 const QString message = error.isEmpty() ? tr("无法打开音频源") : error;
                 QMetaObject::invokeMethod(this, [this, message] { emitError(1, message); },
                                           Qt::QueuedConnection);
@@ -983,7 +1018,7 @@ void AudioEngine::decodeLoop()
 
         const qint64 seek = m_seekRequest.exchange(-1, std::memory_order_relaxed);
         if (seek >= 0 && m_decodeActive.load(std::memory_order_relaxed)) {
-            // 拖动进度条会连续产生请求：节流避免反复冲刷缓冲造成断续
+
             const qint64 since = steadyMs() - m_lastSeekDoneMs.load(std::memory_order_relaxed);
             if (since < kSeekThrottleMs && since >= 0)
                 std::this_thread::sleep_for(std::chrono::milliseconds(kSeekThrottleMs - since));
@@ -995,7 +1030,7 @@ void AudioEngine::decodeLoop()
                 m_decoder.setTargetFormat(targetRate, channels);
             m_decodeRate.store(targetRate, std::memory_order_relaxed);
             if (!m_decoder.seekTo(seek)) {
-                // seek 失败还发布新代次会让进度条跳到没播到的地方
+
                 qWarning() << "[audio] seek 失败，保持当前播放位置:" << seek;
                 m_pendingSeekMs.store(-1, std::memory_order_release);
                 continue;
@@ -1030,8 +1065,6 @@ void AudioEngine::decodeLoop()
         }
     }
 }
-
-// -------------------------------------------------------------------- DSP 接口
 
 void AudioEngine::setEqEnabled(bool on)
 {
@@ -1256,7 +1289,7 @@ void AudioEngine::publishParams(bool eqChangedFlag, bool dspChangedFlag, bool rg
 
 void AudioEngine::setSpectrumSink(QObject *sink)
 {
-    // 只接受自报句柄的订阅者：裸指针无法跨线程安全持有，订阅者析构时机不受引擎控制
+
     std::shared_ptr<AudioSpectrumSinkHandle> handle;
     if (auto *source = dynamic_cast<AudioSpectrumSource *>(sink))
         handle = source->spectrumSinkHandle();
@@ -1273,14 +1306,12 @@ void AudioEngine::publishSpectrumHandle(std::shared_ptr<AudioSpectrumSinkHandle>
 
 std::shared_ptr<AudioSpectrumSinkHandle> AudioEngine::acquireSpectrumHandle()
 {
-    // 音频线程绝不阻塞：只有在换订阅者的那一瞬间才抢不到锁，跳过本块即可
+
     std::unique_lock<QMutex> lock(m_spectrumMutex, std::try_to_lock);
     if (!lock.owns_lock())
         return {};
     return m_spectrumHandle;
 }
-
-// -------------------------------------------------------------------- 配置持久化
 
 void AudioEngine::loadSettings()
 {

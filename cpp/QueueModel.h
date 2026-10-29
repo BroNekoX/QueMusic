@@ -18,7 +18,7 @@ struct QueueTrack {
     QString name;
     QString path;
     QString songer;
-    int source = 0;
+    int source = -1;
 
     static QueueTrack fromMap(const QVariantMap &item)
     {
@@ -26,7 +26,7 @@ struct QueueTrack {
         track.name = item.value(QStringLiteral("name")).toString();
         track.path = item.value(QStringLiteral("path")).toString();
         track.songer = item.value(QStringLiteral("songer")).toString();
-        track.source = item.value(QStringLiteral("source"), 0).toInt();
+        track.source = item.value(QStringLiteral("source"), -1).toInt();
         return track;
     }
 
@@ -165,12 +165,14 @@ public:
     int count() const { return int(m_items.size()); }
     int playListIndex() const { return m_playListIndex; }
     void setPlayListIndex(int index);
+    QVector<QueueTrack> tracks() const { return m_items; }
 
     SavedPlaylistsModel *savedPlaylists() const { return m_savedPlaylists; }
     PlaylistPreviewModel *playlistPreview() const { return m_preview; }
 
 signals:
     void countChanged();
+    void contentsChanged();
     void playListIndexChanged();
     void playlistSaved(int id, const QString &name, int count);
     void playlistLoaded(int id, const QString &name, int count);

@@ -204,16 +204,9 @@ Window {
             id: desktopLyricArea
             anchors.fill: parent
             //anchors.margins: 10
-            property real dragOffsetX: 0
-            property real dragOffsetY: 0
-            onPressed: (mouse) => {
-                dragOffsetX = mouse.x;
-                dragOffsetY = mouse.y;
-            }
             onPositionChanged: (mouse) => {
                 if (pressed) {
-                    desktopLyricsWindow.x += mouse.x - dragOffsetX;
-                    desktopLyricsWindow.y += mouse.y - dragOffsetY;
+                    desktopLyricsWindow.startSystemMove();
                 }
             }
             hoverEnabled: true

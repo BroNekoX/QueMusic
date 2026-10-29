@@ -17,6 +17,10 @@ Window {
     minimumHeight: 540
     color: Theme.primaryColor
     title: "QueMusic"
+
+    readonly property AudioEngine mainMedia: Playback.player
+    readonly property QueueModel playListModel: Playback.queue
+
     Component.onCompleted: {
         Options.queue = playListModel
         Options.dialog = globalDialog
@@ -57,14 +61,11 @@ Window {
 
         window.visible = true;
 
-        Playback.player = mainMedia;
-        Playback.queue = playListModel;
-
         Options.changeUi();
         Options.changeTheme();
 
-        // Qt.application.arguments[0] 是程序自身路径，从 1 开始才是参数
-        const args = Qt.application.arguments.slice(1).filter(a => !a.startsWith("-"))
+        // Application.arguments[0] 是程序自身路径，从 1 开始才是参数
+        const args = Application.arguments.slice(1).filter(a => !a.startsWith("-"))
         if (args.length) {
             const fileName = args.split('/').pop();
             Playback.playLocalSong(args, fileName);
@@ -171,8 +172,8 @@ Window {
     // 键位与开关都走设置页（ShortCut / globalShortcut*）
     Instantiator {
         model: [
-            { k: "volumeUp",      a: function() { Playback.stepVolume(Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Config.musicVolume * 100) + "%", 0) } },
-            { k: "volumeDown",    a: function() { Playback.stepVolume(-Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Config.musicVolume * 100) + "%", 0) } },
+            { k: "volumeUp",      a: function() { Playback.stepVolume(Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Playback.volume * 100) + "%", 0) } },
+            { k: "volumeDown",    a: function() { Playback.stepVolume(-Playback.volumeStep); mainWarn.tiped("音量 " + Math.round(Playback.volume * 100) + "%", 0) } },
             { k: "seekBack",      a: function() { Playback.seekBack() } },
             { k: "seekForward",   a: function() { Playback.seekForward() } },
             { k: "mute",          a: function() { Playback.toggleMute(); mainWarn.tiped(Playback.muted ? "已静音" : "取消静音", 0) } },
@@ -465,7 +466,7 @@ Window {
             height: parent.height
             visible: false
             asynchronous: true
-            sourceSize: Qt.size(width, height)
+            //sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
 
         }
@@ -476,7 +477,6 @@ Window {
             x: 0
             y: 0
             height: parent.height - 78
-            width: 210
             mainCont: mainContent
         }
 
@@ -679,7 +679,6 @@ Window {
             if (localCover) {
                 if (localCover !== mainMedia.urlStr) {
                     mainMedia.urlStr = localCover;
-                    colorExtractor.extractColorsFromUrl(localCover);
                 }
             } else if (!jsonCover) {
                 mainMedia.urlStr = "qrc:/QueMusic/resources/app/musicpic.png";
@@ -700,32 +699,6 @@ Window {
 
     Connections {
         target: MusicApi
-        function onUrlplay(playurl: string, title: string, artist: string, cover: string,
-                           solve: string, hash: string, source: int): void {
-            mainMedia.noTitle = title;
-            Playback.musicTitle = title;
-            Playback.musicArtist = artist;
-            Playback.musicHash = hash;
-            Playback.musicSource = source;
-            mainMedia.urlStr = cover;
-            colorExtractor.extractColorsFromUrl(solve);
-            // 淡出静音排空设备缓冲后再换源：上一首仍在播放，直接换 source 会截断波形产生爆音
-            Playback.swap(function() {
-                mainMedia.source = playurl;
-                mainMedia.play();
-            });
-
-            const listIndex = Playback.indexOfPath(hash);
-            if (listIndex < 0) {
-                playListModel.append({ name: title, path: hash, songer: artist, source: source });
-                playListModel.playListIndex = playListModel.count - 1;
-            } else {
-                playListModel.playListIndex = listIndex;
-            }
-        }
-        function onWarned(text: string, type: int): void {
-            mainWarn.tiped(text,type);
-        }
         function onLocalLyricsReady(filePath: string, lyrics: var, translate: var): void {
             if (filePath !== Playback.localLyricsRequestPath)
                 return;
@@ -760,7 +733,6 @@ Window {
             coverHelper.jsonCover = meta.cover || "";
             if (meta.cover) {
                 mainMedia.urlStr = meta.cover;
-                colorExtractor.extractColorsFromUrl(meta.cover);
             }
             coverHelper.findEmbeddedCoverAsync(filePath);
         }
@@ -776,85 +748,36 @@ Window {
         bands: 128
     }
 
-    AudioEngine {
-        id: mainMedia
-        // 封面初值；urlStr / noTitle / album 由 QML 侧注入（见 MusicApi 回调），onMedia 派生自 mediaStatus
-        urlStr: "qrc:/QueMusic/resources/app/musicpic.png"
+    Binding {
+        target: Playback.player
+        property: "deviceId"
+        value: Config.useDefaultDevice || musicDevices.audioOutputs.length <= Config.audioDevice
+               ? "" : String(musicDevices.audioOutputs[Config.audioDevice].id)
+    }
 
-        source: ""
-        volume: Playback.outVolume
-        deviceId: Config.useDefaultDevice || musicDevices.audioOutputs.length <= Config.audioDevice
-                  ? "" : String(musicDevices.audioOutputs[Config.audioDevice].id)
-
-        onMetaDataChanged: {
-            if (mainMedia.source.toString().startsWith("http"))
-                return
-            if (tagTitle)
-                Playback.musicTitle = tagTitle
-            if (artist)
-                Playback.musicArtist = artist
-        }
-
-        onMediaStatusChanged: {
-            if (mediaStatus === AudioEngine.LoadedMedia)
-                Playback.autoSkipCount = 0;
-            if(mediaStatus === AudioEngine.EndOfMedia) {
-                if(Playback.sleepMode === 2) {
-                    Playback.sleepEnd();
-                    return;
-                }
-                switch(Config.cycleIndex) {
-                    case 0:
-                        Playback.next(false);
-                        break;
-                    case 1:
-                        // 重播同样会刷新缓冲，走淡出/淡入
-                        Playback.swap(function() {
-                            mainMedia.position = 0;
-                            mainMedia.play();
-                        })
-                        break;
-                    case 2:
-                        Playback.next(true);
-                        break;
-                    case 3:
-                        // 停止不再淡回，直接复位音量乘数
-                        Playback.swap(function() { mainMedia.stop() }, false);
-                        break;
-                }
-            }
-        }
-
-        onErrorOccurred: {
-            if(playListModel.count < 2) return;
-            if (Playback.autoSkipCount >= 2) {
-                Playback.autoSkipCount = 0;
-                Options.warned("连续多首无法播放，已停止自动跳过", 0);
+    Connections {
+        target: Playback.player
+        function onMetaDataChanged(): void {
+            if (Playback.player.source.toString().startsWith("http"))
                 return;
-            }
-            Playback.autoSkipCount += 1;
-            Options.warned("当前歌曲无法播放，已自动跳过",0);
-            if(Config.cycleIndex === 2) {
-                Playback.next(true);
-            } else {
-                Playback.next(false);
-            }
+            if (Playback.player.tagTitle)
+                Playback.musicTitle = Playback.player.tagTitle;
+            if (Playback.player.artist)
+                Playback.musicArtist = Playback.player.artist;
         }
-
-        // 新音轨真正起播后再淡回，避免音频设备重开的瞬间已经有音量
-        onPlayingChanged: {
-            if (playing)
-                Playback.finishSwap();
-        }
-
-        onSourceChanged: {
-            Playback.clearAb();
-        }
-        onPlaybackStateChanged: {
-            if (mainMedia.playbackState === AudioEngine.PlayingState)
-                Playback.noteNowPlaying();
+        function onUrlStrChanged(): void {
+            if (Playback.player.urlStr)
+                colorExtractor.extractColorsFromUrl(Playback.player.urlStr);
         }
     }
+
+    Connections {
+        target: Playback
+        function onWarned(text: string, type: int): void {
+            mainWarn.tiped(text, type);
+        }
+    }
+
     SystemTrayManager {
         id: systemTray
         iconSource: "qrc:/QueMusic/resources/icon.ico"
@@ -882,12 +805,6 @@ Window {
         player: mainMedia
         queue: playListModel
         targetWindow: window
-    }
-
-    // 播放列表（C++ QueueModel：O(1) 路径查找、批量操作、角色化访问）
-    QueueModel {
-        id: playListModel
-        playListIndex: -1
     }
 
 

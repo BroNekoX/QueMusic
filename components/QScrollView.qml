@@ -28,7 +28,7 @@ Flickable {
 
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
         onWheel: (event) => {
             viewAnime.running = false;
             view.scrollToY = Math.max(0, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), view.contentHeight - view.height));

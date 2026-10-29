@@ -369,7 +369,7 @@ Item {
     }
 
     Text {
-        x: 236 + settingStack.containX
+        x: leftSidebarSettings.width + settingStack.containX + 26
         z: 3
         height: 24
         text: navModelSettings.get(leftSidebarSettings.setChoiceIndex).display
@@ -389,7 +389,7 @@ Item {
         y: 0
         z: 5
         height: settingsView.height
-        width: 210
+        width: Options.barWidth
         opacity: 1
         property color choiceColor: Theme.hoverColor
         property color choiceTextColor: Theme.fontColor
@@ -428,7 +428,7 @@ Item {
 
         function index1ed(choice: int): void {
             if(Options.isMacOS) {
-                choicebar1.willBarY = 44 * choice + 100
+                choicebar1.willBarY = 44 * choice + 120
             } else {
                 choicebar1.willBarY = 44 * choice + 80
             }
@@ -510,9 +510,9 @@ Item {
         }
 
         Item {
-            x: 16;y: Options.isMacOS ? 42 : 12
+            x: 16;y: Options.isMacOS ? 62 : 12
             height: 36
-            width: 180
+            width: Options.isSmall ? 74 : 180
             QWKButton {
                 id: returnButton
                 width: 36
@@ -536,6 +536,7 @@ Item {
                 font.bold: false
                 verticalAlignment: Text.AlignVCenter
                 color: Theme.fontColor
+                visible: !Options.isSmall
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
         }
@@ -557,14 +558,14 @@ Item {
 
             delegate: Rectangle {
                 id: navDelegateSettings
-                width: 180
+                width: Options.barWidth - 30
                 height: 42
                 x: 15
                 radius: Style.labelRadius
                 color: isSelected ? leftSidebarSettings.choiceColor : "transparent"
                 Component.onCompleted: {
                     if(Options.isMacOS) {
-                        y = 44 * index + 90
+                        y = 44 * index + 110
                     } else {
                         y = 44 * index + 70
                     }
@@ -588,7 +589,7 @@ Item {
                 }
 
                 Text {
-                    x: 8
+                    x: Options.isSmall ? 1 : 8
                     y: 0
                     z: 1
                     width: 42
@@ -608,6 +609,7 @@ Item {
                     z: 2
                     width: 140
                     height: 42
+                    visible: !Options.isSmall
                     text: navDelegateSettings.model.display
                     color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
                     font.bold: navDelegateSettings.isSelected
@@ -636,8 +638,8 @@ Item {
 
     Rectangle {
         id: settingStack
-        x: 210
-        width: parent.width - 210
+        x: leftSidebarSettings.width
+        width: parent.width - x
         height: parent.height
         color: settingsView.mainContentColor
         z: 2
@@ -674,8 +676,8 @@ Item {
             }
         }
 
-        property int standWidth: parent.width > 1410 ? 1148 : parent.width - 262
-        property int containWidth: parent.width > 1410 ? 1200 : parent.width - 210
+        property int standWidth: parent.width > 1410 ? 1148 : parent.width - Options.barWidth - 52
+        property int containWidth: parent.width > 1410 ? 1200 : parent.width - Options.barWidth
         property int containX: parent.width > 1410 ? parent.width / 2 - 705 : 0
 
         // 通用设置
@@ -992,9 +994,9 @@ Item {
                                 stepSize: 1
                                 leftText: true
                                 valueText: value
-                                value: Math.floor(Config.musicVolume * 100)
+                                value: Math.floor(Playback.volume * 100)
                                 onMoved: {
-                                    Config.musicVolume = value / 100
+                                    Playback.setVolume(value / 100)
                                 }
                             }
                         }
@@ -1167,6 +1169,19 @@ Item {
                                 onTransformed: (choiced) => {
                                     Style.sidebarStyle = choiced;
                                     Options.changeTheme();
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "左栏缩小方式"
+                            tip: "通过设置左栏如何缩小达到主内容更佳的显示面积"
+                            controlItem: QDrop {
+                                anchors.fill: parent
+                                choice: Style.leftBarMode
+                                model: ["通过窗口宽度","保持展开","保持缩小"]
+                                onTransformed: (choiced) => {
+                                    Style.leftBarMode = choiced;
                                 }
                             }
                         }
@@ -1643,7 +1658,10 @@ Item {
                                 leftText: true
                                 valueText: value.toString() + " %"
                                 value: Config.volumeStep
-                                onMoved: Config.volumeStep = value
+                                onMoved: {
+                Config.volumeStep = value
+                Playback.refreshSettings()
+            }
                             }
                             bottomLine: false
                         }
@@ -2366,7 +2384,7 @@ Item {
                             spacing: 12
                             Text {
                                 height: 36
-                                text: Options.version + " (" + Options.versionCode + ")"
+                                text: Application.version + " (" + Options.versionCode + ")"
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2508,7 +2526,7 @@ Item {
                             Text {
                                 anchors.right: parent.right
                                 height: 36
-                                text: Options.version + " (" + Options.versionCode + ") (Beta)"
+                                text: Application.version + " (" + Options.versionCode + ") (Beta)"
                                 font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14

@@ -8,7 +8,6 @@ Settings {
     category: "Options"
 
     // 全局
-    property real musicVolume: 0.6
     property bool closeToManage: false     // 关闭则最小化到托盘
     property bool rememberWindow: false    // 记住窗口位置和大小
     property int winX: 0
@@ -18,7 +17,6 @@ Settings {
     property bool autoUpdate: false
     property list<string> searchList: []   // 搜索历史
     property bool openShortCut: true
-    property int cycleIndex: 0
     property bool picCache: false
 
     // 播放器

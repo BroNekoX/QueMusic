@@ -63,6 +63,18 @@ mkdir -p "${NAME}"
 cp -a "${BUILD_DIR}/bin"   "${NAME}/bin"
 cp -a "${BUILD_DIR}/_deps" "${NAME}/_deps"
 
+# 构建机生成的 qt.conf（QmlImports 指向构建目录）与本地跑过一次留下的账号数据，都不进包
+rm -f "${NAME}/bin/qt.conf" "${NAME}/bin/Account.ini"
+
+# Qt 自带的 FFmpeg 运行库 + 它们依赖的 Qt FFmpeg stub（libQt6FFmpegStub-*）必须随包带。
+# 用 -DQUEMUSIC_FFMPEG_USE_QT=ON 时主程序直接链 libavcodec.so.61；少了 stub 会在用户机器上报
+#   libQt6FFmpegStub-va.so.2: cannot open shared object file
+QT_LIBDIR="${QT_PREFIX}/lib"
+for f in "${QT_LIBDIR}"/libav*.so.* "${QT_LIBDIR}"/libsw*.so.* "${QT_LIBDIR}"/libQt6FFmpegStub-*.so*; do
+    [ -e "$f" ] || continue
+    cp -a "$f" "${NAME}/bin/"
+done
+
 # 剔掉纯编译中间产物（运行期用不到）
 find "${NAME}/_deps" -type d -name CMakeFiles -prune -exec rm -rf {} + 2>/dev/null || true
 find "${NAME}" -type f \( -name '*.o' -o -name '*.obj' -o -name '*.a' \) -delete 2>/dev/null || true

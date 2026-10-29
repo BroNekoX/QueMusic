@@ -1,4 +1,4 @@
-# 🎵 QueMusic Project
+# QueMusic Project
 
 <p align="center"><img alt="Logo" src="doc/example/logo.png"></p>
 

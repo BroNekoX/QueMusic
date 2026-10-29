@@ -465,7 +465,7 @@ Popup {
             moveDisplaced: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
 
             WheelHandler {
-                property real scrollMultiplier: Qt.application.styleHints.wheelScrollLines / 4
+                property real scrollMultiplier: Application.styleHints.wheelScrollLines / 4
                 onWheel: (event) => {
                     playListView.scrollToY = Math.max(-4, Math.min(playListView.scrollToY - (event.angleDelta.y * scrollMultiplier), playListView.contentHeight - playListView.height + 12))
                     listViewAnime.running = false

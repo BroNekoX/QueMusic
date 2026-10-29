@@ -32,7 +32,9 @@ Button {
 
     // ==== 尺寸控制 ====
     height: 36
-    width: rowItem.width + 32//layout.width + horizontalPadding * 2
+    width: layout.implicitWidth + 32//layout.width + horizontalPadding * 2
+    verticalPadding: (root.height - layout.height) / 2
+    horizontalPadding: (root.width - layout.implicitWidth) / 2
     Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
     
     background: Rectangle {
@@ -63,35 +65,30 @@ Button {
         }
     }
     
-    contentItem: Item {
-        anchors.fill: parent
-        clip: true
+    contentItem: Row {
+        id: layout
+        width: implicitWidth > root.width ? root.width : implicitWidth
+        height: texts.height
+        clip: implicitWidth > root.width
         scale: root.pressed ? root.pressedScale : 1.0
+        spacing: root.textBetween
         Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        Row {
-            id: rowItem
-            anchors.centerIn: parent
-            spacing: root.textBetween
         
-            Text {
-                width: root.iconSize
-                height: root.iconSize
-                text: root.iconCharacter
-                visible: root.iconCharacter !== ""
-                color: root.iconColor
-                font.pixelSize: root.iconSize
-                font.family: root.iconFontFamily
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-            }
-            Text {
-                height: root.iconSize
-                text: root.text
-                color: root.textColor
-                font.pixelSize: root.fontSize
-                font.weight: Font.DemiBold
-                verticalAlignment: Text.AlignVCenter
-            }
+        Text {
+            height: texts.height
+            text: root.iconCharacter
+            visible: root.iconCharacter !== ""
+            color: root.iconColor
+            font.pixelSize: root.iconSize
+            font.family: root.iconFontFamily
+            verticalAlignment: Text.AlignVCenter
+        }
+        Text {
+            id: texts
+            text: root.text
+            color: root.textColor
+            font.pixelSize: root.fontSize
+            font.weight: Font.DemiBold
         }
     }
 }

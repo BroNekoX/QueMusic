@@ -30,6 +30,7 @@ public:
     float resolution[2];
     QColor colors[4];
     QSGTexture *texture;
+    float fade;
 };
 
 // 多算法流体背景：统一输入三个主色 + 封面（内部降采样为低清纹理）
@@ -93,7 +94,9 @@ private:
     QSizeF m_geoSize;
     int m_geoAlgorithm = -1;
     QImage m_coverImage;
-    QSGTexture *m_texture = nullptr;
+    bool m_coverDirty = false;
+    bool m_transitioning = false;
+    float m_fade = 1.0f;
     QNetworkAccessManager *m_network;
     QTimer m_timer;
     QElapsedTimer m_elapsed;

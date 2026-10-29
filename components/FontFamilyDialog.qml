@@ -71,7 +71,7 @@ QOptionDialog {
             }
             WheelHandler {
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+                readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
                 onWheel: (event) => {
                     listViewAnime.running = false;
                     familyList.scrollToY = Math.max(0, Math.min( familyList.scrollToY - (event.angleDelta.y * wheelHeightCount), familyList.contentHeight - familyList.height));

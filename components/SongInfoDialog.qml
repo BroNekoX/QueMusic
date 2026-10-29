@@ -86,13 +86,16 @@ QOptionDialog {
                     color: Theme.textColor
                     verticalAlignment: Text.AlignVCenter
                 }
-                Text {
+                TextInput {
                     width: parent.width - 72
                     height: 22
                     text: infoRow.modelData[1]
                     font.pixelSize: 12
                     color: Theme.fontColor
-                    elide: Text.ElideRight
+                    //elide: Text.ElideRight
+                    readOnly: true
+                    selectByMouse: true
+                    selectionColor: Theme.themeColor
                     verticalAlignment: Text.AlignVCenter
                 }
             }

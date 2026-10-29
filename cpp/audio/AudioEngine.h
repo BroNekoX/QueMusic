@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
-//
-// 播放引擎：FFmpeg 解码线程 → 无锁环形缓冲 → 音频回调线程（DSP + 设备输出）
+
 #pragma once
 
 #include "AudioDsp.h"
@@ -24,6 +23,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -38,7 +38,7 @@ class AudioEngine : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(QUrl source READ source WRITE setSource NOTIFY sourceChanged FINAL)
-    // 远端源的额外请求头（如 WebDAV 的 Authorization），在 setSource 之前写入
+
     Q_PROPERTY(QVariantMap sourceHeaders READ sourceHeaders WRITE setSourceHeaders FINAL)
     Q_PROPERTY(qint64 position READ position WRITE setPosition NOTIFY positionChanged FINAL)
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged FINAL)
@@ -50,8 +50,7 @@ class AudioEngine : public QObject
     Q_PROPERTY(bool pitchCompensation READ pitchCompensation WRITE setPitchCompensation NOTIFY pitchCompensationChanged FINAL)
     Q_PROPERTY(qreal pitchSemitones READ pitchSemitones WRITE setPitchSemitones NOTIFY pitchChanged FINAL)
     Q_PROPERTY(QString deviceId READ deviceId WRITE setDeviceId NOTIFY deviceIdChanged FINAL)
-    // 展示用信息：封面 URL、列表显示名、专辑名由 QML 侧注入（引擎不关心来源）；
-    // 专辑走 TagLib 读出的值（Qt 自己的元数据解析对部分格式不可靠）；onMedia 派生自 mediaStatus
+
     Q_PROPERTY(QString urlStr READ urlStr WRITE setUrlStr NOTIFY urlStrChanged FINAL)
     Q_PROPERTY(QString noTitle READ noTitle WRITE setNoTitle NOTIFY noTitleChanged FINAL)
     Q_PROPERTY(QString album READ album WRITE setAlbum NOTIFY albumChanged FINAL)
@@ -127,7 +126,7 @@ public:
     void setPlaybackRate(qreal rate);
     bool pitchCompensation() const { return m_pitchCompensation.load(std::memory_order_relaxed); }
     void setPitchCompensation(bool on);
-    // 半音为单位，-12 ~ +12；与倍速互不干扰
+
     qreal pitchSemitones() const { return m_pitchSemitones; }
     void setPitchSemitones(qreal semitones);
 
@@ -140,7 +139,7 @@ public:
     void setNoTitle(const QString &name);
     QString album() const { return m_album; }
     void setAlbum(const QString &name);
-    // 有媒体（含加载中/已加载/播放中/结束）：派生值，随 mediaStatusChanged 更新
+
     bool onMedia() const { return m_mediaStatus != NoMedia; }
 
     QString title() const { return m_meta.title; }
@@ -205,18 +204,24 @@ public:
     Q_INVOKABLE void play();
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
-    // 淡变在音频线程逐样本完成，与 GUI 调度无关
+
     Q_INVOKABLE void fadeTo(qreal target, int ms);
     Q_INVOKABLE void fadeOut(int ms);
     Q_INVOKABLE void fadeIn(int ms);
-    // 下一段音频真正出声时再淡入：切歌不靠 QML 计时，过渡自然
+
     Q_INVOKABLE void fadeInOnNextAudio(int ms);
     Q_INVOKABLE void setEqBand(int index, qreal gainDb);
     Q_INVOKABLE void applyEqPreset(const QString &name);
     Q_INVOKABLE QStringList eqPresetNames() const;
     Q_INVOKABLE QStringList eqBandLabels() const;
-    // 订阅频谱：sink 需实现 AudioSpectrumSource，引擎只拿走共享句柄（见 AudioSpectrumSink.h）
+
     Q_INVOKABLE void setSpectrumSink(QObject *sink);
+
+    void prepareNextSource(const QUrl &url, const QVariantMap &headers = {});
+    void clearNextSource();
+    void setTrackAdvancedCallback(std::function<void()> callback);
+
+    void adoptSource(const QUrl &url);
 
 signals:
     void sourceChanged();
@@ -279,12 +284,12 @@ private:
     int decodeRateFor(int deviceRate) const;
     void invokeOnOutput(std::function<void()> fn);
     void publishSpectrumHandle(std::shared_ptr<AudioSpectrumSinkHandle> handle);
-    // 音频线程取句柄：抢不到锁就直接跳过本块，绝不阻塞音频回调
+
     std::shared_ptr<AudioSpectrumSinkHandle> acquireSpectrumHandle();
     void loadSettings();
     void saveSettings();
     void scheduleSave();
-    // 把状态变更与信号发射统一拉回引擎所属线程：音频/解码线程绝不触碰 QML
+
     void postToSelf(std::function<void()> fn);
     void reportSinkError();
     void publishParams(bool eqChanged, bool dspChanged, bool rgChanged, bool limiterChanged);
@@ -297,8 +302,14 @@ private:
     void stopSink();
 
     QUrl m_source;
-    QVariantMap m_sourceHeaders;    // 远端源附加请求头（setSourceHeaders 写入）
-    QVariantMap m_pendingHeaders;   // 与 m_pendingUrl 同锁保护
+    QVariantMap m_sourceHeaders;
+    QVariantMap m_pendingHeaders;
+    QUrl m_nextUrl;
+    QVariantMap m_nextHeaders;
+    std::atomic<bool> m_nextReady{false};
+    std::atomic<bool> m_autoSwitchPending{false};
+    std::function<void()> m_advanceCallback;
+    std::mutex m_callbackMutex;
     qint64 m_durationMs = 0;
     PlaybackState m_playbackState = StoppedState;
     MediaStatus m_mediaStatus = NoMedia;
@@ -307,9 +318,9 @@ private:
     qreal m_volume = 1.0;
     qreal m_playbackRate = 1.0;
     QString m_deviceId;
-    QString m_urlStr;      // 封面 URL（QML 注入，仅供展示）
-    QString m_noTitle;     // 列表显示名 / 文件名（QML 注入，仅供展示）
-    QString m_album;       // 专辑名（QML 注入，仅供展示）
+    QString m_urlStr;
+    QString m_noTitle;
+    QString m_album;
     std::atomic<bool> m_pitchCompensation{false};
     std::atomic<int> m_rateMilli{1000};
     std::atomic<int> m_stretchSpeedMilli{1000};
@@ -320,7 +331,6 @@ private:
     std::atomic<double> m_rgPeak{0.0};
     qint64 m_lastEmittedPosition = -1;
 
-    // sink 与它的拉取定时器都归输出线程，GUI 卡顿影响不到音频
     QThread m_outputThread;
     QObject *m_outputContext = nullptr;
     QAudioSink *m_sink = nullptr;
@@ -331,7 +341,7 @@ private:
     std::atomic<int> m_decodeRate{48000};
     int m_chunkFrames = 4096;
     int m_requestedRate = 0;
-    int m_bufferMs = 0; // loadSettings() 会落定为 10~100 的有效值
+    int m_bufferMs = 0;
 
     AudioRing m_rings[2];
     std::atomic<int> m_ringGen{0};
@@ -371,18 +381,17 @@ private:
     std::atomic<bool> m_decodeEof{false};
     std::atomic<bool> m_drained{false};
     std::atomic<qint64> m_seekRequest{-1};
-    // seek 落地前禁止音频线程发布位置，否则进度条会先弹回旧值
+
     std::atomic<qint64> m_pendingSeekMs{-1};
     std::atomic<qint64> m_lastSeekDoneMs{0};
     std::atomic<bool> m_decodeActive{false};
-    // 重建缓冲期间冻结音频/解码线程：缓冲区一被 resize，旧内存就释放，
-    // 音频线程仍持有旧指针，会直接踩坏堆
+
     std::atomic<bool> m_audioFrozen{false};
     std::atomic<bool> m_decodeParked{false};
 
     QTimer *m_pollTimer = nullptr;
     QTimer *m_saveTimer = nullptr;
-    // 频谱订阅：只保存共享句柄 + 保护它的锁，音频线程绝不直接引用 QObject
+
     QMutex m_spectrumMutex;
     std::shared_ptr<AudioSpectrumSinkHandle> m_spectrumHandle;
     qint64 m_lastSinkErrorMs = 0;

@@ -32,10 +32,12 @@ QtObject {
     property bool homeLoaded: false    // 首页是否已加载
     property bool playlistLoaded: false  // 分类是否已加载
     property bool recordingShortCut: false
-    readonly property string version: "0.7.0"
-    readonly property int versionCode: 70
+    readonly property int versionCode: 71
     readonly property int pluginApi: 10
     property string searchText: ""
+    property bool isSmall: Style.leftBarMode === 0 ? (mainLayout.width < 1080) : Style.leftBarMode === 1 ? false : true
+    property real barWidth: isSmall ? 74 : 210
+    Behavior on barWidth { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
 
     // 最后播放的歌曲（关闭软件时保存，下次打开首页显示）
     property OptionsLastSongs lastSongs: OptionsLastSongs {}
@@ -47,7 +49,7 @@ QtObject {
     signal warned(string text, int type)
     signal reSearch()
 
-    readonly property bool darkis: Style.theme === 0 ? false : Style.theme === 1 ? true : Qt.application.styleHints.colorScheme === Qt.ColorScheme.Dark
+    readonly property bool darkis: Style.theme === 0 ? false : Style.theme === 1 ? true : Application.styleHints.colorScheme === Qt.ColorScheme.Dark
     onDarkisChanged: Options.changeTheme()
 
     onChangeTheme: {

@@ -46,6 +46,7 @@ Settings {
     property int homeLayout: 0 //首页布局 0.默认 1.竖向 2.混合
     property bool noOpacityControl: false //透明底部播放栏
     property bool coverColorControl: false
+    property int leftBarMode: 0
 
     // UI设置
     property bool sidebarColor: true

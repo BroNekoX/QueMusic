@@ -93,6 +93,7 @@ ListView {
                     width: menuItem.width - 4
                     height: menuItem.height - 4
                     color: menuItem.hovered ? Theme.hoverColor : "transparent"
+                    Behavior on color { ColorAnimation { duration: 80 } }
                 }
                 text: modelData
                 contentItem: Text {
@@ -130,7 +131,7 @@ ListView {
     }
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        readonly property real wheelHeightCount: Qt.application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
         readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin + view.originY
         onWheel: (event) => {
             listViewAnime.running = false;

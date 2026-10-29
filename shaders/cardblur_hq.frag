@@ -38,11 +38,15 @@ void main() {
 
     vec4  col   = vec4(0.0);
     float total = 0.0;
+    // 注意：GLSL ES 1.00 没有 abs(int)，qsb 生成的 100es 变体会把 int 隐式转 float，
+    // NVIDIA 等严格驱动会直接编译失败（error C7011）。所以权重一律用 float 计算。
     for (int j = -R; j <= R; ++j) {
-        float wj = float(R + 1 - abs(j));
+        const float fj = float(j);
+        const float wj = float(R + 1) - abs(fj);
         for (int i = -R; i <= R; ++i) {
-            float w = wj * float(R + 1 - abs(i));
-            col   += textureLod(src, qt_TexCoord0 + vec2(float(i), float(j)) * texel, lod0) * w;
+            const float fi = float(i);
+            const float w = wj * (float(R + 1) - abs(fi));
+            col   += textureLod(src, qt_TexCoord0 + vec2(fi, fj) * texel, lod0) * w;
             total += w;
         }
     }

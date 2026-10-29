@@ -98,7 +98,7 @@ Item {
     MeshGradientItem {
         anchors.fill: parent
         visible: LyricsFreeConfig.bgStyle === 0 && Style.flowStyle !== 2
-        coverUrl: mainLyrics.coverUrl || "qrc:/QueMusic/resources/app/musicpic.png"
+        coverUrl: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
         color1: mainLyrics.mainColor
         color2: mainLyrics.secondColor
         color3: mainLyrics.thirdColor
@@ -528,11 +528,12 @@ Item {
                     textFormat: Text.PlainText
                     font.weight: Style.textWidth
                     font.pixelSize: lyricContent.lyricHeight
-                    color: lyricItem.flowWords ? Qt.rgba(0.91,0.91,0.91,1.0) : Qt.rgba(0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,0.91 + lyricItem.opacityAnime * 0.09,1.0)
+                    color: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : "#ffffff"
                     transformOrigin: lyricItem.modelData.isOther ? Item.BottomRight : Item.BottomLeft
                     wrapMode: Text.Wrap
                     scale: lyricItem.isCurrent && !lyricItem.flowWords ? LyricsFreeConfig.lyricCurrentScale : 1.00
-                    opacity: lyricItem.flowWords ? LyricsFreeConfig.lyricIdleOpacity : (LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.4)
+                    opacity: lyricItem.flowWords ? LyricsFreeConfig.lyricIdleAlpha
+                                                 : LyricsFreeConfig.lyricIdleAlpha + lyricItem.opacityAnime * (1 - LyricsFreeConfig.lyricIdleAlpha)
                     visible: lyricItem.flowWords ? !lyricItem.isFlowActive : true
                     horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
@@ -550,8 +551,8 @@ Item {
                     horizontalAlignment: lyricItem.modelData.isOther ? Text.AlignRight : Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
                     font.weight: Style.textWidth
-                    color: "#ffe8e8e8"
-                    opacity: LyricsFreeConfig.lyricIdleOpacity + lyricItem.opacityAnime * 0.2
+                    color: "#ffffff"
+                    opacity: 0.30 + lyricItem.opacityAnime * 0.12
                     Behavior on scale { NumberAnimation { duration: 640; easing.type: Easing.InOutCubic } }
                     font.pixelSize: lyricContent.lyricHeight / 1.5
                 }
@@ -587,7 +588,8 @@ Item {
                             property real itemWidthPx: width * Screen.devicePixelRatio
                             property real softnessPx: 16 * Screen.devicePixelRatio
                             property real progressOpacity: lyricItem.opacityAnime
-                            property color progressColor: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffffff"
+                            property color progressColor: LyricsFreeConfig.lyricSungColor !== "" ? LyricsFreeConfig.lyricSungColor : "#ffffff"
+                            property real unsungAlpha: lyricItem.isCurrent ? 0.40 : LyricsFreeConfig.lyricIdleAlpha
                             fragmentShader: "qrc:/shaders/shaders/lyricFill.frag.qsb"
 
                             transform: Translate { id: textTransform; y: 0 }
@@ -610,7 +612,7 @@ Item {
                                 font.weight: Style.textWidth
                                 font.pixelSize: lyricContent.lyricHeight
                                 font.family: lyricsText.font.family
-                                color: LyricsFreeConfig.lyricLineColor !== "" && lyricItem.isCurrent ? LyricsFreeConfig.lyricLineColor : "#ffe8e8e8"
+                                color: LyricsFreeConfig.lyricLineColor !== "" ? LyricsFreeConfig.lyricLineColor : "#ffffff"
                                 visible: false
                                 layer.enabled: true
                                 layer.smooth: true
@@ -710,7 +712,7 @@ Item {
             onWheel: (event) => {
                 lyricContent.isUserScrolling = true;
                 scrollAnime.running = false;
-                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Qt.application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
+                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
                 scrollAnime.to = to;
                 scrollAnime.running = true;
                 event.accepted = true;
@@ -939,12 +941,12 @@ Item {
                     width: 160; height: 36
                     leftText: true
                     valueText: value + "%"
-                    value: Math.round(LyricsFreeConfig.lyricIdleOpacity * 100)
-                    onMoved: LyricsFreeConfig.lyricIdleOpacity = value / 100
+                    value: Math.round(LyricsFreeConfig.lyricIdleAlpha * 100)
+                    onMoved: LyricsFreeConfig.lyricIdleAlpha = value / 100
                 }
             }
             SettingItem {
-                label: "逐字唱后颜色"
+                label: "当前行逐字颜色"
                 width: parent.width
                 Rectangle {
                     anchors.right: parent.right
@@ -966,7 +968,7 @@ Item {
                 }
             }
             SettingItem {
-                label: "唱行颜色"
+                label: "歌词默认颜色"
                 width: parent.width
                 Rectangle {
                     anchors.right: parent.right

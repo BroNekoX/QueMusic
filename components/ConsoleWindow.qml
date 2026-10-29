@@ -81,7 +81,7 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
             }
             Text {
-                text: "v" + Options.version
+                text: "v" + Application.version
                 color: "#7c8190"
                 font.pixelSize: 10
                 anchors.verticalCenter: parent.verticalCenter
@@ -576,7 +576,7 @@ Window {
             { label: "声道", value: infoPage.value(infoPage.player.sourceChannels, "") },
             { label: "输出采样率", value: infoPage.value(infoPage.player.outputSampleRate, " Hz") },
             { label: "缓冲", value: infoPage.value(infoPage.player.bufferMs, " ms") },
-            { label: "音量", value: Math.round(Config.musicVolume * 100) + "%" },
+            { label: "音量", value: Math.round(Playback.volume * 100) + "%" },
             { label: "倍速", value: infoPage.player.playbackRate.toFixed(2) + "×" },
             { label: "版本", value: "v" + Options.version },
             { label: "日志文件", value: LogManager.currentLogFile || "—", mono: true }

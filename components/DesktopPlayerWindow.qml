@@ -71,16 +71,9 @@ Window {
         anchors.fill: parent
         anchors.margins: 10
         z: 0
-        property real dragOffsetX: 0
-        property real dragOffsetY: 0
-        onPressed: (mouse) => {
-            dragOffsetX = mouse.x;
-            dragOffsetY = mouse.y;
-        }
         onPositionChanged: (mouse) => {
             if (pressed) {
-                desktopPlayerWindow.x = desktopPlayerWindow.x + (mouse.x - dragOffsetX);
-                desktopPlayerWindow.y = desktopPlayerWindow.y + (mouse.y - dragOffsetY);
+                desktopPlayerWindow.startSystemMove();
             }
         }
     }
@@ -214,11 +207,7 @@ Window {
                 shadowEnabled: false
                 iconSize: Style.texticon - 2
                 onClicked: {
-                    if(Config.cycleIndex < 3) {
-                        Config.cycleIndex += 1;
-                    } else {
-                        Config.cycleIndex = 0;
-                    }
+                    Playback.cycleIndex = Playback.cycleIndex < 3 ? Playback.cycleIndex + 1 : 0;
                 }
                 tipText: "播放顺序"
             }

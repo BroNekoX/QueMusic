@@ -283,6 +283,7 @@ void QueueModel::append(const QVariantMap &item)
     if (!track.path.isEmpty() && !m_indexOfPath.contains(track.path))
         m_indexOfPath.insert(track.path, index);
     emit countChanged();
+    emit contentsChanged();
 }
 
 int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
@@ -313,6 +314,7 @@ int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
     endInsertRows();
     appendIndex(first);
     emit countChanged();
+    emit contentsChanged();
     return int(tracks.size());
 }
 
@@ -328,6 +330,7 @@ void QueueModel::insert(int index, const QVariantMap &item)
         emit playListIndexChanged();
     }
     emit countChanged();
+    emit contentsChanged();
 }
 
 void QueueModel::moveTo(int from, int to)
@@ -343,6 +346,7 @@ void QueueModel::moveTo(int from, int to)
     m_items.move(from, dest);
     endMoveRows();
     rebuildIndex();
+    emit contentsChanged();
 
     if (m_playListIndex >= 0) {
         int moved = m_playListIndex;
@@ -368,13 +372,22 @@ void QueueModel::remove(int index, int count)
     m_items.remove(index, count);
     endRemoveRows();
     rebuildIndex();
-    if (m_playListIndex >= index) {
-        m_playListIndex = qMax(0, qMin(m_playListIndex - count, int(m_items.size()) - 1));
-        if (m_items.isEmpty())
-            m_playListIndex = -1;
+
+    int nextIndex = m_playListIndex;
+    if (nextIndex >= 0) {
+        if (nextIndex >= index + count)
+            nextIndex -= count;
+        else if (nextIndex >= index)
+            nextIndex = -1;
+    }
+    if (m_items.isEmpty())
+        nextIndex = -1;
+    if (nextIndex != m_playListIndex) {
+        m_playListIndex = nextIndex;
         emit playListIndexChanged();
     }
     emit countChanged();
+    emit contentsChanged();
 }
 
 void QueueModel::clear()
@@ -390,6 +403,7 @@ void QueueModel::clear()
         emit playListIndexChanged();
     }
     emit countChanged();
+    emit contentsChanged();
 }
 
 int QueueModel::indexOfPath(const QString &path) const
@@ -564,6 +578,7 @@ void QueueModel::loadPlaylist(int id)
                 emit self->playListIndexChanged();
             }
             emit self->countChanged();
+            emit self->contentsChanged();
             emit self->playlistLoaded(id, name, int(songs.size()));
         });
     });

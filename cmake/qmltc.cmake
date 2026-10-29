@@ -47,7 +47,6 @@ set(QUE_MUSIC_QMLTC_ALLOWED
     components/OptionsSettings.qml
     components/OptionsLastSongs.qml
     components/OptionsShortCuts.qml
-    components/Playback.qml
     components/QBigDrop.qml
     components/QFloatCard.qml
     components/QHead.qml

@@ -1532,13 +1532,13 @@ Item {
                     }
                 }
                 delegate: Rectangle {
-                    required property url fileUrl
+                    required property string fileUrl
                     required property string fileName
                     required property string title
                     required property string artist
                     required property int duration
-                    required property var model
                     required property int index
+                    required property string coverUrl
                     id: listLocalFile
                     height: 60
                     width: localFileView.width - 16
@@ -1553,11 +1553,6 @@ Item {
                     ListView.onPooled: { listLocalFile.transY = 0; listLocalFile.opacity = 1; }
 
                     readonly property string rowPath: listLocalFile.fileUrl ? listLocalFile.fileUrl.toString() : ""
-                    readonly property string coverUrl: {
-                        if (model.coverUrl !== "") return model.coverUrl;
-                        if (!rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        return MusicApi.readLocalCoverHint(rowPath) || "qrc:/QueMusic/resources/app/musicpic.png";
-                    }
                     property string songTitle: listLocalFile.title || listLocalFile.fileName
                     property string artistName: listLocalFile.artist || ""
 
@@ -1569,7 +1564,11 @@ Item {
                         z: 4
                         width: 44
                         height: 44
-                        source: listLocalFile.coverUrl
+                        source: {
+                            if (listLocalFile.coverUrl !== "") return listLocalFile.coverUrl;
+                            if (!listLocalFile.rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
+                            return MusicApi.readLocalCoverHint(listLocalFile.rowPath) || "qrc:/QueMusic/resources/app/musicpic.png";
+                        }
                         radius1: 10
                         radius2: 10
                         radius3: 10

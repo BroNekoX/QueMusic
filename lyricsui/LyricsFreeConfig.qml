@@ -18,7 +18,7 @@ Settings {
     property real lyricSpacingScale: 1.0
     property int lyricCardAngle: 0
     property real lyricCurrentScale: 1.02
-    property real lyricIdleOpacity: 0.5
+    property real lyricIdleAlpha: 0.26
     property string lyricSungColor: ""
     property string lyricLineColor: ""
 }

@@ -76,6 +76,7 @@ public:
     ~MusicApiService() override;
 
     static MusicApiService *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
+    static MusicApiService *instance();
     static void setSharedAccountManager(AccountManager *am);
 
     void setAccountManager(AccountManager *am);
@@ -160,6 +161,8 @@ public:
     Q_INVOKABLE void getSingerSongs(const QString &singerid, int page = 1, int pageSize = 20,
                                     int source = -1);
     Q_INVOKABLE void getMusicInfo(const QString &hash, int type = 0, int source = -1);
+    Q_INVOKABLE void prefetchMusicInfo(const QString &hash, int source = -1);
+    void invalidatePlayRequest();
     Q_INVOKABLE void getLyricInfo(const QString &hash, int duration, int source = -1);
     Q_INVOKABLE void getPersonalFm(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
@@ -186,6 +189,9 @@ signals:
     void urlplay(const QString &playurl, const QString &title, const QString &artist,
                  const QString &cover, const QString &solve, const QString &hash, int source);
     void warned(const QString &text, int type);
+    void playUrlReady(const QString &hash, const QString &url, const QString &title,
+                      const QString &artist, const QString &cover, int duration, int source);
+    void playFailed(const QString &hash, int source);
     void songSourceChanged();
     void soundQualityChanged();
     void sourcesChanged();
@@ -270,6 +276,7 @@ private:
     ScriptSourceHost m_scripts;
     AccountManager *m_account = nullptr;
     static AccountManager *s_accountManager;
+    static MusicApiService *s_instance;
 
     OnlineListModel m_searchSongsResults;
     OnlineListModel m_newSongs;

@@ -8,33 +8,52 @@ Item {
     property list<Item> pageList: []
     property int lastIndex: 0
     function stack(index: int): void {
-        pageInAnime.stop()
-        opacityAnime.target = root.pageList[index]
-        yAnime.target = root.pageList[index]
-        pageInAnime.start()
-        root.pageList[root.lastIndex].visible = false
-        root.pageList[index].visible = true
-        root.lastIndex = index
+        pageInAnime.running = false;
+        pageOutAnime.running = false;
+        pageInAnime.target = root.pageList[index];
+        pageOutAnime.target = root.pageList[root.lastIndex];
+        pageOutAnime.running = true;
+        pageInAnime.running = true;
+        root.pageList[index].visible = true;
+        root.lastIndex = index;
     }
     
     ParallelAnimation {
         id: pageInAnime
+        property Item target
         NumberAnimation {
-            id: opacityAnime
             property: "opacity"
+            target: pageInAnime.target
             from: 0
             to: 1
             duration: 360
             easing.type: Easing.OutExpo
         }
         NumberAnimation {
-            id: yAnime
             property: "scale"
-            from: 0.9
+            target: pageInAnime.target
+            from: 0.8
             to: 1.0
             duration: 360
             easing.type: Easing.OutExpo
         }
+    }
+    ParallelAnimation {
+        id: pageOutAnime
+        property Item target
+        NumberAnimation {
+            property: "opacity"
+            target: pageOutAnime.target
+            to: 0
+            duration: 120
+        }
+        NumberAnimation {
+            property: "scale"
+            target: pageOutAnime.target
+            to: 0.9
+            duration: 120
+        }
+        onFinished: target.visible = false;
     }
 
 }

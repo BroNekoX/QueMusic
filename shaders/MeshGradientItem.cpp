@@ -136,10 +136,8 @@ public:
         Q_ASSERT(buf->size() >= kUniformSize);
         if (state.isMatrixDirty())
             memcpy(buf->data(), state.combinedMatrix().constData(), 64);
-        if (state.isOpacityDirty()) {
-            const float opacity = state.opacity();
-            memcpy(buf->data() + 64, &opacity, 4);
-        }
+        const float opacity = state.opacity() * mat->fade;
+        memcpy(buf->data() + 64, &opacity, 4);
         memcpy(buf->data() + 68, &mat->time, 4);
         memcpy(buf->data() + 72, mat->resolution, 8);
         for (int i = 0; i < 4; ++i) {
@@ -163,6 +161,31 @@ public:
     }
 };
 
+class CoverNode : public QSGGeometryNode
+{
+public:
+    ~CoverNode() override { delete texture; }
+    QSGTexture *texture = nullptr;
+};
+
+class CoverRoot : public QSGNode
+{
+public:
+    CoverNode *current = nullptr;
+    CoverNode *previous = nullptr;
+};
+
+void setQuadVertices(QSGGeometry *geo, const QRectF &rect)
+{
+    const float w = float(rect.width());
+    const float h = float(rect.height());
+    QSGGeometry::TexturedPoint2D *vp = geo->vertexDataAsTexturedPoint2D();
+    vp[0].set(0, h, 0, 1);
+    vp[1].set(0, 0, 0, 0);
+    vp[2].set(w, h, 1, 1);
+    vp[3].set(w, 0, 1, 0);
+}
+
 } // namespace
 
 BackgroundMaterial::BackgroundMaterial(int alg)
@@ -170,6 +193,7 @@ BackgroundMaterial::BackgroundMaterial(int alg)
     , time(0.0f)
     , resolution{1.0f, 1.0f}
     , texture(nullptr)
+    , fade(1.0f)
 {
     setFlag(Blending, false);
 }
@@ -199,6 +223,8 @@ int BackgroundMaterial::compare(const QSGMaterial *other) const
         if (a != b)
             return a < b ? -1 : 1;
     }
+    if (fade != o->fade)
+        return fade < o->fade ? -1 : 1;
     return 0;
 }
 
@@ -209,7 +235,15 @@ MeshGradientItem::MeshGradientItem(QQuickItem *parent)
     setFlag(ItemHasContents, true);
     m_timer.setInterval(16);
     connect(&m_timer, &QTimer::timeout, this, [this] {
-        m_time += float(m_elapsed.restart()) / 1000.0f * float(m_flowSpeed);
+        const float dt = float(m_elapsed.restart()) / 1000.0f;
+        m_time += dt * float(m_flowSpeed);
+        if (m_transitioning) {
+            m_fade += dt / 0.6f;
+            if (m_fade >= 1.0f) {
+                m_fade = 1.0f;
+                m_transitioning = false;
+            }
+        }
         update();
     });
     connect(m_network, &QNetworkAccessManager::finished, this, [this](QNetworkReply *reply) {
@@ -257,7 +291,7 @@ void MeshGradientItem::applyCover(const QImage &img)
     if (img.isNull())
         return;
     m_coverImage = img;
-    m_geoSize = QSizeF(); // 切歌重掷地形
+    m_coverDirty = true;
     update();
 }
 
@@ -428,18 +462,49 @@ QSGGeometry *makeWarpGeometry(float width, float height)
 
 QSGNode *MeshGradientItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
 {
-    auto *node = static_cast<QSGGeometryNode *>(old);
-    if (!node) {
-        node = new QSGGeometryNode;
-        node->setFlag(QSGNode::OwnsGeometry, true);
-        node->setMaterial(new BackgroundMaterial(m_algorithm));
-        node->setFlag(QSGNode::OwnsMaterial, true);
-    } else if (static_cast<BackgroundMaterial *>(node->material())->algorithm != m_algorithm) {
-        node->setMaterial(new BackgroundMaterial(m_algorithm));
-    }
-    auto *mat = static_cast<BackgroundMaterial *>(node->material());
+    auto *root = static_cast<CoverRoot *>(old);
+    if (!root)
+        root = new CoverRoot;
 
-    // 纹理属性只需在创建时设置一次
+    if (m_coverDirty) {
+        m_coverDirty = false;
+        if (root->current) {
+            if (root->previous) {
+                root->removeChildNode(root->previous);
+                delete root->previous;
+            }
+            root->removeChildNode(root->current);
+            root->previous = root->current;
+            root->current = nullptr;
+            root->appendChildNode(root->previous);
+            m_transitioning = true;
+            m_fade = 0.0f;
+        } else {
+            m_transitioning = false;
+            m_fade = 1.0f;
+        }
+        m_geoSize = QSizeF();
+        m_geoAlgorithm = -1;
+    }
+
+    if (!root->current) {
+        auto *node = new CoverNode;
+        node->setFlag(QSGNode::OwnsGeometry, true);
+        node->setFlag(QSGNode::OwnsMaterial, true);
+        node->setMaterial(new BackgroundMaterial(m_algorithm));
+        root->appendChildNode(node);
+        root->current = node;
+        m_geoSize = QSizeF();
+        m_geoAlgorithm = -1;
+    }
+
+    CoverNode *cur = root->current;
+    if (static_cast<BackgroundMaterial *>(cur->material())->algorithm != m_algorithm) {
+        cur->setMaterial(new BackgroundMaterial(m_algorithm));
+        m_geoSize = QSizeF();
+        m_geoAlgorithm = -1;
+    }
+
     const auto setupTexture = [this](QSGTexture *tex) {
         tex->setFiltering(QSGTexture::Linear);
         // 镜像重复：UV 旋转出界按正反正反取样，处处连续
@@ -447,47 +512,61 @@ QSGNode *MeshGradientItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
         tex->setVerticalWrapMode(QSGTexture::MirroredRepeat);
         return tex;
     };
-    if (!m_coverImage.isNull()) {
-        delete m_texture;
-        m_texture = setupTexture(window()->createTextureFromImage(m_coverImage));
+    if (!cur->texture && !m_coverImage.isNull()) {
+        cur->texture = setupTexture(window()->createTextureFromImage(m_coverImage));
         m_coverImage = QImage();
     }
-    if (!m_texture) {
+    if (!cur->texture) {
         QImage fallback(4, 4, QImage::Format_RGB32);
         fallback.fill(m_colors[0]);
-        m_texture = setupTexture(window()->createTextureFromImage(fallback));
+        cur->texture = setupTexture(window()->createTextureFromImage(fallback));
     }
-
-    for (int i = 0; i < 3; ++i)
-        mat->colors[i] = m_colors[i];
-    mat->colors[3] = m_colors[2].darker(200);
-    mat->texture = m_texture;
-    mat->time = m_time;
-    mat->resolution[0] = float(width());
-    mat->resolution[1] = float(height());
-    node->markDirty(QSGNode::DirtyMaterial);
 
     const QRectF r = boundingRect();
     const bool sizeValid = r.width() > 1.0 && r.height() > 1.0;
-    if (sizeValid && (!node->geometry() || m_geoAlgorithm != m_algorithm || m_geoSize != r.size())) {
-        node->setGeometry(m_algorithm == 0
-                              ? makeQuadGeometry()
-                              : makeWarpGeometry(float(r.width()), float(r.height())));
+    if (sizeValid && (!cur->geometry() || m_geoAlgorithm != m_algorithm || m_geoSize != r.size())) {
+        cur->setGeometry(m_algorithm == 0
+                             ? makeQuadGeometry()
+                             : makeWarpGeometry(float(r.width()), float(r.height())));
         m_geoAlgorithm = m_algorithm;
         m_geoSize = r.size();
-        node->markDirty(QSGNode::DirtyGeometry);
+    }
+    if (m_algorithm == 0 && cur->geometry()) {
+        setQuadVertices(cur->geometry(), r);
+        cur->markDirty(QSGNode::DirtyGeometry);
     }
 
-    if (m_algorithm == 0 && node->geometry()) {
-        // Fluid：铺满屏幕的平面，形变完全在片元着色器
-        const float w = float(r.width());
-        const float h = float(r.height());
-        QSGGeometry::TexturedPoint2D *vp = node->geometry()->vertexDataAsTexturedPoint2D();
-        vp[0].set(0, h, 0, 1);
-        vp[1].set(0, 0, 0, 0);
-        vp[2].set(w, h, 1, 1);
-        vp[3].set(w, 0, 1, 0);
-        node->markDirty(QSGNode::DirtyGeometry);
+    const float eased = m_fade * m_fade * (3.0f - 2.0f * m_fade);
+    auto *mat = static_cast<BackgroundMaterial *>(cur->material());
+    mat->fade = m_transitioning ? eased : 1.0f;
+    mat->setFlag(QSGMaterial::Blending, mat->fade < 0.999f);
+    for (int i = 0; i < 3; ++i)
+        mat->colors[i] = m_colors[i];
+    mat->colors[3] = m_colors[2].darker(200);
+    mat->texture = cur->texture;
+    mat->time = m_time;
+    mat->resolution[0] = float(width());
+    mat->resolution[1] = float(height());
+    cur->markDirty(QSGNode::DirtyMaterial);
+
+    if (root->previous) {
+        CoverNode *previous = root->previous;
+        if (!m_transitioning) {
+            root->removeChildNode(previous);
+            delete previous;
+            root->previous = nullptr;
+        } else {
+            auto *previousMat = static_cast<BackgroundMaterial *>(previous->material());
+            previousMat->fade = 1.0f;
+            previousMat->setFlag(QSGMaterial::Blending, false);
+            previousMat->texture = previous->texture;
+            previousMat->time = m_time;
+            if (previousMat->algorithm == 0 && previous->geometry()) {
+                setQuadVertices(previous->geometry(), r);
+                previous->markDirty(QSGNode::DirtyGeometry);
+            }
+            previous->markDirty(QSGNode::DirtyMaterial);
+        }
     }
-    return node;
+    return root;
 }

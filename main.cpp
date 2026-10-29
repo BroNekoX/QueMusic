@@ -10,6 +10,8 @@
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
 #include <QSettings>
+#include <QFont>
+#include <QVersionNumber>
 #include <QTimer>
 #include "cpp/AccountManager.h"
 #include "cpp/LogManager.h"
@@ -41,9 +43,71 @@ static void setupApplicationMetadata(QApplication &application)
     // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
     application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
     application.setApplicationName(QStringLiteral("QueMusic"));
+    application.setApplicationVersion(QStringLiteral("0.7.1"));
     // Wayland app_id / Flatpak / 桌面集成：必须与 .desktop 文件名、AppStream <id> 一致
     application.setDesktopFileName(QStringLiteral("io.github.BroNekoX.QueMusic"));
 }
+
+#if defined(Q_OS_LINUX)
+static void applyKdeFontDescription(QApplication &app, const QString &desc)
+{
+    const QStringList f = desc.trimmed().split(QLatin1Char(','));
+    if (f.size() < 9 || f.first().isEmpty())
+        return;
+
+    QFont font = app.font();
+    font.setFamily(f.at(0));
+
+    bool ok = false;
+    const double pointSize = f.at(1).toDouble(&ok);
+    if (ok && pointSize > 0.0)
+        font.setPointSizeF(pointSize);
+
+    const int pixelSize = f.at(2).toInt(&ok);
+    if (ok && pixelSize > 0)
+        font.setPixelSize(pixelSize);
+
+    font.setStyleHint(static_cast<QFont::StyleHint>(f.at(3).toInt()));
+    const int weight = f.at(4).toInt(&ok);
+    if (ok && weight > 0)
+        font.setWeight(QFont::Weight(weight));
+    font.setStyle(static_cast<QFont::Style>(f.at(5).toInt()));
+    font.setUnderline(f.at(6).toInt() != 0);
+    font.setStrikeOut(f.at(7).toInt() != 0);
+    font.setFixedPitch(f.at(8).toInt() != 0);
+
+    if (f.size() > 10)
+        font.setCapitalization(static_cast<QFont::Capitalization>(f.at(10).toInt()));
+    if (f.size() > 12)
+        font.setLetterSpacing(static_cast<QFont::SpacingType>(f.at(11).toInt()), f.at(12).toDouble());
+    if (f.size() > 13)
+        font.setWordSpacing(f.at(13).toDouble());
+    if (f.size() > 14)
+        font.setStretch(f.at(14).toInt());
+    if (f.size() > 15)
+        font.setStyleStrategy(static_cast<QFont::StyleStrategy>(f.at(15).toInt()));
+    if (f.size() > 16 && !f.at(16).isEmpty())
+        font.setStyleName(f.at(16));
+
+    app.setFont(font);
+}
+
+static void applyKdeFontWorkaround(QApplication &app)
+{
+    // Qt 6.11 起 QFont::fromString 已支持 19 字段，不再需要兜底。
+    if (QVersionNumber::fromString(QString::fromLatin1(qVersion())) >= QVersionNumber(6, 11))
+        return;
+
+    if (!qEnvironmentVariable("XDG_CURRENT_DESKTOP").contains(QLatin1String("KDE"), Qt::CaseInsensitive)
+        && qEnvironmentVariableIsEmpty("KDE_FULL_SESSION"))
+        return;
+
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                         + QStringLiteral("/kdeglobals");
+    QSettings kde(path, QSettings::IniFormat);
+    applyKdeFontDescription(app, kde.value(QStringLiteral("General/font")).toString());
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -60,6 +124,9 @@ int main(int argc, char *argv[])
 
     QQuickWindow::setDefaultAlphaBuffer(true);
     setupApplicationMetadata(application);
+#if defined(Q_OS_LINUX)
+    applyKdeFontWorkaround(application);
+#endif
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);

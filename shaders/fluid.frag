@@ -53,7 +53,9 @@ void main()
         vec2 pos = getPosition(i < 4 ? i : i + 4, t);
         pos.x *= aspect;
         float weight = 1.0 / (pow(length(rotated - pos), 4.0) + 1e-3);
-        color += u_colors[i % 4].rgb * u_colors[i % 4].a * weight;
+        // GLSL ES 1.00 没有整数取模（qsb 的 100es 变体会被严格驱动拒绝），用 mod 代替
+        const int ci = int(mod(float(i), 4.0));
+        color += u_colors[ci].rgb * u_colors[ci].a * weight;
         totalWeight += weight;
     }
 
