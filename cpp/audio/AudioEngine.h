@@ -11,6 +11,7 @@
 
 #include <QAudioDevice>
 #include <QAudioFormat>
+#include <QMediaDevices>
 #include <QMutex>
 #include <QThread>
 #include <QObject>
@@ -49,7 +50,10 @@ class AudioEngine : public QObject
     Q_PROPERTY(qreal playbackRate READ playbackRate WRITE setPlaybackRate NOTIFY playbackRateChanged FINAL)
     Q_PROPERTY(bool pitchCompensation READ pitchCompensation WRITE setPitchCompensation NOTIFY pitchCompensationChanged FINAL)
     Q_PROPERTY(qreal pitchSemitones READ pitchSemitones WRITE setPitchSemitones NOTIFY pitchChanged FINAL)
-    Q_PROPERTY(QString deviceId READ deviceId WRITE setDeviceId NOTIFY deviceIdChanged FINAL)
+    Q_PROPERTY(QString deviceId READ deviceId NOTIFY deviceIdChanged FINAL)
+    Q_PROPERTY(QStringList audioDevices READ audioDevices NOTIFY audioDevicesChanged FINAL)
+    Q_PROPERTY(int deviceIndex READ deviceIndex WRITE setDeviceIndex NOTIFY deviceIndexChanged FINAL)
+    Q_PROPERTY(bool followSystemDevice READ followSystemDevice WRITE setFollowSystemDevice NOTIFY followSystemDeviceChanged FINAL)
 
     Q_PROPERTY(QString urlStr READ urlStr WRITE setUrlStr NOTIFY urlStrChanged FINAL)
     Q_PROPERTY(QString noTitle READ noTitle WRITE setNoTitle NOTIFY noTitleChanged FINAL)
@@ -132,6 +136,11 @@ public:
 
     QString deviceId() const { return m_deviceId; }
     void setDeviceId(const QString &id);
+    QStringList audioDevices() const { return m_deviceNames; }
+    int deviceIndex() const;
+    void setDeviceIndex(int index);
+    bool followSystemDevice() const { return m_deviceId.isEmpty(); }
+    void setFollowSystemDevice(bool on);
 
     QString urlStr() const { return m_urlStr; }
     void setUrlStr(const QString &url);
@@ -204,6 +213,8 @@ public:
     Q_INVOKABLE void play();
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
+    void playSource(const QUrl &url, const QVariantMap &headers = {}, int fadeInMs = 0);
+    void beginLoading() { setMediaStatus(LoadingMedia); }
 
     Q_INVOKABLE void fadeTo(qreal target, int ms);
     Q_INVOKABLE void fadeOut(int ms);
@@ -237,6 +248,9 @@ signals:
     void pitchCompensationChanged();
     void pitchChanged();
     void deviceIdChanged();
+    void audioDevicesChanged();
+    void deviceIndexChanged();
+    void followSystemDeviceChanged();
     void urlStrChanged();
     void noTitleChanged();
     void albumChanged();
@@ -298,6 +312,11 @@ private:
     void emitError(int code, const QString &message);
     void pollState();
     QAudioDevice resolveDevice() const;
+    bool deviceExists(const QString &id) const;
+    QString targetDeviceId() const;
+    bool refreshDeviceList();
+    void refreshDevices();
+    void scheduleDeviceRefresh();
     void startSink();
     void stopSink();
 
@@ -318,6 +337,10 @@ private:
     qreal m_volume = 1.0;
     qreal m_playbackRate = 1.0;
     QString m_deviceId;
+    QString m_activeDeviceId;
+    QStringList m_deviceNames;
+    QList<QAudioDevice> m_outputs;
+    QMediaDevices m_devices;
     QString m_urlStr;
     QString m_noTitle;
     QString m_album;
@@ -391,6 +414,7 @@ private:
 
     QTimer *m_pollTimer = nullptr;
     QTimer *m_saveTimer = nullptr;
+    QTimer *m_deviceTimer = nullptr;
 
     QMutex m_spectrumMutex;
     std::shared_ptr<AudioSpectrumSinkHandle> m_spectrumHandle;

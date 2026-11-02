@@ -17,11 +17,11 @@ Popup {
     x: parent.width - 380
     y: 80
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
     // 本地音乐没有在线评论，直接不显示分页
     readonly property bool isLocal: !String(Playback.player.source).startsWith("http")
+    readonly property string currentHash: Playback.musicHash
     readonly property real bodyY: isLocal ? 176 : 216
+    onCurrentHashChanged: if (root.visible) root.refreshComments()
     // 评论页码：首页可能带热评，不能用「总条数 / 30」反推下一页
     property int commentPage: 1
 
@@ -40,11 +40,6 @@ Popup {
     onOpened: {
         tabs.index = 0
         MusicApi.comments.clear()
-    }
-
-    Connections {
-        target: Playback
-        function onMusicHashChanged(): void { root.refreshComments() }
     }
 
     background: QBlurCard {

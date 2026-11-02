@@ -10,8 +10,6 @@ import QueMusic 1.0
 Item {
     id: root
 
-    // 宿主注入：与 pages/FilePage.qml 一致，播放引擎不靠上下文继承
-    readonly property AudioEngine player: Playback.player
 
     property bool browsing: false        // false = 服务器列表，true = 目录浏览
     property string serverName: ""
@@ -20,32 +18,32 @@ Item {
     WebDavModel { id: browser }
 
     function openServer(server: var): void {
-        root.serverName = server.name || server.url
-        root.browsing = true
-        browser.openServer(server.id, WebDav.authHeader(server.id), server.url)
+        root.serverName = server.name || server.url;
+        root.browsing = true;
+        browser.openServer(server.id, WebDav.authHeader(server.id), server.url);
     }
 
     function openForm(server: var): void {
-        root.editingId = server ? server.id : ""
-        fieldName.inputText = server ? (server.name || "") : ""
-        fieldUrl.inputText = server ? (server.url || "") : ""
-        fieldUser.inputText = server ? WebDav.userOf(server.id) : ""
-        fieldPass.inputText = ""
-        serverDialog.open()
+        root.editingId = server ? server.id : "";
+        serverDialog.nameText = server ? (server.name || "") : ""
+        serverDialog.urlText = server ? (server.url || "") : ""
+        serverDialog.userText = server ? WebDav.userOf(server.id) : ""
+        serverDialog.passText = ""
+        serverDialog.open();
     }
 
     function submitForm(): void {
-        const url = fieldUrl.inputText.trim()
+        const url = serverDialog.urlText.trim()
         if (!url) {
             Options.warned("请填写服务器地址", 0)
             serverDialog.open();         // 校验不过就留在弹窗里
             return
         }
         if (root.editingId)
-            WebDav.updateServer(root.editingId, fieldName.inputText, url,
-                                fieldUser.inputText, fieldPass.inputText)
+            WebDav.updateServer(root.editingId, serverDialog.nameText, url,
+                                serverDialog.userText, serverDialog.passText)
         else
-            WebDav.addServer(fieldName.inputText, url, fieldUser.inputText, fieldPass.inputText)
+            WebDav.addServer(serverDialog.nameText, url, serverDialog.userText, serverDialog.passText)
     }
 
     function deleteServer(server: var): void {
@@ -61,7 +59,7 @@ Item {
             return
         WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
         // 与本地列表一致：先入播放列表再起播（直接 playWebDav 的话队列里没有它，上一首/下一首会丢）
-        Playback.playItem({ name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav })
+        Playback.playItem(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
     }
 
     // 右侧操作区
@@ -261,14 +259,13 @@ Item {
             const row = browser.at(index)
             if (!row.url || row.isDir) return
             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-            const item = { name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav }
             if (choice === 0) {
-                Playback.playItem(item)
+                Playback.playItem(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
             } else if (choice === 1) {
-                Playback.playNext(item)
+                Playback.playNext(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
                 Options.warned("已设为下一首播放", 1)
             } else if (choice === 2) {
-                const added = Playback.enqueue(item)
+                const added = Playback.enqueue(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
                 Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
             }
         }
@@ -398,7 +395,7 @@ Item {
                             const row = browser.at(listDir.index)
                             if (!row.url) return
                             WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-                            const added = Playback.enqueue({ name: row.title, path: row.url, songer: row.artist || "", source: Playback.kSourceWebDav })
+                            const added = Playback.enqueue(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
                             Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                         }
                     }
@@ -423,10 +420,20 @@ Item {
         cancelText: "取消"
         confirmText: "保存"
         onConfirm: root.submitForm()
+        property string nameText: ""
+        property string urlText: ""
+        property string userText: ""
+        property string passText: ""
 
         options: Column {
             width: parent.width
             spacing: 10
+            Component.onCompleted: {
+                fieldName.inputText = serverDialog.nameText;
+                fieldUrl.inputText = serverDialog.urlText;
+                fieldUser.inputText = serverDialog.userText;
+                fieldPass.inputText = serverDialog.passText;
+            }
 
             Text {
                 text: "名称（可留空）"
@@ -438,6 +445,7 @@ Item {
                 id: fieldName
                 width: parent.width
                 height: 36
+                onInputTextChanged: serverDialog.nameText = inputText;
             }
 
             Text {
@@ -450,6 +458,7 @@ Item {
                 id: fieldUrl
                 width: parent.width
                 height: 36
+                onInputTextChanged: serverDialog.urlText = inputText;
             }
 
             Text {
@@ -462,6 +471,7 @@ Item {
                 id: fieldUser
                 width: parent.width
                 height: 36
+                onInputTextChanged: serverDialog.userText = inputText;
             }
 
             Text {
@@ -475,6 +485,7 @@ Item {
                 width: parent.width
                 height: 36
                 echoMode: TextInput.Password
+                onInputTextChanged: serverDialog.passText = inputText;
                 SButton {
                     width: 36
                     height: 36

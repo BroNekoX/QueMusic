@@ -122,9 +122,9 @@ QML 侧引用前缀必须区分：`/shaders/...` 与 `/...`（两套 PREFIX 不�
 | TagLib | git submodule `ThirdParty/taglib`（`shallow`，taglib/taglib）＋ `add_subdirectory`（构建目录 `build/_deps/taglib-build`，`EXCLUDE_FROM_ALL`） | 2.3.1（`taglib/toolkit/taglib.h`；`THIRD_PARTY_NOTICES.md` 同） | 本地音频元数据 / ID3v2 歌词读取；导出 `quemusic::taglib`（接口库 + `tag`） | LGPL-2.1-or-later / MPL-1.1 双许可 |
 | zlib | 系统包（`find_package(ZLIB QUIET)`）→ 回退 `find_library(z/zlib/zlib1)`（含 `-DZLIB_ROOT`、编译器 sysroot、Qt Tools 下 MinGW 的 `libz.a`）；Windows 用 `WIN32` 判断而非 `MINGW` | 随系统/工具链（未固定版本） | `api/KugouApi.cpp` 解 KRC 歌词 `uncompress()`；导出 `quemusic::zlib` | zlib license |
 | Crypto++ | `api/QCloudMusicApi/3rdparty/cryptopp`（submodule，weidai11/cryptopp）源码直接编静态库；`CRYPTOPP_DISABLE_ASM=1`（纯 C++，无需逐文件 SIMD 开关），不再有 `cryptopp-cmake` | 8.9（`3rdparty/cryptopp/config_ver.h`：`CRYPTOPP_MAJOR 8` / `CRYPTOPP_MINOR 9`） | 网易云 API 的加密（weapi/eapi 等）；导出 `cryptopp::cryptopp` | Crypto++ 自身许可（Boost-like，见其 License.txt） |
-| libqrencode | **随仓库源码存放但未接入构建**：`api/QCloudMusicApi/3rdparty/libqrencode`，无 `add_subdirectory`、无链接；仓库内仅在自身目录被引用 | 4.1.1（其 `CMakeLists.txt` `project(QRencode VERSION 4.1.1)`） | 无（当前未使用；二维码由 `api/qrcode.js` 实现） | LGPL-2.1（其 `COPYING`） |
+| ~~libqrencode~~ | **已删除**：从未接入构建（无 `add_subdirectory`、无链接、无源码引用），二维码由 `api/qrcode.js` 实现 | — | — | — |
 | QCloudMusicApi | `add_subdirectory(api/QCloudMusicApi)`（源码随仓库，非 submodule），强制 `BUILD_TEST/SHARED=OFF`；`set(PREFIX "")` | 工程 `VERSION 1.0`（无上游版本号，未确认） | 网易云音乐在线接口；导出 `QCloudMusicApi` | MIT（`api/QCloudMusicApi/LICENSE`，© 2023 s12mmm3） |
-| FFmpeg | Windows：仓库自带 `ffmpeg/{include,lib,bin}`（`find_library ... NO_DEFAULT_PATH`，缺任一导入库即 `FATAL_ERROR`）；Linux/macOS：`QUEMUSIC_FFMPEG_USE_QT`/macOS 默认用 Qt 自带 `libav*`，否则 `pkg_check_modules` 找系统包 | 7.1.3（libavcodec 61 / libavformat 61 / libavutil 59 / libswresample 5；`include/libavutil/version.h`：`LIBAVUTIL_VERSION_MAJOR 59`） | 音频解码/解封装/重采样（`cpp/audio/FfmpegDecoder`） | LGPL-2.1-or-later（Qt 6.10.3 自带分发；构建参数不含 `--enable-gpl/--enable-nonfree`，见 `THIRD_PARTY_NOTICES.md`） |
+| FFmpeg | Windows：仓库自带 `ffmpeg/{include,lib}`，运行库从 `<Qt>/bin` 拷（`find_library ... NO_DEFAULT_PATH`，缺任一导入库即 `FATAL_ERROR`）；Linux/macOS：`QUEMUSIC_FFMPEG_USE_QT`/macOS 默认用 Qt 自带 `libav*`，否则 `pkg_check_modules` 找系统包 | 7.1.3（libavcodec 61 / libavformat 61 / libavutil 59 / libswresample 5；`include/libavutil/version.h`：`LIBAVUTIL_VERSION_MAJOR 59`） | 音频解码/解封装/重采样（`cpp/audio/FfmpegDecoder`） | LGPL-2.1-or-later（Qt 6.10.3 自带分发；构建参数不含 `--enable-gpl/--enable-nonfree`，见 `THIRD_PARTY_NOTICES.md`） |
 | Qt 6.10.3 | 系统/官方安装包（aqtinstall）；`find_package(Qt6 ...)` | 6.10.3 | 界面、音频输出、网络、SQL、着色器工具 | LGPLv3（动态链接） |
 | 图标字体 `feather.ttf` / `poppins.ttf` | 仓库资源 | 未固定 | 图标与正文字体 | 归原作者（见 `THIRD_PARTY_NOTICES.md`） |
 
@@ -196,8 +196,8 @@ CI（`build-linux.yml`）另传 `-DQT_DIR`、`-DQt6_DIR`、`-DQt6Multimedia_DIR`
 
 ### 7.3.4 FFmpeg 获取（`cmake/fetch_ffmpeg.ps1`，仅维护用）
 
-- 正常构建**不需要联网**：`ffmpeg/{include,lib,bin,LICENSE.txt}` 随仓库提供。
-- 脚本本身不下载：① 从本机 Qt 安装目录拷 `avcodec-61/avformat-61/avutil-59/swresample-5.dll` 到 `ffmpeg/bin`；② 用 `gendef.exe` + `llvm-dlltool.exe` 生成 `ffmpeg/lib/lib{avcodec,avformat,avutil,swresample}.dll.a`；③ 传 `-SourceDir <解压的 ffmpeg-7.1.3 源码>` 时才刷新 `include/`，并补 `avconfig.h`、`ffversion.h`、`LICENSE.txt`。
+- 正常构建**不需要联网**：`ffmpeg/{include,lib,LICENSE.txt}` 随仓库提供；运行时 dll 取 `<Qt>/bin` 同名文件。
+- 脚本本身不下载：① 用 `gendef.exe` + `llvm-dlltool.exe` 从 Qt 自带 dll 生成 `ffmpeg/lib/lib{avcodec,avformat,avutil,swresample}.dll.a`；② 传 `-SourceDir <解压的 ffmpeg-7.1.3 源码>` 时才刷新 `include/`，并补 `avconfig.h`、`ffversion.h`、`LICENSE.txt`。
 - 参数：`-QtBin`、`-Toolchain`（llvm-mingw 的 bin）、`-SourceDir`；不传时自动在 `C:\Qt`（深度 4）/`C:\Qt\Tools`（深度 3）里搜。
 - 用法：`powershell -ExecutionPolicy Bypass -File cmake/fetch_ffmpeg.ps1`
 
@@ -303,8 +303,7 @@ python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 -O ~/Qt -m qtmultime
 | `Options/cycleIndex` | int | `0` | PlayerControl、DesktopPlayerWindow | Playback、PlayerControl、DesktopPlayerWindow、main | 循环模式 0 列表/1 单曲/2 随机/3 暂停操作（读取时钳到 0–3） |
 | `Options/picCache` | bool | `false` | SettingsView | QPicture、SettingsView | 图片缓存开关 |
 | `Options/soundQuality` | int | `1` | PlayerOptions、SettingsView | PlayerOptions、SettingsView、`api/MusicApiService.cpp:167`（启动兜底读） | 在线音质档位 |
-| `Options/useDefaultDevice` | bool | `true` | PlayerOptions、SettingsView | PlayerOptions、main、SettingsView | 使用系统默认音频输出 |
-| `Options/audioDevice` | int | `0` | PlayerOptions、SettingsView | PlayerOptions、main、SettingsView | 输出设备索引（越界时回退默认设备） |
+| `AudioOutput/deviceId` | string | `""` | AudioEngine | AudioEngine | 指定输出设备 ID；空 = 跟随系统默认设备 |
 | `Options/autoPlay` | bool | `true` | PlayerOptions、SettingsView | PlayerOptions、SettingsView | 自动播放 |
 | `Options/playerRateIndex` | int | `2` | PlayerOptions | PlayerOptions | 倍速预设索引（6 = 自定义） |
 | `Options/volumeStep` | int | `5` | SettingsView | Playback、SettingsView | 音量步长(%) |
@@ -526,14 +525,14 @@ python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 -O ~/Qt -m qtmultime
 
 | 项 | 说明 |
 |---|---|
-| FFmpeg 运行库 | Windows：根 `CMakeLists.txt:345-354` 先 `FATAL_ERROR` 校验 `${QUEMUSIC_FFMPEG_ROOT}/bin` 存在，再 POST_BUILD `copy_directory` 到 exe 目录（`avcodec-61.dll`、`avformat-61.dll`、`avutil-59.dll`、`swresample-5.dll`）。缺目录**不静默跳过**（否则能启动但无法播放）。Linux tar 包在打包步骤单独拷 Qt 自带 `libav*.so.*`/`libsw*.so.*` 进 `bin/` |
+| FFmpeg 运行库 | Windows：根 `CMakeLists.txt` 用 `file(GLOB)` 从 `${QT6_INSTALL_PREFIX}/bin` 取 `avcodec-*/avformat-*/avutil-*/swresample-*.dll`，POST_BUILD `copy_if_different` 到 exe 目录；仓库不携带这些 dll。Linux tar 包在打包步骤单独拷 Qt 自带 `libav*.so.*`/`libsw*.so.*` 进 `bin/` |
 | QWindowKit DLL | `QUEMUSIC_QWK_RUNTIME_COPY` 为真时（即非静态 QWK）POST_BUILD 把 `QWindowKit::Core` + `QWindowKit::Quick` 拷到 `$<TARGET_FILE_DIR>`；DLL 实际生成在 `build/_deps/qwindowkit-build` 下。用仓库子模块时 `QWINDOWKIT_BUILD_STATIC=ON` → 该拷贝关闭（静态库已链进 exe）；用系统共享版 QWindowKit 时才需要 |
 | 多媒体 ffmpeg 插件裁剪 | `qt_deploy_runtime` 之后删 `multimedia/ffmpegmediaplugin.dll` 与 `swscale-8.dll`（全项目不使用 `MediaPlayer`，约省 1.7 MB）；解码层所需的 `avcodec/avformat/avutil/swresample` 保留 |
 | SQL 驱动裁剪 | Windows 部署后删非 `qsqlite` 的驱动与 `libmysql/libssl/libcrypto`；Linux CI 在 Qt 安装目录直接删非 sqlite 驱动；macOS CI 同策略。项目只用 `QSQLITE` |
 | `icon.rc` | 根目录，`IDI_ICON1 ICON "resources/icon.ico"` + `VS_VERSION_INFO`（FileVersion/ProductVersion `0.1.0.0`，CompanyName `QueMusic Contributors`，Translation `0x0804,1200`）；仅在 Windows 作为源文件加入目标（`$<$<PLATFORM_ID:Windows>:icon.rc>`） |
 | 应用图标其它形态 | Windows 运行时 `QIcon(":/QueMusic/resources/icon.ico")`（`main.cpp:144`，必须 `:/` 前缀）；macOS 由 CI `sips`+`iconutil` 从 `resources/app/rainbowMusicIcon.png` 生成 `resources/app/icon.icns`；Linux 打包用 `resources/icon.png` |
 | Windows SMTC 身份 | `main.cpp:31-109`：`SetCurrentProcessExplicitAppUserModelID("BroNekoX.QueMusic")`、写 `HKCU\Software\Classes\AppUserModelId\BroNekoX.QueMusic` 的 `DisplayName`/`IconUri`、在 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\QueMusic.lnk` 写 `PKEY_AppUserModel_ID` |
-| `.gitignore` 相关 | 忽略 `build*/`、`cmake-build-*/`、`out/`、`ThirdParty/*/build/`、`AppDir/`、`squashfs-root/`、`fcitx5-qt/`、`*.exe/*.dll/*.so/*.dylib/*.lib/*.a/*.obj/*.o`、`.qmlc/*.qmlc/*.jsc`、`*.log/temp/logs`、`.idea/.vscode/.qtcreator/*.user`。**`ffmpeg/` 并未整体忽略**：为让 include/lib/bin 与许可证入库，另有否定规则 `!ffmpeg/bin/*.dll`、`!ffmpeg/lib/*.dll.a`（必须排在 `*.dll`/`*.a` 之后）。`packaging/tools/`（linuxdeploy AppImage 下载目录）**未列入** `.gitignore`（未确认是否有意） |
+| `.gitignore` 相关 | 忽略 `build*/`、`cmake-build-*/`、`out/`、`ThirdParty/*/build/`、`AppDir/`、`squashfs-root/`、`fcitx5-qt/`、`*.exe/*.dll/*.so/*.dylib/*.lib/*.a/*.obj/*.o`、`.qmlc/*.qmlc/*.jsc`、`*.log/temp/logs`、`.idea/.vscode/.qtcreator/*.user`。**`ffmpeg/` 并未整体忽略**：为让 include/lib 与许可证入库，另有否定规则 `!ffmpeg/lib/*.dll.a`（必须排在 `*.a` 之后）；运行库 dll 不再入库。`packaging/tools/`（linuxdeploy AppImage 下载目录）**未列入** `.gitignore`（未确认是否有意） |
 | `.gitattributes` | `* text=auto eol=lf`；`*.cpp/*.h/*.hpp` 用 `diff=cpp`；`*.qml/*.mjs/*.js`、`CMakeLists.txt/*.cmake` 标记为 text；`*.png/*.jpg/*.jpeg/*.ico/*.ttf/*.svg/*.gif/*.qsb` 标记 binary |
 | 运行期 RPATH | 主程序 `CMAKE_BUILD_RPATH_USE_ORIGIN=TRUE`；Linux 便携包由 `patchelf` 把每个 ELF 的 RPATH 重写为 `$ORIGIN`（含包内各含库目录），CI 会门禁「出现任何绝对 RPATH 即失败」 |
 | 渲染后端环境变量 | 由 `Options/gpuRenderMode`、`Options/timerAnimator`、`Options/qmlAnimator` 在 `QApplication` 构造前 `qputenv`：`QSG_RHI_BACKEND=opengl|vulkan`、`QT_QUICK_BACKEND=software`、`QSG_NO_VSYNC=1`、`QSG_USE_SIMPLE_ANIMATION_DRIVER=1` |

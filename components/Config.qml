@@ -21,8 +21,6 @@ Settings {
 
     // 播放器
     property int soundQuality: 1           // 音质档位
-    property bool useDefaultDevice: true
-    property int audioDevice: 0
     property bool autoPlay: true
     property int playerRateIndex: 2        // 倍速预设
     property int volumeStep: 5             // 音量步长(%)

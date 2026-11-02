@@ -87,12 +87,13 @@ Popup {
             Repeater {
                 model: ["无部件","小窗播放器","桌面歌词"]
                 delegate: Rectangle {
+                    id: widgetButton
                     required property string modelData
                     required property int index
                     width: parent.width
                     radius: Style.labelRadius
                     color: desktopPlayer.desktopPlayerMode === index ? Theme.themeColor : Theme.primaryColor
-                    height: 60
+                    height: 56
                     border.width: 2
                     border.color: Theme.sideColor
                     Rectangle {
@@ -106,9 +107,9 @@ Popup {
                     Text {
                         x: 16
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Style.textH2
-                        text: modelData
-                        color: desktopPlayer.desktopPlayerMode === index ? Theme.secondaryColor : Theme.fontColor
+                        font.pixelSize: 16
+                        text: widgetButton.modelData
+                        color: desktopPlayer.desktopPlayerMode === widgetButton.index ? Theme.secondaryColor : Theme.fontColor
                     }
                     Text {
                         x: parent.width - 42
@@ -116,7 +117,7 @@ Popup {
                         text: "\uf099"
                         font.pixelSize: Style.texticon
                         font.family: Fonts.icon
-                        visible: desktopPlayer.desktopPlayerMode === index
+                        visible: desktopPlayer.desktopPlayerMode === widgetButton.index
                         color: Theme.secondaryColor
                     }
                     MouseArea {
@@ -124,7 +125,7 @@ Popup {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            desktopPlayer.changeDesktopPlayerMode(index);
+                            desktopPlayer.changeDesktopPlayerMode(widgetButton.index);
                         }
                     }
                 }

@@ -47,9 +47,7 @@ AccountManager::AccountManager(QObject *parent)
 
     loadPersisted();
 
-    // 把「客户端身份 + 已登录 cookie」注入 SDK 的全局 cookie：
-    // 之后所有网易云请求（扫码/轮询/其它接口）都会带上稳定 deviceId 与 os=pc。
-    // 未登录时也要带身份（mergeNeteaseIdentity 对空 cookie 同样会补上这两个字段）
+    // 把「客户端身份 + 已登录 cookie」注入 SDK 全局 cookie，未登录也补身份
     m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
 
     // 启动即后台取设备凭证，避免首次登录被风控拦截
@@ -96,9 +94,7 @@ void AccountManager::writeNeteaseCookiesToJar(const QString &cookie)
     m_jar->setCookiesFromUrl(cookies, QUrl(QStringLiteral("https://music.163.com")));
 }
 
-// 稳定的设备号：网易云按 deviceId 识别"同一台设备"。
-// QCloudMusicApi 默认每次启动随机生成 deviceId（request.cpp 的 kStaticDeviceId），
-// 同一台机器在服务端看来反复换设备，是扫码被判"环境异常"的主要嫌疑之一 ➜ 这里持久化。
+// 持久化 deviceId：SDK 默认每进程随机生成，服务端会判「反复换设备」触发风控
 QString AccountManager::ensureNeteaseDeviceId()
 {
     if (!m_neteaseDeviceId.isEmpty())
@@ -122,8 +118,7 @@ QString AccountManager::ensureNeteaseDeviceId()
     return m_neteaseDeviceId;
 }
 
-// 给 cookie 补上客户端身份：os=pc（与 weapi 的 PC Chrome UA、网页扫码 type=1 自洽）
-// + 持久 deviceId（替换掉 SDK 的每进程随机值，也替换外部导入的其它 os）
+// 补客户端身份：os=pc + 持久 deviceId（替换 SDK 随机值与外部导入的 os）
 QString AccountManager::mergeNeteaseIdentity(const QString &cookie) const
 {
     QStringList out;
@@ -284,8 +279,7 @@ void AccountManager::loginNeteaseWithCellphone(const QString &phone, const QStri
         const QString cookie = res.value(QStringLiteral("cookie")).toString();
         const QString msg = body.value(QStringLiteral("message")).toString();
         if (bcode != 200) {
-            // 打完整响应体：10003/10004 这类风控码的 body 里常带"需要二次验证/设备验证"之类的
-            // 字段，只看 code/message 无从判断下一步该做什么（网易云的 message 只是给用户看的白话）
+            // 打完整响应体：风控码的真实原因只在 body 里，message 只是白话
             const QString bodyJson = QString::fromUtf8(
                 QJsonDocument(QJsonObject::fromVariantMap(body)).toJson(QJsonDocument::Compact));
             qWarning().noquote() << QStringLiteral("[网易云] 手机号登录失败 status=%1 code=%2 message=%3 cookie=%4 MUSIC_A=%5 body=%6")
@@ -338,7 +332,6 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
     params.insert(QStringLiteral("clientver"), 20489);
     params.insert(QStringLiteral("clienttime"), QString::number(QDateTime::currentSecsSinceEpoch()));
 
-    // 自定义参数覆盖默认值
     const QStringList customKeys = customParams.keys();
     for (const QString &k : customKeys)
         params.insert(k, customParams.value(k).toVariant().toString());
@@ -374,7 +367,6 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
     }
 }
 
-// 网易云
 
 void AccountManager::startNeteaseQrLogin()
 {
@@ -396,7 +388,6 @@ void AccountManager::neteaseFetchQrWorker()
 
     ensureNeteaseAnonymousToken(); // 缺设备凭证 unikey 会被风控直接拒
 
-    // 1) 获取 unikey
     QVariantMap keyRes = m_api->invoke(QStringLiteral("login_qr_key"), QVariantMap());
     QString unikey;
     if (keyRes[QStringLiteral("status")].toInt() == 200 &&
@@ -421,7 +412,6 @@ void AccountManager::neteaseFetchQrWorker()
         return;
     }
 
-    // 2) 用 unikey 生成二维码链接
     QVariantMap createRes = m_api->invoke(
         QStringLiteral("login_qr_create"),
         QVariantMap{{QStringLiteral("key"), unikey}});
@@ -439,7 +429,6 @@ void AccountManager::neteaseFetchQrWorker()
         return;
     }
 
-    // 3) 把结果送回主线程：记录 unikey、显示二维码、启动轮询
     QMetaObject::invokeMethod(this, "onNeteaseQrFetched", Qt::QueuedConnection,
                               Q_ARG(QString, unikey), Q_ARG(QString, qrurl));
 }
@@ -572,7 +561,6 @@ void AccountManager::neteasePollWorker(const QString &key)
     const QString nickname = body[QStringLiteral("nickname")].toString();
     const QString msg = body[QStringLiteral("message")].toString();
 
-    // 结果送回主线程处理
     QMetaObject::invokeMethod(this, "onNeteasePollResult", Qt::QueuedConnection,
                               Q_ARG(int, code), Q_ARG(QString, cookie),
                               Q_ARG(QString, nickname), Q_ARG(QString, msg));
@@ -587,8 +575,7 @@ void AccountManager::onNeteaseProfile(QNetworkReply *reply)
     const QJsonObject profile = obj.value(QStringLiteral("profile")).toObject();
     const bool ok = obj.value(QStringLiteral("code")).toInt() == 200 && !profile.isEmpty();
     if (!ok) {
-        // 手工粘贴 Cookie 的校验失败：撤销登录态并明确提示；
-        // 扫码成功后的刷新失败则静默忽略（不影响已建立的登录态）
+        // 粘贴 Cookie 校验失败：撤销登录态并提示；扫码后刷新失败则静默
         if (!m_neteaseCookieVerifying)
             return;
         m_neteaseCookieVerifying = false;
@@ -612,7 +599,6 @@ void AccountManager::onNeteaseProfile(QNetworkReply *reply)
     emit neteaseLoginChanged();
 }
 
-// 酷狗
 
 void AccountManager::startKugouQrLogin()
 {
@@ -753,8 +739,7 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
         break;
     case 4: { // 成功
         m_kugouPollTimer->stop();
-        // 注意：酷狗的 user_id 是 JSON 数字类型，QJsonValue::toString() 对数字
-        // 会返回空字符串，必须用 toVariant().toString() 才能拿到！
+        // 酷狗 user_id 是 JSON 数字，QJsonValue::toString() 拿不到，必须 toVariant()
         QString token = data.value(QStringLiteral("token")).toVariant().toString();
         // 酷狗接口返回 user_id（下划线），老版本某些端才叫 userid，两个都兼容
         QString userid = data.value(QStringLiteral("user_id")).toVariant().toString();
@@ -782,7 +767,6 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
     }
 }
 
-// 持久化 / 工具
 
 // 退出登录时清掉该平台的持久化登录态（设备标识等保留）
 void AccountManager::clearLoginSettings(const QString &group)

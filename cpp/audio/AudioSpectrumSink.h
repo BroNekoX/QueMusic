@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 频谱订阅协议：音频回调线程只持有本文件定义的「句柄」，绝不直接引用订阅者的
-// QObject。裸指针 + destroyed 信号那套做法挡不住竞争——destroyed 是在 QObject
-// 析构过程中发出的，此时派生类成员往往已经析构，音频线程若在此前读到旧地址
-// 仍会踩到已销毁对象。
+// 频谱订阅协议：音频回调线程只持句柄，不直接引用订阅者 QObject
+// （destroyed 在析构过程中发出，挡不住竞争）。
 #pragma once
 
 #include <memory>
@@ -18,16 +16,14 @@ public:
     virtual void pushSamples(const float *interleaved, int frames, int channels, int sampleRate) = 0;
 };
 
-// 跨线程订阅句柄：音频线程与订阅者之间的唯一通道。
-//  1) 引擎只保存 shared_ptr<AudioSpectrumSinkHandle>，不保存任何裸 sink 指针；
-//  2) 订阅者析构前调用 detach()，detach() 返回后保证没有任何线程还在调用 sink；
-//  3) 引擎与订阅者共享句柄所有权，任一方先销毁都不会让调用方踩空指针。
+// 跨线程订阅句柄：引擎只持 shared_ptr，不持裸 sink；
+// detach() 返回后保证没有线程还在调用 sink。
 class AudioSpectrumSinkHandle
 {
 public:
     explicit AudioSpectrumSinkHandle(AudioSpectrumSink *sink = nullptr) : m_sink(sink) {}
 
-    // 音频线程调用：持锁转发。锁只在推送期间持有，pushSamples 必须是纯写入、不阻塞
+    // 音频线程调用；pushSamples 必须无阻塞
     void push(const float *interleaved, int frames, int channels, int sampleRate)
     {
         std::lock_guard<std::mutex> lock(m_mutex);

@@ -73,6 +73,13 @@ int framesForBytes(const QAudioFormat &format, qsizetype bytes)
     return frameBytes > 0 ? int(bytes / frameBytes) : 0;
 }
 
+QString deviceIdOf(const QAudioDevice &device)
+{
+    return QString::fromUtf8(device.id());
+}
+
+constexpr int kDeviceRefreshMs = 250;
+
 }
 
 class EngineIoDevice : public QIODevice
@@ -104,6 +111,9 @@ AudioEngine::AudioEngine(QObject *parent)
     m_stretch.prepare(2, 48000);
     m_dsp.prepare(48000.0);
     loadSettings();
+    refreshDeviceList();
+    if (!deviceExists(m_deviceId))
+        m_deviceId.clear();
     {
         QMutexLocker lock(&m_paramMutex);
         m_eqSnapshot = m_eq;
@@ -127,6 +137,13 @@ AudioEngine::AudioEngine(QObject *parent)
     m_pollTimer->setInterval(kPollIntervalMs);
     connect(m_pollTimer, &QTimer::timeout, this, &AudioEngine::pollState);
     m_pollTimer->start();
+
+    m_deviceTimer = new QTimer(this);
+    m_deviceTimer->setSingleShot(true);
+    m_deviceTimer->setInterval(kDeviceRefreshMs);
+    connect(m_deviceTimer, &QTimer::timeout, this, &AudioEngine::refreshDevices);
+    connect(&m_devices, &QMediaDevices::audioOutputsChanged,
+            this, &AudioEngine::scheduleDeviceRefresh);
 }
 
 AudioEngine::~AudioEngine()
@@ -158,14 +175,58 @@ AudioEngine::~AudioEngine()
 
 QAudioDevice AudioEngine::resolveDevice() const
 {
-    const QList<QAudioDevice> outputs = QMediaDevices::audioOutputs();
-    if (!m_deviceId.isEmpty()) {
-        for (const QAudioDevice &device : outputs) {
-            if (QString::fromUtf8(device.id()) == m_deviceId)
-                return device;
-        }
+    for (const QAudioDevice &device : m_outputs) {
+        if (deviceIdOf(device) == m_deviceId)
+            return device;
     }
-    return QMediaDevices::defaultAudioOutput();
+    return m_devices.defaultAudioOutput();
+}
+
+bool AudioEngine::deviceExists(const QString &id) const
+{
+    if (id.isEmpty())
+        return false;
+    for (const QAudioDevice &device : m_outputs) {
+        if (deviceIdOf(device) == id)
+            return true;
+    }
+    return false;
+}
+
+QString AudioEngine::targetDeviceId() const
+{
+    return deviceIdOf(resolveDevice());
+}
+
+bool AudioEngine::refreshDeviceList()
+{
+    m_outputs = QMediaDevices::audioOutputs();
+    QStringList names;
+    names.reserve(m_outputs.size());
+    for (const QAudioDevice &device : m_outputs)
+        names.append(device.description());
+    if (names == m_deviceNames)
+        return false;
+    m_deviceNames = names;
+    return true;
+}
+
+void AudioEngine::refreshDevices()
+{
+    const bool listChanged = refreshDeviceList();
+    if (listChanged)
+        emit audioDevicesChanged();
+    emit deviceIndexChanged();
+
+    const QString target = targetDeviceId();
+    if (!target.isEmpty() && target != m_activeDeviceId)
+        reconfigureOutput();
+}
+
+void AudioEngine::scheduleDeviceRefresh()
+{
+    if (m_deviceTimer)
+        m_deviceTimer->start();
 }
 
 int AudioEngine::decodeRateFor(int deviceRate) const
@@ -181,6 +242,7 @@ int AudioEngine::decodeRateFor(int deviceRate) const
 bool AudioEngine::setupSink()
 {
     teardownSink();
+    m_activeDeviceId.clear();
 
     const QAudioDevice device = resolveDevice();
     if (device.isNull())
@@ -260,6 +322,7 @@ bool AudioEngine::setupSink()
         });
     });
 
+    m_activeDeviceId = deviceIdOf(device);
     emit outputFormatChanged();
 
     return true;
@@ -361,6 +424,20 @@ void AudioEngine::setSource(const QUrl &url)
     emit durationChanged();
     emit metaDataChanged();
     m_openRequest.store(true);
+}
+
+void AudioEngine::playSource(const QUrl &url, const QVariantMap &headers, int fadeInMs)
+{
+    setSourceHeaders(headers);
+    if (m_source == url && m_mediaStatus != InvalidMedia && m_mediaStatus != NoMedia) {
+        setPosition(0);
+        play();
+    } else {
+        setSource(url);
+        play();
+    }
+    if (fadeInMs > 0)
+        fadeInOnNextAudio(fadeInMs);
 }
 
 void AudioEngine::play()
@@ -581,7 +658,7 @@ void AudioEngine::setEqQ(qreal q)
 
 void AudioEngine::reconfigureOutput()
 {
-    const bool wasPlaying = (m_playbackState == PlayingState);
+    const PlaybackState prev = m_playbackState;
     const qint64 pos = position();
     stopSink();
     if (!setupSink()) {
@@ -590,7 +667,7 @@ void AudioEngine::reconfigureOutput()
         return;
     }
     if (m_source.isEmpty()) {
-        setPlaybackState(wasPlaying ? StoppedState : m_playbackState);
+        setPlaybackState(prev == PlayingState ? StoppedState : prev);
         emit outputFormatChanged();
         return;
     }
@@ -603,7 +680,10 @@ void AudioEngine::reconfigureOutput()
     m_pendingSeekMs.store(pos, std::memory_order_release);
     m_seekRequest.store(pos, std::memory_order_relaxed);
     m_openRequest.store(true);
-    setPlaybackState(wasPlaying ? PlayingState : StoppedState);
+    if (prev == PlayingState)
+        startSink();
+    setPlaybackState(prev == PlayingState ? PlayingState
+                    : prev == PausedState ? PausedState : StoppedState);
     emit outputFormatChanged();
 }
 
@@ -611,9 +691,44 @@ void AudioEngine::setDeviceId(const QString &id)
 {
     if (m_deviceId == id)
         return;
+    const bool wasFollow = m_deviceId.isEmpty();
     m_deviceId = id;
     emit deviceIdChanged();
+    emit deviceIndexChanged();
+    if (wasFollow != m_deviceId.isEmpty())
+        emit followSystemDeviceChanged();
+    scheduleSave();
     reconfigureOutput();
+}
+
+int AudioEngine::deviceIndex() const
+{
+    const QString target = targetDeviceId();
+    for (int i = 0; i < m_outputs.size(); ++i) {
+        if (deviceIdOf(m_outputs.at(i)) == target)
+            return i;
+    }
+    return -1;
+}
+
+void AudioEngine::setDeviceIndex(int index)
+{
+    if (index < 0 || index >= m_outputs.size())
+        return;
+    setDeviceId(deviceIdOf(m_outputs.at(index)));
+}
+
+void AudioEngine::setFollowSystemDevice(bool on)
+{
+    if (on) {
+        setDeviceId(QString());
+        return;
+    }
+    if (!m_deviceId.isEmpty())
+        return;
+    const QString id = targetDeviceId();
+    if (!id.isEmpty())
+        setDeviceId(id);
 }
 
 void AudioEngine::setUrlStr(const QString &url)
@@ -1350,6 +1465,10 @@ void AudioEngine::loadSettings()
     }
 
     settings.endGroup();
+
+    settings.beginGroup(QStringLiteral("AudioOutput"));
+    m_deviceId = settings.value(QStringLiteral("deviceId")).toString();
+    settings.endGroup();
 }
 
 void AudioEngine::scheduleSave()
@@ -1387,5 +1506,9 @@ void AudioEngine::saveSettings()
     settings.setValue(QStringLiteral("outputSampleRate"), m_requestedRate);
     settings.setValue(QStringLiteral("outputBufferMs"), m_bufferMs);
     settings.setValue(QStringLiteral("pitchSemitones"), m_pitchSemitones);
+    settings.endGroup();
+
+    settings.beginGroup(QStringLiteral("AudioOutput"));
+    settings.setValue(QStringLiteral("deviceId"), m_deviceId);
     settings.endGroup();
 }

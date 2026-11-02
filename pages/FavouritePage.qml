@@ -395,15 +395,18 @@ Item {
 
                 onClicked: (index) => {
                     const e = Playback.history.get(index)
-                    Playback.playItem({ name: e.title, path: e.path, songer: e.artist, source: e.source })
+                    Playback.playItem(e.title, e.path, e.artist, e.source)
                 }
                 // 记录列表有专属菜单项（移除记录），其余动作仍走内置实现
-                menuHandler: function(choice: int, index: int): bool {
-                    const e = Playback.history.get(index)
-                    if (choice === 0) { history.addToQueue(e); return true }
-                    if (choice === 1) { history.toggleFav(e); return true }
-                    Playback.history.remove(index, 1)
-                    return true
+                menuHandler: true
+                onToolClicked: (choice, index) => {
+                    const e = Playback.history.get(index);
+                    if (choice === 0) {
+                        history.addToQueue(e);
+                    } else if (choice === 1) {
+                        history.toggleFav(e);
+                    }
+                    Playback.history.remove(index, 1);
                 }
                 Text {
                     anchors.centerIn: parent
@@ -583,7 +586,7 @@ Item {
                     Options.warned("列表中的歌曲都已在播放列表中", 0)
                 } else {
                     Options.warned("已加入播放列表 " + added + " 首", 1)
-                    if (play) Playback.goTo(Options.queue.count - added)
+                    if (play) Playback.playIndex(Options.queue.count - added)
                 }
             }
 

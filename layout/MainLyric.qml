@@ -171,10 +171,8 @@ Item {
 
     Text {
         id: titleMax
-        y: mainLyrics.height * 0.6 + 20
-        x: musicpic.x
         height: mainLyrics.standHeight
-        text: mainLyrics.title
+        text: Playback.musicTitle
         font.weight: 600
         width: mainLyrics.piclong
         elide: Text.ElideRight
@@ -183,10 +181,14 @@ Item {
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
         layer.enabled: true
-        color: Qt.rgba(1,1,1,1)
+        color: "#ffffff"
     }
     MultiEffect {
-        anchors.fill: titleMax
+        id: titleShadow
+        x: musicpic.x
+        y: mainLyrics.height * 0.6 + 20
+        width: mainLyrics.piclong
+        height: mainLyrics.standHeight
         source: titleMax
         visible: x !== -400 && !mainLyrics.basicCd
         shadowEnabled: true
@@ -196,10 +198,10 @@ Item {
     }
     Text {
         id: artistMax
-        anchors.top: titleMax.bottom
         x: musicpic.x
+        anchors.top: titleShadow.bottom
         height: mainLyrics.standHeight / 3
-        text: mainLyrics.artist
+        text: Playback.musicArtist
         width: mainLyrics.piclong
         elide: Text.ElideRight
         horizontalAlignment: mainLyrics.lyricType === 1 ? Text.AlignHCenter : Text.AlignLeft
@@ -207,7 +209,7 @@ Item {
         font.pixelSize: mainLyrics.standHeight / 3.6
         verticalAlignment: Text.AlignVCenter
         visible: x !== -400 && !mainLyrics.basicCd
-        color: Qt.rgba(1,1,1,0.7)
+        color: "#cdffffff"
     }
 
     Loader {

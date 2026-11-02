@@ -9,8 +9,6 @@ import QueMusic 1.0
 
 Rectangle {
     id: musicControlMax
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
     property int hideHeight: 0
     color: "#000000"
     property color mainColor: "#00ee66"
@@ -52,7 +50,7 @@ Rectangle {
         const src = {
             position: () => Playback.player.position,
             playbackRate: () => Playback.player.playbackRate,
-            playing: () => Playback.player.playing,
+            playing: () => Playback.inplay,
             mediaActive: () => Playback.player.onMedia,
             lyricsModel: () => MusicApi.lyricsData || [],
             translateModel: () => MusicApi.lyricsTranslate || [],
@@ -131,9 +129,13 @@ Rectangle {
         asynchronous: true
         source: musicControlMax.lyricThemeSource
         onLoaded: musicControlMax.inject(lyricLoader.item)
-        function funConnect(): void {
-            if(item) {
-                item.timerFunction();
+    }
+
+    Connections {
+        target: MusicApi
+        function onLyricFuncted(): void {
+            if(lyricLoader.item) {
+                lyricLoader.item.timerFunction();
             }
         }
     }
@@ -141,14 +143,6 @@ Rectangle {
     Binding { target: MusicApi; property: "lyricFollowActive"; value: musicControlMax.visible && Playback.player.onMedia }
     Binding { target: MusicApi; property: "lyricPositionMs"; value: Playback.player.position }
     Binding { target: MusicApi; property: "lyricOffsetMs"; value: musicControlMax.lyricMoveMs }
-
-    // 歌词界面心跳：索引由 MusicApi 计算，这里只驱动模块刷新
-    Timer {
-        interval: 320
-        repeat: true
-        running: musicControlMax.visible && Playback.player.onMedia
-        onTriggered: lyricLoader.funConnect()
-    }
 
     SButton {
         id: playerminedButton

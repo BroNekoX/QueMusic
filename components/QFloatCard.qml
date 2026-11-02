@@ -17,7 +17,6 @@ Rectangle {
     property alias controlItem: cardArea.data
     transform: Translate {
         id: translateTransform
-        x: 0
         y: 0
         Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
     }

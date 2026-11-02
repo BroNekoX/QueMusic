@@ -11,7 +11,7 @@ Column {
     id: panel
     spacing: 16
 
-    property AudioEngine engine
+    property AudioEngine engine: Playback.player
 
     readonly property int eqBands: 10
     readonly property real eqMax: 24
@@ -36,7 +36,7 @@ Column {
             id: statusRow
             x: 18
             y: 10
-            spacing: 24
+            spacing: 16
             Text {
                 font.pixelSize: Style.textTip
                 color: Theme.textColor

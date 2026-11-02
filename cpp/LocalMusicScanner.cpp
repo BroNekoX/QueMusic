@@ -45,7 +45,6 @@ void LocalScanWorker::run()
     QDir::Filters filters = QDir::Files | QDir::NoDotAndDotDot;
     if (showDirs)
         filters |= QDir::Dirs;
-    // 递归开关Subdirectories下钻子目录
     QDirIterator::IteratorFlags itFlags = QDirIterator::NoIteratorFlags;
     if (recursive)
         itFlags |= QDirIterator::Subdirectories;
@@ -89,8 +88,7 @@ void LocalScanWorker::run()
     // 先按文件名交出搜索副本，扫描一结束就能搜
     m_index = list;
 
-    // 元数据富集：与扫描同线程，逐文件一次 TagLib 打开（title/artist/cover 共享），
-    // 按 50 个一批回传，UI 侧渐进刷新行数据
+    // 元数据富集：同线程逐文件一次 TagLib，按 50 个一批回传，UI 渐进刷新
     const quint64 gen = generation.load();
     const int total = list.size();
     int chunkStart = 0;

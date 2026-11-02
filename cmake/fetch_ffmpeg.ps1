@@ -1,10 +1,10 @@
-# 维护脚本：重建 <repo>/ffmpeg/{include,lib,bin}
+# 维护脚本：重建 <repo>/ffmpeg/{include,lib}
 #
 # 正常构建**不需要**运行本脚本——这批文件随仓库提供、构建无需联网。
+# 运行库 dll 不参与入库，构建时直接用 Qt 安装目录里的同名文件。
 # 仅在更换 FFmpeg 版本或需重新生成导入库时使用。脚本本身全程不下载：
-#   1) bin/      从本机 Qt 安装目录复制 FFmpeg 共享库（Qt 自带 7.1.3，LGPL-2.1+）
-#   2) lib/      用 gendef + llvm-dlltool 从上述 DLL 的导出表生成导入库
-#   3) include/  仅换版本时指定 -SourceDir：复制本地源码头文件并补齐 configure 生成的两个头
+#   1) lib/      用 gendef + llvm-dlltool 从 Qt 自带 DLL 的导出表生成导入库
+#   2) include/  仅换版本时指定 -SourceDir：复制本地源码头文件并补齐 configure 生成的两个头
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File cmake/fetch_ffmpeg.ps1
@@ -39,12 +39,7 @@ if (-not $Toolchain) {
 if (-not $QtBin)     { throw "未找到 Qt 的 FFmpeg 共享库（avcodec-61.dll），请用 -QtBin 指定" }
 if (-not $Toolchain) { throw "未找到 llvm-dlltool，请用 -Toolchain 指定 llvm-mingw 的 bin 目录" }
 
-New-Item -ItemType Directory -Force -Path (Join-Path $dest "bin") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $dest "lib") | Out-Null
-
-foreach ($k in $modules.Keys) {
-    Copy-Item (Join-Path $QtBin "$k.dll") (Join-Path $dest "bin") -Force
-}
 
 $tmp = Join-Path $env:TEMP "quemusic-ffmpeg-def"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

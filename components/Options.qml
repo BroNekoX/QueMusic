@@ -32,7 +32,7 @@ QtObject {
     property bool homeLoaded: false    // 首页是否已加载
     property bool playlistLoaded: false  // 分类是否已加载
     property bool recordingShortCut: false
-    readonly property int versionCode: 71
+    readonly property int versionCode: 72
     readonly property int pluginApi: 10
     property string searchText: ""
     property bool isSmall: Style.leftBarMode === 0 ? (mainLayout.width < 1080) : Style.leftBarMode === 1 ? false : true

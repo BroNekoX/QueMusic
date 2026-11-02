@@ -29,16 +29,14 @@ Item {
         const item = itemAt(index)
         if (!item || !item.fileUrl)
             return
-        Playback.playItem({ name: item.title || item.fileName, path: item.fileUrl,
-                            songer: item.artist || "", source: -1 })
+        Playback.playItem(item.title || item.fileName, item.fileUrl, item.artist || "", -1)
     }
 
     function playNext(index: int): void {
         const item = itemAt(index)
         if (!item || !item.fileUrl)
             return
-        Playback.playNext({ name: item.title || item.fileName, path: item.fileUrl,
-                            songer: item.artist || "", source: -1 })
+        Playback.playNext(item.title || item.fileName, item.fileUrl, item.artist || "", -1)
         Options.warned("已设为下一首播放", 1)
     }
 
@@ -46,8 +44,8 @@ Item {
         const item = itemAt(index)
         if (!item || !item.fileUrl)
             return
-        const added = Playback.enqueue({ name: item.title || item.fileName, path: item.fileUrl,
-                                         songer: item.artist || "", source: -1 })
+        const added = Playback.enqueue(item.title || item.fileName, item.fileUrl,
+                                        item.artist || "", -1)
         Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
     }
 

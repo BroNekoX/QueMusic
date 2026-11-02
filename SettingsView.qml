@@ -11,9 +11,6 @@ import QueMusic 1.0
 Item {
     id: settingsView
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
-
     // 账号登录面板展开状态
     property bool neteaseShowLogin: false
     property bool kugouShowLogin: false
@@ -527,6 +524,7 @@ Item {
             }
 
             Label {
+                id: setText
                 x: 50
                 y: 0
                 width: 120
@@ -536,8 +534,9 @@ Item {
                 font.bold: false
                 verticalAlignment: Text.AlignVCenter
                 color: Theme.fontColor
-                visible: !Options.isSmall
-                Behavior on opacity { NumberAnimation { duration: 150 } }
+                opacity: Options.isSmall ? 0 : 1
+                visible: opacity !== 0
+                Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             }
         }
 
@@ -589,7 +588,7 @@ Item {
                 }
 
                 Text {
-                    x: Options.isSmall ? 1 : 8
+                    x: 1 + setText.opacity * 5
                     y: 0
                     z: 1
                     width: 42
@@ -600,22 +599,21 @@ Item {
                     color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
                 Text {
-                    x: 56
+                    x: 52
                     y: 0
                     z: 2
                     width: 140
                     height: 42
-                    visible: !Options.isSmall
+                    opacity: setText.opacity
+                    visible: setText.visible
                     text: navDelegateSettings.model.display
                     color: navDelegateSettings.isSelected ? leftSidebarSettings.choiceTextColor : Theme.textColor
                     font.bold: navDelegateSettings.isSelected
                     font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
-                    Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
 
@@ -1592,10 +1590,11 @@ Item {
                     width: settingStack.standWidth
                     color: settingStack.cardColor
                     radius: Style.cubeRadius
+                    height: toGenCol.height
                     Column {
+                        id: toGenCol
                         width: parent.width
                         padding: 0
-                        Component.onCompleted: parent.height = height
 
                         SettingItemCard {
                             label: "使用默认输出设备"
@@ -1603,24 +1602,22 @@ Item {
                             controlItem: QSwitch {
                                 anchors.fill: parent
                                 letRight: true
-                                switchTrue: Config.useDefaultDevice
-                                onToggled: Config.useDefaultDevice = !Config.useDefaultDevice
+                                switchTrue: Playback.player.followSystemDevice
+                                onToggled: Playback.player.followSystemDevice = !Playback.player.followSystemDevice
                             }
                         }
 
-                        SettingItemCard {
+                        SettingsItemVisibleCard {
                             label: "音频输出设备"
                             tip: "指定播放时使用的音频输出设备"
-                            visible: Config.useDefaultDevice === false
-                            height: visible ? 56 : 0
+                            display: !Playback.player.followSystemDevice
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
                             controlItem: QDrop {
-                                useId: true
                                 anchors.fill: parent
-                                choice: Config.audioDevice
-                                model: musicDevices.audioOutputs
+                                choice: Playback.player.deviceIndex
+                                model: Playback.player.audioDevices
                                 onTransformed: (choiced) => {
-                                    Config.audioDevice = choiced
+                                    Playback.player.deviceIndex = choiced
                                 }
                             }
                         }
@@ -1697,7 +1694,10 @@ Item {
                                 anchors.fill: parent
                                 letRight: true
                                 switchTrue: Config.fadeEnabled
-                                onToggled: Config.fadeEnabled = !Config.fadeEnabled
+                                onToggled: {
+                                Config.fadeEnabled = !Config.fadeEnabled
+                                Playback.refreshSettings()
+                            }
                             }
                         }
 
@@ -1712,7 +1712,10 @@ Item {
                                 leftText: true
                                 valueText: value.toString() + " ms"
                                 value: Config.fadeMs
-                                onMoved: Config.fadeMs = value
+                                onMoved: {
+                                Config.fadeMs = value
+                                Playback.refreshSettings()
+                            }
                             }
                         }
 
@@ -1825,7 +1828,6 @@ Item {
                 EqualizerPanel {
                     width: settingStack.standWidth
                     controlWidth: settingStack.standWidth
-                    engine: settingsView.player
                     cardColor: settingStack.cardColor
                 }
             }
@@ -2385,6 +2387,7 @@ Item {
                             Text {
                                 height: 36
                                 text: Application.version + " (" + Options.versionCode + ")"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2659,6 +2662,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "241422517"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2672,6 +2676,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "uihugd@outlook.com"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2685,6 +2690,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "695207057"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2698,6 +2704,7 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "1105114511"
+                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -3074,7 +3081,7 @@ Item {
                 property: "height"
                 from: 0
                 to: 64
-                duration: 420
+                duration: 360
                 easing.type: Easing.OutExpo
             }
             NumberAnimation {
@@ -3082,7 +3089,7 @@ Item {
                 property: "opacity"
                 from: 0
                 to: 1
-                duration: 360
+                duration: 320
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
@@ -3090,7 +3097,7 @@ Item {
                 property: "transY"
                 from: -64
                 to: 0
-                duration: 420
+                duration: 360
                 easing.type: Easing.OutExpo
             }
         }
@@ -3100,21 +3107,21 @@ Item {
                 target: cardRoot
                 property: "height"
                 to: 0
-                duration: 200
+                duration: 180
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 target: cardRoot
                 property: "opacity"
                 to: 0
-                duration: 160
+                duration: 120
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 target: cardRoot
                 property: "transY"
                 to: -64
-                duration: 200
+                duration: 180
                 easing.type: Easing.OutCubic
             }
             onFinished: cardRoot.visible = false;

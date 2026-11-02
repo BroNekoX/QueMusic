@@ -30,8 +30,7 @@ QVariantMap lyricLine(qint64 time, const QString &text)
     QVariantMap line;
     line.insert(QStringLiteral("time"), time);
     line.insert(QStringLiteral("text"), text);
-    // 在线歌词的数据契约：无逐字信息时 info 为 null，有逐字时是
-    // [{offset, duration, text}]。这里保持一致，避免 QML 侧做额外判断。
+    // 在线歌词契约：无逐字信息时 info 为 null，有逐字时为 [{offset,duration,text}]
     line.insert(QStringLiteral("info"), QVariant());
     return line;
 }
@@ -293,8 +292,7 @@ QVariantList LocalLyricsReader::parsePlainLyrics(const QString &text)
     if (cleaned.isEmpty())
         return {};
 
-    // USLT 与通用 LYRICS 标签没有时间轴，保留完整文本为一整行，
-    // 播放器按无语义时间显示，不伪装出时间戳。
+    // USLT / 通用 LYRICS 无时间轴：整段作为一行，不伪装时间戳
     return {lyricLine(0, cleaned)};
 }
 
@@ -408,8 +406,7 @@ LocalLyricsReader::Parsed LocalLyricsReader::parseEmbeddedLyrics(const QString &
     constexpr qint64 kDefaultGap = 320;   // 仅 SYLT 时的默认音节间隔(ms)
     constexpr int kMaxLineChars = 28;     // 仅 SYLT 时的单行字数兜底
 
-    // SYLT（ID3v2 同步歌词，绝对毫秒）一条只是一个音节/词：有行级歌词时只用来补行内逐字，
-    // 没有行级歌词时才按"停顿"分组为显示行。
+    // SYLT 一条只是一个音节/词：有行级歌词时只补逐字，否则按「停顿」分组为显示行
     QList<QPair<qint64, QString>> syllables;
     if (auto *mpeg = dynamic_cast<TagLib::MPEG::File *>(ref.file())) {
         if (auto *id3v2 = mpeg->ID3v2Tag()) {

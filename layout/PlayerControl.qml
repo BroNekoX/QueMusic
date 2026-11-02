@@ -26,22 +26,13 @@ Rectangle {
         GradientStop { position: 0.8; color: musicControlMin.secondColor }
     }
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
 
     // 秒级中间层：position 以 20Hz 刷新，直接绑到文本会每秒重建字符串 20 次
-    readonly property int posSec: Math.floor(player.position / 1000)
+    readonly property int posSec: Math.floor(Playback.player.position / 1000)
 
     readonly property string mediaTime: {
         const seconds = posSec % 60;
         return Math.floor(posSec / 60) + ':' + (seconds < 10 ? '0' + seconds : seconds);
-      }
-
-
-    Rectangle {
-        width: musicControlMin.width
-        height: 1
-        color: Theme.sideColor
     }
 
 
@@ -84,87 +75,81 @@ Rectangle {
         easing.type: Easing.OutCubic
     }
 
-    //控制条
-    Item {
-        id: sliderControl
-        visible: Playback.player.onMedia
+    Rectangle {
+        z: 4
+        x: 0
+        y: -90
+        height: 92
+        width: musicControlMin.width
+        opacity: progressSlider.displayAll ? 0.2 : 0
+        visible: opacity !== 0
+        Behavior on opacity { NumberAnimation { duration: 100 } }
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 1.0; color: Theme.textColor }
+        }
+    }
+
+    Rectangle {
+        y: progressSlider.displayAll ? -2 : 0
+        x: 0
+        z: 5
+        width: musicControlMin.width
+        height: progressSlider.displayAll ? 6 : 2
+        color: Theme.sideColor
+    }
+
+    // 控制条
+    Slider {
+        id: progressSlider
         x: 0
         y: -10
         z: 6
-        width: musicControlMin.width
         height: 23
-        clip: false
-        Rectangle {
-            z: 1
-            x: 0
-            y: -80
-            height: 92
-            width: musicControlMin.width
-            opacity: progressSlider.hovered ? 0.2 : 0
-            Behavior on opacity { NumberAnimation { duration: 100 } }
+        width: musicControlMin.width
+        from: 0
+        to: Playback.player.duration > 0 ? Playback.player.duration : 1 // 避免除零错误
+        value: pressed ? null : Playback.player.position
+        visible: Playback.player.onMedia
+        live: true
+        padding: 0
+        property bool displayAll: hovered || pressed
 
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "transparent" }
-                GradientStop { position: 1.0; color: Theme.textColor }
-            }
-
+        onMoved: {
+            Playback.player.position = value
         }
 
-        Slider {
-            z: 2
-            id: progressSlider
-            anchors.fill: parent
-            width: musicControlMin.width
-            from: 0
-            to: Playback.player.duration > 0 ? Playback.player.duration : 1 // 避免除零错误
-            value: pressed ? null : Playback.player.position
-            live: true
-            padding: 0
+        // 背景轨道
+        background: Rectangle {
+            x: 0
+            y: progressSlider.displayAll ? 8 : 10
+            width: progressSlider.visualPosition * progressSlider.width
+            height: progressSlider.displayAll ? 6 : 2
+            color: Theme.themeColor
+        }
 
-
-            // 关键：用户拖动时，跳转播放位置
-            onMoved: {
-                Playback.player.position = value
-            }
-
-            // 背景轨道
-            background: Rectangle {
-                y: progressSlider.hovered ? 8 : 10
-                x: 0
-                width: musicControlMin.width
-                height: progressSlider.hovered ? 6 : 2
-                color: Theme.sideColor
-
-                // 已完成部分
-                Rectangle {
-                    width: progressSlider.visualPosition * sliderControl.width
-                    height: parent.height
-                    color: Theme.themeColor
-                }
-            }
-
-            // 手柄
-            handle: Rectangle {
-                visible: progressSlider.hovered// ? 1 : 0
-                x: progressSlider.leftPadding + progressSlider.visualPosition * (progressSlider.availableWidth-width)
-                y: 2
-                implicitWidth: 18
-                implicitHeight: 18
-                radius: 9
-                color: "#ffffff"
-                border.color: Theme.themeColor
-                border.width: 2.5
-                ToolTip {
-                    visible: parent.visible
-                    text: musicControlMin.mediaTime
-                    horizontalPadding: 10
-                    background: Rectangle {
-                        anchors.fill: parent
-                        color: "#fcfdff"
-                        border.width: 2
-                        radius: height
-                        border.color: "#cccdcf"
-                    }
+        // 手柄
+        handle: Rectangle {
+            visible: progressSlider.displayAll// ? 1 : 0
+            x: progressSlider.leftPadding + progressSlider.visualPosition * (progressSlider.availableWidth-width)
+            y: 2
+            implicitWidth: 18
+            implicitHeight: 18
+            radius: 9
+            color: "#ffffff"
+            border.color: Theme.themeColor
+            border.width: 2.5
+            ToolTip {
+                visible: parent.visible
+                text: musicControlMin.mediaTime
+                horizontalPadding: 10
+                background: Rectangle {
+                    anchors.fill: parent
+                    color: "#fcfdff"
+                    border.width: 2
+                    radius: height
+                    border.color: "#cccdcf"
                 }
             }
         }
@@ -397,7 +382,7 @@ Rectangle {
             tipText: "上一首"
         }
         SButton {
-            iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
+            iconCharacter: Playback.inplay ? "\uf02f" : "\uf00e"
             width: 46
             height: 46
             radius: 46
@@ -407,7 +392,7 @@ Rectangle {
             iconSize: Style.texticonH
             shadowEnabled: false
             onClicked: Playback.togglePlay()
-            tipText: Playback.player.playing ? "暂停" : "播放"
+            tipText: Playback.inplay ? "暂停" : "播放"
         }
         SButton {
             iconCharacter: "\uf0d9"

@@ -31,6 +31,12 @@ Rectangle {
                 choicebar.radius = 0;
             }
         }
+        function onExit(): void {
+            if(sidebar.mainCont.pageIndex === 5 && Options.exitIndex <= 1 ) {
+                sidebar.mainCont.contentIndexed(sidebar.choiceIndex)
+                MusicApi.searchSongsResults.clear()
+            }
+        }
     }
 
     function indexed(choice: int): void {
@@ -54,16 +60,6 @@ Rectangle {
         case 1:
             if(MusicApi.recommendSongs.count === 0) MusicApi.getRecommendSongs(1,24);
             break;
-        }
-    }
-
-    Connections {
-        target: Options
-        function onExit(): void {
-            if(sidebar.mainCont.pageIndex === 5 && Options.exitIndex <= 1 ) {
-                sidebar.mainCont.contentIndexed(sidebar.choiceIndex)
-                MusicApi.searchSongsResults.clear()
-            }
         }
     }
 
@@ -137,6 +133,7 @@ Rectangle {
             sourceSize: Qt.size(24, 24)
         }
         Text {
+            id: appText
             y: 9
             x: 51
             height: 20
@@ -146,7 +143,9 @@ Rectangle {
             font.bold: true
             verticalAlignment: Text.AlignVCenter
             color: Theme.fontColor
-            visible: !Options.isSmall
+            opacity: Options.isSmall ? 0 : 1
+            visible: opacity !== 0
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         }
         Rectangle {
             x: 140
@@ -155,14 +154,15 @@ Rectangle {
             height: 20
             color: Theme.themeColor
             radius: 6
-            visible: !Options.isSmall
+            opacity: appText.opacity
+            visible: appText.visible
             Text {
                 anchors.centerIn: parent
                 text: "Beta"
                 font.family: Fonts.text
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
-                color:  Theme.fullColor
+                color: Theme.fullColor
             }
         }
     }
@@ -170,7 +170,7 @@ Rectangle {
     //分隔条
     Rectangle {
         x: 20
-        width: Options.isSmall ? 34 : 170
+        width: 34 + appText.opacity * 136//Options.isSmall ? 34 : 170
         height: 1
         color: Theme.sideColor
         y: 173
@@ -205,7 +205,6 @@ Rectangle {
                 }
             }
             color: isSelected ? sidebar.choiceColor : "transparent"
-            property color choiceTextColor: sidebar.choiceTextColor
 
             readonly property bool isSelected: sidebar.choiceIndex === index
 
@@ -225,7 +224,7 @@ Rectangle {
             }
 
             Text {
-                x: Options.isSmall ? 1 : 8
+                x: 1 + appText.opacity * 5
                 y: 0
                 z: 1
                 width: 42
@@ -233,25 +232,24 @@ Rectangle {
                 text: navDelegate.model.iconChar
                 font.family: Fonts.icon
                 font.pixelSize: Style.texticon
-                color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
+                color: navDelegate.isSelected ? sidebar.choiceTextColor : Theme.textColor
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
             }
 
             Text {
-                x: 56
+                x: 52
                 y: 0
                 z: 2
                 width: 140
                 height: 42
                 text: navDelegate.model.display
-                visible: !Options.isSmall
-                color: navDelegate.isSelected ? navDelegate.choiceTextColor : Theme.textColor
+                opacity: appText.opacity
+                visible: appText.visible
+                color: navDelegate.isSelected ? sidebar.choiceTextColor : Theme.textColor
                 font.bold: navDelegate.isSelected
                 font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
             }
 
 

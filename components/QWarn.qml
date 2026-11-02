@@ -13,10 +13,10 @@ Popup {
     parent: Overlay.overlay
     x: parent.width / 2 - width / 2
     horizontalPadding: 12
-    verticalPadding: 10
+    verticalPadding: 8
     z: 3
     height: 36
-    width: contentRow.width + 24
+    width: contentRow.implicitWidth + 24
     Behavior on width { enabled: dialog.visible; NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
     function tiped(title: string, type: int): void {
         delay.running = false;
@@ -52,32 +52,28 @@ Popup {
         }
     }
 
-    contentItem: Item {
-        anchors.fill: parent
-        Row {
-            id: contentRow
-            anchors.centerIn: parent
-            spacing: 16
-        
-            Text {
-                id: icon
-                width: 20
-                height: 20
-                text: "\uf11a"
-                color: dialog.type === 1 ? "#34c759" : dialog.type === 2 ? "#ff453a" : "#ff9f0a"
-                font.pixelSize: Style.texticon
-                font.family: Fonts.icon
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-            }
-            Text {
-                id: title
-                height: 20
-                color: Theme.fontColor
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                verticalAlignment: Text.AlignVCenter
-            }
+    contentItem: Row {
+        id: contentRow
+        spacing: 16
+
+        Text {
+            id: icon
+            width: 20
+            height: 20
+            text: "\uf11a"
+            color: dialog.type === 1 ? "#34c759" : dialog.type === 2 ? "#ff453a" : "#ff9f0a"
+            font.pixelSize: Style.texticon
+            font.family: Fonts.icon
+            verticalAlignment: Text.AlignVCenter
+            horizontalAlignment: Text.AlignHCenter
+        }
+        Text {
+            id: title
+            height: 20
+            color: Theme.fontColor
+            font.pixelSize: 13
+            font.weight: Font.DemiBold
+            verticalAlignment: Text.AlignVCenter
         }
     }
     enter: Transition {

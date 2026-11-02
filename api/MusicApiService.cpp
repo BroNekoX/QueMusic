@@ -3,8 +3,9 @@
 
 #include "MusicApiService.h"
 
-#include "PlaybackController.h"
+#include "playback/Playback.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -141,11 +142,15 @@ MusicApiService *MusicApiService::s_instance = nullptr;
 
 MusicApiService *MusicApiService::create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
 {
+    Q_UNUSED(qmlEngine);
     Q_UNUSED(jsEngine);
-    auto *service = new MusicApiService(qmlEngine);
+    if (s_instance)
+        return s_instance;
+    auto *service = new MusicApiService(QCoreApplication::instance());
+    QQmlEngine::setObjectOwnership(service, QQmlEngine::CppOwnership);
     service->setAccountManager(s_accountManager);
     s_instance = service;
-    PlaybackController::notifyApiReady(service);
+    Playback::notifyApiReady(service);
     return service;
 }
 
@@ -933,6 +938,7 @@ void MusicApiService::setLyricIndex(int index)
         return;
     m_lyricIndex = index;
     emit lyricIndexChanged();
+    emit lyricFuncted();
 }
 
 void MusicApiService::setCommentsHasMore(bool hasMore)

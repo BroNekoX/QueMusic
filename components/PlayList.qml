@@ -564,11 +564,11 @@ Popup {
                     hoverEnabled: true
                     onEntered: listHover.opacity = 1
                     onExited: listHover.opacity = 0
-                    // 统一走 startTrack：本地/在线/WebDAV 只在这里判定一次
+                    // 本地/在线/WebDAV 统一由 Playback 判定
                     onClicked: {
                         if (playList.previewing) return
                         Options.queue.playListIndex = listfile.index
-                        Playback.startTrack(listfile.index)
+                        Playback.playIndex(listfile.index)
                     }
 
                     Rectangle {

@@ -13,51 +13,45 @@ Item {
     property int singleWidth: model.length > 0 ? width / model.length - 16 : 0
     property int choice: 0
     signal transformed(int choiced)
-    Row {
-        x: 8
-        y: 0
-        width: root.width - 16
-        height: root.height
-        spacing: 16
-        Repeater {
-            model: root.model
-            delegate: Rectangle {
-                id: del
-                required property string modelData
-                required property int index
-                height: parent.height
-                width: root.singleWidth
-                color: root.choice === index ? Theme.themeColor : Theme.primaryColor
-                border.width: 2
-                border.color: Theme.borderColor
-                radius: Style.labelRadius
-                Behavior on color { ColorAnimation { duration: 80 } }
-            
-                Rectangle {
-                    id: hover
-                    color: Theme.hoverColor
-                    anchors.fill: parent
-                    radius: parent.radius
-                    opacity: 0
-                    visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 80 } }
-                }
-            
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: 20
-                    text: del.modelData
-                    font.pixelSize: Style.textmain
-                    color: root.choice === del.index ? Theme.primaryColor : Theme.textColor
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: hover.opacity = 1
-                    onExited: hover.opacity = 0
-                    onClicked: {
-                        root.transformed(del.index)
-                    }
+    Repeater {
+        model: root.model
+        delegate: Rectangle {
+            id: del
+            required property string modelData
+            required property int index
+            height: parent.height
+            width: root.singleWidth
+            color: root.choice === index ? Theme.themeColor : Theme.primaryColor
+            border.width: 2
+            border.color: Theme.borderColor
+            radius: Style.labelRadius
+            Behavior on color { ColorAnimation { duration: 80 } }
+            x: index * (root.singleWidth + 16) + 8
+
+            Rectangle {
+                id: hover
+                color: Theme.hoverColor
+                anchors.fill: parent
+                radius: parent.radius
+                opacity: 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 80 } }
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                x: 20
+                text: del.modelData
+                font.pixelSize: Style.textmain
+                color: root.choice === del.index ? Theme.primaryColor : Theme.textColor
+            }
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                onEntered: hover.opacity = 1
+                onExited: hover.opacity = 0
+                onClicked: {
+                    root.transformed(del.index)
                 }
             }
         }

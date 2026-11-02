@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT
 //
 // LyricPvCore — 颜色运算 (纯计算, 不依赖 QML)。
-//
-// 语义与 JIZURA for QueMusic 的 JS 版逐位对齐, 理由同 pvgeometry.h: 移植前后必须
-// 产出完全一样的颜色字符串。用到的 JS 习惯在这里都能对上:
-//   * `x & 255` 是 ToInt32 (向零截断 + int32 环绕), 不是 C++ 的取模;
-//   * `Math.round` 是 floor(x+0.5);
-//   * `parseInt(s,16) || 0` 只吃开头连续的十六进制位, 失败给 0;
-//   * 一切都输出成 #AARRGGBB, QML 可以直接解析。
+// 语义与 JS 版逐位对齐：`x & 255` 是 int32 环绕而非取模，`Math.round` 是 floor(x+0.5)，
+// `parseInt(s,16) || 0` 只吃开头连续十六进制位；输出统一 #AARRGGBB。
 #pragma once
 
 #include <QChar>

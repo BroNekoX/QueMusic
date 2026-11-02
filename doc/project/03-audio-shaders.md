@@ -114,7 +114,10 @@ QML 侧实例：`main.qml:796`（`id: mainMedia`）。类型名在 QML 里就是
 | `playbackRate` | qreal | RW | `playbackRateChanged` | 钳 0.25..4.0；改后 `requestSeek(position())` |
 | `pitchCompensation` | bool | RW | `pitchCompensationChanged` | 保持音高 |
 | `pitchSemitones` | qreal | RW | `pitchChanged` | 钳 -12..+12；`ratio = 2^(semi/12)` |
-| `deviceId` | QString | RW | `deviceIdChanged` | 空 = 默认设备；写后 `reconfigureOutput()` |
+| `deviceId` | QString | R | `deviceIdChanged` | 空 = 跟随系统默认设备；由 `deviceIndex`/`followSystemDevice` 间接改动 |
+| `audioDevices` | QStringList | R | `audioDevicesChanged` | 输出设备描述名缓存，来自 `QMediaDevices::audioOutputs()` |
+| `deviceIndex` | int | RW | `deviceIndexChanged` | 写入 `audioDevices` 下标，内部换算为 `deviceId` 并 `reconfigureOutput()` |
+| `followSystemDevice` | bool | RW | `followSystemDeviceChanged` | 等价 `deviceId.isEmpty()`；关闭时锁定当前默认设备 |
 | `urlStr` | QString | RW | `urlStrChanged` | 展示用封面 URL（QML 注入，无 NOTIFY 之外的语义） |
 | `noTitle` | QString | RW | `noTitleChanged` | 列表显示名/文件名（QML 注入） |
 | `album` | QString | RW | `albumChanged` | 展示用专辑名（QML 注入，非 TagLib 值） |

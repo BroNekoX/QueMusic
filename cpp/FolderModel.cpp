@@ -309,7 +309,6 @@ void FolderModel::setFilterType(const QString &type)
     loadFromDatabase();
 }
 
-// SongModel
 SongModel::SongModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -601,21 +600,6 @@ void SongModel::persistTags(const QList<int> &ids, const QStringList &titles,
             query.exec();
         }
         db.commit();
-    });
-}
-
-void SongModel::addSong(int folderId, const QString &name, const QString &path, const QString &singer)
-{
-    mutate([folderId, name, path, singer](QSqlDatabase &db, QString &error) {
-        QSqlQuery query(db);
-        query.prepare(QStringLiteral(
-            "INSERT OR IGNORE INTO songs (folder_id, name, path, singer) VALUES (:folder, :name, :path, :singer)"));
-        query.bindValue(QStringLiteral(":folder"), folderId);
-        query.bindValue(QStringLiteral(":name"), name);
-        query.bindValue(QStringLiteral(":path"), path);
-        query.bindValue(QStringLiteral(":singer"), singer);
-        if (!query.exec())
-            error = QStringLiteral("添加歌曲失败: ") + query.lastError().text();
     });
 }
 

@@ -10,8 +10,6 @@ import QueMusic 1.0
 Item {
     id: filePage
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
 
     property int folderNumber: 0
     property int setMode: 0
@@ -41,14 +39,13 @@ Item {
             function() { localFileModel.deleteFiles([path]) })
     }
 
-    // 本地条目播放/入队：按 path 查重（在线曲的 path 是 hash，不会与本地路径撞车）
     function playLocalEntry(path: string, title: string, artist: string): void {
-        Playback.playItem({ name: title, path: path, songer: artist, source: -1 })
+        console.log("播放本地音乐 path:",path," name:",title," artist:",artist);
+        Playback.playItem(title, path, artist, -1);
     }
 
     function enqueueLocalEntry(path: string, title: string, artist: string): void {
-        Options.warned(Playback.enqueue({ name: title, path: path, songer: artist, source: -1 })
-                     ? "已加入播放列表" : "已在播放列表中", 1)
+        Options.warned(Playback.enqueue(title, path, artist, -1) ? "已加入播放列表" : "已在播放列表中", 1)
     }
 
     function toggleChoose(key: var): void {
@@ -237,7 +234,7 @@ Item {
             Options.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
-            Playback.goTo(Options.queue.count - added);
+            Playback.playIndex(Options.queue.count - added);
         }
     }
 
@@ -264,7 +261,7 @@ Item {
             Options.warned("已加入播放列表 " + added + " 首", 1);
         }
         if (play && added > 0) {
-            Playback.goTo(Options.queue.count - added);
+            Playback.playIndex(Options.queue.count - added);
         }
     }
 
@@ -1121,14 +1118,13 @@ Item {
                 onMenuClicked: (index, choice) => {
                     const r = filePage.menuRow
                     if (!r || !r.path) return
-                    const item = { name: r.title, path: r.path, songer: r.artist, source: -1 }
                     if (choice === 0) {
-                        Playback.playItem(item)
+                        Playback.playItem(r.title, r.path, r.artist, -1)
                     } else if (choice === 1) {
-                        Playback.playNext(item)
+                        Playback.playNext(r.title, r.path, r.artist, -1)
                         Options.warned("已设为下一首播放", 1)
                     } else if (choice === 2) {
-                        const added = Playback.enqueue(item)
+                        const added = Playback.enqueue(r.title, r.path, r.artist, -1)
                         Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                     } else if (choice === 3) {
                         audioInfoDialog.showInfo(r.path)
@@ -1242,8 +1238,7 @@ Item {
                                     filePage.toggleChoose(listfile.songId);
                                     return;
                                 }
-                                filePage.playLocalEntry(listfile.path, listfile.songTitle,
-                                                        listfile.artistName);
+                                filePage.playLocalEntry(listfile.path, listfile.songTitle, listfile.artistName);
                             } else {
                                 fileView.menu.index = listfile.index;
                                 filePage.menuRow = { path: listfile.path, title: listfile.songTitle,
@@ -1514,14 +1509,13 @@ Item {
                 onMenuClicked: (index, choice) => {
                     const r = filePage.menuRow
                     if (!r || !r.path) return
-                    const item = { name: r.title, path: r.path, songer: r.artist, source: -1 }
                     if (choice === 0) {
-                        Playback.playItem(item)
+                        Playback.playItem(r.title, r.path, r.artist, -1)
                     } else if (choice === 1) {
-                        Playback.playNext(item)
+                        Playback.playNext(r.title, r.path, r.artist, -1)
                         Options.warned("已设为下一首播放", 1)
                     } else if (choice === 2) {
-                        const added = Playback.enqueue(item)
+                        const added = Playback.enqueue(r.title, r.path, r.artist, -1)
                         Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                     } else if (choice === 3) {
                         audioInfoDialog.showInfo(r.path)
@@ -1532,7 +1526,7 @@ Item {
                     }
                 }
                 delegate: Rectangle {
-                    required property string fileUrl
+                    required property url fileUrl
                     required property string fileName
                     required property string title
                     required property string artist
@@ -1635,8 +1629,7 @@ Item {
                                     filePage.toggleChoose(listLocalFile.fileUrl.toString());
                                     return;
                                 }
-                                filePage.playLocalEntry(listLocalFile.fileUrl.toString(),
-                                                        listLocalFile.songTitle, listLocalFile.artistName);
+                                filePage.playLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName);
                             } else {
                                 localFileView.menu.index = listLocalFile.index;
                                 filePage.menuRow = { path: listLocalFile.fileUrl.toString(), title: listLocalFile.songTitle,

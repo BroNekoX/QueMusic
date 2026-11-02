@@ -23,6 +23,7 @@ Item {
     property int tabWidth: 120
     property var model: []
     signal tabChange(int index)
+    property int choiceIndex: 0
 
     width: 244
     height: 40
@@ -84,7 +85,7 @@ Item {
     Rectangle {
         id: topAnine
         y: 3
-        x: 3 + tabView.choiceIndex * root.tabWidth
+        x: 3 + root.choiceIndex * root.tabWidth
         z: 4
         width: root.tabWidth
         height: root.height - 6
@@ -92,56 +93,55 @@ Item {
         color: Theme.fullColor
         Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [ 0.23, 0.06, 0.00, 0.98, 1, 1 ] } }
     }
-    Row {
-        id: tabView
-        anchors.fill: parent
-        anchors.margins: 3
-        property int choiceIndex: 0
-        z: 5
-        Repeater {
-            model: root.model
+    Repeater {
+        model: root.model
 
-            delegate: Item {
-                id: navMusic
-                required property string modelData
-                required property int index
-                width: root.tabWidth
-                height: root.height - 6
-                property bool isSelected: tabView.choiceIndex === index
-
-
-                Rectangle {
-                    z: 0
-                    anchors.fill: navMusic
-                    radius: root.borderRadius
-                    opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
-                    color: Theme.hoverColor
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
-                }
+        delegate: Item {
+            id: navMusic
+            required property string modelData
+            required property int index
+            y: 3
+            z: 5
+            width: root.tabWidth
+            height: root.height - 6
+            property bool isSelected: root.choiceIndex === index
+            Component.onCompleted: {
+                x = width * index + 3
+            }
 
 
-                Text {
-                    anchors.fill: parent
-                    text: navMusic.modelData
-                    color: navMusic.isSelected ? Theme.fontColor : Theme.textColor
-                    font.pixelSize: Style.text
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                }
+
+            Rectangle {
+                z: 0
+                anchors.fill: navMusic
+                radius: root.borderRadius
+                opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
+                color: Theme.hoverColor
+                Behavior on opacity { NumberAnimation { duration: 100 } }
+            }
 
 
-                MouseArea {
-                    id: indexArea
-                    anchors.fill: navMusic
-                    hoverEnabled: true
-                    onClicked: {
-                        if(tabView.choiceIndex !== navMusic.index) {
-                            root.tabChange(navMusic.index);
-                        }
-                        tabView.choiceIndex = navMusic.index;
-                        forceActiveFocus();
+            Text {
+                anchors.fill: parent
+                text: navMusic.modelData
+                color: navMusic.isSelected ? Theme.fontColor : Theme.textColor
+                font.pixelSize: Style.text
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+
+
+            MouseArea {
+                id: indexArea
+                anchors.fill: navMusic
+                hoverEnabled: true
+                onClicked: {
+                    if(root.choiceIndex !== navMusic.index) {
+                        root.tabChange(navMusic.index);
                     }
+                    root.choiceIndex = navMusic.index;
+                    forceActiveFocus();
                 }
             }
         }

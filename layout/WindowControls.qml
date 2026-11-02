@@ -86,4 +86,46 @@ QtObject {
         forceQuit = true
         toClosing()
     }
+
+    property int startupDelay: 400
+
+    Component.onCompleted: {
+        const file = firstAudioArg(Application.arguments)
+        if (file) {
+            kick.file = file
+            kick.start()
+        }
+    }
+
+    property Timer kick: Timer {
+        id: kick
+        property string file: ""
+        interval: root.startupDelay
+        repeat: false
+        onTriggered: root.playStartup(file)
+    }
+
+    function firstAudioArg(args) {
+        if (!args) return ""
+        const exts = ["mp3", "flac", "wav", "m4a", "aac", "ogg", "oga", "opus",
+                      "ape", "wma", "aiff", "aif", "mka"]
+        for (let i = 1; i < args.length; ++i) {
+            const arg = String(args[i]).trim()
+            if (!arg || arg.charAt(0) === "-") continue
+            const cut = Math.max(arg.lastIndexOf("/"), arg.lastIndexOf("\\"))
+            const name = arg.substring(cut + 1).split("?")[0]
+            const dot = name.lastIndexOf(".")
+            if (dot > 0 && exts.indexOf(name.substring(dot + 1).toLowerCase()) >= 0)
+                return arg
+        }
+        return ""
+    }
+
+    function playStartup(file) {
+        const cut = Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\"))
+        const name = file.substring(cut + 1).split("?")[0]
+        let title = name
+        try { title = decodeURIComponent(name) } catch (e) {}
+        Playback.playLocalSong(file, title)
+    }
 }

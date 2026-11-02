@@ -15,6 +15,7 @@ class QNetworkAccessManager;
 class QNetworkReply;
 
 #include <QAtomicInt>
+#include <QCoreApplication>
 #include <QQmlEngine>
 #include <QtQml/qqmlregistration.h>
 
@@ -25,12 +26,9 @@ class ApiHelper;
 class AccountManager : public QObject
 {
     Q_OBJECT
-    // QML 单例：QML 侧按类型名访问（如 AccountManager.neteaseLoggedIn）。
-    // 只有这样 qmlcachegen 才能把相关绑定编译成 C++；经由对象属性间接访问会被判定为
-    // shadowable base type 而拒绝编译（实测）。
+    // QML 单例：必须按类型名访问，qmlcachegen 才能编译相关绑定
     QML_ELEMENT
     QML_SINGLETON
-    // 网易云
     Q_PROPERTY(bool neteaseLoggedIn READ isNeteaseLoggedIn NOTIFY neteaseLoginChanged FINAL)
     Q_PROPERTY(QString neteaseNickname READ neteaseNickname NOTIFY neteaseLoginChanged FINAL)
     Q_PROPERTY(QString neteaseAvatar READ neteaseAvatar NOTIFY neteaseLoginChanged FINAL)
@@ -40,7 +38,6 @@ class AccountManager : public QObject
     Q_PROPERTY(QString neteaseQrMessage READ neteaseQrMessage NOTIFY neteaseQrChanged FINAL)
     // 账号安全风险拦截时网易云返回的验证页（需用官方 App 扫码完成验证）
     Q_PROPERTY(QString neteaseVerifyUrl READ neteaseVerifyUrl NOTIFY neteaseQrChanged FINAL)
-    // 酷狗
     Q_PROPERTY(bool kugouLoggedIn READ isKugouLoggedIn NOTIFY kugouLoginChanged FINAL)
     Q_PROPERTY(QString kugouNickname READ kugouNickname NOTIFY kugouLoginChanged FINAL)
     Q_PROPERTY(QString kugouAvatar READ kugouAvatar NOTIFY kugouLoginChanged FINAL)
@@ -50,14 +47,16 @@ class AccountManager : public QObject
     Q_PROPERTY(QString kugouQrMessage READ kugouQrMessage NOTIFY kugouQrChanged FINAL)
 
 public:
-    // QML 单例工厂。main.cpp 会提前调用一次以保证账号初始化时序；
-    // 之后 QML 首次访问 AccountManager 时复用同一实例。
+    // QML 单例工厂；main.cpp 提前调用一次保证初始化时序
     static AccountManager *create(QQmlEngine *qmlEngine, QJSEngine *scriptEngine)
     {
+        Q_UNUSED(qmlEngine)
         Q_UNUSED(scriptEngine)
         static AccountManager *instance = nullptr;
-        if (!instance)
-            instance = new AccountManager(qmlEngine);
+        if (!instance) {
+            instance = new AccountManager(QCoreApplication::instance());
+            QQmlEngine::setObjectOwnership(instance, QQmlEngine::CppOwnership);
+        }
         return instance;
     }
 
@@ -71,8 +70,7 @@ public:
     };
     Q_ENUM(QrState)
 
-    // 不能给 parent 默认值：否则引擎会走"默认构造"分支而不调用 create()，
-    // 导致 main.cpp 里提前创建的实例与 QML 侧看到的实例不是同一个（详见 cpp/AppModels.h 说明）
+    // 不能给 parent 默认值，否则不走 create()（见 cpp/AppModels.h）
     explicit AccountManager(QObject *parent);
     ~AccountManager() override;
 
@@ -143,8 +141,7 @@ private:
                                         const QString &nickname, const QString &msg);
     Q_INVOKABLE void onNeteaseFetchError(const QString &msg);
     void storeNeteaseCookieString(const QString &cookieStr);
-    // 客户端身份：稳定 deviceId + os=pc（与 weapi 的 PC UA、网页扫码 type=1 自洽）。
-    // SDK 默认每次启动随机生成 deviceId、且默认 iPhone App 身份，容易被判为异常环境。
+    // 客户端身份：稳定 deviceId + os=pc；SDK 默认每进程随机 + iPhone 身份，易判异常
     QString ensureNeteaseDeviceId();
     // 设备匿名注册换 MUSIC_A（网易云的可信设备凭证）；阻塞调用，须在工作线程里用
     void ensureNeteaseAnonymousToken();
@@ -162,7 +159,6 @@ private:
     void setNeteaseQr(int state, const QString &msg, const QString &qrText = QString());
     void setKugouQr(int state, const QString &msg, const QString &qrText = QString());
 
-    // ---- 状态 ----
     bool m_neteaseLoggedIn = false;
     bool m_kugouLoggedIn = false;
     QString m_neteaseNickname;
@@ -188,7 +184,6 @@ private:
     int m_kugouQrState = QrWaiting;
     QString m_kugouQrMessage;
 
-    // ---- 网络 ----
     QNetworkAccessManager *m_nam = nullptr;
     QNetworkCookieJar *m_jar = nullptr;
     QTimer *m_neteasePollTimer = nullptr;

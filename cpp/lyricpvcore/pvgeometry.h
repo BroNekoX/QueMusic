@@ -1,20 +1,12 @@
 // SPDX-License-Identifier: MIT
 //
-// LyricPvCore — 显示列表几何: 路径指令的变换、包围盒与 SVG 生成。
+// LyricPvCore — 显示列表几何: 路径指令的变换、包围盒与 SVG 生成。纯计算, 不依赖 QML。
 //
-// 这一层是纯计算, 不依赖 QML/QObject, 因此可以被任何"把 Canvas2D 调用流录制成
-// 显示列表"的歌词 PV 引擎复用, 也可以单独做单元测试 (见 tests/tst_pvgeometry.cpp)。
-//
-// 指令格式 (与 JIZURA for QueMusic 的录制器一致, 一个扁平 double 数组):
-//
-//     code 0 = M  后接 2 个数 (x, y)
-//     code 1 = L  后接 2 个数
-//     code 2 = Q  后接 4 个数 (cx, cy, x, y)
-//     code 3 = C  后接 6 个数 (c1x, c1y, c2x, c2y, x, y)
-//     code 4 = Z  后接 0 个数
-//
-// 之所以用扁平数组而不是结构体: 录制阶段可以整段做仿射变换、裁剪、合并,
-// 不必重新分配对象, 这也是原 JS 版本的关键设计。
+// 指令格式 (与录制器一致, 扁平 double 数组):
+//     code 0 = M  2 个数 (x, y)     code 1 = L  2 个数
+//     code 2 = Q  4 个数 (cx, cy, x, y)
+//     code 3 = C  6 个数 (c1x, c1y, c2x, c2y, x, y)
+//     code 4 = Z  0 个数
 #pragma once
 
 #include <QList>
@@ -76,13 +68,8 @@ QList<double> transformCommands(const QList<double> &commands, const Mat &m);
 /// 轴对齐包围盒 -> [x0, y0, x1, y1]; 空路径返回全 0
 std::array<double, 4> boundsOfCommands(const QList<double> &commands);
 
-/// JS `String(Math.round(v*100)/100)` 的等价实现
-///
-/// 必须逐位对齐: 录制结果要和原 JS 版本产出完全相同的 SVG 字符串, 否则同一个
-/// 画面在移植前后会有像素级差异, 也无法用字符串比对做回归测试。
-/// 注意两点: (1) JS 的 Math.round 是 floor(x+0.5) (向 +∞ 取整), C++ 的
-/// std::round 是"远离零", 负数时不同; (2) JS `x === (x|0)` 里的 `|0` 是 int32
-/// 截断, 所以整数判定要按 int32 语义走。
+/// JS `String(Math.round(v*100)/100)` 的等价实现, 必须逐位对齐:
+/// Math.round 是 floor(x+0.5) (负数与 std::round 不同), 整数判定按 int32 语义。
 QString jsNumber(double v);
 
 /// 把一条指令流生成 SVG path 字符串 (原地不做变换)

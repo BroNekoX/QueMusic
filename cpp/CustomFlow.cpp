@@ -191,8 +191,8 @@ void CustomFlow::doLayout()
         double totalWidth = row.totalWidth;
         double startX = 0;
         switch (align) {
-        case AlignLeft:   startX = 0; break;
-        case AlignRight:  startX = availWidth - totalWidth; break;
+        case AlignLeft: startX = 0; break;
+        case AlignRight: startX = availWidth - totalWidth; break;
         case AlignCenter: startX = (availWidth - totalWidth) * 0.5; break;
         }
         double x = startX;

@@ -9,8 +9,6 @@ import QueMusic 1.0
 QtObject {
     id: root
 
-    property AudioEngine player
-    property QueueModel queue
     property var targetWindow
 
     property bool queued: false
@@ -25,13 +23,15 @@ QtObject {
         Qt.callLater(function() {
             root.queued = false
             root.updateControls()
-            if (!mgr.available || !player)
+            if (!mgr.available)
                 return
+            const player = Playback.player
             if (player.duration > 0)
                 mgr.updateTimeline(0, player.duration)
-            if (player.playbackState === AudioEngine.PlayingState)
+            if (Playback.inplay)
                 mgr.setPlaybackStatus(WindowsSmtcManager.Playing)
-            else if (player.playbackState === AudioEngine.PausedState)
+            else if (player.playbackState === AudioEngine.PlayingState
+                     || player.playbackState === AudioEngine.PausedState)
                 mgr.setPlaybackStatus(WindowsSmtcManager.Paused)
             else if (player.playbackState === AudioEngine.StoppedState)
                 mgr.setPlaybackStatus(WindowsSmtcManager.Stopped)
@@ -46,10 +46,12 @@ QtObject {
         infoQueued = true
         Qt.callLater(function() {
             root.infoQueued = false
-            if (!mgr.available || !player)
+            if (!mgr.available)
                 return
+            const player = Playback.player
+            const queue = Playback.queue
             let mediaId = ""
-            if (queue && queue.count > 0 && queue.playListIndex >= 0) {
+            if (queue.count > 0 && queue.playListIndex >= 0) {
                 const item = queue.get(queue.playListIndex)
                 if (item)
                     mediaId = item.path
@@ -60,8 +62,9 @@ QtObject {
     }
 
     function updateControls(): void {
-        if (!mgr.available || !queue)
+        if (!mgr.available)
             return
+        const queue = Playback.queue
         mgr.setControlsEnabled(true, true, queue.playListIndex < queue.count - 1,
                                queue.playListIndex > 0)
     }
@@ -78,14 +81,11 @@ QtObject {
         onPausePressed: Playback.togglePlay()
         onNextPressed: Playback.next(false)
         onPreviousPressed: Playback.previous()
-        onSeekRequested: (pos) => {
-            if (root.player)
-                root.player.position = pos
-        }
+        onSeekRequested: (pos) => Playback.player.position = pos
     }
 
     property Connections playerWatch: Connections {
-        target: root.player
+        target: Playback.player
 
         function onSourceChanged(): void {
             Playback.clearAb()
@@ -104,13 +104,14 @@ QtObject {
             if (!mgr.available)
                 return
             const now = Date.now()
-            const jump = Math.abs(root.player.position - root.lastPosition)
+            const player = Playback.player
+            const jump = Math.abs(player.position - root.lastPosition)
             if (now - root.lastTimeline < 5000 && jump < 3000
-                    && root.player.duration - root.player.position > 5000)
+                    && player.duration - player.position > 5000)
                 return
             root.lastTimeline = now
-            root.lastPosition = root.player.position
-            mgr.updateTimeline(root.player.position, root.player.duration)
+            root.lastPosition = player.position
+            mgr.updateTimeline(player.position, player.duration)
         }
     }
 
@@ -118,10 +119,11 @@ QtObject {
         target: Playback
         function onMusicTitleChanged(): void { root.pushInfo() }
         function onMusicArtistChanged(): void { root.pushInfo() }
+        function onInplayChanged(): void { root.push() }
     }
 
     property Connections queueWatch: Connections {
-        target: root.queue
+        target: Playback.queue
         function onCountChanged(): void { root.push() }
         function onPlayListIndexChanged(): void { root.push() }
     }

@@ -215,6 +215,7 @@ signals:
     void localLyricsFailed(const QString &filePath);
     void localMetadataReady(const QString &filePath, const QVariantMap &meta);
     void localMetadataSaved(const QString &filePath, bool ok);
+    void lyricFuncted();
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);

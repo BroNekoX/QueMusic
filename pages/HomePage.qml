@@ -74,7 +74,7 @@ Item {
         MusicApi.globaltagid = tag.tagid
         MusicApi.musicPlaylists.clear()
         MusicApi.getMusicPlaylists(tag.tagid, 1, 20)
-        recommendWindow.opened(tag.title, (tag.cover || "").replace("{size}", "256") || "qrc:/QueMusic/resources/app/musicpic.png")
+        recommendWindow.opened("歌单漫游", "qrc:/QueMusic/resources/app/musicpic.png") //tag.title, (tag.cover || "").replace("{size}", "256")
         Options.exitIndex = 1
     }
 
@@ -94,7 +94,7 @@ Item {
         MusicApi.getHotPlaylists(1)
         Options.homeLoaded = true
     }
-    
+
     Item {
         id: homeMain
         anchors.fill: parent
@@ -649,28 +649,31 @@ Item {
         id: recommendWindow
         mainTarget: homeMain
         haveControl: false
+        mainHeadMode: true
+        QBlurTapBar {
+            x: 24
+            y: 80
+            z: 2
+            model: homePage.roamTitles
+            rectXy: Qt.rect(0, 12, width, 40)
+            blurSource: recommendWindow.loadItem
+            tabWidth: 100
+            width: model.length * 100 + 6
+            onTabChange: (index) => homePage.openCategory(index)
+        }
+
         content: QListView {
             id: recomView
             x: 24
-            y: 128
+            y: 68
             width: recommendWindow.width - 32
-            height: recommendWindow.height - 128
+            height: recommendWindow.height - 68
             model: MusicApi.musicPlaylists
             onCountChanged: if (count === 0) scrollTop()   // 换分类清空后回到顶部
             clip: true
-            topMargin: 56   // 给上方分类 tabbar 让位
+            topMargin: 72   // 给上方分类 tabbar 让位
             bottomMargin: 24
             isList: true
-
-            QBlurTapBar {
-                x: 0
-                y: 10
-                z: 12
-                model: homePage.roamTitles
-                tabWidth: 100
-                width: model.length * 100 + 6
-                onTabChange: (index) => homePage.openCategory(index)
-            }
 
             onEnded: {
                 if(MusicApi.musicPlaylists.count % 20 === 0 && MusicApi.musicPlaylists.count !== 0) {

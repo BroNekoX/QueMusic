@@ -5,7 +5,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 import QtCore
-import QtMultimedia
 import QWindowKit 1.0
 import QtQuick.Controls.Basic
 
@@ -18,21 +17,19 @@ Window {
     color: Theme.primaryColor
     title: "QueMusic"
 
-    readonly property AudioEngine mainMedia: Playback.player
-    readonly property QueueModel playListModel: Playback.queue
-
     Component.onCompleted: {
-        Options.queue = playListModel
+        Options.queue = Playback.queue
         Options.dialog = globalDialog
         Options.desktop = desktopPlayer
         Options.smtc = smtc
+        Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
         Options.getWave = getWave
         Options.textWatch = textWatch
         Options.picWatch = picWatch
         Options.songInfo = songInfo
         Options.favPicker = favPicker
-        Options.coverHelper = coverHelper
+
         Options.desktopPlayerLoader = desktopPlayerLoader
         Options.desktopLyricsLoader = desktopLyricsLoader
         Options.openMaxLyric = openMaxLyric
@@ -44,7 +41,6 @@ Window {
             // dwm-blur acrylic-material mica mica-alt
             windowAgent.setWindowAttribute("dark-mode", false);
             if(Config.noWindowKit) {
-                windowAgent.setWindowAttribute("extra-margins", 3);
                 windowAgent.setWindowAttribute("title-bar-height", 40);
             }
         }
@@ -64,21 +60,8 @@ Window {
         Options.changeUi();
         Options.changeTheme();
 
-        // Application.arguments[0] 是程序自身路径，从 1 开始才是参数
-        const args = Application.arguments.slice(1).filter(a => !a.startsWith("-"))
-        if (args.length) {
-            const fileName = args.split('/').pop();
-            Playback.playLocalSong(args, fileName);
-        }
-
-        // 会话恢复 / 历史加载 / 封面缓存维护都是磁盘与网络 I/O，全部移出首帧
         Qt.callLater(function() {
-            Playback.loadHistory();
-            Playback.restoreSession();
-
-            if(Config.cacheUrl)
-                coverHelper.setCacheDir(Config.cacheUrl);
-            coverHelper.pruneCache(Config.cacheSize);
+            Playback.coverHelper.pruneCache(Config.cacheSize);
 
             if(Config.autoUpdate)
                 autoUpdateTimer.start();
@@ -212,14 +195,14 @@ Window {
     }
 
     // 顶部栏 - 与qwindowkit和window耦合，难抽为组件
-    Rectangle {
+    Item {
         id: titleBar
         x: 0
         y: 0
         z: 10
         width: window.width
         height: 60
-        color: "transparent"
+        //color: "transparent"
         property bool toBarLyric: musicControlMax.y === 0
 
         // 此组件创建时，将此组件与 qwindowkit 绑定，标题栏事件由此传入
@@ -548,6 +531,7 @@ Window {
         // 取色在工作线程完成，结果回填
         ColorExtractor {
             id: colorExtractor
+            imageSource: Playback.player.urlStr
             signal colorExtractFinished()
             onColorsExtracted: (colors) => {
                 const color1 = colors.length > 0 ? colors[0] : "#00b1ee";
@@ -669,124 +653,20 @@ Window {
         }
     }
 
-    CoverHelper {
-        id: coverHelper
-        property string jsonCover: ""
-        onLocalCoverReady: (path, coverUrl) => {
-            if (path !== Playback.localLyricsRequestPath)
-                return;
-            const localCover = coverUrl || coverHelper.findLocalCover(path);
-            if (localCover) {
-                if (localCover !== mainMedia.urlStr) {
-                    mainMedia.urlStr = localCover;
-                }
-            } else if (!jsonCover) {
-                mainMedia.urlStr = "qrc:/QueMusic/resources/app/musicpic.png";
-            }
-        }
-    }
-
-    // WebDAV 缓存落地：按本地文件那套回填（标签/同名歌词/同目录封面）
-    Connections {
-        target: WebDavCache
-        function onCached(url: string, localPath: string): void {
-            if (mainMedia.source.toString() !== url)
-                return;
-            Playback.localLyricsRequestPath = localPath;
-            MusicApi.readLocalMetadataAsync(localPath);
-        }
-    }
-
-    Connections {
-        target: MusicApi
-        function onLocalLyricsReady(filePath: string, lyrics: var, translate: var): void {
-            if (filePath !== Playback.localLyricsRequestPath)
-                return;
-            MusicApi.lyricsData = lyrics;
-            MusicApi.lyricsTranslate = translate || [];
-        }
-        function onLocalLyricsFailed(filePath: string): void {
-            if (filePath !== Playback.localLyricsRequestPath)
-                return;
-            if ((MusicApi.lyricsData || []).length > 1) // 已有歌词（如内嵌 SYLT）就保留，别退回占位
-                return;
-            MusicApi.setLocalLyrics();
-        }
-        function onLocalMetadataReady(filePath: string, meta: var): void {
-            if (filePath !== Playback.localLyricsRequestPath)
-                return;
-            if (meta.title)
-                Playback.musicTitle = meta.title;
-            if (meta.artist)
-                Playback.musicArtist = meta.artist;
-            if (meta.album)
-                mainMedia.album = meta.album;
-            const hasMetaLyrics = meta.lyrics && meta.lyrics.length > 0;
-            MusicApi.lyricsData = meta.lyrics || [];
-            MusicApi.lyricsTranslate = meta.translate || [];
-            if (!hasMetaLyrics)
-                MusicApi.setLocalLyrics();
-            MusicApi.readLocalLyricsAsync(filePath, meta.title || mainMedia.noTitle,
-                                          meta.artist || "", meta.duration || 0, !hasMetaLyrics);
-            // 封面优先级：内嵌 > 同名 json。json 的 cover 多是在线 URL，离线或防盗链时加载不出来，
-            // 先顶上让界面立刻有图；内嵌封面始终提取（否则「json 里有 cover」会让内嵌永远不被读取）
-            coverHelper.jsonCover = meta.cover || "";
-            if (meta.cover) {
-                mainMedia.urlStr = meta.cover;
-            }
-            coverHelper.findEmbeddedCoverAsync(filePath);
-        }
-    }
-
-
-    MediaDevices { id: musicDevices }
     GetWave {
         id: getWave
-        engine: mainMedia
+        engine: Playback.player
         renderWindow: window
         enabled: Style.waveDisplay && musicControlMax.visible
         bands: 128
-    }
-
-    Binding {
-        target: Playback.player
-        property: "deviceId"
-        value: Config.useDefaultDevice || musicDevices.audioOutputs.length <= Config.audioDevice
-               ? "" : String(musicDevices.audioOutputs[Config.audioDevice].id)
-    }
-
-    Connections {
-        target: Playback.player
-        function onMetaDataChanged(): void {
-            if (Playback.player.source.toString().startsWith("http"))
-                return;
-            if (Playback.player.tagTitle)
-                Playback.musicTitle = Playback.player.tagTitle;
-            if (Playback.player.artist)
-                Playback.musicArtist = Playback.player.artist;
-        }
-        function onUrlStrChanged(): void {
-            if (Playback.player.urlStr)
-                colorExtractor.extractColorsFromUrl(Playback.player.urlStr);
-        }
-    }
-
-    Connections {
-        target: Playback
-        function onWarned(text: string, type: int): void {
-            mainWarn.tiped(text, type);
-        }
     }
 
     SystemTrayManager {
         id: systemTray
         iconSource: "qrc:/QueMusic/resources/icon.ico"
         title: "QueMusic"
-        playing: mainMedia.playbackState === AudioEngine.PlayingState
-        nowPlaying: Playback.musicTitle !== "QueMusic"
-                    ? Playback.musicTitle + (Playback.musicArtist && Playback.musicArtist !== "Artist"
-                                           ? " - " + Playback.musicArtist : "")
-                    : ""
+        playing: Playback.inplay
+        nowPlaying: Playback.musicTitle + (Playback.musicArtist ? " - " + Playback.musicArtist : "")
 
         onShowWindowRequested: win.restoreWindow()
         onPlayPauseRequested: Playback.togglePlay()
@@ -802,8 +682,6 @@ Window {
 
     SmtcBridge {
         id: smtc
-        player: mainMedia
-        queue: playListModel
         targetWindow: window
     }
 
@@ -867,6 +745,12 @@ Window {
             target: Options
             function onWarned(text: string, type: int): void {
                 mainWarn.tiped(text,type);
+            }
+        }
+        Connections {
+            target: Playback
+            function onWarned(text: string, type: int): void {
+                mainWarn.tiped(text, type);
             }
         }
     }

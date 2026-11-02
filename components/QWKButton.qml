@@ -29,8 +29,15 @@ Button {
     }
     background: Rectangle {
         border.width: 0
-        color: root.hovered ? root.hoverColor : root.buttonColor
+        color: root.buttonColor
         radius: Style.noControlRadius ? Style.labelRadius : 8
-        Behavior on color { ColorAnimation { duration: 80 } }
+        Rectangle {
+            radius: parent.radius
+            width: parent.width
+            height: parent.height
+            color: root.hoverColor
+            opacity: root.hovered ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 80 } }
+        }
     }
 }

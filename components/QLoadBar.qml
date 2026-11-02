@@ -59,7 +59,7 @@ Item {
         running: root.load
         loops: Animation.Infinite
 
-        // ── 阶段 1：条从左边缘冒出并伸展到 70% 宽 ──
+        // 阶段 1：条从左边缘冒出并伸展到 70% 宽
         ParallelAnimation {
             NumberAnimation {
                 target: root; property: "animeX"
@@ -77,7 +77,7 @@ Item {
             }
         }
 
-        // ── 阶段 2：整体右移，同时宽度收窄至 0，从右边滑出 ──
+        // 阶段 2：整体右移，同时宽度收窄至 0，从右边滑出
         ParallelAnimation {
             NumberAnimation {
                 target: root; property: "animeX"

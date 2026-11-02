@@ -118,7 +118,6 @@ public:
     Q_INVOKABLE void loadByFolder(int folderId);
     Q_INVOKABLE void reload() { loadByFolder(m_folderId); }
     Q_INVOKABLE QVariantMap get(int index) const;
-    Q_INVOKABLE void addSong(int folderId, const QString &name, const QString &path, const QString &singer = QString());
     Q_INVOKABLE void addSongs(int folderId, const QVariantList &songs);
     Q_INVOKABLE void deleteSong(int songId);
     Q_INVOKABLE void deleteSongs(const QVariantList &songIds);

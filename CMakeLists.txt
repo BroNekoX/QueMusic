@@ -39,6 +39,7 @@ qt_add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/playback
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/webdav
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/plugins
     ${CMAKE_CURRENT_SOURCE_DIR}/api
@@ -227,8 +228,11 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/CustomFlow.h
         cpp/QueueModel.cpp
         cpp/QueueModel.h
-        cpp/PlaybackController.cpp
-        cpp/PlaybackController.h
+        cpp/playback/Playback.cpp
+        cpp/playback/Playback.h
+        cpp/playback/PlaybackCursor.h
+        cpp/playback/PlaybackHistory.cpp
+        cpp/playback/PlaybackHistory.h
         cpp/LocalMusicScanner.cpp
         cpp/LocalMusicScanner.h
         cpp/webdav/WebDavCache.cpp
@@ -352,18 +356,18 @@ if(WIN32)
             COMMENT "Copying QWindowKit runtime libraries next to the executable...")
     endif()
 
-    # FFmpeg 运行库须项目自带（解码层直接链接 avcodec/avformat，Qt 部署不再提供）；
-    # 缺目录直接报错，不静默跳过，否则应用能启动但无法播放
-    if(NOT EXISTS "${QUEMUSIC_FFMPEG_ROOT}/bin")
-        message(FATAL_ERROR
-            "缺少 ${QUEMUSIC_FFMPEG_ROOT}/bin（FFmpeg 运行库）。"
-            "解码层直接链接 avcodec/avformat，Qt 部署不再提供它们，须由项目自带。")
+    # FFmpeg 运行库取 Qt 自带的那套（同版本，仓库不再携带 dll）；Debug 不跑 qt_deploy_runtime，这里补齐
+    file(GLOB _qm_ffmpeg_runtime
+        "${QT6_INSTALL_PREFIX}/bin/avcodec-*.dll"
+        "${QT6_INSTALL_PREFIX}/bin/avformat-*.dll"
+        "${QT6_INSTALL_PREFIX}/bin/avutil-*.dll"
+        "${QT6_INSTALL_PREFIX}/bin/swresample-*.dll")
+    if(_qm_ffmpeg_runtime)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_qm_ffmpeg_runtime}
+                    $<TARGET_FILE_DIR:${PROJECT_NAME}>
+            COMMENT "Copying FFmpeg runtime libraries from Qt...")
     endif()
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${QUEMUSIC_FFMPEG_ROOT}/bin"
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMENT "Copying FFmpeg runtime libraries next to the executable...")
 endif()
 
 # macOS 由 macdeployqt 部署；Debug 不部署 Qt 运行时

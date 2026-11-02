@@ -16,15 +16,17 @@ Item {
     property bool haveControl: true
     property real transX: 0
     property int originX: 0
+    property bool mainHeadMode: false
     property list<ParallelAnimation> animeOnList: [openAnime0,openAnime1]
     property list<ParallelAnimation> animeOutList: [closeAnime0,closeAnime1]
     property int animeType: Style.animeType
     transform: Translate { x: root.transX }
     Component.onCompleted: originX = mainTarget.x;
+    property QtObject loadItem: loadWidget.item
 
 
     property int songSource: MusicApi.songSource
-    default property alias content: loadWidget.sourceComponent
+    property alias content: loadWidget.sourceComponent
     function opened(title: string, image: string): void {
         root.title = title;
         root.image = image;
@@ -58,18 +60,19 @@ Item {
         width: 96
         height: 96
         radius: 16
+        visible: !root.mainHeadMode
         source: root.image || "qrc:/QueMusic/resources/app/musicpic.png"
     }
 
     Text {
         id: headTitle
-        x: 136
-        y: root.haveControl ? 16 : 34
-        width: 200
-        height: 60
+        x: root.mainHeadMode ? 24 : 136
+        y: root.mainHeadMode ? 24 : (root.haveControl ? 26 : 44)
+        height: 40
         color: Theme.fontColor
         text: root.title
-        font.pixelSize: Style.textH1
+        font.pixelSize: root.mainHeadMode ? Style.pageTitle : Style.textH1
+        font.bold: root.mainHeadMode
         verticalAlignment: Text.AlignVCenter
     }
 

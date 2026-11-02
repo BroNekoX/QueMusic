@@ -1,14 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// 面向 QML 的数据模型单例。
-//
-// 用独立单例而非 setContextProperty：上下文属性无法被 qmlcachegen 编译期解析，按类型名访问
-// （如 FavoriteSongs.count）才能编译；也不能合并成"一个单例持多个模型属性"，会拒绝继续属性查找。
-//
-// ⚠️ 构造函数【绝不能】带默认参数：singletonConstructionMode() 中 is_default_constructible
-// 优先于 HasSingletonFactory，写成 X(QObject *parent = nullptr) 会走默认构造、create() 永不执行，
-// 表现为过滤类型失效、收藏列表列出全部数据。
+// 面向 QML 的数据模型单例：必须独立成单例（上下文属性无法被 qmlcachegen 解析）。
+// 构造函数禁止默认参数，否则 is_default_constructible 优先于 HasSingletonFactory，
+// create() 不执行、过滤类型失效。
 #ifndef APPMODELS_H
 #define APPMODELS_H
 

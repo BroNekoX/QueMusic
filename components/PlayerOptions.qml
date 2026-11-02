@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
+pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
 
@@ -15,8 +16,6 @@ QOptionDialog {
     headerHeight: 60
     cardColor: Theme.secondaryBlurColor
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
 
     readonly property list<double> rates: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
     readonly property list<int> seekSteps: [3, 5, 10, 15, 30]
@@ -35,7 +34,6 @@ QOptionDialog {
         //height: 870
         controlWidth: parent.width
         display: eqTab.index + 1
-        engine: options.player
         Rectangle {
             width: panel.width
             height: poColumn.height
@@ -118,8 +116,8 @@ QOptionDialog {
                     controlItem: QSwitch {
                         anchors.fill: parent
                         letRight: true
-                        switchTrue: Config.useDefaultDevice
-                        onToggled: Config.useDefaultDevice = !Config.useDefaultDevice
+                        switchTrue: Playback.player.followSystemDevice
+                        onToggled: Playback.player.followSystemDevice = !Playback.player.followSystemDevice
                     }
                 }
 
@@ -128,13 +126,12 @@ QOptionDialog {
                     tip: "指定播放时使用的音频输出设备"
                     controlWidth: 160
                     width: panel.controlWidth
-                    opacity: Config.useDefaultDevice ? 0.5 : 1
+                    opacity: Playback.player.followSystemDevice ? 0.5 : 1
                     controlItem: QDrop {
                         anchors.fill: parent
-                        useId: true
-                        choice: Config.audioDevice
-                        model: musicDevices.audioOutputs
-                        onTransformed: (choiced) => Config.audioDevice = choiced
+                        choice: Playback.player.deviceIndex
+                        model: Playback.player.audioDevices
+                        onTransformed: (choiced) => Playback.player.deviceIndex = choiced
                     }
                 }
 
@@ -214,7 +211,10 @@ QOptionDialog {
                         anchors.fill: parent
                         letRight: true
                         switchTrue: Config.fadeEnabled
-                        onToggled: Config.fadeEnabled = !Config.fadeEnabled
+                        onToggled: {
+                            Config.fadeEnabled = !Config.fadeEnabled
+                            Playback.refreshSettings()
+                        }
                     }
                 }
 
@@ -232,7 +232,10 @@ QOptionDialog {
                         leftText: true
                         valueText: value.toString() + "ms"
                         value: Config.fadeMs
-                        onMoved: Config.fadeMs = value
+                        onMoved: {
+                            Config.fadeMs = value
+                            Playback.refreshSettings()
+                        }
                     }
                 }
 

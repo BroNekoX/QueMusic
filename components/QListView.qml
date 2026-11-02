@@ -28,8 +28,8 @@ ListView {
     property string toolText1: "\uf0c8"  // 行尾按钮：收藏（未收藏时为空心）
     property alias menu: menu
     property bool isEnd: false
-    property var toolHandler: null   // 返回 true 表示页面自行处理，跳过内置动作
-    property var menuHandler: null
+    property bool toolHandler: false   // 返回 true 表示页面自行处理，跳过内置动作
+    property bool menuHandler: false
     readonly property string favType: isList ? "playlist" : "song"
     readonly property var favModel: isList ? FavoritePlaylists : FavoriteSongs
     readonly property var localDriveRe: /^[a-zA-Z]:[\\/]/
@@ -37,6 +37,8 @@ ListView {
     synchronousDrag: true
     reuseItems: true
     onDraggingChanged: view.scrollToY = view.contentY
+    signal toolClicked(int choice,int index)
+    signal menuClicked(int choice,int index)
 
     // 回到顶部并同步 scrollToY，防止滚轮动画把 contentY 拉回过期位置
     function scrollTop(): void {
@@ -104,10 +106,10 @@ ListView {
         if (!key) return
         const row = { name: titleOf(it), path: key, songer: artistOf(it), source: sourceOf(it) }
         if (next) {
-            Playback.playNext(row)
+            Playback.playNext(row.name, row.path, row.songer, row.source)
             Options.warned("已设为下一首播放", 1)
         } else {
-            Options.warned(Playback.enqueue(row) ? "已加入播放列表" : "已在播放列表中", 1)
+            Options.warned(Playback.enqueue(row.name, row.path, row.songer, row.source) ? "已加入播放列表" : "已在播放列表中", 1)
         }
     }
     function download(i: int): void {
@@ -126,7 +128,10 @@ ListView {
     // 菜单索引：歌单 0 收藏 / 1 信息；歌曲 0 下载 / 1 下一首 / 2 加入列表 / 3 收藏 / 4 信息
     function runMenuAction(choice: int): void {
         const i = menu.index
-        if (menuHandler && menuHandler(choice, i) === true) return
+        if (menuHandler) {
+            view.menuClicked(choice,i);
+            return;
+        }
         if (view.isList) {
             if (choice === 0) toggleFavorite(i)
             else showInfo(i)
@@ -137,7 +142,10 @@ ListView {
         else showInfo(i)
     }
     function runToolAction(i: int, tool: int): void {
-        if (toolHandler && toolHandler(tool, i) === true) return
+        if (toolHandler) {
+            view.toolClicked(tool,i);
+            return;
+        }
         if (tool === 1) toggleFavorite(i)
         else if (view.isList) showInfo(i)
         else enqueue(i, false)

@@ -5,6 +5,7 @@
 // 落地后标签/歌词/封面直接复用本地那套（CoverHelper + LocalLyricsReader）
 #pragma once
 
+#include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QList>
 #include <QObject>
@@ -23,14 +24,15 @@ public:
     explicit WebDavCache(QObject *parent);
     static WebDavCache *create(QQmlEngine *, QJSEngine *)
     {
-        auto *cache = new WebDavCache(nullptr);
+        if (s_instance)
+            return s_instance;
+        auto *cache = new WebDavCache(QCoreApplication::instance());
+        QQmlEngine::setObjectOwnership(cache, QQmlEngine::CppOwnership);
         s_instance = cache;
         return cache;
     }
     static WebDavCache *instance() { return s_instance; }
 
-    // 已落地则返回本地音频路径；未落地返回空（调用方直接流式播）
-    Q_INVOKABLE QString localPathFor(const QString &url) const { return cachedAudioFor(url); }
     // 落地目录 / 落地音频 / 落地封面：模型侧也要按同一规则查，统一放静态实现，避免两处算路径
     static QString cachedDirFor(const QString &url);
     static QString cachedAudioFor(const QString &url);

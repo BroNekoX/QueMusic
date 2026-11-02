@@ -6,7 +6,7 @@ preset := if os == "Darwin" { "mac-clang-release" } else if os == "Linux" { "lin
 setup:
     git submodule update --init --recursive
 
-# Windows 首次使用：拉取 FFmpeg 音频解码库到 ffmpeg/
+# 维护用：从 Qt 自带 dll 重新生成 ffmpeg/lib 导入库（正常构建无需运行）
 ffmpeg:
     powershell -ExecutionPolicy Bypass -File cmake/fetch_ffmpeg.ps1
 

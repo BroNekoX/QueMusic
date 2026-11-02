@@ -22,8 +22,9 @@ QueMusic 主体代码以 **Apache License 2.0** 授权（见根目录 `LICENSE`�
     `ffmpeg-n8.1-*-lgpl-shared` 同属 LGPL 构建；改用后授权义务不变，二进制体积由约 111MB 降至约 19MB
   - 对应源码：<https://ffmpeg.org/releases/ffmpeg-7.1.3.tar.xz>（未修改的原始源码）
   - 重新分发要求：随包附上 LGPL-2.1 许可证文本与上述构建配置说明；不得限制用户替换这些共享库
-  - `include/`（编译期头文件）、`lib/`（导入库）、`bin/`（运行时共享库）与 `LICENSE.txt` 均**随仓库提供**，
-    构建无需联网下载；`cmake/fetch_ffmpeg.ps1` 仅用于维护（重新生成/替换这批文件）
+  - `include/`（编译期头文件）、`lib/`（导入库）与 `LICENSE.txt` **随仓库提供**，构建无需联网下载；
+    运行时共享库**不重复入库**，构建时直接从 `<Qt>/bin` 拷贝同版本 dll；
+    `cmake/fetch_ffmpeg.ps1` 仅用于维护（重新生成/替换这批文件）
   - **Linux 构建不使用上述 Windows 文件**：通过 pkg-config 链接**发行版自带的 FFmpeg**
     （Debian/Ubuntu：`libavcodec-dev libavformat-dev libavutil-dev libswresample-dev`；Arch：`ffmpeg`；
     见 `packaging/build-linux.sh` 与 `packaging/PKGBUILD`）。所调用的 API 均为 FFmpeg ≥ 5.1 即存在的

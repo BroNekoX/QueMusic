@@ -70,7 +70,6 @@ QString DownloadManager::effectiveDownloadDir() const
     return dir + QLatin1String("/QueMusic");
 }
 
-// QAbstractListModel
 
 int DownloadManager::rowCount(const QModelIndex &parent) const
 {
@@ -120,7 +119,6 @@ QHash<int, QByteArray> DownloadManager::roleNames() const
     };
 }
 
-// Public API
 
 void DownloadManager::addDownload(const QString &url, const QString &fileName,
                                   const QVariantMap &meta)
@@ -165,7 +163,6 @@ void DownloadManager::retryTask(int taskId)
     if (task.status == DownloadTask::Completed)
         return;
 
-    // 重置任务状态
     task.progress = 0.0;
     task.errorString.clear();
     task.status = DownloadTask::Queued;
@@ -174,7 +171,6 @@ void DownloadManager::retryTask(int taskId)
     QModelIndex mi = index(idx);
     emit dataChanged(mi, mi, { ProgressRole, StatusRole, ErrorStringRole, FilePathRole });
 
-    // 如果没有活跃任务，立即启动
     if (!hasActiveTasks())
         startNextTask();
 }
@@ -184,7 +180,6 @@ void DownloadManager::removeTask(int taskId)
     int idx = findTaskById(taskId);
     if (idx < 0) return;
 
-    // 如果正在下载该任务，先中止
     if (taskId == m_currentTaskId)
         abortCurrentDownload();
 
@@ -195,7 +190,6 @@ void DownloadManager::removeTask(int taskId)
     emit taskCountChanged();
     emit completedCountChanged();
 
-    // 如果取消的是当前任务，启动下一个
     if (taskId == m_currentTaskId) {
         m_currentTaskId = -1;
         emit currentTaskIdChanged();
@@ -204,11 +198,9 @@ void DownloadManager::removeTask(int taskId)
     }
 }
 
-// Internal
 
 void DownloadManager::startNextTask()
 {
-    // 找到第一个排队中的任务
     int nextIdx = -1;
     for (int i = 0; i < m_tasks.size(); ++i) {
         if (m_tasks[i].status == DownloadTask::Queued) {
@@ -231,7 +223,6 @@ void DownloadManager::startNextTask()
     QDir().mkpath(downloadDir);
     const QString rootDir = QDir(downloadDir).absolutePath();
 
-    // 如果文件已存在，添加数字后缀避免覆盖
     const QString basePath = rootDir + QLatin1Char('/') + task.fileName;
     const QFileInfo baseInfo(basePath);
     const QString baseName = baseInfo.completeBaseName();
@@ -255,7 +246,6 @@ void DownloadManager::startNextTask()
         m_currentTaskId = -1;
         emit currentTaskIdChanged();
         emit hasActiveTasksChanged();
-        // 继续下一个
         startNextTask();
     };
 
@@ -276,7 +266,6 @@ void DownloadManager::startNextTask()
         return;
     }
 
-    // 发起网络请求
     QNetworkRequest request;
     request.setUrl(QUrl(task.url));
     // B 站 CDN 会校验 Referer / UA，缺失时返回 403
@@ -380,7 +369,6 @@ void DownloadManager::writeMetadata(const DownloadTask &task)
     f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
 }
 
-// Network slots
 
 void DownloadManager::onReadyRead()
 {
@@ -400,7 +388,6 @@ void DownloadManager::onFinished()
     int taskId = m_currentTaskId;
     int idx = findTaskById(taskId);
 
-    // 刷新文件
     if (m_file) {
         m_file->flush();
         m_file->close();
@@ -429,7 +416,6 @@ void DownloadManager::onFinished()
     emit currentTaskIdChanged();
     emit hasActiveTasksChanged();
 
-    // 启动下一个任务
     startNextTask();
 }
 
@@ -469,7 +455,6 @@ void DownloadManager::onErrorOccurred(QNetworkReply::NetworkError code)
     emit dataChanged(mi, mi, { StatusRole, ErrorStringRole });
     emit completedCountChanged();
 
-    // 清理文件
     if (m_file) {
         m_file->close();
         m_file->remove();

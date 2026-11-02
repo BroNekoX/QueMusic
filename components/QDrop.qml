@@ -16,9 +16,7 @@ Rectangle {
     color: Theme.primaryColor
     border.width: 2
     border.color: Theme.borderColor
-    // useId 模式取 model[choice].description；越界下标是 undefined，故显式判范围
-    property string text: (!useId && model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
-    property bool useId: false
+    property string text: (model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
     property int choice: 0
@@ -53,13 +51,7 @@ Rectangle {
         width: root.width - root.height
         height: root.height
         clip: true
-        text: {
-            if (!root.useId)
-                return root.text
-            // 设备列表可能为空，直接取 .description 会抛 TypeError
-            const item = root.model ? root.model[root.choice] : null
-            return (item && item.description) ? String(item.description) : ""
-        }
+        text: root.text
         color: root.textColor
         font.pixelSize: Style.textmain
         font.bold: true
@@ -132,16 +124,10 @@ Rectangle {
                     color: root.choice === dropDele.index ? Theme.themeColor : "transparent"
                     radius: root.cardRadius
                     required property string modelData
-                    required property var model
                     required property int index
                     Text {
                         anchors.fill: parent
-                        text: {
-                            if (!root.useId)
-                                return dropDele.modelData
-                            const item = root.model ? root.model[dropDele.index] : null
-                            return (item && item.description) ? String(item.description) : ""
-                        }
+                        text: dropDele.modelData
                         color: root.choice === dropDele.index ? Theme.primaryColor : Theme.textColor
                         font.pixelSize: Style.textmain
                         verticalAlignment: Text.AlignVCenter

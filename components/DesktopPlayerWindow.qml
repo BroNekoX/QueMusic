@@ -23,8 +23,6 @@ Window {
     property int bw: 0
     readonly property bool isSmall: height < 132
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
     onClosing: {
         Options.desktop.desktopPlayerMode = 0;
         Options.desktopPlayerLoader.active = false;
@@ -231,14 +229,14 @@ Window {
                 width: parent.height
                 height: parent.height
                 radius: 18
-                iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
+                iconCharacter: Playback.inplay ? "\uf02f" : "\uf00e"
                 iconSize: Style.texticon + 2
                 buttonColor: Theme.secondaryBlurColor
                 hoverColor: Theme.hoverColor
                 iconColor: Theme.textColor
                 shadowEnabled: false
                 onClicked: Playback.togglePlay()
-                tipText: Playback.player.playing ? "暂停" : "播放"
+                tipText: Playback.inplay ? "暂停" : "播放"
             }
             SButton {
                 id: nextButton

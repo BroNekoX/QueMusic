@@ -4,6 +4,7 @@
 // WebDAV 服务器配置与凭据：配置写 QSettings，密码在 Windows 上用 DPAPI 加密后落盘
 #pragma once
 
+#include <QCoreApplication>
 #include <QHash>
 #include <QJSEngine>
 #include <QObject>
@@ -22,7 +23,10 @@ public:
     explicit WebDavStore(QObject *parent);
     static WebDavStore *create(QQmlEngine *, QJSEngine *)
     {
-        auto *store = new WebDavStore(nullptr);
+        if (s_instance)
+            return s_instance;
+        auto *store = new WebDavStore(QCoreApplication::instance());
+        QQmlEngine::setObjectOwnership(store, QQmlEngine::CppOwnership);
         s_instance = store;
         return store;
     }

@@ -19,13 +19,12 @@ Window {
     property bool active: true   // 外部控制显示/隐藏
     property int lyricSize: height / 4 - 18
 
-    // 宿主注入：播放引擎不再靠上下文继承访问宿主的局部 id
-    readonly property AudioEngine player: Playback.player
 
     // 歌词数据引用
     property var lyricsData: MusicApi.lyricsData || []
     property int currentIndex: 0
     property int nextIndex: 1
+    onLyricsDataChanged: desktopLyricsWindow.updateCurrentIndex()
     onClosing: {
         Options.desktop.desktopPlayerMode = 0;
         Options.desktopLyricsLoader.active = false;
@@ -53,14 +52,6 @@ Window {
         running: Playback.player.onMedia && desktopLyricsWindow.visible
         repeat: true
         onTriggered: desktopLyricsWindow.updateCurrentIndex()
-    }
-
-    Connections {
-        target: MusicApi
-        function onLyricsDataChanged(): void {
-            desktopLyricsWindow.lyricsData = MusicApi.lyricsData || [];
-            desktopLyricsWindow.updateCurrentIndex();
-        }
     }
 
     Column {
@@ -230,14 +221,14 @@ Window {
 
                 SButton {
                     width: 36; height: 36; radius: Style.labelRadius
-                    iconCharacter: Playback.player.playing ? "\uf02f" : "\uf00e"
+                    iconCharacter: Playback.inplay ? "\uf02f" : "\uf00e"
                     iconSize: 16
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
                     shadowEnabled: false
                     onClicked: Playback.togglePlay()
-                    tipText: Playback.player.playing ? "暂停" : "播放"
+                    tipText: Playback.inplay ? "暂停" : "播放"
                 }
 
                 SButton {

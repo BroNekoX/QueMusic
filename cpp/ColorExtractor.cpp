@@ -23,9 +23,7 @@ QVector<QColor> defaultColors()
 
 } // namespace
 
-ColorExtractor::ColorExtractor(QObject *parent)
-    : QObject(parent)
-    , m_networkManager(new QNetworkAccessManager(this))
+ColorExtractor::ColorExtractor(QObject *parent) : QObject(parent), m_networkManager(new QNetworkAccessManager(this))
 {
     m_cache.setMaxCost(128);
     connect(m_networkManager, &QNetworkAccessManager::finished,
@@ -162,9 +160,7 @@ QVector<QColor> ColorExtractor::computeDominantColors(const QImage &image, int c
     const QImage sampled = (image.width() > kSampleSize || image.height() > kSampleSize)
         ? image.scaled(kSampleSize, kSampleSize, Qt::KeepAspectRatio, Qt::FastTransformation)
         : image;
-    const QImage rgb = sampled.format() == QImage::Format_RGB32
-        ? sampled
-        : sampled.convertToFormat(QImage::Format_RGB32);
+    const QImage rgb = sampled.format() == QImage::Format_RGB32 ? sampled : sampled.convertToFormat(QImage::Format_RGB32);
 
     struct Bucket
     {
@@ -211,9 +207,7 @@ QVector<QColor> ColorExtractor::computeDominantColors(const QImage &image, int c
     ranked.reserve(buckets.size());
     for (auto it = buckets.constBegin(); it != buckets.constEnd(); ++it) {
         const Bucket &bucket = it.value();
-        ranked.append({ bucket.n, QColor(int(bucket.r / bucket.n),
-                                        int(bucket.g / bucket.n),
-                                        int(bucket.b / bucket.n)) });
+        ranked.append({ bucket.n, QColor(int(bucket.r / bucket.n), int(bucket.g / bucket.n), int(bucket.b / bucket.n)) });
     }
     std::sort(ranked.begin(), ranked.end(),
               [](const QPair<quint32, QColor> &a, const QPair<quint32, QColor> &b) {
@@ -242,9 +236,7 @@ QVector<QColor> ColorExtractor::computeDominantColors(const QImage &image, int c
             continue;
 
         const QColor hsv = color.toHsv();
-        result.append(QColor::fromHsv(hsv.hue(),
-                                      qMin(255, hsv.saturation() + 42),
-                                      qBound(30, hsv.value() - 32, 200)));
+        result.append(QColor::fromHsv(hsv.hue(), qMin(255, hsv.saturation() + 42), qBound(30, hsv.value() - 32, 200)));
     }
 
     return result.isEmpty() ? defaultColors() : result;

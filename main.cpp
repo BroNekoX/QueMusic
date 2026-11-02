@@ -16,6 +16,7 @@
 #include "cpp/AccountManager.h"
 #include "cpp/LogManager.h"
 #include "cpp/platform/WindowsAppIdentity.h"
+#include "cpp/playback/Playback.h"
 #include "api/MusicApiService.h"
 #include <QWKQuick/qwkquickglobal.h>
 
@@ -43,7 +44,7 @@ static void setupApplicationMetadata(QApplication &application)
     // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
     application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
     application.setApplicationName(QStringLiteral("QueMusic"));
-    application.setApplicationVersion(QStringLiteral("0.7.1"));
+    application.setApplicationVersion(QStringLiteral("0.7.2"));
     // Wayland app_id / Flatpak / 桌面集成：必须与 .desktop 文件名、AppStream <id> 一致
     application.setDesktopFileName(QStringLiteral("io.github.BroNekoX.QueMusic"));
 }
@@ -139,6 +140,8 @@ int main(int argc, char *argv[])
     AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例
 
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
+    MusicApiService::create(nullptr, nullptr);
+    Playback::create(nullptr, nullptr);
     // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
     engine.rootContext()->setContextProperty(QStringLiteral("configDir"), configPath);
 

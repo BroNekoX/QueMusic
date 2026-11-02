@@ -148,9 +148,13 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE QVariantMap get(int index) const;
+    QueueTrack trackAt(int index) const;
     Q_INVOKABLE void append(const QVariantMap &item);
+    void appendTrack(const QueueTrack &track);
     Q_INVOKABLE int appendBatch(const QVariantList &items, bool skipExisting = true);
+    int appendTracks(const QVector<QueueTrack> &tracks, bool skipExisting = true);
     Q_INVOKABLE void insert(int index, const QVariantMap &item);
+    void insertTrack(int index, const QueueTrack &track);
     Q_INVOKABLE void moveTo(int from, int to);
     Q_INVOKABLE void remove(int index, int count = 1);
     Q_INVOKABLE void clear();

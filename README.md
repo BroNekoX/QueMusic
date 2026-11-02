@@ -516,7 +516,6 @@ Copyright (c) 2025-2026 QueMusic Contributors
 - [qiuliw/Qt6_QWindowKit_QML_demo](https://github.com/qiuliw/Qt6_QWindowKit_QML_demo) — 项目框架参考
 - [QCloudMusicApi](https://github.com/s12mmm3/QCloudMusicApi) — 网易云音乐在线接口实现
 - [Crypto++](https://github.com/weidai11/cryptopp) — 用于 QCloudMusicApi 的加解密
-- [libqrencode](https://github.com/fukuchi/libqrencode) — 二维码生成
 - [TagLib](https://github.com/taglib/taglib) — 本地音乐标签与内嵌歌词解析
 - [SMTC-Bridge-Cpp](https://github.com/Cainongw/SMTC-Bridge-Cpp) — Windows 系统媒体控件（SMTC）桥接参考实现（C++）
 - [smtc_bridge_rust](https://github.com/Cainongw/smtc_bridge_rust) — Windows 系统媒体控件（SMTC）桥接参考实现（Rust）

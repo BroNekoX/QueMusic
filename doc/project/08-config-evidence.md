@@ -28,7 +28,7 @@
 ## 8.2 实测存在的键（运行时真值）
 
 `[Options]`（Config.qml 声明 + 遗留混杂）：
-`gpuRenderMode` `timerAnimator` `closeToManage` `soundQuality` `noWindowKit` `openShortCut` `editSource` `searchList` `downloadFolder` `scanTime` `displayDebugControl` `mainMusicSource` `dataUrl` `audioDevice` `cacheSize` `autoPlay` `displayFps` `debug` `musicVolume` `cacheUrl` `softwareRender` `qmlAnimator` `useDefaultDevice` `autoUpdate` `serverAgency` `metaDataSource` `sleepMinutes` `historyLimit` `shuffleAvoid` `playHistory` `lastQueueIndex` `seekStep` `lastQueue` `fadeEnabled` `autoRestoreQueue` `fadeMs` `playerRateIndex` `cycleIndex` `volumeStep` `winX` `rememberWindow` `winY` `winW` `winH` `picCache`
+`gpuRenderMode` `timerAnimator` `closeToManage` `soundQuality` `noWindowKit` `openShortCut` `editSource` `searchList` `downloadFolder` `scanTime` `displayDebugControl` `mainMusicSource` `dataUrl` `cacheSize` `autoPlay` `displayFps` `debug` `musicVolume` `cacheUrl` `softwareRender` `qmlAnimator` `autoUpdate` `serverAgency` `metaDataSource` `sleepMinutes` `historyLimit` `shuffleAvoid` `playHistory` `lastQueueIndex` `seekStep` `lastQueue` `fadeEnabled` `autoRestoreQueue` `fadeMs` `playerRateIndex` `cycleIndex` `volumeStep` `winX` `rememberWindow` `winY` `winW` `winH` `picCache`
 
 **遗留键（源码里已无声明，实际仍存在于 INI）**：`depth` `bufferSize` `sampleRate` `equalizer` `resumePosition` `globalShortcut*`（13 个，已迁到 `[ShortCuts]`）`recordingShortCut`
 

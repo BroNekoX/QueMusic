@@ -43,8 +43,8 @@
 | `tests/` | `smoke-stderr.sh`（启动冒烟测试，**没有**单元测试框架） | 第 7 部分 |
 | `.github/workflows/` | 7 个 workflow（CI + 三平台构建 + release） | 第 7 部分 |
 | `ThirdParty/` | git 子模块：`qwindowkit`、`taglib` | 第 7 部分 |
-| `api/QCloudMusicApi/` | 内嵌第三方库：网易云接口实现（含 `3rdparty/cryptopp`、`libqrencode`） | 第 4、7 部分 |
-| `ffmpeg/` | 本地 FFmpeg 开发库（**被 .gitignore**，Windows 用脚本拉取；缺失时 CMake 直接 `FATAL_ERROR`） | 第 7 部分 |
+| `api/QCloudMusicApi/` | 内嵌第三方库：网易云接口实现（含子模块 `3rdparty/cryptopp`） | 第 4、7 部分 |
+| `ffmpeg/` | FFmpeg 开发文件：`include/` 头文件 + `lib/` 导入库随仓库入库；运行时 dll 由构建从 `<Qt>/bin` 拷贝 | 第 7 部分 |
 | `doc/` | 本文档 + macOS 安装说明 + 数据库诊断脚本 | — |
 | `build/` | 构建产物 | 第 7 部分 |
 

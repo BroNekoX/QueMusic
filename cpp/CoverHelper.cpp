@@ -164,8 +164,6 @@ QString CoverHelper::readCoverFromTag(const QString &sourcePath, const QString &
     const QByteArray encodedPath = QFile::encodeName(localPath);
     TagLib::FileRef ref(encodedPath.constData());
     if (ref.isNull() || ref.file() == nullptr) {
-        // 典型情形是文件正被播放占用：等空闲时（列表扫描）再提取
-        qWarning() << "[cover] 无法打开音频文件读取封面:" << localPath;
         if (failedOut)
             *failedOut = true;
         return QString();
@@ -284,7 +282,7 @@ CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLi
 {
     Metadata meta;
 
-    // 同名 .json 是人工补全，优先于音频内嵌 TAG
+    // 同名.json:人工补全=>TAG
     QFile json(fileInfo.absolutePath() + QLatin1Char('/') + fileInfo.completeBaseName()
                + QStringLiteral(".json"));
     if (json.open(QIODevice::ReadOnly)) {
@@ -310,12 +308,9 @@ CoverHelper::Metadata CoverHelper::readMetadata(const QFileInfo &fileInfo, TagLi
         fromTag = metadataFromTag(ref);
     }
 
-    if (meta.title.isEmpty())
-        meta.title = fromTag.title;
-    if (meta.artist.isEmpty())
-        meta.artist = fromTag.artist;
-    if (meta.duration <= 0)
-        meta.duration = fromTag.duration;
+    if (meta.title.isEmpty()) meta.title = fromTag.title;
+    if (meta.artist.isEmpty()) meta.artist = fromTag.artist;
+    if (meta.duration <= 0) meta.duration = fromTag.duration;
     return meta;
 }
 
@@ -347,33 +342,31 @@ void CoverHelper::clearCache()
     if (dir.exists())
         dir.removeRecursively();
     if (!dir.mkpath(m_cacheDir))
-        qWarning() << "Failed to recreate cache directory:" << m_cacheDir;
+        qWarning() << "！无法重新创建缓存目录:" << m_cacheDir;
 
     // 文件删了，DB 里存的封面路径就成了死链：清掉引用并标记未提取，下次打开列表时重新提取
     DbService::instance()->submit([](QSqlDatabase &db) {
         QSqlQuery query(db);
         if (!query.exec(QStringLiteral("UPDATE songs SET tagged = 0, tag_cover = ''")))
-            qWarning() << "Failed to reset cover cache in db:" << query.lastError().text();
+            qWarning() << "！无法在数据库重设封面缓存:" << query.lastError().text();
     });
 }
 
 void CoverHelper::setCacheDir(const QString &path)
 {
-    if (path.isEmpty() || path == m_cacheDir)
-        return;
+    if (path.isEmpty() || path == m_cacheDir) return;
     m_cacheDir = path;
     if (!QDir().mkpath(m_cacheDir))
         qWarning() << "Failed to create cache directory:" << m_cacheDir;
 }
 
-// 放到线程池：启动时会调用一次，不能占着 UI 线程。
-// 按 mtime 从旧到新删，新写入的缓存排在最末，不会被误删。
+// 放到线程池：启动时会调用一次，不能占着 UI 线程
+// 按 mtime 从旧到新删，新写入的缓存排在最末，不会被误删
 void CoverHelper::pruneCache(int maxMB)
 {
     if (maxMB <= 0)
         return;
     const QString cacheDir = m_cacheDir;
-    // 丢弃 QFuture：只是把清理丢给线程池，不阻塞 UI
     (void)QtConcurrent::run([cacheDir, maxMB] {
         QDir dir(cacheDir);
         if (!dir.exists())

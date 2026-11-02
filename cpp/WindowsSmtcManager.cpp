@@ -475,8 +475,7 @@ public:
     }
 };
 
-// 把封面 URL（http/https/file）转成 RandomAccessStreamReference，
-// 供 DisplayUpdater.Thumbnail 使用。失败或 scheme 不支持时返回空 ComPtr。
+// 把封面 URL（http/https/file）转成 RandomAccessStreamReference，供 DisplayUpdater.Thumbnail 使用
 static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString &url)
 {
     ComPtr<IRandomAccessStreamReference> result;
@@ -487,15 +486,13 @@ static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString
     if (trimmed.isEmpty())
         return result;
 
-    // 只处理 SMTC 能真正读取的 scheme（http/https/file）。
-    // qrc:/ 等 Qt 内部 scheme 对 Windows 而言无意义，塞给 SMTC 只会失败。
+    // 只处理 SMTC 能读取的 scheme；qrc:/ 等 Qt 内部 scheme 会导致失败
     const QString scheme = trimmed.section(QStringLiteral("://"), 0, 0).toLower();
     if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")
         && scheme != QStringLiteral("file")) {
         return result;
     }
 
-    // 1) 创建 Windows.Foundation.Uri
     HStringReference uriClassId(L"Windows.Foundation.Uri");
     if (!uriClassId.isValid())
         return result;
@@ -516,7 +513,6 @@ static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString
     if (FAILED(hr) || !uri)
         return result;
 
-    // 2) 通过 RandomAccessStreamReference 静态工厂 CreateFromUri
     HStringReference streamRefClassId(L"Windows.Storage.Streams.RandomAccessStreamReference");
     if (!streamRefClassId.isValid())
         return result;
@@ -550,8 +546,7 @@ public:
     SmtcAbi::EventRegistrationToken buttonToken = {};
     SmtcAbi::EventRegistrationToken seekToken = {};
 
-    // 进度节流状态：记录最近一次已推送的 position/duration（ms）。
-    // duration<=0（切歌清空重置）后复位为 -1，使下一条时间线立即推送。
+    // 进度节流：记录最近一次推送的 position/duration（ms），duration<=0 后复位
     qint64 lastTimelinePositionMs = -1;
     qint64 lastTimelineDurationMs = -1;
 

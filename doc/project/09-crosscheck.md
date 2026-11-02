@@ -81,7 +81,7 @@
 | `LyricsStage` 的 NOTIFY 信号 | `shaders/LyricsStage.h` | 9 个属性的 `<name>Changed()` 永不 emit（只有 `setPreset`/`setCount`/`setColor1`/`setColor2` 真 emit） | QML 里用 `onXxxChanged` 驱动逻辑会失效 |
 | `AudioEngine::m_chunkFrames` | `cpp/audio/AudioEngine.h` | 死字段，只在初始化处赋值 | 无功能影响 |
 | `FfmpegDecoder::readFrames` | `cpp/audio/FfmpegDecoder.cpp` | 头注释说会返回 `-1` 表示出错，实现从不返回 | 调用方若判断 `-1` 则该分支永不触发 |
-| `libqrencode` | `api/QCloudMusicApi/3rdparty/libqrencode` | 目录存在，但 CMake 未构建、源码未引用（二维码实际走 `api/qrcode.js`） | 不要去找它的调用点 |
+| `libqrencode` | `api/QCloudMusicApi/3rdparty/libqrencode` | 曾随仓库存在但 CMake 未构建、源码未引用（二维码实际走 `api/qrcode.js`），现已删除 | 不要去找它的调用点 |
 | qmltc | `cmake/qmltc.cmake` | 白名单 19 项里有 4 个文件已删除（`StyleThemes/StyleSettings/OptionsSettings/OptionsShortCuts.qml`），其余 15 个都在 `components/` 子目录 | `QUEMUSIC_ENABLE_QMLTC=ON` **实际永远不会启用**，只会 WARNING 后降级 |
 | `qt_deploy_runtime()` 的 APPLE 分支 | `cmake/qtruntime.cmake` | 只在非 Apple 非 Debug 调用；macOS 部署由 `build-macos.yml` 自己做 | APPLE 分支是死代码 |
 | Windows 打包脚本 | 仓库内 | **没有** Windows 打包脚本，也**没有任何 Inno Setup `.iss` 文件**（`packaging/README` 与 README 提到的 `QueMusic-setup.exe` 属未实现） | 想在本地复现安装包是做不到的 |

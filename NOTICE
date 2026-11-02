@@ -55,3 +55,13 @@ This software includes third-party components under their own licenses:
       运行库随发行包提供；想换自己的 FFmpeg 构建，覆盖同名动态库即可。
 
 For the full license texts, please refer to the respective projects.
+
+
+根据 Apache 许可证，版本 2.0（“许可证”）授权，除非符合许可证规定，否则不得使用此文件。
+您可以在以下位置获取许可证副本：
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+除非适用法律要求或书面同意，否则根据许可证分发的软件将以“按原样”的基础上分发，
+不附带任何形式的明示或暗示的保证或条件。
+有关权限和限制的具体语言，请参阅许可证。

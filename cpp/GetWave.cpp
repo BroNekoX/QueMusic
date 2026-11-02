@@ -12,7 +12,6 @@ namespace {
 constexpr int kRingFrames = 16384;   // 约 0.1~0.3 秒，只服务频谱显示
 constexpr int kMaxPushFrames = 8192;
 
-// 频谱显示参数
 constexpr qreal kMinFreq = 30.0;   // 频段下限
 constexpr qreal kDbFloor = -62.0;  // 满高约 -6 dB，留出余量不轻易削顶
 constexpr qreal kDbRange = 56.0;
@@ -109,8 +108,7 @@ void GetWave::pushSamples(const float *interleaved, int frames, int channels, in
         return;
 
     const int n = qMin(frames, kMaxPushFrames);
-    // 真降混：双声道取平均、多声道求平均。只取左声道时，相位相反的段落会互相抵消，
-    // 波形会忽高忽低，看起来就是"抖"
+        // 真降混：多声道取平均；只取左声道时相位相反的段落会互相抵消
     if (channels == 2) {
         for (int i = 0; i < n; ++i)
             m_mix[size_t(i)] = (interleaved[size_t(2 * i)] + interleaved[size_t(2 * i) + 1]) * 0.5f;
@@ -207,8 +205,7 @@ void GetWave::computeSpectrumFromFFT(const float *samples, int n, float sampleRa
 
     std::fill(m_fftData.begin(), m_fftData.end(), Complex(0.0f, 0.0f));
 
-    // 汉宁窗铺满实际参与的样本；分母用 copyLen 而不是 n：
-    // n 与真正参与变换的长度不一致时，每帧的窗形都不一样，频谱会跟着抖
+        // 汉宁窗铺满实际样本；分母用 copyLen，否则每帧窗形不同、频谱跟着抖
     const int copyLen = std::min(n, fftN);
     float windowSum = 0.0f;
     for (int i = 0; i < copyLen; ++i) {
@@ -265,8 +262,7 @@ void GetWave::computeSpectrumFromFFT(const float *samples, int n, float sampleRa
         prev = cur;
     }
 
-    // 上升跟得快、下降放得慢，然后镜像到左右两侧。
-    // 单系数平滑会让下降和上升一样快，柱子就逐帧乱抖
+        // 上升快、下降慢再镜像到左右；单系数平滑会让柱子逐帧乱抖
     for (int i = 0; i < halfBands; ++i) {
         const qreal value = rawBands.at(i);
         qreal &left  = m_spectrumData[halfBands - 1 - i];

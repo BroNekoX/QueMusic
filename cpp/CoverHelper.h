@@ -22,21 +22,11 @@ class CoverHelper : public QObject
 public:
     explicit CoverHelper(QObject *parent = nullptr);
 
-    // 音频同目录查找同名/常见命名封面（cover/folder/AlbumArt），未命中返回空
     Q_INVOKABLE QString findLocalCover(const QString &sourcePath);
-
-    // 读取音频文件内嵌封面（ID3v2 APIC / FLAC Picture / MP4 covr）
     Q_INVOKABLE QString findEmbeddedCover(const QString &sourcePath);
-
-    // 工作线程取内嵌封面（命中缓存直接回传），经 localCoverReady 回传
     Q_INVOKABLE void findEmbeddedCoverAsync(const QString &sourcePath);
-
     Q_INVOKABLE void clearCache();
-
-    // 自定义封面缓存目录（空串忽略；与当前目录相同则不变更）
     Q_INVOKABLE void setCacheDir(const QString &path);
-
-    // 缓存超出上限时按最旧优先删除缓存文件
     Q_INVOKABLE void pruneCache(int maxMB);
 
 signals:

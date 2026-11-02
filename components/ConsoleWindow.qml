@@ -493,7 +493,6 @@ Window {
         id: infoPage
         required property Palette consolePalette
         required property string monoFont
-        readonly property AudioEngine player: Playback.player
 
         padding: 0
         palette: consolePalette
@@ -521,31 +520,31 @@ Window {
         }
 
         function sourceLabel() {
-            return infoPage.player.onMedia ? infoPage.sourceName(infoPage.sourceId()) : "—"
+            return Playback.player.onMedia ? infoPage.sourceName(infoPage.sourceId()) : "—"
         }
 
         function title() {
-            return infoPage.player.onMedia
-                    ? (infoPage.player.noTitle || Playback.musicTitle || "未知曲目")
+            return Playback.player.onMedia
+                    ? (Playback.player.noTitle || Playback.musicTitle || "未知曲目")
                     : "未在播放"
         }
 
         function artist() {
-            return infoPage.player.onMedia
-                    ? (Playback.musicArtist || infoPage.player.artist || "未知歌手")
+            return Playback.player.onMedia
+                    ? (Playback.musicArtist || Playback.player.artist || "未知歌手")
                     : ""
         }
 
         function stateText() {
-            return ["已停止", "播放中", "已暂停"][infoPage.player.playbackState] || "未知"
+            return ["已停止", "播放中", "已暂停"][Playback.player.playbackState] || "未知"
         }
 
         function address() {
-            return infoPage.player.source.toString() || "—"
+            return Playback.player.source.toString() || "—"
         }
 
         function playbackId() {
-            if (!infoPage.player.onMedia)
+            if (!Playback.player.onMedia)
                 return "—"
             const source = infoPage.sourceId()
             if (source < 0 || source === Playback.kSourceWebDav)
@@ -567,17 +566,17 @@ Window {
         readonly property var rows: [
             { label: "播放地址", value: infoPage.address(), mono: true },
             { label: "播放 ID", value: infoPage.playbackId(), mono: true },
-            { label: "专辑", value: infoPage.player.album || "—" },
+            { label: "专辑", value: Playback.player.album || "—" },
             { label: "音源", value: infoPage.sourceLabel() },
             { label: "队列位置", value: infoPage.queuePosition() },
-            { label: "编码", value: infoPage.player.codecName || "—" },
-            { label: "比特率", value: infoPage.value(infoPage.player.bitRate, " kbps") },
-            { label: "采样率", value: infoPage.value(infoPage.player.sourceSampleRate, " Hz") },
-            { label: "声道", value: infoPage.value(infoPage.player.sourceChannels, "") },
-            { label: "输出采样率", value: infoPage.value(infoPage.player.outputSampleRate, " Hz") },
-            { label: "缓冲", value: infoPage.value(infoPage.player.bufferMs, " ms") },
+            { label: "编码", value: Playback.player.codecName || "—" },
+            { label: "比特率", value: infoPage.value(Playback.player.bitRate, " kbps") },
+            { label: "采样率", value: infoPage.value(Playback.player.sourceSampleRate, " Hz") },
+            { label: "声道", value: infoPage.value(Playback.player.sourceChannels, "") },
+            { label: "输出采样率", value: infoPage.value(Playback.player.outputSampleRate, " Hz") },
+            { label: "缓冲", value: infoPage.value(Playback.player.bufferMs, " ms") },
             { label: "音量", value: Math.round(Playback.volume * 100) + "%" },
-            { label: "倍速", value: infoPage.player.playbackRate.toFixed(2) + "×" },
+            { label: "倍速", value: Playback.player.playbackRate.toFixed(2) + "×" },
             { label: "版本", value: "v" + Options.version },
             { label: "日志文件", value: LogManager.currentLogFile || "—", mono: true }
         ]
@@ -628,7 +627,7 @@ Window {
                     Image {
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 64
-                        source: infoPage.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
                         sourceSize.width: 64
                         sourceSize.height: 64
                         fillMode: Image.PreserveAspectCrop

@@ -490,8 +490,8 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | 在线功能 (1470) | 默认音质 | `Config.soundQuality` |
 | | 默认音乐源 | `Config.mainMusicSource` |
 | | 缓存大小/MB | `Config.cacheSize` |
-| 通用 (1528) | 使用默认输出设备 | `Config.useDefaultDevice` |
-| | 音频输出设备 | `Config.audioDevice`（`MediaDevices.audioOutputs` 下标） |
+| 通用 (1528) | 使用默认输出设备 | `player.followSystemDevice` |
+| | 音频输出设备 | `player.deviceIndex`（`player.audioDevices` 下标） |
 | | 自动播放 | `Config.autoPlay` |
 | | 音量步长 | `Config.volumeStep` |
 | 播放控制 (1596) | 精确跳转步长 | `Config.seekStep`（选项 `[3,5,10,15,30]`） |

@@ -4,6 +4,7 @@
 #ifndef LOGMANAGER_H
 #define LOGMANAGER_H
 
+#include <QCoreApplication>
 #include <QDate>
 #include <QObject>
 #include <QString>
@@ -41,10 +42,13 @@ public:
     // 之后 QML 首次访问 LogManager 时复用同一实例。
     static LogManager *create(QQmlEngine *qmlEngine, QJSEngine *scriptEngine)
     {
+        Q_UNUSED(qmlEngine)
         Q_UNUSED(scriptEngine)
         static LogManager *instance = nullptr;
-        if (!instance)
-            instance = new LogManager(qmlEngine);
+        if (!instance) {
+            instance = new LogManager(QCoreApplication::instance());
+            QQmlEngine::setObjectOwnership(instance, QQmlEngine::CppOwnership);
+        }
         return instance;
     }
 

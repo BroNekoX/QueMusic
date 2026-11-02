@@ -273,9 +273,18 @@ QVariantMap QueueModel::get(int index) const
     return m_items.at(index).toMap();
 }
 
+QueueTrack QueueModel::trackAt(int index) const
+{
+    return index >= 0 && index < m_items.size() ? m_items.at(index) : QueueTrack();
+}
+
 void QueueModel::append(const QVariantMap &item)
 {
-    const QueueTrack track = QueueTrack::fromMap(item);
+    appendTrack(QueueTrack::fromMap(item));
+}
+
+void QueueModel::appendTrack(const QueueTrack &track)
+{
     const int index = int(m_items.size());
     beginInsertRows(QModelIndex(), index, index);
     m_items.append(track);
@@ -288,14 +297,22 @@ void QueueModel::append(const QVariantMap &item)
 
 int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
 {
-    if (items.isEmpty())
+    QVector<QueueTrack> tracks;
+    tracks.reserve(items.size());
+    for (const QVariant &entry : items)
+        tracks.append(QueueTrack::fromMap(entry.toMap()));
+    return appendTracks(tracks, skipExisting);
+}
+
+int QueueModel::appendTracks(const QVector<QueueTrack> &source, bool skipExisting)
+{
+    if (source.isEmpty())
         return 0;
 
     QVector<QueueTrack> tracks;
-    tracks.reserve(items.size());
+    tracks.reserve(source.size());
     QSet<QString> seen;
-    for (const QVariant &entry : items) {
-        const QueueTrack track = QueueTrack::fromMap(entry.toMap());
+    for (const QueueTrack &track : source) {
         if (track.path.isEmpty())
             continue;
         if (skipExisting) {
@@ -320,9 +337,14 @@ int QueueModel::appendBatch(const QVariantList &items, bool skipExisting)
 
 void QueueModel::insert(int index, const QVariantMap &item)
 {
+    insertTrack(index, QueueTrack::fromMap(item));
+}
+
+void QueueModel::insertTrack(int index, const QueueTrack &track)
+{
     index = qBound(0, index, int(m_items.size()));
     beginInsertRows(QModelIndex(), index, index);
-    m_items.insert(index, QueueTrack::fromMap(item));
+    m_items.insert(index, track);
     endInsertRows();
     reindexFrom(index);
     if (m_playListIndex >= 0 && index <= m_playListIndex) {

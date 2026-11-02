@@ -41,7 +41,6 @@ LogManager::LogManager(QObject *parent)
     // 4) 立即创建/打开今天的日志文件并写入会话横幅
     ensureLogFile();
 
-    // 5) 接管 Qt 全局消息（qDebug/qInfo/qWarning/qCritical/qFatal 都汇聚到这里）
     qInstallMessageHandler(&LogManager::messageHandler);
 
     // 预览刷新合并器：单次触发，日志密集时只在静默 300ms 后重建一次预览
@@ -176,8 +175,7 @@ void LogManager::writeLine(int level, const QString &category, const QString &me
     while (m_recentLines.size() > kMaxPreviewLines)
         m_recentLines.removeFirst();
 
-    // 预览串重建 + 通知 QML 的开销与条数成正比：警告及以上立即刷新，
-    // 其余交给合并器，避免高频日志时每条都做一次数百行拼接并触发 QML 重算
+        // 重建预览的开销与条数成正比：警告以上立即刷新，其余交给合并器
     if (level >= Level::Warning)
         refreshPreview();
     else
