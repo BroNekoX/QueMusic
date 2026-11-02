@@ -293,7 +293,9 @@ jobs:
 
           AFTER_KB="$(du -sk "$APP_PATH" | cut -f1)"
           echo "裁剪目标架构: $ARCH"
-          echo "瘦身文件数: $THINNED（已单架构跳过: $SKIPPED）"
+          # 变量后面紧跟全角字符时必须用 ${VAR}：macOS 自带的是 bash 3.2，
+          # 它会把紧随其后的超 ASCII 字节吞进变量名，set -u 下直接报 unbound variable。
+          echo "瘦身文件数: ${THINNED}（已单架构跳过: ${SKIPPED}）"
           echo "bundle: $((BEFORE_KB/1024)) MB → $((AFTER_KB/1024)) MB"
           echo "复查：仍为多架构的文件（正常应为 0）"
           FAT_LEFT=0
@@ -319,7 +321,9 @@ jobs:
             if ls "$APP_PATH"/Contents/Frameworks/${m}*.dylib >/dev/null 2>&1; then
               echo "✅ $m 已打进 bundle"
             else
-              echo "❌ bundle 内缺少 $m：音频解码层直接链接它，用户侧启动即崩"
+              # 同样是 bash 3.2 的坑：$m 后面直接跟全角冒号会被吞进变量名，
+              # 而这一行恰好只在「真的缺库」时才执行，等于错误路径上必崩。
+              echo "❌ bundle 内缺少 ${m}：音频解码层直接链接它，用户侧启动即崩"
               MISSING=1
             fi
           done
