@@ -367,43 +367,19 @@ jobs:
           [ "$MISSING" -eq 0 ] || { echo "::error::bundle 校验未通过，终止打包"; exit 1; }
           echo "🎉 bundle 校验通过"
 
-      # 冒烟测试：裁剪/瘦身最容易踩的坑是「少了一个 QML 模块或 dylib」，
-      # 这类问题只在用户点开对应界面时才暴露。这里启动一次应用，只对
-      # 「模块缺失 / dyld 加载失败」这类明确信号判失败，其它情况只记录日志。
-      - name: 冒烟测试（只看模块缺失 / dyld 加载失败）
-        run: |
-          set -uo pipefail
-          MAIN_EXE="$(find "$APP_PATH/Contents/MacOS" -maxdepth 1 -type f | head -n1)" || true
-          if [ -z "$MAIN_EXE" ]; then
-            echo "::error::找不到主可执行文件"; exit 1
-          fi
-          LOG="$(mktemp)"
-          "$MAIN_EXE" >"$LOG" 2>&1 &
-          PID=$!
-          sleep 12
-          if kill -0 "$PID" 2>/dev/null; then
-            kill "$PID" 2>/dev/null || true
-            sleep 2
-            kill -9 "$PID" 2>/dev/null || true
-          fi
-          wait "$PID" 2>/dev/null || true
-
-          echo "--- 启动日志（前 40 行）---"
-          head -40 "$LOG" || true
-          if grep -q 'qt.qpa.plugin' "$LOG"; then
-            echo "⚠️  runner 上起不了 GUI（平台插件不可用），本次冒烟无结论，不作为失败依据"
-          fi
-          if grep -qE 'is not installed|Library not loaded|Symbol not found|dyld: ' "$LOG"; then
-            echo "::error::冒烟测试发现缺失 QML 模块或动态库，见上面的日志"
-            exit 1
-          fi
-          echo "✅ 启动日志里没有模块缺失 / dylib 加载错误"
-
       # 代码签名：由内向外逐层签，不用已废弃的 --deep。
       # Qt 应用有大量嵌套 framework/plugin，--deep 常留下无法验证的签名，
       # 而"签名验证不通过"正是 macOS 报"已损坏，无法打开"（而不是提示未受信任）的原因。
       - name: Code sign app
         run: |
+          # 兜底：正常 .app 的 Contents/MacOS 里只该有主可执行文件。
+          # 应用运行时会往这里写 Account.ini（cpp/AccountManager.cpp 用的是
+          # applicationDirPath()）——一旦有这种非可执行文件，codesign 就会把它当成
+          # bundle 的「未签名子组件」而拒绝签主程序。
+          if [ -d "$APP_PATH/Contents/MacOS" ]; then
+            find "$APP_PATH/Contents/MacOS" -maxdepth 1 -type f ! -perm -u+x -print -delete || true
+          fi
+
           IDENTITY="${APPLE_SIGN_IDENTITY:--}"
           if [ "$IDENTITY" = "-" ]; then
             TS="--timestamp=none"
