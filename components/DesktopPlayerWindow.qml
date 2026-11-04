@@ -92,7 +92,7 @@ Window {
             width: desktopPlayerWindow.isSmall ? 52 : 64
             height: desktopPlayerWindow.isSmall ? 52 : 64
             radius: 8
-            source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+            image: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
             sourceSize: Qt.size(64, 64)
         }
 

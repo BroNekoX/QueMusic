@@ -46,7 +46,7 @@ QOptionDialog {
                 width: 72
                 height: 72
                 radius: 14
-                source: root.info && root.info.cover ? String(root.info.cover).replace("{size}", "160")
+                image: root.info && root.info.cover ? String(root.info.cover).replace("{size}", "160")
                                                      : "qrc:/QueMusic/resources/app/musicpic.png"
                 sourceSize: Qt.size(160, 160)
             }

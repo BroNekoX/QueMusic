@@ -5,14 +5,15 @@ import QtQuick
 import QueMusic 1.0
 import QtQuick.Effects
 
-Item {
+
+MultiEffect {
     id: root
     width: 80
     height: 80
 
-    property url source
+    property url image
     property int radius: width / 2
-    property bool cache: Config.picCache ? true : false
+    property bool cache: Config.picCache
     property alias radius1: mask.topLeftRadius
     property alias radius2: mask.topRightRadius
     property alias radius3: mask.bottomLeftRadius
@@ -22,12 +23,11 @@ Item {
 
     readonly property url fallbackSource: "qrc:/QueMusic/resources/app/musicpic.png"
     property bool loadFailed: false
-    onSourceChanged: loadFailed = false
-
-    Image {
-        id: sourceItem
-        source: root.loadFailed ? root.fallbackSource : root.source
-        anchors.fill: parent
+    onImageChanged: loadFailed = false
+    source: Image {
+        source: root.loadFailed ? root.fallbackSource : root.image
+        width: root.width
+        height: root.height
         sourceSize: root.sourceSize
         cache: root.cache
         asynchronous: true
@@ -38,18 +38,11 @@ Item {
                 root.loadFailed = true;
         }
     }
-
-    MultiEffect {
-        id: multiEffect
-        source: sourceItem
-        anchors.fill: sourceItem
-        maskEnabled: true
-        maskSource: mask
-        // 边缘抗锯齿
-        maskThresholdMin: 0.5
-        maskSpreadAtMin: 1.0
-    }
-
+    maskEnabled: true
+    maskSource: mask
+    // 边缘抗锯齿
+    maskThresholdMin: 0.5
+    maskSpreadAtMin: 1.0
     Rectangle {
         id: mask
         width: root.width

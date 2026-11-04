@@ -24,7 +24,6 @@ Rectangle {
         pageIndex = choice;
     }
 
-    // 页面加载完成后淡入 + 上滑；位移写 shiftY，由各 Loader 的 Translate 消费
     function finishedLoaderPage(choice: int): void {
         pageAnine.stop();
         pageAnine.target = pages[choice];

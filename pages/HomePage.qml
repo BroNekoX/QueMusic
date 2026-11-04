@@ -10,7 +10,6 @@ Item {
     id: homePage
     property real toolsWindow: 0
 
-    // 页面留白：左右合起来就是 homeView.standWidth 之外的 52
     readonly property int pagePadding: 24
     readonly property int pagePaddingRight: 28
 
@@ -302,7 +301,7 @@ Item {
                                 anchors.margins: 10
                                 radius: Style.labelRadius
                                 sourceSize: Qt.size(192, 192)
-                                source: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
+                                image: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
                             }
                             RectangularShadow {
                                 anchors.fill: parent
@@ -339,7 +338,7 @@ Item {
                             height: 48
                             radius: Style.labelRadius
                             sourceSize: Qt.size(64, 64)
-                            source: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
+                            image: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
                         }
 
                         Text {
@@ -471,6 +470,18 @@ Item {
 
             }
 
+            Rectangle {
+                id: hotplayMask
+                width: homeView.cardWidth
+                height: homeView.cardWidth
+                radius: Style.labelRadius
+                bottomLeftRadius: 0
+                bottomRightRadius: 0
+                color: "#000000"
+                layer.enabled: true
+                visible: false
+            }
+
             delegate: Rectangle {
                 id: hotPlayRow
                 required property string hash
@@ -518,15 +529,24 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: homePage.openHotList(hotPlayRow)
                 }
-                QPicture {
+                MultiEffect {
                     id: hotPlayCover
-                    width: parent.width
+                    source: Image {
+                        source: (hotPlayRow.cover || "").replace("{size}", "256")
+                        width: hotPlayRow.width
+                        height: width
+                        sourceSize: Qt.size(256,256)
+                        cache: Config.picCache
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                    }
+                    width: hotPlayRow.width
                     height: width
-                    source: (hotPlayRow.cover || "").replace("{size}", "256")
-                    sourceSize: Qt.size(256, 256)
-                    radius: Style.labelRadius
-                    radius3: 0
-                    radius4: 0
+                    maskEnabled: true
+                    maskSource: hotplayMask
+                    // 边缘抗锯齿
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1.0
                 }
                 // 悬停遮罩：淡入 + 播放图标轻微放大
                 Rectangle {

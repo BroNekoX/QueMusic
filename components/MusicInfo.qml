@@ -85,7 +85,7 @@ Popup {
             width: root.width - 32
             height: 114
             QPicture {
-                source: Playback.player.urlStr
+                image: Playback.player.urlStr
                 radius: 12
                 width: 112
                 height: 112
@@ -365,7 +365,7 @@ Popup {
                     width: 30
                     height: 30
                     radius: 15
-                    source: commentItem.avatar || "qrc:/QueMusic/resources/app/musicpic.png"
+                    image: commentItem.avatar || "qrc:/QueMusic/resources/app/musicpic.png"
                 }
                 Column {
                     id: body

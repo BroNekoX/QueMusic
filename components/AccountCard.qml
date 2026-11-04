@@ -27,7 +27,7 @@ Rectangle {
     QPicture {
         x: 19
         y: 19
-        source: root.source
+        image: root.source
         width: 50
         height: 50
         radius: 25

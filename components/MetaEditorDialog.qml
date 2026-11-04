@@ -63,7 +63,7 @@ QOptionDialog {
             QPicture {
                 width: 96
                 height: 96
-                source: root.coverPreview
+                image: root.coverPreview
                 radius1: 10
                 radius2: 10
                 radius3: 10

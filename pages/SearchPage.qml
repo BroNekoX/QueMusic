@@ -25,8 +25,7 @@ Item {
         id: searchChildPage
         pageList: [searchSong,searchLists,searchLyrics]
 
-        // 顶部常显示栏
-        // 顶部标题
+        // 顶部栏
         Item {
             x: 0
             y: -44

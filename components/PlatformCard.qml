@@ -75,7 +75,7 @@ Rectangle {
             height: 32
             width: 32
             visible: root.isLogin && root.header !== ""
-            source: root.header
+            image: root.header
         }
         Text {
             height: 32

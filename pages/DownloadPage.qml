@@ -98,6 +98,9 @@ Item {
         width: parent.width - 48
         z: 10
         Text {
+            x: 24
+            y: 24
+            height: 40
             anchors.verticalCenter: parent.verticalCenter
             text: "下载管理"
             font.weight: Font.DemiBold
@@ -352,46 +355,43 @@ Item {
                         font.pixelSize: Style.text
                     }
 
-                    // 操作按钮
-                    Row {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 8
-                        y: 14
-                        spacing: 2
-
-                        // 取消/移除
-                        SButton {
-                            iconCharacter: "\ue804"
-                            iconSize: 14
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Theme.hoverColor
-                            shadowEnabled: false
-                            onClicked: MusicApi.downloader.removeTask(activeDel.taskId)
-                        }
-
-                        // 重试
-                        SButton {
-                            iconCharacter: "\ue819"
-                            iconSize: 14
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Theme.hoverColor
-                            shadowEnabled: false
-                            visible: activeDel.status === 3
-                            onClicked: MusicApi.downloader.retryTask(activeDel.taskId)
-                        }
-                    }
-
                     MouseArea {
                         id: area
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.NoButton
+                        Row {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            y: 14
+                            spacing: 2
+
+                            // 取消/移除
+                            SButton {
+                                iconCharacter: "\ue804"
+                                iconSize: 14
+                                width: 36
+                                height: 36
+                                radius: 36
+                                buttonColor: "transparent"
+                                hoverColor: Theme.hoverColor
+                                shadowEnabled: false
+                                onClicked: MusicApi.downloader.removeTask(activeDel.taskId)
+                            }
+                            // 重试
+                            SButton {
+                                iconCharacter: "\ue819"
+                                iconSize: 14
+                                width: 36
+                                height: 36
+                                radius: 36
+                                buttonColor: "transparent"
+                                hoverColor: Theme.hoverColor
+                                shadowEnabled: false
+                                visible: activeDel.status === 3
+                                onClicked: MusicApi.downloader.retryTask(activeDel.taskId)
+                            }
+                        }
                     }
                 }
             }
@@ -442,21 +442,13 @@ Item {
                     ListView.onReused: row.opacity = 1
                     ListView.onPooled: row.opacity = 1
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Style.labelRadius
-                        color: Theme.hoverColor
-                        opacity: rowArea.containsMouse ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                    }
-
                     QPicture {
                         y: 8
                         x: 8
                         width: 44
                         height: 44
                         radius: 10
-                        source: row.cover || "qrc:/QueMusic/resources/app/musicpic.png"
+                        image: row.cover || "qrc:/QueMusic/resources/app/musicpic.png"
                     }
 
                     Text {
@@ -506,15 +498,16 @@ Item {
                             forceActiveFocus()
                         }
 
-                        Row {
-                            x: downloadView.toolX
-                            spacing: 2
-                            y: 12
-                            height: 36
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Style.labelRadius
+                            color: Theme.hoverColor
                             opacity: rowArea.containsMouse ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
                             SButton {
                                 iconCharacter: "\uf095"
+                                x: downloadView.toolX
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
@@ -526,6 +519,8 @@ Item {
                             }
                             SButton {
                                 iconCharacter: "\uf107"
+                                x: downloadView.toolX + 38
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
@@ -537,6 +532,8 @@ Item {
                             }
                             SButton {
                                 iconCharacter: "\uf08e"
+                                x: downloadView.toolX + 76
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18

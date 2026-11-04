@@ -38,7 +38,7 @@ Item {
             width: root.width * 0.62
             height: root.width * 0.62
             radius: width * 0.5
-            source: root.source
+            image: root.source
         }
     }
 

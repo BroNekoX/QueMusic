@@ -372,6 +372,17 @@ Item {
                 rightMargin: -8
                 leftMargin: 8
                 topMargin: 72
+                Rectangle {
+                    id: toplistMask
+                    width: 156
+                    height: 156
+                    radius: Style.labelRadius
+                    bottomLeftRadius: 0
+                    bottomRightRadius: 0
+                    color: "#000000"
+                    layer.enabled: true
+                    visible: false
+                }
                 delegate: Rectangle {
                     id: toplistCard
                     required property string cover
@@ -397,14 +408,23 @@ Item {
                         color: Theme.shadowColor
                         Behavior on blur { NumberAnimation { duration: 200 } }
                     }
-                    QPicture {
+                    MultiEffect {
+                        source: Image {
+                            source: (toplistCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                            width: 156
+                            height: 156
+                            sourceSize: Qt.size(128,128)
+                            cache: Config.picCache
+                            fillMode: Image.PreserveAspectCrop
+                            visible: false
+                        }
                         width: 156
                         height: 156
-                        source: (toplistCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
-                        radius: Style.labelRadius
-                        radius3: 0
-                        radius4: 0
-                        sourceSize: Qt.size(128,128)
+                        maskEnabled: true
+                        maskSource: toplistMask
+                        // 边缘抗锯齿
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
                     }
                     // 平台徽标
                     Rectangle {
@@ -576,7 +596,7 @@ Item {
                         width: 96
                         height: 96
                         radius: 48
-                        source: (singerCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        image: (singerCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter

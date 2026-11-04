@@ -22,7 +22,7 @@ Item {
     property int animeType: Style.animeType
     transform: Translate { x: root.transX }
     Component.onCompleted: originX = mainTarget.x;
-    property QtObject loadItem: loadWidget.item
+    property Item loadItem: loadWidget.item
 
 
     property int songSource: MusicApi.songSource
@@ -61,7 +61,7 @@ Item {
         height: 96
         radius: 16
         visible: !root.mainHeadMode
-        source: root.image || "qrc:/QueMusic/resources/app/musicpic.png"
+        image: root.image || "qrc:/QueMusic/resources/app/musicpic.png"
     }
 
     Text {

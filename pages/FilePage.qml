@@ -1173,20 +1173,11 @@ Item {
                         z: 4
                         width: 44
                         height: 44
-                        source: listfile.coverUrl
+                        image: listfile.coverUrl
                         radius1: 10
                         radius2: 10
                         radius3: 10
                         radius4: 10
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Style.labelRadius
-                        color: Theme.hoverColor
-                        opacity: fileArea.containsMouse ? 1 : 0
-                        z: 1
-                        Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
 
                     Text {
@@ -1229,7 +1220,8 @@ Item {
                     }
                     MouseArea {
                         id: fileArea
-                        anchors.fill: parent
+                        width: listfile.width
+                        height: 60
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: (mouse) => {
@@ -1247,16 +1239,18 @@ Item {
                             }
                             forceActiveFocus();
                         }
-                        Row {
-                            x: fileView.toolX
-                            spacing: 2
-                            y: 12
-                            height: 36
+                        Rectangle {
+                            width: listfile.width
+                            height: 60
+                            radius: Style.labelRadius
+                            color: Theme.hoverColor
                             opacity: fileArea.containsMouse ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
                             SButton {
                                 id: fileListAdd
                                 iconCharacter: "\uf095"
+                                x: fileView.toolX
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
@@ -1269,6 +1263,8 @@ Item {
                             SButton {
                                 id: fileOpen
                                 iconCharacter: "\uf107"
+                                x: fileView.toolX + 38
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
@@ -1282,6 +1278,8 @@ Item {
                             SButton {
                                 id: fileDelete
                                 iconCharacter: "\uf08e"
+                                x: fileView.toolX + 76
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
@@ -1558,7 +1556,7 @@ Item {
                         z: 4
                         width: 44
                         height: 44
-                        source: {
+                        image: {
                             if (listLocalFile.coverUrl !== "") return listLocalFile.coverUrl;
                             if (!listLocalFile.rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
                             return MusicApi.readLocalCoverHint(listLocalFile.rowPath) || "qrc:/QueMusic/resources/app/musicpic.png";
@@ -1620,7 +1618,8 @@ Item {
 
                     MouseArea {
                         id: localFileArea
-                        anchors.fill: parent
+                        width: listLocalFile.width
+                        height: 60
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onClicked: (mouse) => {
@@ -1638,39 +1637,41 @@ Item {
                             }
                             forceActiveFocus();
                         }
-                        Row {
-                            x: localFileView.toolX
-                            spacing: 2
-                            y: 12
-                            height: 36
+                        Rectangle {
+                            width: listLocalFile.width
+                            height: 60
+                            radius: Style.labelRadius
+                            color: Theme.hoverColor
                             opacity: localFileArea.containsMouse ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
                             SButton {
                                 iconCharacter: "\uf095"
+                                x: localFileView.toolX
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
                                 shadowEnabled: false
                                 tipText: "加入播放列表"
-                                onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(),
-                                                                      listLocalFile.songTitle,
-                                                                      listLocalFile.artistName)
+                                onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName)
                             }
                             SButton {
                                 iconCharacter: "\uf107"
+                                x: localFileView.toolX + 38
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18
                                 buttonColor: "transparent"
                                 shadowEnabled: false
                                 tipText: "打开所在文件夹"
-                                onClicked: {
-                                    filePage.openSongFolder(listLocalFile.fileUrl.toString());
-                                }
+                                onClicked: filePage.openSongFolder(listLocalFile.fileUrl.toString());
                             }
                             SButton {
                                 iconCharacter: "\uf08e"
+                                x: localFileView.toolX + 76
+                                y: 12
                                 width: 36
                                 height: 36
                                 radius: 18

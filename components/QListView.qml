@@ -303,8 +303,7 @@ ListView {
         Rectangle {
             width: parent.width - 16
             height: 1
-            color: Theme.sideColor
-            opacity: 0.5
+            color: Theme.sideBlurColor
             y: 35
         }
     }
@@ -385,21 +384,25 @@ ListView {
         ListView.onReused: { listDel.transY = 0; listDel.opacity = 1; }
         ListView.onPooled: { listDel.transY = 0; listDel.opacity = 1; }
 
-        Rectangle {
-            anchors.fill: parent
-            radius: Style.labelRadius
-            color: Theme.hoverColor
-            opacity: listArea.containsMouse || menu.displayIndex === listDel.index ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        }
-
-        QPicture {
+        MultiEffect {
+            source: Image {
+                source: listDel.displayCover
+                width: 44
+                height: 44
+                sourceSize: Qt.size(64,64)
+                cache: Config.picCache
+                fillMode: Image.PreserveAspectCrop
+                visible: false
+            }
             y: 8
             x: 8
             width: 44
             height: 44
-            radius: 10
-            source: listDel.displayCover
+            maskEnabled: true
+            maskSource: mask
+            // 边缘抗锯齿
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
         }
 
         Text {
@@ -454,7 +457,8 @@ ListView {
 
         MouseArea {
             id: listArea
-            anchors.fill: parent
+            width: listDel.width
+            height: 60
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: (mouse) => {
@@ -466,16 +470,17 @@ ListView {
                 }
                 forceActiveFocus();
             }
-
-            Row {
-                x: view.toolX
-                spacing: 2
-                y: 12
-                height: 36
-                opacity: listArea.containsMouse ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+            Rectangle {
+                width: listDel.width
+                height: 60
+                radius: Style.labelRadius
+                color: Theme.hoverColor
+                opacity: listArea.containsMouse || menu.displayIndex === listDel.index ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
                 SButton {
                     iconCharacter: "\uf050"
+                    x: view.toolX
+                    y: 12
                     width: 36
                     height: 36
                     radius: 18
@@ -491,6 +496,8 @@ ListView {
                 SButton {
                     iconCharacter: view.toolText1 // 图标固定
                     iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
+                    x: view.toolX + 38
+                    y: 12
                     width: 36
                     height: 36
                     radius: 18
@@ -502,6 +509,8 @@ ListView {
                 }
                 SButton {
                     iconCharacter: view.toolText0
+                    x: view.toolX + 76
+                    y: 12
                     width: 36
                     height: 36
                     radius: 18
@@ -513,5 +522,16 @@ ListView {
                 }
             }
         }
+    }
+
+    // 图片遮罩
+    Rectangle {
+        id: mask
+        width: 44
+        height: 44
+        radius: 10
+        color: "#000000"
+        layer.enabled: true
+        visible: false
     }
 }

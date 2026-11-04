@@ -2,7 +2,7 @@
 
 <p align="center"><img alt="Logo" src="doc/example/logo.png"></p>
 
-<p align="center"><b>基于 C++20 / Qt 6 / QML 构建的现代高性能跨平台音乐播放器</b></p>
+<p align="center"><b>基于 QtQuick 框架开发的现代高性能跨平台音乐播放器</b></p>
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square">
@@ -15,35 +15,25 @@
   <img alt="CI" src="https://github.com/BroNekoX/QueMusic/actions/workflows/ci.yml/badge.svg">
 </p>
 
-> QueMusic 是一款把「性能」和「手感」放在第一优先级的开源跨平台音乐播放器。
->
-> 计算与 I/O 全部交给 C++ 与工作线程，QML 只负责呈现；渲染走 Qt RHI 的 GPU 管线，动效不掉帧，核显也能稳稳跑满 60 FPS。
->
-> QueMusic Project 是**永久免费 & 开源**的项目。
->
-> 🚧 项目处于 **开发 / 预览阶段**：功能在持续补齐，部分模块尚未完成，也有已知问题，会一直更新。
-> 欢迎 Star & Fork 一起参与 —— 动手前请读 [贡献指南](CONTRIBUTING.md)（含三平台构建方式与提交前自检），
-> 想做插件（歌词界面 / 功能）可以直接玩 [QuePlugins](https://github.com/bronekox/queplugins) 插件仓库。
+还在开发/预览阶段，功能没补齐，也有已知问题，会一直更新。坚持免费和开源，以后也不会收费。
 
-## 📋 必读
+---
 
-### QueMusic官网已推出，快速获取文档及下载内容：[quemusic.top](https://quemusic.top)
+## 必读
 
-#### 国内快速下载本应用及历史版本：
+QueMusic官网：[quemusic.top](https://quemusic.top)
 
-永久下载链接：[下载](https://pan.baidu.com/s/1Z14cgxzb44mi8HauS8F8zA?pwd=63sn) 提取码: 63sn
+> 快速下载可到官网下载下载
 
-下载链接随 Release 同步更新。
+QQ 群：**1105114511**
 
-#### 加入 QQ 群获取最新消息：1105114511
+> QQ群可以获得更多信息，与开发者交流
+
+QueMusic插件仓库：[QuePlugins](https://github.com/bronekox/queplugins)
 
 > [!IMPORTANT]
 > **macOS 用户必读**：如果打开下载的 `.dmg` 时提示「**已损坏，无法打开**」「无法检查其是否包含恶意软件」或「来自身份不明的开发者」，这是 macOS 对**未公证** App 的拦截 —— **不是文件损坏，也不是中毒**。
 > 按 👉 [**macOS 安装说明**](doc/macos-install.md) 操作即可正常打开（一条命令，或不用终端的图形界面做法）。
-
-插件存放位置：[QuePlugins](https://github.com/bronekox/queplugins)
-
----
 
 > [!WARNING]
 >
@@ -55,79 +45,49 @@
 
 ---
 
-<p align="center">
-  <a href="#-核心特性">特性</a> •
-  <a href="#%EF%B8%8F-技术栈">技术栈</a> •
-  <a href="#-引擎架构">引擎</a> •
-  <a href="#-安装与运行">安装</a> •
-  <a href="#-截图预览">截图</a> •
-  <a href="#-项目结构">结构</a> •
-  <a href="#-未来计划">计划</a> •
-  <a href="#-贡献指南">贡献</a> •
-  <a href="#-许可证">许可证</a> •
-  <a href="#免责声明">免责声明</a>
-</p>
-
----
-
-## 🖼️ 截图预览
-
-> 项目处于 **开发 / 预览阶段**，先直接看效果（截图中演示的歌曲仅供参考）
-
-<table>
-  <tr>
-    <td align="center"><img src="doc/example/home.jpg" width="480"><br><sub>🏠 主界面</sub></td>
-    <td align="center"><img src="doc/example/lyric.jpg" width="480"><br><sub>🎤 歌词页 · 沉浸式</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="doc/example/lyric2.jpg" width="480"><br><sub>🎶 歌词页 · 常规</sub></td>
-    <td align="center"><img src="doc/example/settings.jpg" width="480"><br><sub>⚙️ 设置页</sub></td>
-  </tr>
-</table>
-
----
-
 ## 🔨 快速了解
 
 ### QueMusic 是什么？
 
-QueMusic 是一个用 **C++20 + Qt 6 + QML** 写成的跨平台桌面音乐播放器，覆盖 Windows / macOS / Linux。
+QueMusic 是一个基于QtQuick框架、用 **C++20 + Qt 6 + QML** 开发的跨平台桌面音乐播放器，并跨平台 Windows / macOS / Linux，QueMusic是永久开源免费的应用软件。
 
 它没有沿用「Web 内核套壳」的常见路线，而是把整条链路都做成了原生实现：音频解码与 DSP 由自研引擎掌管，界面由 Qt RHI 直接对接系统渲染后端，播放、界面、动画三者互不阻塞。
 
 ### QueMusic 有哪些不一样？
 
-- **性能优先**：复杂计算与文件 I/O 全部下沉到 C++ 工作线程，主线程只处理界面；正常使用下内存与 GPU 占用都远低于同类的 Chromium 内核播放器。
-- **界面耐看，动画耐跑**：借助 QML Scene Graph 与自定义贝塞尔曲线动画，转场丝滑且稳定，不靠"堆特效"换观感。
-- **渲染自己动手**：背景模糊、歌词渐变等效果由自定义 GLSL 着色器实现，通过 Qt RHI 直连系统图形后端，少一层中间开销。
+- **性能强大**：复杂计算与文件 I/O 全部下沉到 C++ 工作线程，主线程只处理界面，在QML组件树中尽可能做到极致简洁，保证渲染稳定满帧，正常使用下内存与 GPU 占用都远低于同类的 Chromium 内核播放器。
+- **UI美观丝滑流畅**：借助 QML Scene Graph 与自定义贝塞尔曲线动画，歌词界面使用自研弹簧曲线动画引擎，转场丝滑且稳定，在一些高级特效使用基于QtRHI的着色器，并编译成qsb，达到原生渲染性能和效果。
 - **功能尽量做全**：本地音乐管理、在线音乐、歌词（含桌面歌词与逐字）、均衡器、歌单与收藏等都在持续完善中。
 
 ---
 
-## ✨ 核心特性
+## 截图
 
-QueMusic 的目标很简单：把每个细节都做扎实。
+> 截图里的歌曲只是演示。
 
-| 维度 | 亮点 |
-|------|------|
-| **🎶 多平台音乐** | 接入网易云音乐、酷狗音乐、哔哩哔哩等平台的公开接口（仅访问公开内容，详见[免责声明](#免责声明)） |
-| **⚡ 性能** | C++ 核心引擎 + QML RHI 场景渲染，核显与老旧 CPU 同样流畅 |
-| **🎨 精美 UI** | 毛玻璃圆角卡片、可自定义主题色与界面样式，自研 Theme / 配色系统 |
-| **🔄 流畅动画** | 自定义贝塞尔曲线动画，歌词界面逐行丝滑跟唱 |
-| **📦 功能丰富** | 歌词滚动 / 桌面歌词、均衡器、歌单管理、搜索推荐、收藏管理 |
-| **🛡️ 可靠性** | 统一 API 管理层与错误处理，异常不穿透到界面 |
-| **💻 跨平台** | 支持 **Windows / macOS / Linux**（Beta 阶段以 Windows / Linux 为主） |
+<table>
+  <tr>
+    <td align="center"><img src="doc/example/home.jpg" width="480"><br><sub>主界面</sub></td>
+    <td align="center"><img src="doc/example/lyric.jpg" width="480"><br><sub>歌词页 · 沉浸式</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="doc/example/lyric2.jpg" width="480"><br><sub>歌词页 · 常规</sub></td>
+    <td align="center"><img src="doc/example/settings.jpg" width="480"><br><sub>设置页</sub></td>
+  </tr>
+</table>
 
 ---
 
-## Que Graph UI
+## Sque UI (Que UI)
 
-QueMusic 的界面观感来自 Qt RHI 与 QML Scene Graph，但真正决定"稳不稳"的是组件设计本身。目标很明确：**即使核显，GPU 占用也要低，帧时间也要匀。**
+来自于主要开发者开发：[SqueUI](https://github.com/bronekox/squeui)
+SqueUI是强大的QtQuick高性能ui组件库，目前还处于预览阶段（Dev）
+QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的性能和美丽丝滑的UI界面，性能做到极致：
 
 - **少嵌套**：能用一个 `Item` 解决的问题不套两层，减少重复绘制与无效变换。
 - **定位越简单越贵不了**：优先级为 `x/y/width/height` → `anchors` → `Row/Column` → `Layouts`，越靠前越省。
 - **绑定要精**：只让真正变化的属性参与绑定，避免一条数据改动引发整棵子树重算。
-- **页面按需加载**：切换页面走异步 `Loader`，重对象在后台线程构建，切页不阻塞主线程喵。
+- **页面按需加载**：切换页面走异步 `Loader`，重对象在后台线程构建，切页不阻塞主线程。
 
 ### 自定义渲染
 
@@ -202,284 +162,57 @@ QueMusic 的界面观感来自 Qt RHI 与 QML Scene Graph，但真正决定"稳�
 
 ---
 
-## 🛠️ 技术栈
+## 跑起来
 
-| 类别 | 技术 |
-|------|------|
-| **框架** | Qt 6.10.3 Community（Core / Gui / Quick / Qml / Network / Multimedia / Sql / Concurrent / ShaderTools） |
-| **语言** | C++20 / QML / JavaScript |
-| **构建** | CMake ≥ 3.24（内置预设）/ Ninja；Release 默认开启 LTO 与 PCH |
-| **音频** | FFmpeg（libavformat / libavcodec）解码 + 自研 DSP（均衡 / 变速 / 变调 / 响度归一 / 限幅） |
-| **渲染** | Qt RHI —— 直连平台原生 GPU 后端（D3D11 / Metal / Vulkan / OpenGL），自定义 GLSL 着色器 |
-| **界面** | Qt Quick + 自研 QML 组件库 + QWindowKit 无边框窗口 |
-| **元数据** | TagLib（本地标签与内嵌歌词）/ SQLite（收藏、曲库索引） |
-| **在线接口** | QCloudMusicApi + Crypto++（网易云）/ 自研酷狗、哔哩哔哩接口层 |
-| **工具链** | MSVC 2022 / GCC 13+ / MinGW 13+ / LLVM-MinGW 17+ |
-
----
-
-## 📥 安装与运行
-
-### 前置条件
-
-- Qt **6.10+**（含 Qt Multimedia、Qt SQL、Qt ShaderTools 等基础库）
-- CMake ≥ **3.24**（需要其预设文件支持）
-- 编译器：GCC 13+ / MinGW 13+ / LLVM-MinGW 17+ / Clang / MSVC 2022
-- **FFmpeg 开发库**（解码层的依赖）：
-  - Windows：`powershell -ExecutionPolicy Bypass -File cmake/fetch_ffmpeg.ps1`（解压到仓库根目录的 `ffmpeg/`，该目录已在 `.gitignore` 中）
-  - Linux：`sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswresample-dev pkg-config`
-  - Arch：`sudo pacman -S ffmpeg pkgconf`
-  - 也可以 `-DQUEMUSIC_FFMPEG_ROOT=<ffmpeg prefix>` 指定已有安装
-- （可选）**Ninja** 构建系统（推荐，已内置在预设中）
-
-### 克隆（含子模块）
+需要 Qt 6.10+（Multimedia、SQL、ShaderTools）、CMake ≥ 3.24、支持 C++20 的编译器，以及 FFmpeg 开发库。构建走 CMake Presets，Ninja 可选。
 
 ```bash
 git clone --recurse-submodules https://github.com/BroNekoX/QueMusic.git
 cd QueMusic
+just setup   # 第一次：拉子模块（QWindowKit / TagLib / Crypto++）
+just b
+just r
 ```
 
-> ⚠️ **重要**：本项目使用 QWindowKit、TagLib、Crypto++ 作为 git 子模块，务必加上 `--recurse-submodules`。
-> 如果已经 clone 但忘记拉子模块，执行：
->
-> ```bash
-> git submodule update --init --recursive
-> ```
-
-### 快速构建
-
-项目内置 `CMakePresets.json`，推荐直接用预设构建：
-
-#### 1. 使用 just 构建与运行
-
-> 需要先安装 [just](https://github.com/casey/just)，然后：
+没装 [just](https://github.com/casey/just) 就直接用 CMake：
 
 ```bash
-just setup  # 首次使用：拉取子模块
-just b      # 构建
-just r      # 运行
-```
-
-#### 2. 使用 CMake 构建
-
-```bash
-# 配置（选择预设）
 cmake --preset <preset-name>
-
-# 编译
 cmake --build build/<preset-name> -j 8
-
-# 运行
-./build/<preset-name>/bin/QueMusic        # Linux / macOS
-./build/<preset-name>/bin/QueMusic.exe    # Windows
+./build/<preset-name>/bin/QueMusic
 ```
 
-可用预设：
+预设：`win-llvm-mingw-release`、`win-mingw-release`、`linux-gcc-release`、`mac-clang-release`。Windows 跑 `.exe`，macOS 产物在 `bin/QueMusic.app/Contents/MacOS/QueMusic`。CMake 找不到 Qt 就设 `CMAKE_PREFIX_PATH` 指向 Qt 安装目录。
 
-| 平台 | 预设名 | 编译器 |
-|------|------|------|
-| Windows | win-llvm-mingw-release | LLVM-MinGW（Qt 6.10 的 `llvm-mingw_64` 套件） |
-| Windows | win-mingw-release | MinGW（Qt 的 `mingw_64` 套件） |
-| Linux | linux-gcc-release | GCC |
-| macOS | mac-clang-release | Clang |
+FFmpeg 开发库：
 
-> 💡 如果 CMake 找不到 Qt，请先设置环境变量 `CMAKE_PREFIX_PATH` 指向 Qt 安装目录（例如 `~/Qt/6.10.3/llvm-mingw_64` 或 `~/Qt/6.10.3/gcc_64`）。
+- Windows：`powershell -ExecutionPolicy Bypass -File cmake/fetch_ffmpeg.ps1`（解压到仓库根目录 `ffmpeg/`）
+- Debian/Ubuntu：`sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswresample-dev pkg-config`
+- Arch：`sudo pacman -S ffmpeg pkgconf`
+- 已有安装：`-DQUEMUSIC_FFMPEG_ROOT=<ffmpeg prefix>`
 
-### 手动构建
+clone 时忘了带子模块就补一句 `git submodule update --init --recursive`。
 
-#### Windows（LLVM-MinGW / MinGW）
+三平台的安装包在 [Releases](https://github.com/BroNekoX/QueMusic/releases)。打包：Windows 用 `windeployqt`，Linux 跑 `bash packaging/build-linux.sh` 出 AppImage，macOS 用 `just mac-bundle` 出 `.dmg`。
 
-```bash
-# LLVM-MinGW（Qt 6.10 推荐）
-cmake -B build -G Ninja \
-  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_PREFIX_PATH=/path/to/Qt/6.10.3/llvm-mingw_64
-cmake --build build --parallel
-./build/bin/QueMusic
+用到的东西：Qt 6.10.3、C++20、QML、FFmpeg、TagLib、SQLite、Crypto++、QWindowKit。Release 开了 LTO 和 PCH，QML 走 `qmlcachegen` 预编译。
 
-# MinGW
-cmake -B build -G Ninja \
-  -DCMAKE_PREFIX_PATH=/path/to/Qt/6.10.3/mingw_64
-```
-
-#### Linux
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH=~/Qt/6.10.3/gcc_64
-cmake --build build -j"$(nproc)"
-./build/bin/QueMusic
-```
-
-#### macOS
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH=~/Qt/6.10.3/clang_64 \
-      -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-cmake --build build -j 8
-./build/bin/QueMusic.app/Contents/MacOS/QueMusic
-```
-
-> 📦 三种平台的可执行安装包都会随 [Release](https://github.com/BroNekoX/QueMusic/releases) 发布。
-
-### 打包分发
-
-- **Windows**：`windeployqt` + Inno Setup（可选）分步打包。
-- **Linux**：运行 `bash packaging/build-linux.sh` 生成 AppImage。
-- **macOS**：运行 `just mac-bundle` 生成 `.dmg`（需已安装 `macdeployqt`）。
-
----
-
-## 📁 项目结构
+## 目录
 
 ```
 QueMusic/
-├── CMakeLists.txt              # 顶层构建配置
-├── CMakePresets.json           # 各平台构建预设
-├── cmake/                      # CMake 模块
-│   ├── external/               # 子模块（QWindowKit / TagLib / zlib）快速集成
-│   ├── qmltc.cmake             # qmltc 类型编译（实验性，默认关闭）
-│   ├── qtruntime.cmake         # 运行库部署与裁剪
-│   └── fetch_ffmpeg.ps1        # Windows 侧 FFmpeg 开发库拉取
-├── main.cpp                    # C++ 程序入口
-├── main.qml                    # QML 主入口（窗口 / 全局单例装配）
-├── FullCenterView.qml          # 沉浸中心视图
-├── SettingsView.qml            # 设置页
-├── cpp/                        # C++ 后端
-│   ├── audio/                  # 音频引擎：AudioEngine / FfmpegDecoder / AudioDsp
-│   │                           #            AudioRing / PitchShifter / TimeStretch
-│   │                           #            AudioSpectrumSink
-│   ├── CoverHelper.cpp/h       # 封面提取与磁盘缓存
-│   ├── ColorExtractor.cpp/h    # 封面取主色（自适应主题）
-│   ├── GetWave.cpp/h           # 音频波形数据
-│   ├── FolderModel.cpp/h       # 本地文件夹与歌曲模型
-│   ├── Favorites.cpp/h         # 收藏模型
-│   ├── DownloadedMusicModel.*  # 已下载音乐模型
-│   ├── DownloadManager.cpp/h   # 下载管理器
-│   ├── LocalMusicScanner.cpp/h # 本地曲库扫描
-│   ├── LocalLyricsReader.cpp/h # .lrc 与内嵌歌词读取
-│   ├── DbService.cpp/h         # 数据库线程化服务
-│   ├── PlayerDatabase.cpp/h    # 曲库索引
-│   ├── AccountManager.cpp/h    # 账号与登录态
-│   ├── LogManager.cpp/h        # 日志
-│   └── SystemTrayManager.*     # 托盘与系统媒体控件（SMTC）
-├── api/                        # 在线媒体引擎
-│   ├── MusicApiService.cpp/h   # 调度中枢（QML 单例 MusicApi）
-│   ├── ApiCommon.h             # 统一字段层
-│   ├── KugouApi.cpp/h          # 酷狗音乐
-│   ├── NeteaseCloudApi.cpp/h   # 网易云音乐
-│   ├── BilibiliApi.cpp/h       # 哔哩哔哩
-│   ├── OnlineListModel.cpp/h   # 在线列表模型
-│   └── QCloudMusicApi/         # 第三方：网易云接口实现
-├── components/                 # 自研 QML 组件库
-│   ├── Q***.qml                # 各类控件，界面由它们拼装而成
-│   ├── MusicApi.qml            # 在线音乐整合单例
-│   ├── Style.qml               # 全局视觉单例
-│   └── Options.qml             # 配置与版本号
-├── layout/                     # 页面布局
-│   ├── LeftSideBar.qml         # 左侧导航栏
-│   ├── MainContent.qml         # 主内容区（页面容器）
-│   ├── PlayerControl.qml       # 播放控制栏
-│   ├── PlayerMaxCenter.qml     # 最大化 / 全屏播放中心
-│   └── MainLyric.qml           # 歌词视图
-├── pages/                      # 普通模式页面
-│   ├── HomePage.qml            # 首页 / 推荐
-│   ├── SearchPage.qml          # 搜索
-│   ├── PlaylistPage.qml        # 歌单详情
-│   ├── FavouritePage.qml       # 收藏
-│   ├── FilePage.qml            # 本地文件
-│   └── DownloadPage.qml        # 下载管理
-├── centers/                    # 沉浸中心模式的对应页面
-├── lyricsui/                   # 歌词界面实现（自由 / 3D 等）
-├── shaders/                    # GLSL 着色器与对应 C++ 材质
-├── resources/                  # 资源
-│   ├── app/                    # 应用图标与图片
-│   ├── fonts/                  # 字体（Poppins、Feather Icons）
-│   ├── window-bar/             # 窗口按钮图标
-│   └── pic/                    # 背景图片
-├── packaging/                  # 各平台打包脚本
-├── doc/                        # 文档与文档配图
-├── ThirdParty/
-│   └── qwindowkit/             # Git 子模块 —— 无边框窗口框架
-├── LICENSE                     # Apache License 2.0
-├── NOTICE                      # 第三方依赖声明
-└── README.md
+├── main.cpp / main.qml       入口
+├── cpp/                      C++ 后端：音频引擎、曲库、下载、账号、日志
+├── api/                      在线音源：网易云 / 酷狗 / B站
+├── components/               自研 QML 组件
+├── layout/  pages/  centers/ 布局、普通页面、沉浸播放页
+├── lyricsui/  shaders/       歌词界面、GLSL 着色器
+├── resources/  doc/          资源、文档和截图
+├── packaging/  cmake/        打包脚本、CMake 模块
+└── ThirdParty/qwindowkit/    子模块
 ```
 
----
-
-## 🎮 未来计划
-
-- **功能完善（首要）**：补全设置、编辑与歌单管理，增强整体稳定性。
-- **音源插件化**：把播放核心与在线音源解耦，音源作为可插拔模块，由使用者自行配置与负责。
-- **品牌统一**：统一名称与视觉形象，让项目形象更清晰。
-- **社区建设**：推出 QueMusic 官网，与 QQ 群一起把生态做起来。
-- **性能持续优化**：继续压内存与 GPU 占用，清理性能瓶颈。
-- **沉浸播放**：参考 Folia / MineRadio 的思路，引入 3D 可视化与高度自定义歌词。
-- **UI 打磨**：继续完善自研 QML 组件库，统一设计语言。
-- **国际化**：可选方向（由于主要接入国内音乐平台，不一定推进）。
-- **插件体系**：自定义插件与主题 UI 插件系统。
-
-无论更新到哪一步，QueMusic 都保持开源免费、没有付费内容。但歌曲版权归平台所有，请自行购买 VIP 或付费歌曲，并登录平台账号收听（功能即将更新）。
-
----
-
-## 🤝 贡献指南
-
-欢迎任何形式的贡献：
-
-| 方式 | 说明 |
-|------|------|
-| 🐛 **报告 Bug** | 提交 [Issue](https://github.com/bronekox/quemusic/issues)，附上复现步骤与环境信息 |
-| 💡 **提出新功能** | 在 [Discussion](https://github.com/bronekox/quemusic/discussions) 中发起讨论 |
-| ⭐ **Star** | 点亮 GitHub Star，支持项目持续开发 |
-| 🧪 **测试** | 构建并试用，反馈兼容性问题 |
-| 🔧 **Pull Request** | 修复 Bug、优化代码、完善功能 —— **欢迎任何人** |
-| 📖 **复用** | 项目基于 Apache-2.0，欢迎其他项目使用本项目代码 |
-
-### 开发流程
-
-1. Fork 本仓库
-2. 创建功能分支：`git checkout -b feat/your-feature`
-3. 提交修改：`git commit -m "feat: add xxx"`
-4. 推送：`git push origin feat/your-feature`
-5. 发起 Pull Request
-
-> 代码风格请参考现有文件，遵循 **C++20 / Qt 6 / QML best practices**。
-
----
-
-## 📄 许可证
-
-本项目主体遵循 **Apache License 2.0** —— 欢迎自由使用、修改、分发，商用亦可（需保留版权声明与许可证副本）。
-
-```
-Apache License
-Version 2.0, January 2004
-Copyright (c) 2025-2026 QueMusic Contributors
-```
-
-> 💡 **Apache-2.0 要点**：允许商用、修改与分发；衍生作品需保留原始版权声明与 NOTICE；对专利授权有明确条款，为用户提供额外保护。
-
----
-
-## 🎨 背景着色器变更
-
-**Beta 0.5.0** 之前的版本使用了 [AMLL-Core(Apple Music Like Lyrics)](https://github.com/amll-dev/applemusic-like-lyrics) 项目的背景着色器并移植到 Qt。
-
-开发者清楚这种做法可能触及许可证边界 —— 虽然做了相对合规的处理，但为了让项目走得更稳、更远，最终决定更换实现。
-
-**Beta 0.5.0** 之后的版本改用自研框架的背景着色器，并提供多个可选效果替代此前的 AMLL 背景：
-
-- **Fluid**：移植自 [Paper-design/shaders](https://github.com/paper-design/shaders)，该项目使用 Apache License 2.0，引用完全合规。
-- **Classic**：自研实现，观感上尽量靠拢 AMLL。参考了 AMLL 的实现思路，但算法、代码与数值均未直接照搬，所用算法均为公开算法。
-
-> **Classic** 的大致思路：
-> 封面预处理：封面 → 高斯模糊 → 后处理（亮度 / 饱和）→ 作为背景贴图源；
-> 背景渲染：贴图源 → 多次重复取样 → 旋转 → 3D 变形背景 → 后处理（暗角、抖动、噪声）→ 输出到组件显示区域。
-
-受着色器更换影响，效果可能不如 **0.5.0** 之前的版本华丽。后续会持续优化背景效果，把它做得更好看。
+完整结构看仓库就行。
 
 ---
 
@@ -547,7 +280,4 @@ QueMusic 官方版本始终保持开源与永久免费，没有任何 Pro、Ultr
 
 ---
 
-<p align="center">
-  <sub>Written for QueMusic Project</sub><br/>
-  <sub>最后更新：2026-11-2 · 版本 0.7.2</sub>
-</p>
+<sub>最后更新：2026-11-4 · v0.7.2</sub>

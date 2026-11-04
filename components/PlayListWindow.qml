@@ -259,7 +259,7 @@ Item {
             width: 128
             height: 128
             radius: Style.cubeRadius
-            source: root.cover
+            image: root.cover
             MouseArea {
                 anchors.fill: parent
                 onClicked: Options.picWatch.dialog(root.cover,root.title);

@@ -15,8 +15,7 @@ Rectangle {
     property color secondColor: "#00b1ee"
     property color thirdColor: "#9d4edd"
 
-    // 歌词界面状态由宿主持有：Loader 卸载重建后不丢失
-    property bool lyricBasicCd: false        // false=封面卡片 true=经典黑胶
+    property bool lyricBasicCd: false        // 封面经典黑胶
     property int lyricThemeMode: 0           // 0=默认 1=封面 2=歌词
     property int lyricMoveMs: 0              // 歌词位置校准
     property bool lyricTranslateOpen: true
@@ -44,7 +43,7 @@ Rectangle {
         }
     }
 
-    // 数据注入：模块只读这些属性（缺失的跳过，便于直接换插件）；改样式一律经 applyStyleRequest
+    // 数据注入：模块只读属性，改样式经applyStyleRequest
     function inject(it: Item): void {
         if (!it) return;
         const src = {
@@ -251,7 +250,7 @@ Rectangle {
                         radius2: 10
                         radius3: 10
                         radius4: 10
-                        source: themeRow.preview ? themeRow.preview
+                        image: themeRow.preview ? themeRow.preview
                                                   : "qrc:/QueMusic/resources/app/musicpic.png"
                     }
 
