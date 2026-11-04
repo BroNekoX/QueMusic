@@ -16,42 +16,49 @@ Item {
 
     readonly property list<string> filterItems: ["全部", "仅免费", "仅 VIP（付费）"]
 
-    function reloadCurrent(): void {
+    function reloadCurrent(): bool {
         if (inSongWindow) {
             MusicApi.playlistSong.clear();
             playListSongsWindow.reload(1);
-        } else {
-            switch (tabIndex) {
-            case 0:
-                MusicApi.newSongs.clear();
-                MusicApi.getNewSongs(musicsPage.musicMenuIndex + 1, 1, 20);
-                break;
-            case 1:
-                MusicApi.musicPlaylists.clear();
-                MusicApi.getCategoryPlaylists(playlistPage.tagIdAt(musicMenuPage.musicMenuIndex), 1, 20);
-                break;
-            case 2:
-                MusicApi.toplistList.clear();
-                MusicApi.getAllToplists();
-                break;
-            default:
-                album.loadSingers(album.singerTypeIndex);
-                break;
-            }
+            return true;
         }
+        switch (tabIndex) {
+        case 0:
+            MusicApi.newSongs.clear();
+            MusicApi.getNewSongs(musicsPage.musicMenuIndex + 1, 1, 20);
+            break;
+        case 1:
+            if (!loadCategory(musicMenuPage.musicMenuIndex))
+                return false;
+            break;
+        case 2:
+            MusicApi.toplistList.clear();
+            MusicApi.getAllToplist();
+            break;
+        default:
+            album.loadSingers(album.singerTypeIndex);
+            break;
+        }
+        return true;
     }
 
     function refreshView(): void {
-        reloadCurrent();
-        Options.warned("已刷新", 1);
+        if (reloadCurrent())
+            Options.warned("已刷新", 1);
+        else
+            Options.warned("分类加载中，稍后再试", 1);
     }
 
-    // 分类菜单是 OnlineListModel，只能按下标 get()，不能当数组用
-    function tagIdAt(index: int): string {
-        const menu = MusicApi.allPlaylistMenu;
-        if (index < 0 || index >= menu.count)
-            return menu.count > 0 ? menu.get(0).id : "";
-        return menu.get(index).id;
+    function loadCategory(index: int): bool {
+        if (MusicApi.allPlaylistMenu.count === 0)
+            return false;
+        const bounded = Math.max(0, Math.min(index, MusicApi.allPlaylistMenu.count - 1));
+        const tag = MusicApi.allPlaylistMenu.get(bounded);
+        musicMenuPage.musicMenuIndex = bounded;
+        MusicApi.globaltagid = tag.id;
+        MusicApi.musicPlaylists.clear();
+        MusicApi.getCategoryPlaylists(tag.id, 1, 20);
+        return true;
     }
 
     // 筛选：改付费类型过滤
@@ -71,11 +78,15 @@ Item {
     }
 
     Component.onCompleted: {
-        if(!Options.playlistLoaded) {
-            MusicApi.getPlaylistMenu(3);
-            MusicApi.getNewSongs(1, 1, 20);
-            // 榜单由 cloud 页请求，避免重复拉取
-            Options.playlistLoaded = true;
+        MusicApi.getPlaylistMenu(3);
+        MusicApi.getNewSongs(1, 1, 20);
+    }
+
+    Connections {
+        target: MusicApi.allPlaylistMenu
+        function onCountChanged() {
+            if (musicMenuPage.visible && MusicApi.musicPlaylists.count === 0)
+                playlistPage.loadCategory(0);
         }
     }
 
@@ -116,9 +127,11 @@ Item {
                 onTransformed: (choiced) => {
                     MusicApi.songSource = MusicApi.sourceIdAt(choiced);
                     MusicApi.newSongs.clear();
+                    musicMenuPage.musicMenuIndex = 0;
                     MusicApi.getPlaylistMenu(3);
                     MusicApi.getNewSongs(1, 1, 20);
                     MusicApi.getAllToplist();
+                    album.loadSingers(album.singerTypeIndex);
                     toplistFlick.scrollTop();
                 }
             }
@@ -139,7 +152,7 @@ Item {
                 case 0:
                     break;
                 case 1:
-                    MusicApi.getCategoryPlaylists(MusicApi.allPlaylistMenu[0].id, 1, 20)
+                    playlistPage.loadCategory(0)
                     break;
                 case 2:
                     break;
@@ -227,6 +240,7 @@ Item {
                                 MusicApi.globalid = lanTag.index + 1;
                                 musicsPage.musicMenuIndex = lanTag.index;
                                 MusicApi.getNewSongs(lanTag.index + 1, 1, 20);
+                                searchSong.scrollTop();
                             }
                         }
                     }
@@ -250,15 +264,7 @@ Item {
                         }
                     }
                 }
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
+                onClicked: (index) => MusicApi.playSong(model.get(index))
             }
         }
         Item {
@@ -308,10 +314,8 @@ Item {
                             hoverEnabled: true
                             anchors.fill: parent
                             onClicked: {
-                                musicMenuPage.musicMenuIndex = playlistMenuRow.index;
-                                MusicApi.globaltagid = MusicApi.allPlaylistMenu[playlistMenuRow.index].id;
-                                MusicApi.musicPlaylists.clear();
-                                MusicApi.getCategoryPlaylists(MusicApi.globaltagid, 1, 20);
+                                playlistPage.loadCategory(playlistMenuRow.index);
+                                musicMenuList.scrollTop();
                             }
                         }
                     }
@@ -548,7 +552,10 @@ Item {
                             id: singerTypeArea
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: album.loadSingers(singerTypeRow.index)
+                            onClicked: {
+                                album.loadSingers(singerTypeRow.index);
+                                singerFlick.scrollTop();
+                            }
                         }
                     }
                 }
@@ -636,7 +643,7 @@ Item {
             if (listType === 1)
                 MusicApi.getMusicToplist(page, 20, Number(id), MusicApi.songSource);
             else
-                MusicApi.getPlaylistSongs(Number(id), page, 20, MusicApi.songSource);
+                MusicApi.getPlaylistSongs(id, page, 20, MusicApi.songSource);
         }
         content: Item {
             QListView {
@@ -649,15 +656,7 @@ Item {
                 clip: true
                 topMargin: 8
                 bottomMargin: 24
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
+                onClicked: (index) => MusicApi.playSong(model.get(index))
                 onEnded: {
                     if (MusicApi.loadState)
                         return;
@@ -686,15 +685,7 @@ Item {
                 clip: true
                 topMargin: 8
                 bottomMargin: 24
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
+                onClicked: (index) => MusicApi.playSong(model.get(index))
                 onEnded: {
                     if (MusicApi.loadState)
                         return;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "AccountManager.h"
-#include "KugouApi.h"
+#include "platform/KugouApi.h"
 #include "apihelper.h"
 
 #include <QCoreApplication>

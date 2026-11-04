@@ -1555,10 +1555,11 @@ Item {
                             tip: "设置在线音乐默认使用的音源平台"
                             controlItem: QDrop {
                                 anchors.fill: parent
-                                choice: Config.mainMusicSource
-                                model: ["酷狗音乐","网易云音乐","哔哩哔哩","QQ音乐"]
+                                choice: Math.max(0, MusicApi.sourceIds.indexOf(Config.mainMusicSource))
+                                model: MusicApi.sourceNames
                                 onTransformed: (choiced) => {
-                                    Config.mainMusicSource = choiced
+                                    Config.mainMusicSource = MusicApi.sourceIdAt(choiced)
+                                    MusicApi.songSource = Config.mainMusicSource
                                 }
                             }
                         }

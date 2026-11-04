@@ -4,6 +4,7 @@
 #ifndef KUGOUAPI_H
 #define KUGOUAPI_H
 
+#include <QJsonObject>
 #include <QList>
 #include <QObject>
 #include <QSharedPointer>
@@ -13,17 +14,23 @@
 #include <QVariantMap>
 #include <functional>
 
-class QJsonObject;
+#include "MusicSource.h"
+
 class QNetworkAccessManager;
 class QNetworkReply;
 
-class KugouApi : public QObject
+class KugouApi : public MusicSource
 {
     Q_OBJECT
 public:
-    static constexpr int Source = 0;
+    static constexpr int Source = ApiSource::Kugou;
 
     explicit KugouApi(QObject *parent = nullptr);
+    ~KugouApi() override = default;
+
+    QString sourceName() const override { return QStringLiteral("酷狗音乐"); }
+
+    void applyCredentials(const SourceCredentials &credentials) override;
 
     void setCookie(const QString &cookie)
     {
@@ -46,29 +53,27 @@ public:
     static QString randomGuid();
     static QString kugouMidFromGuid(const QString &guid);
 
-    void searchSongs(const QString &keyword, int type, int page, int pageSize);
-    void getPlaylistMenu(int type);
-    void getMusicPlaylists(const QString &tagid, int page, int pageSize);
-    void getCategoryPlaylists(const QString &categoryid, int page, int pageSize);
-    void getPlaylistSongs(const QString &listid, int page, int pageSize);
-    void getRecommendSongs(int page, int pageSize);
-    void getHotPlaylistMenu(int type);
-    void getHotPlaylists(int page, int pageSize);
-    void getNewSongs(int type, int page, int pageSize);
-    void getAllToplist();
-    void getMusicToplist(int page, int pageSize, int rankid);
-    void getHotSingers(int page, int pageSize);
-    void getSingerCategory(int area, int page, int pageSize);
-    void getSingerSongs(const QString &singerid, int page, int pageSize);
-    void getMusicInfo(const QString &hash, int type);
-    void getLyricInfo(const QString &hash, int duration);
-    void getComments(const QString &hash, int page, int pageSize);
-    void getPersonalFm(int page, int pageSize);
-    void getPersonalRadar(int page, int pageSize);
-
-signals:
-
-    void resultReady(const QString &action, const QVariant &data, int source);
+protected:
+    void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
+    void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
+    void onPlaylistMenu(int type) override;
+    void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
+    void onCategoryPlaylists(const QString &categoryid, int page, int pageSize) override;
+    void onPlaylistSongs(const QString &listid, int page, int pageSize) override;
+    void onRecommendSongs(int page, int pageSize) override;
+    void onHotPlaylistMenu(int type) override;
+    void onHotPlaylists(int page, int pageSize) override;
+    void onNewSongs(int type, int page, int pageSize) override;
+    void onAllToplist() override;
+    void onMusicToplist(int page, int pageSize, int rankid) override;
+    void onHotSingers(int page, int pageSize) override;
+    void onSingerCategory(int area, int page, int pageSize) override;
+    void onSingerSongs(const QString &singerid, int page, int pageSize) override;
+    void onMusicInfo(const QString &hash, int type) override;
+    void onLyricInfo(const QString &hash, int duration) override;
+    void onComments(const QString &hash, int page, int pageSize) override;
+    void onPersonalFm(int page, int pageSize) override;
+    void onPersonalRadar(int page, int pageSize) override;
 
 private:
     using Callback = std::function<void(const QJsonObject &)>;
@@ -81,6 +86,14 @@ private:
 
     QJsonObject songInfoBaseParams() const;
     QVariantMap liteBaseParams() const;
+
+    // 列表接口的公共解析 / 请求（合并了原先各写一遍的重复实现）。
+    void performSearch(const QString &keyword, int type, int page, int pageSize,
+                       const QString &resultAction);
+    void requestRankSongs(int rankid, int page, int pageSize, const QString &action);
+    void requestNewSongs(int type, int page, int pageSize, const QString &action,
+                         bool joinAuthors);
+    void requestSingerList(const QUrl &url, const QString &action);
 
     struct PlayRequest {
         QVariantMap meta;
@@ -126,6 +139,7 @@ private:
     static QVariantList krcTranslations(const QString &krc);
 
     QNetworkAccessManager *m_nam = nullptr;
+    SourceCredentials m_credentials;
     QString m_cookie;
     QString m_mid;
     QString m_dfid;

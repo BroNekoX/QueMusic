@@ -65,7 +65,7 @@
 | 任务 | 主要文件 |
 |---|---|
 | QML 侧调用的在线接口入口（单例 `MusicApi`） | `api/MusicApiService.{h,cpp}` |
-| 加新平台 / 改某平台实现 | `api/NeteaseCloudApi.*`、`api/KugouApi.*`、`api/BilibiliApi.*` |
+| 加新平台 / 改某平台实现 | `api/platform/NeteaseCloudApi.*`、`KugouApi.*`、`BilibiliApi.*`、`QQMusicApi.*` |
 | 统一字段映射、音质档位与降级 | `api/ApiCommon.h` + `api/MusicApiService.cpp` |
 | 在线列表模型（搜索结果/歌单/排行榜渲染） | `api/OnlineListModel.{h,cpp}` + `components/QListView.qml` |
 | HTTP 请求封装 | `api/ApiHttp.h` |

@@ -86,6 +86,24 @@ Item {
         Options.exitIndex = 1
     }
 
+    function reloadSource(): void {
+        homeView.scrollTop()
+        MusicApi.hotPlayLists.clear()
+        MusicApi.getHotlistMenu.clear()
+        MusicApi.getHotPlaylistMenu(3)
+        MusicApi.getHotPlaylists(1)
+        roamTitles = []
+        roamIndex = 0
+    }
+
+    Connections {
+        target: MusicApi
+        function onSongSourceChanged() {
+            if (Options.homeLoaded)
+                homePage.reloadSource()
+        }
+    }
+
     Component.onCompleted: {
         if (Options.homeLoaded) return
         MusicApi.getHotlistMenu.clear()
@@ -128,9 +146,6 @@ Item {
                 model: MusicApi.sourceNames
                 onTransformed: (choiced) => {
                     MusicApi.songSource = MusicApi.sourceIdAt(choiced);
-                    homeView.scrollTop();
-                    MusicApi.hotPlayLists.clear();
-                    MusicApi.getHotPlaylists(1);
                 }
             }
         }
@@ -654,11 +669,7 @@ Item {
             topMargin: 8
             bottomMargin: 24
 
-            onClicked: (index) => {
-                const song = model.get(index)
-                const hash = Config.soundQuality === 0 ? song.hash : Config.soundQuality === 1 ? song.hashhq : song.hashsq
-                MusicApi.getMusicInfo(hash)
-            }
+            onClicked: (index) => MusicApi.playSong(model.get(index))
 
             // 私人雷达只有一页（page > 1 直接回空表），不翻页
             onEnded: isEnd = true
@@ -733,15 +744,7 @@ Item {
                 topMargin: 8
                 bottomMargin: 24
 
-                onClicked: (index) => {
-                               if(Config.soundQuality === 0) {
-                                   MusicApi.getMusicInfo(model.get(index).hash);
-                               } else if(Config.soundQuality === 1) {
-                                   MusicApi.getMusicInfo(model.get(index).hashhq);
-                               } else {
-                                   MusicApi.getMusicInfo(model.get(index).hashsq);
-                               }
-                           }
+                onClicked: (index) => MusicApi.playSong(model.get(index))
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {

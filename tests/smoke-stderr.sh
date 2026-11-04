@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 启动冒烟测试：离屏跑一次应用，只要出现 QML / 渲染层错误就判失败。
+# 启动冒烟测试：跑一次应用（Linux 离屏；Windows 用原生平台），出现 QML / 渲染层错误即失败。
 # 用途：CI 门禁（.github/workflows/ci.yml）与本地改完代码后的快速自检。
 #
 # 用法：tests/smoke-stderr.sh <可执行文件路径> [运行秒数]
@@ -18,10 +18,18 @@ if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
 fi
 
 LOG="$(mktemp)"
-export QT_QPA_PLATFORM=offscreen          # 不需要显示器/X11
+PLATFORM="offscreen"
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) PLATFORM="windows" ;; # Qt 的 offscreen 插件在 Windows 上可能卡在 QApplication
+esac
+if [ "$PLATFORM" = "offscreen" ]; then
+    export QT_QPA_PLATFORM=offscreen          # 不需要显示器/X11
+else
+    unset QT_QPA_PLATFORM
+fi
 export QT_LOGGING_RULES="qt.qpa.*=false"  # 平台层噪声压掉
 
-echo "── 启动冒烟：$BIN（${SECONDS_RUN}s，offscreen）──"
+echo "── 启动冒烟：$BIN（${SECONDS_RUN}s，$PLATFORM）──"
 # 用绝对路径启动：CI 里相对路径 + bash 的 PATH 重置容易踩空
 BIN_ABS="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
 "$BIN_ABS" >/dev/null 2>"$LOG" &

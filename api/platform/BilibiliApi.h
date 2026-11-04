@@ -16,47 +16,55 @@
 #include <QVariantMap>
 #include <functional>
 
+#include "MusicSource.h"
+
 class QJsonObject;
 class QNetworkAccessManager;
 
-class BilibiliApi : public QObject
+class BilibiliApi : public MusicSource
 {
     Q_OBJECT
 public:
-    static constexpr int Source = 2;
+    static constexpr int Source = ApiSource::Bilibili;
 
     explicit BilibiliApi(QObject *parent = nullptr);
+    ~BilibiliApi() override = default;
 
-    void setQuality(int q) { m_quality = q; }
+    QString sourceName() const override { return QStringLiteral("哔哩哔哩"); }
+
+    void applyCredentials(const SourceCredentials &credentials) override;
+
+    void setQuality(int quality) { m_quality = qBound(0, quality, 3); }
     void setCookie(const QString &cookie) { m_loginCookie = cookie; }
 
-    void searchSongs(const QString &keyword, int type, int page, int pageSize);
-    void getPlaylistMenu(int type);
-    void getMusicPlaylists(const QString &tagid, int page, int pageSize);
-    void getPlaylistSongs(const QString &listid, int page, int pageSize);
-    void getRecommendSongs(int page, int pageSize);
-    void getHotPlaylistMenu(int type);
-    void getHotPlaylists(int page, int pageSize);
-    void getNewSongs(int type, int page, int pageSize);
-    void getAllToplist();
-    void getMusicToplist(int page, int pageSize, int rankid);
-    void getHotSingers(int page, int pageSize);
-    void getSingerCategory(int area, int page, int pageSize);
-    void getSingerSongs(const QString &singerid, int page, int pageSize);
-    void getMusicInfo(const QString &hash, int type);
-    void getLyricInfo(const QString &hash, int duration);
-    void getComments(const QString &hash, int page, int pageSize);
-    void getPersonalFm(int page, int pageSize);
-    void getPersonalRadar(int page, int pageSize);
-
-signals:
-    void resultReady(const QString &action, const QVariant &data, int source);
+protected:
+    void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
+    void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
+    void onPlaylistMenu(int type) override;
+    void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
+    void onCategoryPlaylists(const QString &id, int page, int pageSize) override;
+    void onPlaylistSongs(const QString &listid, int page, int pageSize) override;
+    void onRecommendSongs(int page, int pageSize) override;
+    void onHotPlaylistMenu(int type) override;
+    void onHotPlaylists(int page, int pageSize) override;
+    void onNewSongs(int type, int page, int pageSize) override;
+    void onAllToplist() override;
+    void onMusicToplist(int page, int pageSize, int rankid) override;
+    void onHotSingers(int page, int pageSize) override;
+    void onSingerCategory(int area, int page, int pageSize) override;
+    void onSingerSongs(const QString &singerid, int page, int pageSize) override;
+    void onMusicInfo(const QString &hash, int type) override;
+    void onLyricInfo(const QString &hash, int duration) override;
+    void onComments(const QString &hash, int page, int pageSize) override;
+    void onPersonalFm(int page, int pageSize) override;
+    void onPersonalRadar(int page, int pageSize) override;
 
 private:
     using Callback = std::function<void(const QJsonObject &)>;
     using Task = std::function<void()>;
 
-    struct PlaylistSearch {
+    struct PlaylistSearch
+    {
         QString action;
         int pending = 0;
         int limit = 0;
@@ -78,6 +86,7 @@ private:
     void newVideos(int page, int pageSize, const QString &action);
     void rankingUsers(const QString &action, int limit);
     QStringList upMids(const QJsonArray &items, int limit);
+    void rememberUpName(const QString &mid, const QString &name);
     void emitList(const QString &action, const QVariantList &info);
     void emitLyrics(const QString &hash, const QVariantList &lyrics, int error = 0);
 
@@ -91,6 +100,7 @@ private:
     QString m_buvid4;
     QString m_loginCookie;
     int m_quality = 1;
+    SourceCredentials m_credentials;
 
     QHash<QString, qint64> m_commentCursors;
     QHash<QString, qint64> m_aidCache;

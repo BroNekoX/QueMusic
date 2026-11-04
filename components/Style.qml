@@ -66,6 +66,7 @@ Settings {
     property bool maskBlur: true
     property bool lyricHideGui: true
     property int springValue: 2
+    property bool lyricBasicCd: false
 
     property string fontFamily
 

@@ -78,8 +78,9 @@ Item {
             onTabChange: (index) => {
                 MusicApi.searchSongsResults.clear()
                 searchChildPage.stack(index)
-                MusicApi.nowIndex = index
-                MusicApi.searchSongs(Options.searchText,index,1,20)
+                const type = index === 2 ? 3 : index
+                MusicApi.nowIndex = type
+                MusicApi.searchSongs(Options.searchText,type,1,20)
             }
         }
 
@@ -102,15 +103,7 @@ Item {
                 }
             }
 
-            onClicked: (index) => {
-                if(Config.soundQuality === 0) {
-                    MusicApi.getMusicInfo(model.get(index).hash);
-                } else if(Config.soundQuality === 1) {
-                    MusicApi.getMusicInfo(model.get(index).hashhq);
-                } else {
-                    MusicApi.getMusicInfo(model.get(index).hashsq);
-                }
-            }
+            onClicked: (index) => MusicApi.playSong(model.get(index))
         }
         QListView {
             id: searchLists
@@ -163,15 +156,7 @@ Item {
                     }
                 }
             }
-            onClicked: (index) => {
-                if(Config.soundQuality === 0) {
-                    MusicApi.getMusicInfo(model.get(index).hash);
-                } else if(Config.soundQuality === 1) {
-                    MusicApi.getMusicInfo(model.get(index).hashhq);
-                } else {
-                    MusicApi.getMusicInfo(model.get(index).hashsq);
-                }
-            }
+            onClicked: (index) => MusicApi.playSong(model.get(index))
         }
     }
 
@@ -192,15 +177,7 @@ Item {
                 topMargin: 8
                 bottomMargin: 24
 
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq);
-                    }
-                }
+                onClicked: (index) => MusicApi.playSong(model.get(index))
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {

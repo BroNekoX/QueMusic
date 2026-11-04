@@ -517,15 +517,7 @@ Item {
                 topMargin: 8
                 bottomMargin: 24
 
-                onClicked: (index) => {
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(model.get(index).hash,0,playListSongsWindow.songSource);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(model.get(index).hashhq,0,playListSongsWindow.songSource);
-                    } else {
-                        MusicApi.getMusicInfo(model.get(index).hashsq,0,playListSongsWindow.songSource);
-                    }
-                }
+                onClicked: (index) => MusicApi.playSong(model.get(index), playListSongsWindow.songSource)
 
                 onEnded: {
                     if(MusicApi.playlistSong.count % 20 === 0 && MusicApi.playlistSong.count !== 0) {

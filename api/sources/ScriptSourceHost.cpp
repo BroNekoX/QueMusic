@@ -3,6 +3,9 @@
 
 #include "ScriptSourceHost.h"
 
+#include "ApiActions.h"
+
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
 #include <QEventLoop>
@@ -15,6 +18,9 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSet>
+
+#include <utility>
 
 class ScriptHttp : public QObject
 {
@@ -56,6 +62,147 @@ private:
     QNetworkAccessManager *m_nam;
 };
 
+namespace {
+
+// 稳定 source id：基于 meta.id（缺省为文件名）的 SHA-1，跨重启不变，
+// 避免插件排序变化导致用户配置里的 songSource 指向别的插件。
+int stablePluginId(const QString &key, QSet<int> &used)
+{
+    const QByteArray digest = QCryptographicHash::hash(key.toUtf8(), QCryptographicHash::Sha1);
+    quint32 value = 0;
+    for (int i = 0; i < 4; ++i)
+        value = (value << 8) | quint32(uchar(digest.at(i)));
+
+    constexpr int kRange = 60000;
+    int id = ApiSource::PluginBase + int(value % kRange);
+    while (used.contains(id))
+        id = ApiSource::PluginBase + ((id - ApiSource::PluginBase + 1) % kRange);
+    used.insert(id);
+    return id;
+}
+
+QString jsText(const QJSValue &value)
+{
+    return value.isUndefined() || value.isNull() ? QString() : value.toString();
+}
+
+QStringList functionCandidates(const QString &action)
+{
+    if (action == ApiAction::SearchSongs)
+        return {QStringLiteral("searchSongs"), QStringLiteral("search")};
+    if (action == ApiAction::SearchLyrics)
+        return {QStringLiteral("searchLyrics"), QStringLiteral("search")};
+    if (action == ApiAction::MusicInfo)
+        return {QStringLiteral("getMusicInfo"), QStringLiteral("musicUrl")};
+    if (action == ApiAction::LyricInfo)
+        return {QStringLiteral("getLyricInfo"), QStringLiteral("lyrics")};
+    if (action == ApiAction::PlaylistMenu)
+        return {QStringLiteral("getPlaylistMenu"), QStringLiteral("playlistMenu")};
+    if (action == ApiAction::MusicPlaylists || action == ApiAction::CategoryPlaylists)
+        return {QStringLiteral("getMusicPlaylists"), QStringLiteral("playlists")};
+    if (action == ApiAction::PlaylistSongs)
+        return {QStringLiteral("getPlaylistSongs"), QStringLiteral("playlistSongs")};
+    if (action == ApiAction::Comments)
+        return {QStringLiteral("getComments"), QStringLiteral("comments")};
+    if (action == ApiAction::RecommendSongs || action == ApiAction::NewSongs)
+        return {QStringLiteral("getNewSongs"), QStringLiteral("newSongs")};
+    if (action == ApiAction::AllToplist)
+        return {QStringLiteral("getAllToplist"), QStringLiteral("toplists")};
+    if (action == ApiAction::MusicToplist)
+        return {QStringLiteral("getMusicToplist"), QStringLiteral("toplistSongs")};
+    if (action == ApiAction::HotPlaylistMenu)
+        return {QStringLiteral("getHotPlaylistMenu"), QStringLiteral("hotPlaylistMenu")};
+    if (action == ApiAction::HotPlaylists)
+        return {QStringLiteral("getHotPlaylists"), QStringLiteral("hotPlaylists")};
+    if (action == ApiAction::SingerSongs)
+        return {QStringLiteral("getSingerSongs"), QStringLiteral("singerSongs")};
+    return {action};
+}
+
+QVariantMap shapeMusicInfo(QVariantMap detail, const QVariantMap &args)
+{
+    QString url = detail.value(QStringLiteral("url")).toString();
+    if (url.isEmpty())
+        url = detail.value(QStringLiteral("backup_url")).toString();
+
+    detail.insert(QStringLiteral("url"), url);
+    if (detail.value(QStringLiteral("backup_url")).toString().isEmpty())
+        detail.insert(QStringLiteral("backup_url"), url);
+    detail.insert(QStringLiteral("hash"), args.value(ApiArg::Hash));
+    detail.insert(QStringLiteral("type"), args.value(ApiArg::Type));
+    if (url.isEmpty())
+        detail.insert(QStringLiteral("url_unavailable"), true);
+    return detail;
+}
+
+QVariant shapeResult(const QString &action, const QVariant &raw, int source,
+                     const QVariantMap &args)
+{
+    if (action == ApiAction::MusicInfo) {
+        QVariantMap detail;
+        if (raw.typeId() == QMetaType::QString)
+            detail.insert(QStringLiteral("url"), raw.toString());
+        else
+            detail = raw.toMap();
+        return shapeMusicInfo(detail, args);
+    }
+
+    if (action == ApiAction::LyricInfo) {
+        QVariantMap payload;
+        if (raw.typeId() == QMetaType::QVariantMap || raw.typeId() == QMetaType::QVariantHash) {
+            payload = raw.toMap();
+        } else if (raw.typeId() == QMetaType::QVariantList) {
+            payload.insert(QStringLiteral("info"), raw.toList());
+        }
+        if (!payload.contains(QStringLiteral("info")))
+            payload.insert(QStringLiteral("info"), QVariantList());
+        if (!payload.contains(QStringLiteral("translate")))
+            payload.insert(QStringLiteral("translate"), QVariantList());
+        payload.insert(QStringLiteral("hash"), args.value(ApiArg::Hash));
+        return payload;
+    }
+
+    if (ApiAction::isListAction(action)) {
+        QVariantMap payload;
+        if (raw.typeId() == QMetaType::QVariantList) {
+            payload.insert(QStringLiteral("info"), raw.toList());
+        } else {
+            const QVariantMap map = raw.toMap();
+            if (map.contains(QStringLiteral("error"))) {
+                // 插件用返回值表示失败：保留 error，不要把它当成一条数据。
+                payload = map;
+                if (!payload.contains(QStringLiteral("info")))
+                    payload.insert(QStringLiteral("info"), QVariantList());
+            } else if (map.contains(QStringLiteral("info"))) {
+                payload = map;
+            } else if (map.isEmpty()) {
+                payload.insert(QStringLiteral("info"), QVariantList());
+            } else {
+                payload.insert(QStringLiteral("info"), QVariantList{map});
+            }
+        }
+
+        // 与旧行为一致：插件条目自带 source，便于收藏 / 混合列表判断来源。
+        QVariantList items = payload.value(QStringLiteral("info")).toList();
+        for (QVariant &item : items) {
+            QVariantMap map = item.toMap();
+            map.insert(QStringLiteral("source"), source);
+            item = map;
+        }
+        payload.insert(QStringLiteral("info"), items);
+
+        if (action == ApiAction::Comments
+            && !payload.contains(QStringLiteral("hasMore"))) {
+            payload.insert(QStringLiteral("hasMore"), false);
+        }
+        return payload;
+    }
+
+    return raw;
+}
+
+} // namespace
+
 ScriptSourceWorker::~ScriptSourceWorker()
 {
     for (Entry *entry : std::as_const(m_entries))
@@ -87,6 +234,7 @@ void ScriptSourceWorker::reload(const QString &dir)
     m_entries.clear();
 
     QVariantList list;
+    QSet<int> usedIds;
     const QDir root(dir);
     const QStringList files = root.entryList({QStringLiteral("*.js")}, QDir::Files, QDir::Name);
     for (const QString &file : files) {
@@ -108,25 +256,44 @@ void ScriptSourceWorker::reload(const QString &dir)
         }
 
         const QJSValue meta = js->globalObject().property(QStringLiteral("meta"));
+        QString name = jsText(meta.property(QStringLiteral("name")));
+        if (name.isEmpty())
+            name = QFileInfo(file).completeBaseName();
+
+        QString identity = jsText(meta.property(QStringLiteral("id")));
+        if (identity.isEmpty())
+            identity = QFileInfo(file).completeBaseName();
+
         auto *entry = new Entry;
         entry->js = js;
         entry->file = file;
-        entry->id = ScriptSourceHost::kPluginSourceBase + m_entries.size();
-        entry->name = meta.property(QStringLiteral("name")).toString();
-        if (entry->name.isEmpty())
-            entry->name = QFileInfo(file).completeBaseName();
+        entry->id = stablePluginId(identity, usedIds);
+        entry->name = name;
 
         QStringList capabilities;
         const QJSValue caps = meta.property(QStringLiteral("capabilities"));
         const int capCount = caps.property(QStringLiteral("length")).toInt();
-        for (int i = 0; i < capCount; ++i)
-            capabilities << caps.property(i).toString();
+        for (int i = 0; i < capCount; ++i) {
+            const QString capability = jsText(caps.property(i));
+            if (!capability.isEmpty())
+                capabilities << capability;
+        }
+
+        const QJSValue versionValue = meta.property(QStringLiteral("version"));
+        const QVariant version = versionValue.isUndefined() || versionValue.isNull()
+                                     ? QVariant()
+                                     : versionValue.toVariant();
+
         m_entries << entry;
         list << QVariantMap{
             {QStringLiteral("id"), entry->id},
             {QStringLiteral("name"), entry->name},
             {QStringLiteral("file"), file},
             {QStringLiteral("plugin"), true},
+            {QStringLiteral("version"), version},
+            {QStringLiteral("author"), jsText(meta.property(QStringLiteral("author")))},
+            {QStringLiteral("description"),
+             jsText(meta.property(QStringLiteral("description")))},
             {QStringLiteral("capabilities"), capabilities},
         };
     }
@@ -136,69 +303,52 @@ void ScriptSourceWorker::reload(const QString &dir)
 void ScriptSourceWorker::call(int source, const QString &action, const QVariantMap &args)
 {
     Entry *entry = find(source);
-    const QVariantMap failure{{QStringLiteral("error"), -1}};
     if (!entry) {
-        emit result(action, failure, source);
+        emit result(action, QVariantMap{
+            {QStringLiteral("error"), -1},
+            {QStringLiteral("message"), QStringLiteral("plugin not found")}
+        }, source);
         return;
     }
 
-    QString function;
-    if (action == QLatin1String("searchSongs"))
-        function = QStringLiteral("search");
-    else if (action == QLatin1String("getMusicInfo"))
-        function = QStringLiteral("musicUrl");
-    else if (action == QLatin1String("getLyricInfo"))
-        function = QStringLiteral("lyrics");
+    QJSValue callable;
+    QString usedFunction;
+    const QStringList candidates = functionCandidates(action);
+    for (const QString &name : candidates) {
+        const QJSValue candidate = entry->js->globalObject().property(name);
+        if (candidate.isCallable()) {
+            callable = candidate;
+            usedFunction = name;
+            break;
+        }
+    }
 
-    const QJSValue callable = function.isEmpty()
-                                  ? QJSValue()
-                                  : entry->js->globalObject().property(function);
     if (!callable.isCallable()) {
-        qWarning() << "[sources] 插件缺少函数:" << entry->file << function;
-        emit result(action, failure, source);
+        qWarning() << "[sources] 插件缺少函数:" << entry->file << action
+                   << candidates.join(QLatin1Char('/'));
+        emit result(action, QVariantMap{
+            {QStringLiteral("error"), -3},
+            {QStringLiteral("message"), QStringLiteral("缺少函数: ") + action}
+        }, source);
         return;
     }
 
     const QJSValue returned = callable.call({entry->js->toScriptValue(args)});
     if (returned.isError()) {
-        qWarning() << "[sources] 插件执行出错:" << entry->file << returned.toString();
-        emit result(action, QVariantMap{{QStringLiteral("error"), -2}, {QStringLiteral("message"), returned.toString()}}, source);
+        qWarning() << "[sources] 插件执行出错:" << entry->file << usedFunction
+                   << returned.toString();
+        emit result(action, QVariantMap{
+            {QStringLiteral("error"), -2},
+            {QStringLiteral("message"), returned.toString()}
+        }, source);
         return;
     }
 
-    const QVariant raw = returned.toVariant();
-    QVariant payload = raw;
-    if (action == QLatin1String("searchSongs")) {
-        QVariantList tracks = raw.toList();
-        for (QVariant &track : tracks) {
-            QVariantMap map = track.toMap();
-            map.insert(QStringLiteral("source"), source);
-            track = map;
-        }
-        payload = QVariantMap{{QStringLiteral("info"), tracks}};
-    } else if (action == QLatin1String("getMusicInfo")) {
-        const QString url = raw.typeId() == QMetaType::QString
-                                ? raw.toString()
-                                : raw.toMap().value(QStringLiteral("url")).toString();
-        payload = QVariantMap{
-            {QStringLiteral("url"), url},
-            {QStringLiteral("backup_url"), url},
-            {QStringLiteral("hash"), args.value(QStringLiteral("hash"))},
-            {QStringLiteral("type"), args.value(QStringLiteral("type"))},
-            {QStringLiteral("url_unavailable"), url.isEmpty()},
-        };
-    } else if (action == QLatin1String("getLyricInfo")) {
-        const QVariantMap lyrics = raw.toMap();
-        payload = QVariantMap{
-            {QStringLiteral("info"), lyrics.value(QStringLiteral("info"))},
-            {QStringLiteral("translate"), lyrics.value(QStringLiteral("translate"))},
-        };
-    }
-    emit result(action, payload, source);
+    emit result(action, shapeResult(action, returned.toVariant(), source, args), source);
 }
 
 ScriptSourceHost::ScriptSourceHost(QObject *parent)
-    : QObject(parent)
+    : MusicSource(ApiSource::PluginBase, parent)
 {
     m_worker = new ScriptSourceWorker;
     m_worker->moveToThread(&m_thread);
@@ -207,14 +357,21 @@ ScriptSourceHost::ScriptSourceHost(QObject *parent)
         m_plugins = list;
         emit pluginsChanged();
     });
-    connect(m_worker, &ScriptSourceWorker::result, this, &ScriptSourceHost::resultReady);
+    connect(m_worker, &ScriptSourceWorker::result, this,
+            [this](const QString &action, const QVariant &data, int source) {
+                deliver(action, data, source);
+            });
     m_thread.start();
 }
 
 ScriptSourceHost::~ScriptSourceHost()
 {
     m_thread.quit();
-    m_thread.wait();
+    if (m_thread.wait(2000))
+        return;
+    qWarning() << "[sources] 插件线程未退出，强制终止";
+    m_thread.terminate();
+    m_thread.wait(1000);
 }
 
 void ScriptSourceHost::setPluginDir(const QString &dir)
@@ -227,19 +384,11 @@ void ScriptSourceHost::reload()
     QMetaObject::invokeMethod(m_worker, "reload", Qt::QueuedConnection, Q_ARG(QString, m_dir));
 }
 
-void ScriptSourceHost::request(int source, const QString &action, const QVariantMap &args)
+void ScriptSourceHost::request(int sourceId, const QString &action, const QVariantMap &args)
 {
     QMetaObject::invokeMethod(m_worker, "call", Qt::QueuedConnection,
-                              Q_ARG(int, source), Q_ARG(QString, action), Q_ARG(QVariantMap, args));
-}
-
-bool ScriptSourceHost::isPlugin(int source) const
-{
-    for (const QVariant &entry : m_plugins) {
-        if (entry.toMap().value(QStringLiteral("id")).toInt() == source)
-            return true;
-    }
-    return false;
+                              Q_ARG(int, sourceId), Q_ARG(QString, action),
+                              Q_ARG(QVariantMap, args));
 }
 
 #include "ScriptSourceHost.moc"

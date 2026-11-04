@@ -2,10 +2,14 @@
 //   %APPDATA%/BroNekoX/QueMusic/sources/  (Windows)
 //   ~/.config/BroNekoX/QueMusic/sources/  (Linux)
 // 重启后出现在音源下拉框里。
+//
+// meta.id 决定插件在配置里的稳定 source id：改了 id 会被当成另一个音源。
+// 所有函数都是可选的；缺哪个函数就只缺那项能力，其它能力不受影响。
 var meta = {
     id: "example",
     name: "示例音源",
     version: 1,
+    author: "you",
     capabilities: ["search", "url", "lyrics"],
 };
 
@@ -24,6 +28,12 @@ function search(q) {
             paytype: 0,
         };
     });
+}
+
+// 可选：本地歌词搜词 / B 站无字幕回退会走这里；不写则宿主自动回退到 search()
+// q = { keyword, type, page, pageSize }
+function searchLyrics(q) {
+    return search(q);
 }
 
 // t = { hash, id, type }，返回播放地址字符串

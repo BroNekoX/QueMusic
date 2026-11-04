@@ -45,8 +45,18 @@ Window {
             }
         }
         MusicApi.songSource = Config.mainMusicSource;
+        if (Config.mainMusicSource !== MusicApi.songSource)
+            Config.mainMusicSource = MusicApi.songSource
         MusicApi.downloadPath = Config.downloadFolder;
         MusicApi.soundQuality = Config.soundQuality;
+
+        const apiCheck = MusicApi.selfCheck()
+        if (!apiCheck.ok) {
+            console.warn("[api self-check]", JSON.stringify(apiCheck.issues))
+        } else if (Config.debug) {
+            console.log("[api self-check] passed", apiCheck.passed, "checks,",
+                        apiCheck.elapsedMs, "ms")
+        }
 
         if(Config.rememberWindow && Config.winW > 0) {
             window.x = Config.winX;

@@ -11,7 +11,9 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QDateTime>
+#include <QPointer>
 #include <QRegularExpression>
+#include <QThreadPool>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QCryptographicHash>
@@ -125,6 +127,23 @@ QString artistOfSong(const QJsonObject &song)
             return name;
     }
     return song.value(QStringLiteral("singername")).toString();
+}
+
+QString unionCover(const QJsonObject &song)
+{
+    return song.value(QStringLiteral("trans_param")).toObject()
+        .value(QStringLiteral("union_cover")).toString();
+}
+
+// 列表接口的歌曲字段差异只剩 title / artist / cover，其余统一走这里。
+QVariantMap makeSong(const QJsonObject &song, QString title, QString artist, QString cover)
+{
+    const QString hash = song.value(QStringLiteral("hash")).toString();
+    return ApiCommon::song(std::move(title), std::move(artist), std::move(cover), hash,
+                           song.value(QStringLiteral("duration")).toInt(),
+                           song.value(QStringLiteral("album_name")).toString(),
+                           hqHashFrom(song, hash), sqHashFrom(song, hash),
+                           paytypeFromKugou(song));
 }
 
 QByteArray zlibInflate(const QByteArray &data)
@@ -345,14 +364,23 @@ QString KugouApi::kugouMidFromGuid(const QString &guid)
 }
 
 KugouApi::KugouApi(QObject *parent)
-    : QObject(parent)
+    : MusicSource(ApiSource::Kugou, parent)
 {
     m_nam = new QNetworkAccessManager(this);
 }
 
-void KugouApi::getComments(const QString &hash, int page, int pageSize)
+void KugouApi::applyCredentials(const SourceCredentials &credentials)
 {
+    if (m_credentials == credentials)
+        return;
+    m_credentials = credentials;
+    setQuality(credentials.quality);
+    setDeviceInfo(credentials.deviceMid, credentials.deviceDfid);
+    setCookie(credentials.cookie);
+}
 
+void KugouApi::onComments(const QString &hash, int page, int pageSize)
+{
     const auto requestComments = [this, page, pageSize](const QString &mixId) {
         if (m_mid.isEmpty())
             m_mid = kugouMidFromGuid(randomGuid());
@@ -398,7 +426,7 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
             result.insert(QStringLiteral("hasMore"), info.size() >= pageSize);
             if (json.contains(QStringLiteral("error")))
                 result.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
-            emit resultReady(QStringLiteral("getComments"), result, Source);
+            emit resultReady(ApiAction::Comments, result, Source);
         });
     };
 
@@ -411,9 +439,11 @@ void KugouApi::getComments(const QString &hash, int page, int pageSize)
         [this, hash, requestComments](const QJsonObject &meta) {
             const QString mixId = meta.value(QStringLiteral("album_audio_id")).toVariant().toString();
             if (mixId.isEmpty() || mixId == QLatin1String("0")) {
-                emit resultReady(QStringLiteral("getComments"), ApiCommon::listResult({}), Source);
+                emit resultReady(ApiAction::Comments, ApiCommon::listResult({}), Source);
                 return;
             }
+            if (m_mixIdCache.size() > 2000)
+                m_mixIdCache.clear();
             m_mixIdCache.insert(hash, mixId);
             requestComments(mixId);
         });
@@ -509,7 +539,7 @@ QVariantList KugouApi::krcToLyrics(const QString &krc)
             QString text = w.captured(3);
             if (text.isEmpty())
                 continue;
-            if(isOther) {
+            if (isOther) {
                 text.remove("（");
                 text.remove("）");
             }
@@ -562,7 +592,18 @@ QVariantList KugouApi::krcTranslations(const QString &krc)
     return result;
 }
 
-void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
+void KugouApi::onSearchSongs(const QString &keyword, int type, int page, int pageSize)
+{
+    performSearch(keyword, type, page, pageSize, ApiAction::SearchSongs);
+}
+
+void KugouApi::onSearchLyrics(const QString &keyword, int page, int pageSize)
+{
+    performSearch(keyword, 0, page, qMax(pageSize, 1), ApiAction::SearchLyrics);
+}
+
+void KugouApi::performSearch(const QString &keyword, int type, int page, int pageSize,
+                             const QString &resultAction)
 {
     QUrl url;
     switch (type) {
@@ -607,7 +648,7 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
     }
     url.setQuery(q);
 
-    get(url.toString(), [this, type](const QJsonObject &json) {
+    get(url.toString(), [this, type, resultAction](const QJsonObject &json) {
         const QJsonArray arr = json.value(QStringLiteral("data")).toObject()
                                    .value(QStringLiteral("info")).toArray();
         QVariantList info;
@@ -615,18 +656,9 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
             for (const QJsonValue &v : arr) {
                 const QJsonObject s = v.toObject();
                 const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-                const QString hash = s.value(QStringLiteral("hash")).toString();
-                const QString hq = hqHashFrom(s, hash);
-                const QString sq = sqHashFrom(s, hash);
-                info << ApiCommon::song(
-                    s.value(QStringLiteral("songname")).toString(),
-                    s.value(QStringLiteral("singername")).toString(),
-                    tp.value(QStringLiteral("union_cover")).toString(),
-                    hash,
-                    s.value(QStringLiteral("duration")).toInt(),
-                    s.value(QStringLiteral("album_name")).toString(),
-                    hq, sq,
-                    paytypeFromKugou(s));
+                info << makeSong(s, s.value(QStringLiteral("songname")).toString(),
+                                s.value(QStringLiteral("singername")).toString(),
+                                tp.value(QStringLiteral("union_cover")).toString());
             }
         } else if (type == 1) {
             for (const QJsonValue &v : arr) {
@@ -659,26 +691,19 @@ void KugouApi::searchSongs(const QString &keyword, int type, int page, int pageS
                 const QString title = titleFromFilename(filename, s.value(QStringLiteral("songname")).toString());
                 const QString artist = artistFromFilename(filename);
                 const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-                const QString hash = s.value(QStringLiteral("hash")).toString();
-                const QString hq = hqHashFrom(s, hash);
-                const QString sq = sqHashFrom(s, hash);
-                info << ApiCommon::song(
-                    title.isEmpty() ? s.value(QStringLiteral("songname")).toString() : title,
-                    artist.isEmpty() ? s.value(QStringLiteral("singername")).toString() : artist,
-                    tp.value(QStringLiteral("union_cover")).toString(),
-                    s.value(QStringLiteral("hash")).toString(),
-                    s.value(QStringLiteral("duration")).toInt(),
-                    s.value(QStringLiteral("album_name")).toString(),
-                    hq, sq,
-                    paytypeFromKugou(s));
+                info << makeSong(s,
+                                title.isEmpty()
+                                    ? s.value(QStringLiteral("songname")).toString() : title,
+                                artist.isEmpty()
+                                    ? s.value(QStringLiteral("singername")).toString() : artist,
+                                tp.value(QStringLiteral("union_cover")).toString());
             }
         }
-        emit resultReady(QStringLiteral("searchSongs"),
-                         ApiCommon::listResult(info), Source);
+        emit resultReady(resultAction, ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getPlaylistMenu(int type)
+void KugouApi::onPlaylistMenu(int type)
 {
     Q_UNUSED(type);
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/list"));
@@ -701,12 +726,12 @@ void KugouApi::getPlaylistMenu(int type)
                 {QStringLiteral("cover"), c.value(QStringLiteral("imgurl")).toString()},
             };
         }
-        emit resultReady(QStringLiteral("getPlaylistMenu"),
+        emit resultReady(ApiAction::PlaylistMenu,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pageSize)
+void KugouApi::onCategoryPlaylists(const QString &categoryid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/category/special"));
     QUrlQuery q;
@@ -720,7 +745,7 @@ void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pag
     url.setQuery(q);
 
     get(url.toString(), [this](const QJsonObject &json) {
-        emit resultReady(QStringLiteral("getCategoryPlaylists"),
+        emit resultReady(ApiAction::CategoryPlaylists,
                          ApiCommon::listResult(parsePlaylists(
                              json.value(QStringLiteral("data")).toObject()
                                  .value(QStringLiteral("info")).toArray())),
@@ -728,7 +753,7 @@ void KugouApi::getCategoryPlaylists(const QString &categoryid, int page, int pag
     });
 }
 
-void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
+void KugouApi::onMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/specialList"));
     QUrlQuery q;
@@ -741,7 +766,7 @@ void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
     url.setQuery(q);
 
     get(url.toString(), [this](const QJsonObject &json) {
-        emit resultReady(QStringLiteral("getMusicPlaylists"),
+        emit resultReady(ApiAction::MusicPlaylists,
                          ApiCommon::listResult(parsePlaylists(
                              json.value(QStringLiteral("data")).toObject()
                                  .value(QStringLiteral("info")).toArray())),
@@ -749,7 +774,7 @@ void KugouApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
     });
 }
 
-void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
+void KugouApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/special/song"));
     QUrlQuery q;
@@ -769,26 +794,27 @@ void KugouApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
 
             const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = titleFromFilename(filename, filename);
-            const QString artist = artistFromFilename(filename);
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                title, artist,
-                tp.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
+            info << makeSong(s, titleFromFilename(filename, filename),
+                             artistFromFilename(filename),
+                             tp.value(QStringLiteral("union_cover")).toString());
         }
-        emit resultReady(QStringLiteral("getPlaylistSongs"),
+        emit resultReady(ApiAction::PlaylistSongs,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getRecommendSongs(int page, int pageSize)
+void KugouApi::onRecommendSongs(int page, int pageSize)
+{
+    requestNewSongs(1, page, pageSize, ApiAction::RecommendSongs, false);
+}
+
+void KugouApi::onNewSongs(int type, int page, int pageSize)
+{
+    requestNewSongs(type, page, pageSize, ApiAction::NewSongs, true);
+}
+
+void KugouApi::requestNewSongs(int type, int page, int pageSize, const QString &action,
+                               bool joinAuthors)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/newsong"));
     QUrlQuery q;
@@ -796,38 +822,43 @@ void KugouApi::getRecommendSongs(int page, int pageSize)
     q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
     q.addQueryItem(QStringLiteral("with_cover"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("type"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
     q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
     q.addQueryItem(QStringLiteral("page"), QString::number(page));
+    q.addQueryItem(QStringLiteral("type"), QString::number(type));
     url.setQuery(q);
 
-    get(url.toString(), [this](const QJsonObject &json) {
+    get(url.toString(), [this, action, joinAuthors](const QJsonObject &json) {
         QVariantList info;
         for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
                                      .value(QStringLiteral("info")).toArray()) {
             const QJsonObject s = v.toObject();
-            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                s.value(QStringLiteral("songname")).toString(),
-                s.value(QStringLiteral("singername")).toString(),
-                tp.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
+            QString artist;
+            if (joinAuthors) {
+                const QJsonArray authors = s.value(QStringLiteral("authors")).toArray();
+                if (authors.size() > 1) {
+                    artist = authors.at(0).toObject()
+                                 .value(QStringLiteral("author_name")).toString()
+                             + QLatin1Char(',')
+                             + authors.at(1).toObject()
+                                   .value(QStringLiteral("author_name")).toString();
+                } else if (authors.size() == 1) {
+                    artist = authors.at(0).toObject()
+                                 .value(QStringLiteral("author_name")).toString();
+                }
+            }
+            if (artist.isEmpty())
+                artist = s.value(QStringLiteral("singername")).toString();
+
+            info << makeSong(s, s.value(QStringLiteral("songname")).toString(), artist,
+                             unionCover(s));
         }
-        emit resultReady(QStringLiteral("getRecommendSongs"),
-                         ApiCommon::listResult(info), Source);
+        emit resultReady(action, ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getHotPlaylistMenu(int type)
+void KugouApi::onHotPlaylistMenu(int type)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/tag/recommend"));
     QUrlQuery q;
@@ -848,12 +879,12 @@ void KugouApi::getHotPlaylistMenu(int type)
                 {QStringLiteral("cover"), t.value(QStringLiteral("bannerurl")).toString()},
             };
         }
-        emit resultReady(QStringLiteral("getHotPlaylistMenu"),
+        emit resultReady(ApiAction::HotPlaylistMenu,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getHotPlaylists(int page, int pageSize)
+void KugouApi::onHotPlaylists(int page, int pageSize)
 {
     static const QStringList kKeywords{
         QStringLiteral("热门"), QStringLiteral("古风"), QStringLiteral("粤语"),
@@ -887,59 +918,13 @@ void KugouApi::getHotPlaylists(int page, int pageSize)
                 QString(), QString(), 0,
                 playCount(s));
         }
-        emit resultReady(QStringLiteral("getHotPlaylists"),
+        emit resultReady(ApiAction::HotPlaylists,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getNewSongs(int type, int page, int pageSize)
-{
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/newsong"));
-    QUrlQuery q;
-    q.addQueryItem(QStringLiteral("format"), QStringLiteral("json"));
-    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
-    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("with_cover"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
-    q.addQueryItem(QStringLiteral("page"), QString::number(page));
-    q.addQueryItem(QStringLiteral("type"), QString::number(type));
-    url.setQuery(q);
 
-    get(url.toString(), [this](const QJsonObject &json) {
-        QVariantList info;
-        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
-                                     .value(QStringLiteral("info")).toArray()) {
-            const QJsonObject s = v.toObject();
-            const QJsonArray authors = s.value(QStringLiteral("authors")).toArray();
-            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            QString artist;
-            if (authors.size() > 1)
-                artist = authors.at(0).toObject().value(QStringLiteral("author_name")).toString()
-                         + QLatin1Char(',')
-                         + authors.at(1).toObject().value(QStringLiteral("author_name")).toString();
-            else if (authors.size() == 1)
-                artist = authors.at(0).toObject().value(QStringLiteral("author_name")).toString();
-            info << ApiCommon::song(
-                s.value(QStringLiteral("songname")).toString(),
-                artist,
-                tp.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
-        }
-        emit resultReady(QStringLiteral("getNewSongs"),
-                         ApiCommon::listResult(info), Source);
-    });
-}
-
-void KugouApi::getAllToplist()
+void KugouApi::onAllToplist()
 {
 
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/list"));
@@ -970,12 +955,17 @@ void KugouApi::getAllToplist()
             info << ApiCommon::song(QStringLiteral("酷狗TOP500"), QString(), QString(),
                                     QStringLiteral("8888"));
         }
-        emit resultReady(QStringLiteral("getAllToplist"),
+        emit resultReady(ApiAction::AllToplist,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
+void KugouApi::onMusicToplist(int page, int pageSize, int rankid)
+{
+    requestRankSongs(rankid, page, pageSize, ApiAction::MusicToplist);
+}
+
+void KugouApi::requestRankSongs(int rankid, int page, int pageSize, const QString &action)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
     QUrlQuery q;
@@ -989,34 +979,19 @@ void KugouApi::getMusicToplist(int page, int pageSize, int rankid)
     q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
     url.setQuery(q);
 
-    get(url.toString(), [this](const QJsonObject &json) {
+    get(url.toString(), [this, action](const QJsonObject &json) {
         QVariantList info;
         for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
                                      .value(QStringLiteral("info")).toArray()) {
             const QJsonObject s = v.toObject();
-            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = s.value(QStringLiteral("songname")).toString();
-            const QString artist = artistOfSong(s);
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                title,
-                artist,
-                tp.value(QStringLiteral("union_cover")).toString(),
-                s.value(QStringLiteral("hash")).toString(),
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
+            info << makeSong(s, s.value(QStringLiteral("songname")).toString(),
+                             artistOfSong(s), unionCover(s));
         }
-        emit resultReady(QStringLiteral("getMusicToplist"),
-                         ApiCommon::listResult(info), Source);
+        emit resultReady(action, ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getHotSingers(int page, int pageSize)
+void KugouApi::onHotSingers(int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/rank"));
     QUrlQuery q;
@@ -1026,29 +1001,10 @@ void KugouApi::getHotSingers(int page, int pageSize)
     q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
     url.setQuery(q);
-
-    get(url.toString(), [this](const QJsonObject &json) {
-        QVariantList info;
-
-        QJsonArray arr = json.value(QStringLiteral("data")).toObject()
-                             .value(QStringLiteral("singers")).toArray();
-        if (arr.isEmpty())
-            arr = json.value(QStringLiteral("data")).toObject()
-                      .value(QStringLiteral("info")).toArray();
-        for (const QJsonValue &v : arr) {
-            const QJsonObject s = v.toObject();
-            info << ApiCommon::song(
-                s.value(QStringLiteral("singername")).toString(),
-                QString(),
-                s.value(QStringLiteral("imgurl")).toString(),
-                QString::number(s.value(QStringLiteral("singerid")).toVariant().toLongLong()));
-        }
-        emit resultReady(QStringLiteral("getHotSingers"),
-                         ApiCommon::listResult(info), Source);
-    });
+    requestSingerList(url, ApiAction::HotSingers);
 }
 
-void KugouApi::getSingerCategory(int area, int page, int pageSize)
+void KugouApi::onSingerCategory(int area, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/list"));
     QUrlQuery q;
@@ -1059,8 +1015,12 @@ void KugouApi::getSingerCategory(int area, int page, int pageSize)
     q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
     q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
     url.setQuery(q);
+    requestSingerList(url, ApiAction::SingerCategory);
+}
 
-    get(url.toString(), [this](const QJsonObject &json) {
+void KugouApi::requestSingerList(const QUrl &url, const QString &action)
+{
+    get(url.toString(), [this, action](const QJsonObject &json) {
         QVariantList info;
 
         QJsonArray arr = json.value(QStringLiteral("data")).toObject()
@@ -1076,12 +1036,11 @@ void KugouApi::getSingerCategory(int area, int page, int pageSize)
                 s.value(QStringLiteral("imgurl")).toString(),
                 QString::number(s.value(QStringLiteral("singerid")).toVariant().toLongLong()));
         }
-        emit resultReady(QStringLiteral("getSingerCategory"),
-                         ApiCommon::listResult(info), Source);
+        emit resultReady(action, ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
+void KugouApi::onSingerSongs(const QString &singerid, int page, int pageSize)
 {
     QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/singer/song"));
     QUrlQuery q;
@@ -1104,26 +1063,16 @@ void KugouApi::getSingerSongs(const QString &singerid, int page, int pageSize)
             const QJsonObject s = v.toObject();
             const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
             const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = titleFromFilename(filename, filename);
-            const QString artist = artistFromFilename(filename);
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                title, artist,
-                tp.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
+            info << makeSong(s, titleFromFilename(filename, filename),
+                             artistFromFilename(filename),
+                             tp.value(QStringLiteral("union_cover")).toString());
         }
-        emit resultReady(QStringLiteral("getSingerSongs"),
+        emit resultReady(ApiAction::SingerSongs,
                          ApiCommon::listResult(info), Source);
     });
 }
 
-void KugouApi::getMusicInfo(const QString &hash, int type)
+void KugouApi::onMusicInfo(const QString &hash, int type)
 {
     if (hash.isEmpty()) {
         qWarning() << "[kugou] getMusicInfo: hash 为空";
@@ -1131,7 +1080,7 @@ void KugouApi::getMusicInfo(const QString &hash, int type)
         data.insert(QStringLiteral("hash"), hash);
         data.insert(QStringLiteral("type"), type);
         data.insert(QStringLiteral("errReason"), QStringLiteral("unavailable"));
-        emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+        emit resultReady(ApiAction::MusicInfo, data, Source);
         return;
     }
     auto st = QSharedPointer<PlayRequest>::create();
@@ -1284,7 +1233,7 @@ void KugouApi::finishWithFallback(const QString &hash, int type,
         data.insert(QStringLiteral("errReason"), reason);
         qWarning() << "[kugou] 所有取址通道均无地址（VIP/付费或版权限制）hash:" << hash.left(8);
     }
-    emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+    emit resultReady(ApiAction::MusicInfo, data, Source);
 }
 
 QString KugouApi::cookieValue(const QStringList &keys) const
@@ -1400,7 +1349,7 @@ void KugouApi::requestSongInfo(const QJsonObject &params, const QString &hash, i
             data.insert(QStringLiteral("fileName"), fileName);
             data.insert(QStringLiteral("hash"), hash);
             data.insert(QStringLiteral("type"), type);
-            emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+            emit resultReady(ApiAction::MusicInfo, data, Source);
         });
 }
 
@@ -1586,13 +1535,12 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
                 data.insert(QStringLiteral("backup_url"), url);
                 data.insert(QStringLiteral("hash"), hash);
                 data.insert(QStringLiteral("type"), type);
-                emit resultReady(QStringLiteral("getMusicInfo"), data, Source);
+                emit resultReady(ApiAction::MusicInfo, data, Source);
             });
 }
 
-void KugouApi::getLyricInfo(const QString &hash, int duration)
+void KugouApi::onLyricInfo(const QString &hash, int duration)
 {
-
     if (duration > 10000)
         duration = duration / 1000;
 
@@ -1616,7 +1564,7 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
 
             if (json.contains(QStringLiteral("error")))
                 empty.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
-            emit resultReady(QStringLiteral("getLyricInfo"), empty, Source);
+            emit resultReady(ApiAction::LyricInfo, empty, Source);
             return;
         }
         const QJsonObject first = candidates.first().toObject();
@@ -1634,107 +1582,45 @@ void KugouApi::getLyricInfo(const QString &hash, int duration)
         url2.setQuery(q2);
 
         get(url2.toString(), [this, hash](const QJsonObject &json2) {
-            QVariantMap data;
             const QString content = json2.value(QStringLiteral("content")).toString();
-            if (!content.isEmpty()) {
-                const QString krc = decodeKrc(content.toLatin1());
-                const QVariantList info = krcToLyrics(krc);
-                const QVariantList trans = krcTranslations(krc);
-                data.insert(QStringLiteral("info"), info);
-                data.insert(QStringLiteral("translate"), trans);
-            } else {
+            if (content.isEmpty()) {
                 qWarning() << "[lyric] content 为空，歌词下载失败";
+                QVariantMap data;
                 data.insert(QStringLiteral("info"), QVariantList{});
                 data.insert(QStringLiteral("translate"), QVariantList{});
                 if (json2.contains(QStringLiteral("error")))
                     data.insert(QStringLiteral("error"), json2.value(QStringLiteral("error")));
+                data.insert(QStringLiteral("hash"), hash);
+                emit resultReady(ApiAction::LyricInfo, data, Source);
+                return;
             }
-            data.insert(QStringLiteral("hash"), hash);
-            emit resultReady(QStringLiteral("getLyricInfo"), data, Source);
+
+            // KRC 解码 + 正则解析是纯 CPU 工作，放到线程池，避免卡 UI。
+            const QByteArray encoded = content.toLatin1();
+            QPointer<KugouApi> self(this);
+            QThreadPool::globalInstance()->start([self, hash, encoded] {
+                const QString krc = decodeKrc(encoded);
+                QVariantMap data;
+                data.insert(QStringLiteral("info"), krcToLyrics(krc));
+                data.insert(QStringLiteral("translate"), krcTranslations(krc));
+                data.insert(QStringLiteral("hash"), hash);
+                if (!self)
+                    return;
+                QMetaObject::invokeMethod(self.data(), [self, data] {
+                    if (self)
+                        emit self->resultReady(ApiAction::LyricInfo, data, Source);
+                }, Qt::QueuedConnection);
+            });
         });
     });
 }
 
-void KugouApi::getPersonalFm(int page, int pageSize)
+void KugouApi::onPersonalFm(int page, int pageSize)
 {
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
-    QUrlQuery q;
-    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
-    q.addQueryItem(QStringLiteral("ranktype"), QStringLiteral("2"));
-    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
-    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("page"), QString::number(page));
-    q.addQueryItem(QStringLiteral("rankid"), QStringLiteral("8888"));
-    q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
-    url.setQuery(q);
-
-    get(url.toString(), [this](const QJsonObject &json) {
-        QVariantList info;
-        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
-                                     .value(QStringLiteral("info")).toArray()) {
-            const QJsonObject s = v.toObject();
-            const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = s.value(QStringLiteral("songname")).toString();
-            const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
-            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString artist = artistOfSong(s);
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                title,
-                artist,
-                transparam.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
-        }
-        emit resultReady(QStringLiteral("getPersonalFm"),
-                         ApiCommon::listResult(info), Source);
-    });
+    requestRankSongs(8888, page, pageSize, ApiAction::PersonalFm);
 }
 
-void KugouApi::getPersonalRadar(int page, int pageSize)
+void KugouApi::onPersonalRadar(int page, int pageSize)
 {
-    QUrl url(QStringLiteral("http://mobilecdnbj.kugou.com/api/v3/rank/song"));
-    QUrlQuery q;
-    q.addQueryItem(QStringLiteral("version"), QStringLiteral("9108"));
-    q.addQueryItem(QStringLiteral("ranktype"), QStringLiteral("2"));
-    q.addQueryItem(QStringLiteral("plat"), QStringLiteral("0"));
-    q.addQueryItem(QStringLiteral("pagesize"), QString::number(pageSize));
-    q.addQueryItem(QStringLiteral("area_code"), QStringLiteral("1"));
-    q.addQueryItem(QStringLiteral("page"), QString::number(page));
-    q.addQueryItem(QStringLiteral("rankid"), QStringLiteral("6666"));
-    q.addQueryItem(QStringLiteral("with_res_tag"), QStringLiteral("1"));
-    url.setQuery(q);
-
-    get(url.toString(), [this](const QJsonObject &json) {
-        QVariantList info;
-        for (const QJsonValue &v : json.value(QStringLiteral("data")).toObject()
-                                     .value(QStringLiteral("info")).toArray()) {
-            const QJsonObject s = v.toObject();
-            const QString filename = s.value(QStringLiteral("filename")).toString();
-            const QString title = s.value(QStringLiteral("songname")).toString();
-            const QJsonObject transparam = s.value(QStringLiteral("trans_param")).toObject();
-            const QJsonObject tp = s.value(QStringLiteral("trans_param")).toObject();
-            const QString hash = s.value(QStringLiteral("hash")).toString();
-            const QString artist = artistOfSong(s);
-            const QString hq = hqHashFrom(s, hash);
-            const QString sq = sqHashFrom(s, hash);
-            info << ApiCommon::song(
-                title,
-                artist,
-                transparam.value(QStringLiteral("union_cover")).toString(),
-                hash,
-                s.value(QStringLiteral("duration")).toInt(),
-                s.value(QStringLiteral("album_name")).toString(),
-                hq, sq,
-                paytypeFromKugou(s));
-        }
-        emit resultReady(QStringLiteral("getPersonalRadar"),
-                         ApiCommon::listResult(info), Source);
-    });
+    requestRankSongs(6666, page, pageSize, ApiAction::PersonalRadar);
 }

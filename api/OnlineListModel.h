@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
+//
+// 列式 OnlineListModel：data() 是下标访问，避免 role->key->map 两次哈希。
 
 #ifndef ONLINELISTMODEL_H
 #define ONLINELISTMODEL_H
 
 #include <QAbstractListModel>
 #include <QHash>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
@@ -19,6 +24,7 @@ class OnlineListModel : public QAbstractListModel
 
 public:
     explicit OnlineListModel(QObject *parent = nullptr);
+    ~OnlineListModel() override = default;
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -29,19 +35,19 @@ public:
     Q_INVOKABLE void append(const QVariant &items);
     Q_INVOKABLE void remove(int index, int count = 1);
 
-    void setItems(const QVariantList &items);
-
 signals:
     void countChanged();
 
 private:
-    void collectRoles(const QVariantMap &map);
+    void appendItems(const QVariantList &items);
+    int columnFor(const QString &name);
+    void ensureColumns(const QVector<QVariantMap> &items);
+    QVector<QVariant> rowValues(const QVariantMap &item) const;
 
-    QVector<QVariantMap> m_items;
+    QVector<QVector<QVariant>> m_rows;
+    QStringList m_columns;
+    QHash<QString, int> m_columnIndex;
     QHash<int, QByteArray> m_roleNames;
-    QHash<int, QString> m_roleKeys;
-    QHash<QString, int> m_roleIndex;
-    int m_nextRole = Qt::UserRole + 1;
 };
 
-#endif
+#endif // ONLINELISTMODEL_H

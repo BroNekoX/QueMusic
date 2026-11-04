@@ -13,8 +13,8 @@ QOptionDialog {
     property var info
 
     readonly property string sourceName: {
-        const index = MusicApi.sourceIds.indexOf(info ? info.source : -1)
-        return index >= 0 ? MusicApi.sourceNames[index] : "未知来源"
+        const source = (info && info.source !== undefined) ? info.source : MusicApi.songSource
+        return MusicApi.sourceNameOf(source) || "未知来源"
     }
     readonly property list<var> rows: {
         if (!info) return []

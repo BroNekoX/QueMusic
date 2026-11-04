@@ -100,6 +100,13 @@ jobs:
           chmod +x tests/smoke-stderr.sh
           tests/smoke-stderr.sh build/bin/QueMusic 12
 
+      - name: API 自检（离屏）
+        env:
+          LD_LIBRARY_PATH: ${{ env.QT_DIR }}/${{ env.QT_VERSION }}/gcc_64/lib
+        run: |
+          chmod +x tests/api-selfcheck.sh
+          tests/api-selfcheck.sh build/bin/QueMusic
+
       - name: 失败时输出日志（方便定位）
         if: failure()
         run: |

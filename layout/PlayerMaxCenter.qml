@@ -15,7 +15,6 @@ Rectangle {
     property color secondColor: "#00b1ee"
     property color thirdColor: "#9d4edd"
 
-    property bool lyricBasicCd: false        // 封面经典黑胶
     property int lyricThemeMode: 0           // 0=默认 1=封面 2=歌词
     property int lyricMoveMs: 0              // 歌词位置校准
     property bool lyricTranslateOpen: true
@@ -32,7 +31,7 @@ Rectangle {
         const spec = musicControlMax.styleAllow[key];
         if (spec === undefined) return;
         if (spec === "host") {
-            if (key === "basicCd") musicControlMax.lyricBasicCd = value === true;
+            if (key === "basicCd") Style.lyricBasicCd = value === true;
             else musicControlMax.lyricThemeMode = Number(value);
         } else if (spec === 1) {
             Style[key] = value;
@@ -62,7 +61,7 @@ Rectangle {
             thirdColor: () => musicControlMax.thirdColor,
             hideHeight: () => musicControlMax.hideHeight,
             lyricSize: () => Style.lyricSize,
-            basicCd: () => musicControlMax.lyricBasicCd,
+            basicCd: () => Style.lyricBasicCd,
             lyricType: () => musicControlMax.lyricThemeMode,
             lyricMove: () => musicControlMax.lyricMoveMs,
             openTranslate: () => musicControlMax.lyricTranslateOpen

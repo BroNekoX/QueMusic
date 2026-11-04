@@ -280,7 +280,8 @@ private:
             info = parseComments(data.value(QStringLiteral("hotComments")).toList());
             info += parseComments(data.value(QStringLiteral("comments")).toList());
             commentsHasMore = data.value(QStringLiteral("more")).toBool();
-        } else if (action == QLatin1String("searchSongs")) {
+        } else if (action == QLatin1String("searchSongs")
+                   || action == QLatin1String("searchLyrics")) {
             const QVariantMap result = data.value(QStringLiteral("result")).toMap();
             const int ntype = call.value(QStringLiteral("ntype")).toInt();
             if (ntype == 1 || ntype == 1006) {
@@ -512,7 +513,7 @@ private:
 };
 
 NeteaseCloudApi::NeteaseCloudApi(QObject *parent)
-    : QObject(parent)
+    : MusicSource(ApiSource::Netease, parent)
 {
     for (int i = 0; i < 3; ++i) {
         auto *thread = new QThread(this);
@@ -565,7 +566,19 @@ void NeteaseCloudApi::setQuality(int quality)
     m_quality.store(qBound(0, quality, 3), std::memory_order_relaxed);
 }
 
-void NeteaseCloudApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
+void NeteaseCloudApi::applyCredentials(const SourceCredentials &credentials)
+{
+    if (m_credentials == credentials)
+        return;
+
+    const bool cookieChanged = m_credentials.cookie != credentials.cookie;
+    m_credentials = credentials;
+    setQuality(credentials.quality);
+    if (cookieChanged)
+        setCookie(credentials.cookie);
+}
+
+void NeteaseCloudApi::onSearchSongs(const QString &keyword, int type, int page, int pageSize)
 {
     int ntype = 1;
     if (type == 1)
@@ -583,13 +596,29 @@ void NeteaseCloudApi::searchSongs(const QString &keyword, int type, int page, in
             {{QStringLiteral("ntype"), ntype}});
 }
 
-void NeteaseCloudApi::getPlaylistMenu(int type)
+void NeteaseCloudApi::onSearchLyrics(const QString &keyword, int page, int pageSize)
+{
+    enqueue(QStringLiteral("searchLyrics"), QStringLiteral("cloudsearch"),
+            {{QStringLiteral("keywords"), keyword},
+             {QStringLiteral("type"), 1},
+             {QStringLiteral("limit"), pageSize},
+             {QStringLiteral("offset"), qMax(0, page - 1) * pageSize}},
+            {{QStringLiteral("ntype"), 1}});
+}
+
+void NeteaseCloudApi::onPlaylistMenu(int type)
 {
     Q_UNUSED(type);
     enqueue(QStringLiteral("getPlaylistMenu"), QStringLiteral("playlist_catlist"), {});
 }
 
-void NeteaseCloudApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
+void NeteaseCloudApi::onCategoryPlaylists(const QString &id, int page, int pageSize)
+{
+    // 网易云的分类歌单就是 top_playlist?cat=，直接复用。
+    onMusicPlaylists(id, page, pageSize);
+}
+
+void NeteaseCloudApi::onMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
     enqueue(QStringLiteral("getMusicPlaylists"), QStringLiteral("top_playlist"),
             {{QStringLiteral("cat"), tagid},
@@ -598,7 +627,7 @@ void NeteaseCloudApi::getMusicPlaylists(const QString &tagid, int page, int page
              {QStringLiteral("limit"), pageSize}});
 }
 
-void NeteaseCloudApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
+void NeteaseCloudApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     enqueue(QStringLiteral("getPlaylistSongs"), QStringLiteral("playlist_track_all"),
             {{QStringLiteral("id"), listid},
@@ -606,20 +635,20 @@ void NeteaseCloudApi::getPlaylistSongs(const QString &listid, int page, int page
              {QStringLiteral("offset"), (page - 1) * pageSize}});
 }
 
-void NeteaseCloudApi::getRecommendSongs(int page, int pageSize)
+void NeteaseCloudApi::onRecommendSongs(int page, int pageSize)
 {
     Q_UNUSED(page);
     enqueue(QStringLiteral("getRecommendSongs"), QStringLiteral("personalized_newsong"),
             {{QStringLiteral("limit"), pageSize}});
 }
 
-void NeteaseCloudApi::getHotPlaylistMenu(int type)
+void NeteaseCloudApi::onHotPlaylistMenu(int type)
 {
     Q_UNUSED(type);
     enqueue(QStringLiteral("getHotPlaylistMenu"), QStringLiteral("playlist_hot"), {});
 }
 
-void NeteaseCloudApi::getHotPlaylists(int page, int pageSize)
+void NeteaseCloudApi::onHotPlaylists(int page, int pageSize)
 {
     enqueue(QStringLiteral("getHotPlaylists"), QStringLiteral("top_playlist"),
             {{QStringLiteral("cat"), QStringLiteral("全部")},
@@ -628,7 +657,7 @@ void NeteaseCloudApi::getHotPlaylists(int page, int pageSize)
              {QStringLiteral("limit"), pageSize}});
 }
 
-void NeteaseCloudApi::getNewSongs(int type, int page, int pageSize)
+void NeteaseCloudApi::onNewSongs(int type, int page, int pageSize)
 {
     int ntype = 0;
     switch (type) {
@@ -645,12 +674,12 @@ void NeteaseCloudApi::getNewSongs(int type, int page, int pageSize)
              {QStringLiteral("offset"), (page - 1) * pageSize}});
 }
 
-void NeteaseCloudApi::getAllToplist()
+void NeteaseCloudApi::onAllToplist()
 {
     enqueue(QStringLiteral("getAllToplist"), QStringLiteral("toplist"), {});
 }
 
-void NeteaseCloudApi::getMusicToplist(int page, int pageSize, int rankid)
+void NeteaseCloudApi::onMusicToplist(int page, int pageSize, int rankid)
 {
     enqueue(QStringLiteral("getMusicToplist"), QStringLiteral("top_list"),
             {{QStringLiteral("id"), rankid},
@@ -658,14 +687,14 @@ void NeteaseCloudApi::getMusicToplist(int page, int pageSize, int rankid)
              {QStringLiteral("limit"), pageSize}});
 }
 
-void NeteaseCloudApi::getHotSingers(int page, int pageSize)
+void NeteaseCloudApi::onHotSingers(int page, int pageSize)
 {
     enqueue(QStringLiteral("getHotSingers"), QStringLiteral("top_artists"),
             {{QStringLiteral("offset"), (page - 1) * pageSize},
              {QStringLiteral("limit"), pageSize}});
 }
 
-void NeteaseCloudApi::getSingerCategory(int area, int page, int pageSize)
+void NeteaseCloudApi::onSingerCategory(int area, int page, int pageSize)
 {
     enqueue(QStringLiteral("getSingerCategory"), QStringLiteral("artist_list"),
             {{QStringLiteral("offset"), (page - 1) * pageSize},
@@ -674,7 +703,7 @@ void NeteaseCloudApi::getSingerCategory(int area, int page, int pageSize)
              {QStringLiteral("area"), area}});
 }
 
-void NeteaseCloudApi::getSingerSongs(const QString &singerid, int page, int pageSize)
+void NeteaseCloudApi::onSingerSongs(const QString &singerid, int page, int pageSize)
 {
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
@@ -682,7 +711,7 @@ void NeteaseCloudApi::getSingerSongs(const QString &singerid, int page, int page
             {{QStringLiteral("id"), singerid}});
 }
 
-void NeteaseCloudApi::getMusicInfo(const QString &hash, int type)
+void NeteaseCloudApi::onMusicInfo(const QString &hash, int type)
 {
     enqueue(QStringLiteral("getMusicInfo"), QStringLiteral("song_detail"),
             {{QStringLiteral("ids"), hash},
@@ -692,14 +721,14 @@ void NeteaseCloudApi::getMusicInfo(const QString &hash, int type)
              {QStringLiteral("quality"), m_quality.load(std::memory_order_relaxed)}});
 }
 
-void NeteaseCloudApi::getLyricInfo(const QString &hash, int duration)
+void NeteaseCloudApi::onLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration);
     enqueue(QStringLiteral("getLyricInfo"), QStringLiteral("lyric_new"),
             {{QStringLiteral("id"), hash}});
 }
 
-void NeteaseCloudApi::getComments(const QString &hash, int page, int pageSize)
+void NeteaseCloudApi::onComments(const QString &hash, int page, int pageSize)
 {
     enqueue(QStringLiteral("getComments"), QStringLiteral("comment_music"),
             {{QStringLiteral("id"), hash},
@@ -707,14 +736,14 @@ void NeteaseCloudApi::getComments(const QString &hash, int page, int pageSize)
              {QStringLiteral("offset"), qMax(0, (page - 1) * pageSize)}});
 }
 
-void NeteaseCloudApi::getPersonalFm(int page, int pageSize)
+void NeteaseCloudApi::onPersonalFm(int page, int pageSize)
 {
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
     enqueue(QStringLiteral("getPersonalFm"), QStringLiteral("personal_fm"), {});
 }
 
-void NeteaseCloudApi::getPersonalRadar(int page, int pageSize)
+void NeteaseCloudApi::onPersonalRadar(int page, int pageSize)
 {
     Q_UNUSED(pageSize);
     if (page > 1) {

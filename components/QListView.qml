@@ -64,13 +64,6 @@ ListView {
         const s = it && it.cover ? String(it.cover).replace("{size}", "256") : ""
         return s !== "" ? s : "qrc:/QueMusic/resources/app/musicpic.png"
     }
-    // 按当前音质取 hash，高档缺档时降级
-    function hashOf(it: var): string {
-        if (!it) return ""
-        const q = Config.soundQuality
-        const h = q === 2 ? it.hashsq : q === 1 ? it.hashhq : it.hash
-        return h || it.hash || it.favId || it.id || ""
-    }
     // 源：模型未给出时按 key 推断，本地路径记为 -1
     function sourceOf(it: var): var {
         if (it && it.source !== undefined) return it.source
@@ -114,10 +107,9 @@ ListView {
     }
     function download(i: int): void {
         const it = itemAt(i)
-        const h = hashOf(it)
-        if (!h) return
-        MusicApi.getMusicInfo(h, 1, sourceOf(it))
-        Options.warned("已开始下载", 1)
+        if (!it) return
+        if (MusicApi.downloadSong(it, sourceOf(it)))
+            Options.warned("已开始下载", 1)
     }
     function showInfo(i: int): void {
         const it = itemAt(i)

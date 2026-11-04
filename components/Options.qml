@@ -30,12 +30,11 @@ QtObject {
     // main状态
     property int exitIndex: 0          // 要求主界面切到的页
     property bool homeLoaded: false    // 首页是否已加载
-    property bool playlistLoaded: false  // 分类是否已加载
     property bool recordingShortCut: false
     readonly property int versionCode: 72
     readonly property int pluginApi: 10
     property string searchText: ""
-    property bool isSmall: Style.leftBarMode === 0 ? (mainLayout.width < 1080) : Style.leftBarMode === 1 ? false : true
+    property bool isSmall: Style.leftBarMode === 0 ? (mainLayout ? mainLayout.width < 1080 : false) : Style.leftBarMode === 1 ? false : true
     property real barWidth: isSmall ? 74 : 210
     Behavior on barWidth { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
 

@@ -271,19 +271,35 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/audio/PitchShifter.h
         cpp/audio/TimeStretch.cpp
         cpp/audio/TimeStretch.h
+        api/ApiActions.h
+        api/ApiCommon.h
+        api/ApiResultRouter.cpp
+        api/ApiResultRouter.h
+        api/LocalMedia.cpp
+        api/LocalMedia.h
+        api/LyricTimeline.h
         api/MusicApiService.cpp
         api/MusicApiService.h
+        api/MusicSource.cpp
+        api/MusicSource.h
         api/OnlineListModel.cpp
         api/OnlineListModel.h
-        api/NeteaseCloudApi.cpp
-        api/NeteaseCloudApi.h
+        api/PlaybackCoordinator.cpp
+        api/PlaybackCoordinator.h
+        api/QualityHashCache.cpp
+        api/QualityHashCache.h
+        api/SelfCheck.cpp
+        api/SelfCheck.h
         api/sources/ScriptSourceHost.cpp
         api/sources/ScriptSourceHost.h
-        api/KugouApi.cpp
-        api/KugouApi.h
-        api/BilibiliApi.cpp
-        api/BilibiliApi.h
-        api/ApiCommon.h
+        api/platform/NeteaseCloudApi.cpp
+        api/platform/NeteaseCloudApi.h
+        api/platform/KugouApi.cpp
+        api/platform/KugouApi.h
+        api/platform/BilibiliApi.cpp
+        api/platform/BilibiliApi.h
+        api/platform/QQMusicApi.cpp
+        api/platform/QQMusicApi.h
 )
 
 qt6_add_shaders(${PROJECT_NAME} "effectshaders"

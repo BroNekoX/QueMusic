@@ -96,9 +96,21 @@ QJsonObject pickAudio(const QJsonArray &audios, int quality)
 }
 
 BilibiliApi::BilibiliApi(QObject *parent)
-    : QObject(parent)
+    : MusicSource(ApiSource::Bilibili, parent)
 {
     m_nam = new QNetworkAccessManager(this);
+}
+
+void BilibiliApi::applyCredentials(const SourceCredentials &credentials)
+{
+    if (m_credentials == credentials)
+        return;
+
+    const bool cookieChanged = m_credentials.cookie != credentials.cookie;
+    m_credentials = credentials;
+    setQuality(credentials.quality);
+    if (cookieChanged)
+        setCookie(credentials.cookie);
 }
 
 QString BilibiliApi::mixinKey(const QString &imgKey, const QString &subKey)
@@ -113,7 +125,7 @@ QString BilibiliApi::mixinKey(const QString &imgKey, const QString &subKey)
     return out;
 }
 
-void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
+void BilibiliApi::onComments(const QString &hash, int page, int pageSize)
 {
 
     const auto requestComments = [this, hash, page, pageSize](qint64 aid) {
@@ -131,6 +143,8 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
                   [this, hash](const QJsonObject &obj) {
                       const QJsonObject data = obj.value(QStringLiteral("data")).toObject();
                       const QJsonObject cursor = data.value(QStringLiteral("cursor")).toObject();
+                      if (m_commentCursors.size() > 2000)
+                          m_commentCursors.clear();
                       m_commentCursors.insert(hash,
                                               cursor.value(QStringLiteral("next"))
                                                   .toVariant().toLongLong());
@@ -171,6 +185,8 @@ void BilibiliApi::getComments(const QString &hash, int page, int pageSize)
                 emitList(QStringLiteral("getComments"), {});
                 return;
             }
+            if (m_aidCache.size() > 2000)
+                m_aidCache.clear();
             m_aidCache.insert(hash, aid);
             requestComments(aid);
         });
@@ -256,6 +272,15 @@ void BilibiliApi::getSigned(const QString &path, QVariantMap params, const Callb
     });
 }
 
+void BilibiliApi::rememberUpName(const QString &mid, const QString &name)
+{
+    if (mid.isEmpty())
+        return;
+    if (m_upNames.size() > 2000)
+        m_upNames.clear();
+    m_upNames.insert(mid, name);
+}
+
 QVariantMap BilibiliApi::toSong(const QJsonObject &v, const QString &fallbackArtist)
 {
     const QJsonObject owner = v.value(QStringLiteral("owner")).toObject();
@@ -272,8 +297,8 @@ QVariantMap BilibiliApi::toSong(const QJsonObject &v, const QString &fallbackArt
     if (play <= 0)
         play = v.value(QStringLiteral("play")).toVariant().toLongLong();
 
-    if (!artist.isEmpty() && !mid.isEmpty())
-        m_upNames.insert(mid, artist);
+    if (!artist.isEmpty())
+        rememberUpName(mid, artist);
     return ApiCommon::song(cleanTitle(v.value(QStringLiteral("title")).toString()), artist,
                            httpsUrl(v.value(QStringLiteral("pic")).toString()),
                            v.value(QStringLiteral("bvid")).toString(),
@@ -292,8 +317,8 @@ QStringList BilibiliApi::upMids(const QJsonArray &items, int limit)
                                 .toVariant().toString();
         if (mid.isEmpty() || mids.contains(mid))
             continue;
-        m_upNames.insert(mid, owner.isEmpty() ? o.value(QStringLiteral("author")).toString()
-                                              : owner.value(QStringLiteral("name")).toString());
+        rememberUpName(mid, owner.isEmpty() ? o.value(QStringLiteral("author")).toString()
+                                            : owner.value(QStringLiteral("name")).toString());
         mids << mid;
         if (limit > 0 && mids.size() >= limit)
             break;
@@ -464,7 +489,7 @@ void BilibiliApi::rankingUsers(const QString &action, int limit)
                     continue;
                 seen.insert(mid);
                 const QString name = owner.value(QStringLiteral("name")).toString();
-                m_upNames.insert(mid, name);
+                rememberUpName(mid, name);
                 info << ApiCommon::song(name, QString(),
                                         httpsUrl(owner.value(QStringLiteral("face")).toString()),
                                         mid);
@@ -475,7 +500,7 @@ void BilibiliApi::rankingUsers(const QString &action, int limit)
         });
 }
 
-void BilibiliApi::searchSongs(const QString &keyword, int type, int page, int pageSize)
+void BilibiliApi::onSearchSongs(const QString &keyword, int type, int page, int pageSize)
 {
     if (type == 0)
         searchVideos(keyword, kMusicTid, page, QStringLiteral("searchSongs"),
@@ -486,7 +511,14 @@ void BilibiliApi::searchSongs(const QString &keyword, int type, int page, int pa
         emitList(QStringLiteral("searchSongs"), {});
 }
 
-void BilibiliApi::getPlaylistMenu(int type)
+void BilibiliApi::onSearchLyrics(const QString &keyword, int page, int pageSize)
+{
+    Q_UNUSED(pageSize)
+    searchVideos(keyword, kMusicTid, page, ApiAction::SearchLyrics,
+                 QStringLiteral("totalrank"));
+}
+
+void BilibiliApi::onPlaylistMenu(int type)
 {
     Q_UNUSED(type);
     QVariantList info;
@@ -499,7 +531,7 @@ void BilibiliApi::getPlaylistMenu(int type)
     emitList(QStringLiteral("getPlaylistMenu"), info);
 }
 
-void BilibiliApi::getMusicPlaylists(const QString &tagid, int page, int pageSize)
+void BilibiliApi::onMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
     Q_UNUSED(pageSize);
     bool ok = false;
@@ -508,7 +540,13 @@ void BilibiliApi::getMusicPlaylists(const QString &tagid, int page, int pageSize
                  QStringLiteral("getMusicPlaylists"), QStringLiteral("click"));
 }
 
-void BilibiliApi::getPlaylistSongs(const QString &listid, int page, int pageSize)
+void BilibiliApi::onCategoryPlaylists(const QString &id, int page, int pageSize)
+{
+    // B 站没有独立分类接口，按分区搜索即可。
+    onMusicPlaylists(id, page, pageSize);
+}
+
+void BilibiliApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     const QStringList parts = listid.split(QLatin1Char(':'));
     if (parts.size() == 3 && parts.first() == QLatin1String("season")) {
@@ -529,12 +567,12 @@ void BilibiliApi::getPlaylistSongs(const QString &listid, int page, int pageSize
         });
 }
 
-void BilibiliApi::getRecommendSongs(int page, int pageSize)
+void BilibiliApi::onRecommendSongs(int page, int pageSize)
 {
     ranking(kMusicTid, page, pageSize, QStringLiteral("getRecommendSongs"));
 }
 
-void BilibiliApi::getHotPlaylistMenu(int type)
+void BilibiliApi::onHotPlaylistMenu(int type)
 {
     Q_UNUSED(type);
     QVariantList info;
@@ -548,7 +586,7 @@ void BilibiliApi::getHotPlaylistMenu(int type)
     emitList(QStringLiteral("getHotPlaylistMenu"), info);
 }
 
-void BilibiliApi::getHotPlaylists(int page, int pageSize)
+void BilibiliApi::onHotPlaylists(int page, int pageSize)
 {
     const QString action = QStringLiteral("getHotPlaylists");
     if (page > 1) {
@@ -564,13 +602,13 @@ void BilibiliApi::getHotPlaylists(int page, int pageSize)
         });
 }
 
-void BilibiliApi::getNewSongs(int type, int page, int pageSize)
+void BilibiliApi::onNewSongs(int type, int page, int pageSize)
 {
     Q_UNUSED(type);
     newVideos(page, pageSize, QStringLiteral("getNewSongs"));
 }
 
-void BilibiliApi::getAllToplist()
+void BilibiliApi::onAllToplist()
 {
     QVariantList info;
     for (const Region &r : kRegions) {
@@ -581,7 +619,7 @@ void BilibiliApi::getAllToplist()
     emitList(QStringLiteral("getAllToplist"), info);
 }
 
-void BilibiliApi::getMusicToplist(int page, int pageSize, int rankid)
+void BilibiliApi::onMusicToplist(int page, int pageSize, int rankid)
 {
     const QString name = regionName(rankid);
     if (name.isEmpty() || rankid == kMusicTid)
@@ -590,20 +628,20 @@ void BilibiliApi::getMusicToplist(int page, int pageSize, int rankid)
         searchVideos(name, rankid, page, QStringLiteral("getMusicToplist"));
 }
 
-void BilibiliApi::getHotSingers(int page, int pageSize)
+void BilibiliApi::onHotSingers(int page, int pageSize)
 {
     Q_UNUSED(page);
     rankingUsers(QStringLiteral("getHotSingers"), pageSize);
 }
 
-void BilibiliApi::getSingerCategory(int area, int page, int pageSize)
+void BilibiliApi::onSingerCategory(int area, int page, int pageSize)
 {
     Q_UNUSED(area);
     Q_UNUSED(page);
     rankingUsers(QStringLiteral("getSingerCategory"), pageSize);
 }
 
-void BilibiliApi::getSingerSongs(const QString &singerid, int page, int pageSize)
+void BilibiliApi::onSingerSongs(const QString &singerid, int page, int pageSize)
 {
     Q_UNUSED(pageSize);
     const QString name = m_upNames.value(singerid);
@@ -629,7 +667,7 @@ void BilibiliApi::getSingerSongs(const QString &singerid, int page, int pageSize
     });
 }
 
-void BilibiliApi::getMusicInfo(const QString &hash, int type)
+void BilibiliApi::onMusicInfo(const QString &hash, int type)
 {
     const auto fail = [this, hash, type](int error = 0) {
         QVariantMap data{{QStringLiteral("hash"), hash},
@@ -712,7 +750,7 @@ void BilibiliApi::getMusicInfo(const QString &hash, int type)
         });
 }
 
-void BilibiliApi::getLyricInfo(const QString &hash, int duration)
+void BilibiliApi::onLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration);
     if (hash.isEmpty()) {
@@ -766,12 +804,12 @@ void BilibiliApi::getLyricInfo(const QString &hash, int duration)
         });
 }
 
-void BilibiliApi::getPersonalFm(int page, int pageSize)
+void BilibiliApi::onPersonalFm(int page, int pageSize)
 {
     ranking(kMusicTid, page, pageSize, QStringLiteral("getPersonalFm"));
 }
 
-void BilibiliApi::getPersonalRadar(int page, int pageSize)
+void BilibiliApi::onPersonalRadar(int page, int pageSize)
 {
     newVideos(page, pageSize, QStringLiteral("getPersonalRadar"));
 }

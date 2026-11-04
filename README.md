@@ -45,7 +45,7 @@ QueMusic插件仓库：[QuePlugins](https://github.com/bronekox/queplugins)
 
 ---
 
-## 🔨 快速了解
+## 快速了解
 
 ### QueMusic 是什么？
 
@@ -117,13 +117,13 @@ QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的�
 
 在线媒体层是一套「多平台同构」的统一接入层，QML 侧完全感知不到平台差异：
 
-- **平台实现** — `NeteaseCloudApi`（基于 QCloudMusicApi + Crypto++）、`KugouApi`、`BilibiliApi` 暴露完全相同的一组动作签名，并统一回传 `resultReady(action, data, source)` 信号。
+- **平台实现** — `platform/NeteaseCloudApi`（基于 QCloudMusicApi + Crypto++）、`KugouApi`、`BilibiliApi`、`QQMusicApi` 暴露完全相同的一组动作签名，并统一回传 `resultReady(action, data, source)` 信号；Spotify / Apple Music 的 source id 已预留。
 - **统一字段层** — `ApiCommon` 把各平台五花八门的返回结构归一到同一套字段（`title` / `artist` / `cover` / `hash` / `hashhq` / `hashsq` / `paytype` / `duration` / `album` / `playcount`），列表模型直接消费，无需在 QML 里写平台分支。
 - **调度中枢** — `MusicApiService`（QML 单例 `MusicApi`）按 `source` 分派请求、处理音质选择与降级（标准 128k / 高清 320k / 无损 FLAC，高档缺失时自动回退），并把结果灌入 `OnlineListModel`。
 - **配套模块** — `AccountManager` 管理登录态与二维码登录（内置二维码生成）、`DownloadManager` 负责多任务下载与重试、`CoverHelper` 负责封面抓取与磁盘缓存、`ColorExtractor` 从封面提取主色驱动自适应主题。
-- **线程模型** — 网络请求、解析与解码全部在工作线程完成，QML 只接收结果信号，主线程零阻塞。
+- **线程模型** — 网络请求异步进行，QML 只接收结果信号，主线程不做阻塞 I/O；重解码任务走线程池。
 
-## 🧩 Que Plugins —— 界面里能换的、能加的，都是插件
+## Que Plugins —— 界面里能换的、能加的，都是插件
 
 **一个文件夹就是一个插件**，放进插件目录即被扫描到，不用编译、不用改主程序；设置 → 插件里安装 / 启用 / 删除。
 插件只拿到宿主注入的契约，不需要（也不应该）访问应用内部接口。
@@ -203,7 +203,7 @@ clone 时忘了带子模块就补一句 `git submodule update --init --recursive
 QueMusic/
 ├── main.cpp / main.qml       入口
 ├── cpp/                      C++ 后端：音频引擎、曲库、下载、账号、日志
-├── api/                      在线音源：网易云 / 酷狗 / B站
+├── api/                      在线音源框架：酷狗 / 网易云 / B站 / QQ音乐 + JS 音源插件
 ├── components/               自研 QML 组件
 ├── layout/  pages/  centers/ 布局、普通页面、沉浸播放页
 ├── lyricsui/  shaders/       歌词界面、GLSL 着色器
@@ -216,7 +216,7 @@ QueMusic/
 
 ---
 
-## 📢 免责声明
+## 免责声明
 
 ### 1. 音乐版权
 
@@ -242,7 +242,7 @@ QueMusic/
 
 ---
 
-## 🙏 致谢
+## 致谢
 
 - [Qt Project](https://www.qt.io/) — 提供强大的跨平台框架
 - [QWindowKit](https://github.com/stdware/qwindowkit) — 无边框窗口解决方案

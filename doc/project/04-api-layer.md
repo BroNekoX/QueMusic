@@ -1,18 +1,29 @@
 # 第 4 部分 · 在线媒体层（api/）
 
+> **2026-11 重构注记**：在线层已拆成 `MusicSource`（平台基类 + 注册表）、
+> `ApiResultRouter`（结果 -> 模型）、`PlaybackCoordinator`（播放/歌词/下载）、
+> `QualityHashCache` 与 `LocalMedia`。§4.1 里描述的 `DISPATCH` 宏、平台值成员、
+> 手写 `getCategoryPlaylists` 特例都已移除；§4.2 的 QML 方法 / 属性 / 信号保持兼容。
+> 新架构与「新增平台 / 新增 action」的步骤以 [api/README.md](../../api/README.md) 为准。
+> 平台实现已移到 `api/platform/`；QQ音乐为源 3，Spotify 4 / Apple Music 5 预留。
+> `allPlaylistMenu` 已从 QVariant 改为 `OnlineListModel`；`getAllToplists()` 合并请求已移除，
+> 统一用 `getAllToplist(source)`。下文保留作为字段语义与平台接口差异的参考，
+> 行号与调度链路部分已过时。
+
 > 本文件是 [QueMusic 项目全景文档索引](README.md) 的一个分片；任务定位与其它部分请见 [README.md](README.md)。
 ## 4.1 总览与架构
 
-在线媒体层位于 `api/`，职责是把三个平台（酷狗 / 网易云 / 哔哩哔哩）的差异**全部吃掉**，只向 QML 暴露一套统一字段与一组统一方法。
+在线媒体层位于 `api/`，职责是把四个平台（酷狗 / 网易云 / 哔哩哔哩 / QQ音乐）的差异**全部吃掉**，只向 QML 暴露一套统一字段与一组统一方法。
 
 | 文件 | 角色 | 行数（文件真实行数 = `0x0A` 计数） |
 |---|---|---|
 | `api/ApiCommon.h` | 纯头文件统一字段层：字段名常量 + `song()` / `listResult()` / `comment()` 构造器 | 79 |
 | `api/ApiHttp.h` | 平台自建请求的公共 GET/GET-JSON helper（UA/Referer/Cookie/15s 超时） | 57 |
 | `api/MusicApiService.{h,cpp}` | QML 单例 `MusicApi`：**调度中枢**，按 `source` 分发 + 统一处理 `resultReady` | 343 / 1325 |
-| `api/NeteaseCloudApi.{h,cpp}` | 网易云实现（源 1），包 `QCloudMusicApi::ApiHelper`，跑在独立线程 | 63 / 720 |
-| `api/KugouApi.{h,cpp}` | 酷狗实现（源 0），自建 GET + KRC 解码 + 两套签名 | 109 / 1497 |
-| `api/BilibiliApi.{h,cpp}` | 哔哩哔哩实现（源 2），WBI 签名 + DASH 音频流 | 108 / 773 |
+| `api/platform/NeteaseCloudApi.{h,cpp}` | 网易云实现（源 1），包 `QCloudMusicApi::ApiHelper`，跑在独立线程 | — |
+| `api/platform/KugouApi.{h,cpp}` | 酷狗实现（源 0），自建 GET + KRC 解码 + 两套签名 | — |
+| `api/platform/BilibiliApi.{h,cpp}` | 哔哩哔哩实现（源 2），WBI 签名 + DASH 音频流 | — |
+| `api/platform/QQMusicApi.{h,cpp}` | QQ音乐实现（源 3），音乐网关 + 歌单/榜单/歌词/评论 | — |
 | `api/OnlineListModel.{h,cpp}` | 仿 `QML ListModel` 的 C++ 列表模型（动态 role） | 50 / 121 |
 | `api/qrcode.js` | 纯 JS 二维码生成器（供登录二维码 Canvas 渲染，约 21.5 KB） | 514 |
 | `api/QCloudMusicApi/` | 内嵌第三方库（网易云 API 的 Qt 移植，MIT） | — |

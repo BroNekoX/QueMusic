@@ -9,7 +9,9 @@
 #include <QtQml/QQmlContext>
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
+#include <QCoreApplication>
 #include <QSettings>
+#include <QDebug>
 #include <QFont>
 #include <QVersionNumber>
 #include <QTimer>
@@ -37,14 +39,19 @@ static void applyRenderOptions(const QString &configPath)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 }
 
-static void setupApplicationMetadata(QApplication &application)
+static void applyCoreMetadata(QCoreApplication &application)
 {
     application.setOrganizationName(QStringLiteral("BroNekoX"));
     application.setOrganizationDomain(QStringLiteral("com.bronekox.quemusic"));
-    // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
-    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
     application.setApplicationName(QStringLiteral("QueMusic"));
     application.setApplicationVersion(QStringLiteral("0.7.2"));
+}
+
+static void setupApplicationMetadata(QApplication &application)
+{
+    applyCoreMetadata(application);
+    // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
+    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
     // Wayland app_id / Flatpak / 桌面集成：必须与 .desktop 文件名、AppStream <id> 一致
     application.setDesktopFileName(QStringLiteral("io.github.BroNekoX.QueMusic"));
 }
@@ -52,6 +59,33 @@ static void setupApplicationMetadata(QApplication &application)
 
 int main(int argc, char *argv[])
 {
+    bool selfCheckMode = false;
+    for (int i = 1; i < argc; ++i) {
+        if (qstrcmp(argv[i], "--self-check") == 0) {
+            selfCheckMode = true;
+            break;
+        }
+    }
+
+    if (selfCheckMode) {
+        QCoreApplication app(argc, argv);
+        applyCoreMetadata(app);
+
+        MusicApiService *api = MusicApiService::create(nullptr, nullptr);
+        const QVariantMap report = api->selfCheck();
+        const bool ok = report.value(QStringLiteral("ok")).toBool();
+        qInfo().noquote() << "[self-check]" << (ok ? "PASS" : "FAIL")
+                          << "passed=" << report.value(QStringLiteral("passed")).toInt()
+                          << "failed=" << report.value(QStringLiteral("failed")).toInt()
+                          << "elapsed=" << report.value(QStringLiteral("elapsedMs")).toInt()
+                          << "ms";
+        const QStringList issues = report.value(QStringLiteral("issues")).toStringList();
+        for (const QString &issue : issues)
+            qWarning().noquote() << "[self-check]" << issue;
+        delete api;
+        return ok ? 0 : 1;
+    }
+
     // AppUserModelID 必须早于 UI；注册表/快捷方式延后到事件循环
     WindowsAppIdentity::applyProcessIdentity();
 
@@ -88,5 +122,7 @@ int main(int argc, char *argv[])
     // 首次运行才写注册表/快捷方式
     QTimer::singleShot(0, &application, [] { WindowsAppIdentity::ensureShellIntegration(); });
 
-    return application.exec();
+    const int exitCode = application.exec();
+    delete MusicApiService::instance();
+    return exitCode;
 }

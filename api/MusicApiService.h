@@ -1,30 +1,41 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
+//
+// QML 单例 MusicApi：只做门面、请求生命周期和宿主状态。
+// 平台差异在 MusicSource，结果映射在 ApiResultRouter，播放链在 PlaybackCoordinator。
 
 #ifndef MUSICAPISERVICE_H
 #define MUSICAPISERVICE_H
 
 #include <QHash>
 #include <QList>
-#include <QMap>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QTimer>
 #include <QVariant>
+#include <QVariantList>
 #include <QVariantMap>
 #include <QtQmlIntegration/qqmlintegration.h>
 
-#include "BilibiliApi.h"
-#include "KugouApi.h"
-#include "NeteaseCloudApi.h"
+#include <memory>
+
+#include "MusicSource.h"
 #include "OnlineListModel.h"
-#include "sources/ScriptSourceHost.h"
 #include "../cpp/DownloadManager.h"
 
 class AccountManager;
+class ApiResultRouter;
+class BilibiliApi;
+class KugouApi;
+class LocalMedia;
+class NeteaseCloudApi;
+class PlaybackCoordinator;
+class QQMusicApi;
+class QualityHashCache;
 class QQmlEngine;
 class QJSEngine;
+class ScriptSourceHost;
 
 class MusicApiService : public QObject
 {
@@ -38,22 +49,22 @@ class MusicApiService : public QObject
     Q_PROPERTY(QVariantList sourceIds READ sourceIds NOTIFY sourcesChanged FINAL)
     Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged FINAL)
 
-    Q_PROPERTY(OnlineListModel* searchSongsResults READ searchSongsResults CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* newSongs READ newSongs CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* recommendSongs READ recommendSongs CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* musicPlaylists READ musicPlaylists CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* playlistSong READ playlistSong CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* hotPlayLists READ hotPlayLists CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* getHotlistMenu READ getHotlistMenu CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* musicToplist READ musicToplist CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* toplistList READ toplistList CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* singerList READ singerList CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* personalFm READ personalFm CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* personalRadar READ personalRadar CONSTANT FINAL)
-    Q_PROPERTY(OnlineListModel* comments READ comments CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *searchSongsResults READ searchSongsResults CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *newSongs READ newSongs CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *recommendSongs READ recommendSongs CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *musicPlaylists READ musicPlaylists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *allPlaylistMenu READ allPlaylistMenu CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *playlistSong READ playlistSong CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *hotPlayLists READ hotPlayLists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *getHotlistMenu READ getHotlistMenu CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *musicToplist READ musicToplist CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *toplistList READ toplistList CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *singerList READ singerList CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *personalFm READ personalFm CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *personalRadar READ personalRadar CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *comments READ comments CONSTANT FINAL)
     Q_PROPERTY(bool commentsHasMore READ commentsHasMore NOTIFY commentsHasMoreChanged FINAL)
 
-    Q_PROPERTY(QVariant allPlaylistMenu READ allPlaylistMenu WRITE setAllPlaylistMenu NOTIFY allPlaylistMenuChanged FINAL)
     Q_PROPERTY(QVariantList lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
     Q_PROPERTY(QVariantList lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged FINAL)
 
@@ -68,7 +79,7 @@ class MusicApiService : public QObject
     Q_PROPERTY(QVariant globalinfo READ globalinfo WRITE setGlobalinfo NOTIFY globalinfoChanged FINAL)
     Q_PROPERTY(int nowIndex READ nowIndex WRITE setNowIndex NOTIFY nowIndexChanged FINAL)
     Q_PROPERTY(int songFilter MEMBER m_songFilter NOTIFY songFilterChanged FINAL)
-    Q_PROPERTY(DownloadManager* downloader READ downloader CONSTANT FINAL)
+    Q_PROPERTY(DownloadManager *downloader READ downloader CONSTANT FINAL)
     Q_PROPERTY(QString downloadPath READ downloadPath WRITE setDownloadPath NOTIFY downloadPathChanged FINAL)
 
 public:
@@ -81,16 +92,18 @@ public:
 
     void setAccountManager(AccountManager *am);
 
-    int songSource() const;
+    int songSource() const { return m_source; }
     void setSongSource(int source);
 
-    int soundQuality() const;
-    void setSoundQuality(int q);
+    int soundQuality() const { return m_soundQuality; }
+    void setSoundQuality(int quality);
 
-    QVariantList sources() const;
-    QStringList sourceNames() const;
-    QVariantList sourceIds() const;
+    QVariantList sources() const { return m_sourceList; }
+    QStringList sourceNames() const { return m_sourceNames; }
+    QVariantList sourceIds() const { return m_sourceIds; }
     Q_INVOKABLE int sourceIdAt(int index) const;
+    Q_INVOKABLE QString sourceNameOf(int source) const;
+    Q_INVOKABLE QVariantMap selfCheck() const;
     Q_INVOKABLE void reloadSources();
 
     OnlineListModel *searchSongsResults() { return &m_searchSongsResults; }
@@ -109,12 +122,11 @@ public:
     bool commentsHasMore() const { return m_commentsHasMore; }
     void setCommentsHasMore(bool hasMore);
 
-    QVariant allPlaylistMenu() const { return m_allPlaylistMenu; }
-    void setAllPlaylistMenu(const QVariant &v);
+    OnlineListModel *allPlaylistMenu() { return &m_allPlaylistMenu; }
     QVariantList lyricsData() const { return m_lyricsData; }
-    void setLyricsData(const QVariantList &v);
+    void setLyricsData(const QVariantList &data);
     QVariantList lyricsTranslate() const { return m_lyricsTranslate; }
-    void setLyricsTranslate(const QVariantList &v);
+    void setLyricsTranslate(const QVariantList &translate);
 
     bool lyricFollowActive() const { return m_lyricFollowActive; }
     void setLyricFollowActive(bool active);
@@ -127,11 +139,11 @@ public:
     bool loadState() const { return m_loadState; }
     void setLoadState(bool state);
     QVariant globalid() const { return m_globalid; }
-    void setGlobalid(const QVariant &v);
+    void setGlobalid(const QVariant &value);
     QVariant globaltagid() const { return m_globaltagid; }
-    void setGlobaltagid(const QVariant &v);
+    void setGlobaltagid(const QVariant &value);
     QVariant globalinfo() const { return m_globalinfo; }
-    void setGlobalinfo(const QVariant &v);
+    void setGlobalinfo(const QVariant &value);
     int nowIndex() const { return m_nowIndex; }
     void setNowIndex(int index);
 
@@ -139,6 +151,7 @@ public:
     QString downloadPath() const { return m_downloader.downloadPath(); }
     void setDownloadPath(const QString &path) { m_downloader.setDownloadPath(path); }
 
+    // ---- 在线接口（QML 可见，签名保持不变） ----
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);
     Q_INVOKABLE void getPlaylistMenu(int type, int source = -1);
@@ -153,7 +166,6 @@ public:
     Q_INVOKABLE void getHotPlaylists(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getNewSongs(int type, int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getAllToplist(int source = -1);
-    Q_INVOKABLE void getAllToplists();
     Q_INVOKABLE void getMusicToplist(int page, int pageSize, int rankid, int source = -1);
     Q_INVOKABLE void getHotSingers(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getSingerCategory(int area, int page = 1, int pageSize = 30,
@@ -168,6 +180,13 @@ public:
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getComments(const QString &hash, int page = 1, int pageSize = 30,
                                  int source = -1);
+
+    // 播放/下载便捷入口：内部按当前音质挑 hash、按条目自带 source 选平台，
+    // QML 不再重复写三段 if。
+    Q_INVOKABLE bool playSong(const QVariantMap &song, int source = -1);
+    Q_INVOKABLE bool downloadSong(const QVariantMap &song, int source = -1);
+
+    // ---- 本地媒体（QML 可见，签名保持不变） ----
     Q_INVOKABLE void setLocalLyrics();
     Q_INVOKABLE void readLocalMetadataAsync(const QString &filePath);
     Q_INVOKABLE QString readLocalCoverHint(const QString &filePath);
@@ -180,8 +199,6 @@ public:
     Q_INVOKABLE void findLocalLyrics(const QString &filePath, const QString &title,
                                      const QString &artist, int duration = 0,
                                      int source = -1);
-    void findOnlineLyrics(const QString &title, const QString &artist, int duration,
-                          int source = 0);
 
 signals:
     void loaded();
@@ -195,7 +212,6 @@ signals:
     void songSourceChanged();
     void soundQualityChanged();
     void sourcesChanged();
-    void allPlaylistMenuChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
     void lyricFollowActiveChanged();
@@ -221,63 +237,52 @@ private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
 
 private:
+    int resolveSource(int source) const;
+    void send(const QString &action, const QVariantMap &args, int source, bool tracked = true);
+    void sendResolved(const QString &action, const QVariantMap &args, int resolvedSource,
+                      bool tracked);
+    void refreshCredentials();
+    QString qualityHashFor(const QVariantMap &song) const;
+
     void rebuildSources();
-    QVariantList songList(const QVariant &data);
-    int m_songFilter = 0;
+    void rebuildPluginMappings();
+    void refreshAccountState();
 
-    int resolve(int source) const;
-    static QVariantMap readLocalMetadataBlocking(const QString &filePath);
-    static bool writeLocalMetadataBlocking(const QString &filePath, const QVariantMap &meta);
-    void beginRequest();
-    void endRequest();
-    QTimer m_requestWatchdog;
-    bool isStalePlayResponse(const QString &playHash, int source) const;
-    void rememberHashes(const QVariantList &items);
-    QString resolveQualityHash(const QString &hash) const;
-    QString qualityCachePath() const;
-    void loadQualityCache();
-    void scheduleSaveQualityCache();
-    void saveQualityCache();
-    void syncSource(int source);
-    QVariantMap normalizeItem(const QVariantMap &raw);
-    QVariantList normalizeList(const QVariant &value);
-    void handleMusicInfo(const QVariantMap &data, int source);
+    void beginRequest(const QString &action);
+    void endRequest(const QString &action);
 
-    struct LocalLyricsRequest {
-        QString filePath;
-        QString title;
-        QString artist;
-        int duration = 0;
-    };
+    void setLyricIndex(int index);
+    void rebuildLyricTimes(const QVariantList &list);
+    void advanceLyricIndex();
 
-    struct QualityAlts {
-        QString hq;
-        QString sq;
-    };
-
-    struct OnlineTrack {
-        QString hash;
-        QString title;
-        QString artist;
-        int duration = 0;
-    };
+    static AccountManager *s_accountManager;
+    static MusicApiService *s_instance;
 
     int m_source = 0;
     int m_soundQuality = 1;
-    int m_localLyricsGeneration = 0;
-    QHash<QString, QString> m_coverHintCache;
-    QHash<QString, QualityAlts> m_alts;
-    QHash<QString, QString> m_baseOf;
-    bool m_altsDirty = false;
-    QTimer m_altsSaveTimer;
-    QVariantList m_sourceList;
-    NeteaseCloudApi m_netease;
-    KugouApi m_kugou;
-    BilibiliApi m_bilibili;
-    ScriptSourceHost m_scripts;
+    int m_songFilter = 0;
+
+    std::unique_ptr<KugouApi> m_kugou;
+    std::unique_ptr<NeteaseCloudApi> m_netease;
+    std::unique_ptr<BilibiliApi> m_bilibili;
+    std::unique_ptr<QQMusicApi> m_qq;
+    std::unique_ptr<ScriptSourceHost> m_scripts;
+    std::unique_ptr<QualityHashCache> m_qualityCache;
+    std::unique_ptr<LocalMedia> m_localMedia;
+    std::unique_ptr<ApiResultRouter> m_router;
+    std::unique_ptr<PlaybackCoordinator> m_playback;
+    MusicSourceRegistry m_registry;
+
     AccountManager *m_account = nullptr;
-    static AccountManager *s_accountManager;
-    static MusicApiService *s_instance;
+    QHash<int, SourceCredentials> m_credentials;
+    QList<int> m_pluginSourceIds;
+
+    QVariantList m_sourceList;
+    QStringList m_sourceNames;
+    QVariantList m_sourceIds;
+    OnlineListModel m_allPlaylistMenu;
+    QVariantList m_lyricsData;
+    QVariantList m_lyricsTranslate;
 
     OnlineListModel m_searchSongsResults;
     OnlineListModel m_newSongs;
@@ -294,30 +299,11 @@ private:
     OnlineListModel m_comments;
     bool m_commentsHasMore = false;
 
-    QVariant m_allPlaylistMenu;
-    QVariantList m_lyricsData;
-    QVariantList m_lyricsTranslate;
-
-    QMap<QString, QVariantMap> m_pendingDownloads;
-    QMap<int, LocalLyricsRequest> m_localLyricsSearches;
-    QMap<QString, LocalLyricsRequest> m_pendingLocalLyrics;
-    OnlineTrack m_biliTrack;
-    QMap<int, LocalLyricsRequest> m_biliFallbackSearches;
-
     bool m_loadState = false;
+    QHash<QString, int> m_pendingByAction;
     int m_pendingRequests = 0;
-    int m_playGeneration = 0;
-    QString m_playHash;
-    int m_playSource = -1;
-    QHash<QString, int> m_playLyricGenerations;
-    QVariant m_globalid;
-    QVariant m_globaltagid;
-    QVariant m_globalinfo;
-    int m_nowIndex = 0;
+    QTimer m_requestWatchdog;
 
-    void setLyricIndex(int index);
-    void rebuildLyricTimes(const QVariantList &list);
-    void advanceLyricIndex();
     QTimer m_lyricTimer;
     QList<qlonglong> m_lyricTimes;
     qlonglong m_lyricPositionMs = 0;
@@ -325,7 +311,12 @@ private:
     int m_lyricIndex = 0;
     bool m_lyricFollowActive = false;
 
+    QVariant m_globalid;
+    QVariant m_globaltagid;
+    QVariant m_globalinfo;
+    int m_nowIndex = 0;
+
     DownloadManager m_downloader;
 };
 
-#endif
+#endif // MUSICAPISERVICE_H

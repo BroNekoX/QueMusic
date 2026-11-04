@@ -7,6 +7,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <initializer_list>
 #include <utility>
 
 namespace ApiCommon {
@@ -64,6 +65,62 @@ inline QVariantMap comment(QString user, QString avatar, QString content,
         {QStringLiteral("liked"), liked},
         {QStringLiteral("replies"), replies}
     };
+}
+
+// 统一字段归一化：把平台差异字段（name/singer/pic/id）补齐成 QML 使用的
+// 标准字段，并给缺省字段填上稳定类型。所有音源（含脚本插件）共用这一份。
+inline bool hasValue(const QVariantMap &map, const QString &key)
+{
+    const QVariant value = map.value(key);
+    return value.isValid() && !value.isNull();
+}
+
+inline QVariantMap normalizeItem(QVariantMap item)
+{
+    if (item.isEmpty())
+        return item;
+
+    const auto fill = [&item](const QString &key, const QString &fallback) {
+        if (!hasValue(item, key) && hasValue(item, fallback))
+            item.insert(key, item.value(fallback));
+    };
+
+    fill(kTitle, QStringLiteral("name"));
+    fill(kArtist, QStringLiteral("singer"));
+    fill(kCover, QStringLiteral("pic"));
+    fill(kHash, QStringLiteral("id"));
+
+    if (!hasValue(item, kTitle))     item.insert(kTitle, QString());
+    if (!hasValue(item, kArtist))    item.insert(kArtist, QString());
+    if (!hasValue(item, kCover))     item.insert(kCover, QString());
+    if (!hasValue(item, kHash))      item.insert(kHash, QString());
+    if (!hasValue(item, kAlbum))     item.insert(kAlbum, QString());
+    if (!hasValue(item, kDuration))  item.insert(kDuration, 0);
+    if (!hasValue(item, kPlaycount)) item.insert(kPlaycount, 0);
+    if (!hasValue(item, kPaytype))   item.insert(kPaytype, kPaytypeFree);
+    if (!hasValue(item, kHashHq))    item.insert(kHashHq, item.value(kHash));
+    if (!hasValue(item, kHashSq))    item.insert(kHashSq, item.value(kHash));
+    return item;
+}
+
+inline QVariantList normalizeList(const QVariant &value)
+{
+    const QVariantList list = value.toList();
+    QVariantList result;
+    result.reserve(list.size());
+    for (const QVariant &entry : list)
+        result.append(normalizeItem(entry.toMap()));
+    return result;
+}
+
+inline QString firstNonEmpty(const QVariantMap &map, std::initializer_list<const char *> keys)
+{
+    for (const char *key : keys) {
+        const QString text = map.value(QLatin1String(key)).toString();
+        if (!text.isEmpty())
+            return text;
+    }
+    return QString();
 }
 
 }

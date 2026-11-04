@@ -356,13 +356,7 @@ Item {
                     const song = MusicApi.playlistSong.get(0);
                     if (!song || !song.hash)
                         return;   // 曲目还没加载出来：别拿 undefined 去请求
-                    if(Config.soundQuality === 0) {
-                        MusicApi.getMusicInfo(song.hash);
-                    } else if(Config.soundQuality === 1) {
-                        MusicApi.getMusicInfo(song.hashhq);
-                    } else {
-                        MusicApi.getMusicInfo(song.hashsq);
-                    }
+                    MusicApi.playSong(song)
                 }
             }
             SButton {

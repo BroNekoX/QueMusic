@@ -176,14 +176,14 @@ Rectangle {
         y: 173
     }
 
-    // Navigation List
+    // 左侧导航栏
     ListModel {
         id: navModel
-        ListElement { display: "推荐"; iconChar: "\uf0bf" } // tj
-        ListElement { display: "分类"; iconChar: "\uf044" }  // fl
-        ListElement { display: "收藏"; iconChar: "\uf0c1" }  // sc
-        ListElement { display: "本地"; iconChar: "\uf0f5" }   // bd
-        ListElement { display: "下载"; iconChar: "\uf00f" }   // xz
+        ListElement { display: "推荐"; iconChar: "\uf0bf" }
+        ListElement { display: "分类"; iconChar: "\uf044" }
+        ListElement { display: "收藏"; iconChar: "\uf0c1" }
+        ListElement { display: "本地"; iconChar: "\uf0f5" }
+        ListElement { display: "下载"; iconChar: "\uf00f" }
     }
 
     Repeater {
