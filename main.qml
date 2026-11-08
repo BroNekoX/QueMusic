@@ -123,7 +123,7 @@ Window {
     WindowControls {
         id: win
         targetWindow: window
-        tray: systemTray
+        tray: SystemTrayManager   // QML 单例：C++ 侧 main.cpp 提前创建
         onSessionClosing: {
             // 会话收尾（阶段 4b：常驻层保存/退出流程在此接入）
         }
@@ -709,30 +709,13 @@ Window {
         bands: 128
     }
 
-    SystemTrayManager {
-        id: systemTray
-        iconSource: "qrc:/QueMusic/resources/icon.ico"
-        title: "QueMusic"
-        playing: Playback.inplay
-        nowPlaying: Playback.musicTitle + (Playback.musicArtist ? " - " + Playback.musicArtist : "")
-
-        onShowWindowRequested: win.restoreWindow()
-        onPlayPauseRequested: Playback.togglePlay()
-        onPreviousRequested: Playback.previous()
-        onNextRequested: Playback.next(false)
-        onQuitRequested: win.quitApp()
-        onActivated: (reason) => {
-            // 左键单击 / 双击托盘图标：恢复主界面
-            if(reason === SystemTrayManager.Trigger || reason === SystemTrayManager.DoubleClick)
-                win.restoreWindow();
-        }
-    }
+    // 托盘已迁至 C++ 常驻层实例化（main.cpp），信号在 C++ 侧接线：
+    // 恢复窗口 / 播放控制 / 退出收尾由 SessionController + Playback 完成。
 
     SmtcBridge {
         id: smtc
         targetWindow: window
     }
-
 
     SearchCard {
         id: searchCard

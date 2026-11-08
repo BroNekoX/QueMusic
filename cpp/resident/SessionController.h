@@ -38,9 +38,18 @@ public:
     // （SystemTrayManager::quitApplication 内部即 QCoreApplication::quit()）。
     void quitApp(QQuickWindow *mainWindow);
 
+    // 恢复主窗口：对应原 WindowControls.qml restoreWindow()（托盘单击/双击、
+    // 托盘菜单"显示主界面"的恢复入口）。隐藏前的可见性由 markHidden() 记录
+    // 到 m_restoreVisibility；尚未记录时回退读窗口自身的 windowStates（hide()
+    // 不清除状态位），保证"最大化隐藏到托盘 → 恢复仍是最大化"的形态不丢。
+    void restoreWindow(QQuickWindow *mainWindow);
+
 private:
     void saveLastSong();
     void saveWindowGeometry(QQuickWindow *mainWindow);
+
+    // 窗口隐藏前的可见性（对应原 QML restoreVisibility 属性），供 restoreWindow 恢复
+    QWindow::Visibility m_restoreVisibility = QWindow::Hidden;
 };
 
 #endif // SESSIONCONTROLLER_H

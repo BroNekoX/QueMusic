@@ -35,6 +35,37 @@ void SessionController::quitApp(QQuickWindow *mainWindow)
     QCoreApplication::quit();
 }
 
+// 对应原 WindowControls.qml restoreWindow()：
+//   不可见 → 按 hide 前记忆的可见性恢复（Maximized/FullScreen/其余 showNormal）；
+//   最小化 → showNormal；最后 raise + requestActivate 抢焦点。
+void SessionController::restoreWindow(QQuickWindow *mainWindow)
+{
+    if (!mainWindow)
+        return;
+    if (!mainWindow->isVisible()) {
+        // m_restoreVisibility 尚未被 markHidden 记录（初值 Hidden）时，
+        // 回退读 windowStates：hide() 不会清除最大化/全屏状态位。
+        QWindow::Visibility visibility = m_restoreVisibility;
+        if (visibility == QWindow::Hidden) {
+            const Qt::WindowStates states = mainWindow->windowStates();
+            if (states & Qt::WindowMaximized)
+                visibility = QWindow::Maximized;
+            else if (states & Qt::WindowFullScreen)
+                visibility = QWindow::FullScreen;
+        }
+        if (visibility == QWindow::Maximized)
+            mainWindow->showMaximized();
+        else if (visibility == QWindow::FullScreen)
+            mainWindow->showFullScreen();
+        else
+            mainWindow->showNormal();
+    } else if (mainWindow->visibility() == QWindow::Minimized) {
+        mainWindow->showNormal();
+    }
+    mainWindow->raise();
+    mainWindow->requestActivate();
+}
+
 // 最后播放歌曲：对应原 QML :29-39。
 // 原 QML 写 Options.lastSongs（components/OptionsLastSongs.qml，Settings 类别
 // "LastMedia"，属性 name/artist/cover/hash/source），此处直接写同类别同名五键，

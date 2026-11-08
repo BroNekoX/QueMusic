@@ -10,16 +10,22 @@
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
 #include <QCoreApplication>
+#include <QPointer>
 #include <QSettings>
 #include <QDebug>
 #include <QFont>
 #include <QVersionNumber>
 #include <QTimer>
+#include <memory>
 #include "cpp/AccountManager.h"
 #include "cpp/AppSettings.h"
 #include "cpp/LogManager.h"
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
+#include "cpp/SystemTrayManager.h"
+#include "cpp/resident/SessionController.h"
+#include "cpp/resident/UpdateChecker.h"
+#include "cpp/resident/WarningBuffer.h"
 #include "DesktopLyricsWindow.h"
 #include "DesktopMiniPlayerWindow.h"
 #include "api/MusicApiService.h"
@@ -98,7 +104,7 @@ int main(int argc, char *argv[])
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QApplication application(argc, argv);   // 用 QApplication：托盘图标/原生托盘菜单依赖 QtWidgets
-    application.setQuitOnLastWindowClosed(false);   // 常驻托盘：退出统一走 QML 的 Qt.quit()
+    application.setQuitOnLastWindowClosed(false);   // 常驻托盘：退出统一走 SessionController::quitApp
 
     QQuickWindow::setDefaultAlphaBuffer(true);
     setupApplicationMetadata(application);
@@ -119,7 +125,41 @@ int main(int argc, char *argv[])
 
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
     MusicApiService::create(nullptr, nullptr);
-    Playback::create(nullptr, nullptr);
+    Playback *playback = Playback::create(nullptr, nullptr);
+
+    // ---- 常驻层单例（均先于 QML 引擎加载创建，QML 首次访问复用同一实例）----
+    // 警告缓冲：构造即 connect Playback/MusicApiService 的 warned，跨 QML 场景重建保留警告
+    WarningBuffer::create(nullptr, nullptr);
+    // 静默更新检查：等价原 main.qml autoUpdateTimer（3 秒后检查，开关在内部判断）
+    UpdateChecker::create(nullptr, nullptr)->startDeferredCheck();
+    // 会话收尾控制器：托盘"退出"与窗口恢复由此接管（原 WindowControls.qml 收尾逻辑）
+    const std::unique_ptr<SessionController> sessionController
+        = std::make_unique<SessionController>(&application);
+
+    // 系统托盘：C++ 侧实例化并接线（原 main.qml SystemTrayManager 实例块迁出 QML）
+    SystemTrayManager *tray = SystemTrayManager::create(nullptr, nullptr);
+    tray->setIconSource(QStringLiteral(":/QueMusic/resources/icon.ico"));
+    tray->setTitle(QStringLiteral("QueMusic"));
+    // 播放状态 → 托盘（原 main.qml playing/nowPlaying 的 QML 绑定，nowPlaying 格式一致）
+    const auto updateNowPlaying = [tray, playback] {
+        const QString artist = playback->musicArtist();
+        tray->setNowPlaying(playback->musicTitle()
+                            + (artist.isEmpty() ? QString()
+                                                : QStringLiteral(" - ") + artist));
+    };
+    updateNowPlaying();
+    tray->setPlaying(playback->inplay());
+    QObject::connect(playback, &Playback::musicTitleChanged, tray, updateNowPlaying);
+    QObject::connect(playback, &Playback::musicArtistChanged, tray, updateNowPlaying);
+    QObject::connect(playback, &Playback::inplayChanged, tray, [tray, playback] {
+        tray->setPlaying(playback->inplay());
+    });
+    // 托盘菜单播放控制（原 main.qml onPlayPauseRequested/onPreviousRequested/onNextRequested）
+    QObject::connect(tray, &SystemTrayManager::playPauseRequested, playback, &Playback::togglePlay);
+    QObject::connect(tray, &SystemTrayManager::previousRequested, playback, &Playback::previous);
+    QObject::connect(tray, &SystemTrayManager::nextRequested, playback,
+                     [playback] { playback->next(false); });
+
     // 桌面部件 Widgets 窗口：进程级常驻，构造即按 AppSettings 开关自管显隐
     // （QApplication 非 QWidget，无 parent；窗口显隐/关闭由 AppSettings 开关自管）
     new DesktopLyricsWindow(nullptr);
@@ -129,6 +169,32 @@ int main(int argc, char *argv[])
 
     QWK::registerTypes(&engine);
     engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));
+
+    // 主窗口（engine.load 后才存在）：托盘"恢复窗口/退出"需要 QQuickWindow。
+    // 用 QPointer 持有，窗口销毁后自动置空（quitApp/restoreWindow 均判空容错）。
+    const QPointer<QQuickWindow> mainWindow(
+        qobject_cast<QQuickWindow *>(engine.rootObjects().value(0)));
+    if (!mainWindow)
+        qWarning() << "[主窗口] engine.load 后未取得 QQuickWindow，托盘恢复窗口不可用";
+
+    // 托盘菜单"显示主界面" / 左键单击、双击托盘图标 → 恢复主窗口
+    // （原 main.qml onShowWindowRequested/onActivated → win.restoreWindow()）
+    const auto restoreWindow = [sessionController = sessionController.get(), mainWindow] {
+        sessionController->restoreWindow(mainWindow);
+    };
+    QObject::connect(tray, &SystemTrayManager::showWindowRequested, &application, restoreWindow);
+    QObject::connect(tray, &SystemTrayManager::activated, &application,
+                     [sessionController = sessionController.get(), mainWindow](
+                         SystemTrayManager::ActivationReason reason) {
+        // 左键单击 / 双击托盘图标：恢复主界面
+        if (reason == SystemTrayManager::Trigger || reason == SystemTrayManager::DoubleClick)
+            sessionController->restoreWindow(mainWindow);
+    });
+    // 托盘菜单"退出" → 会话保存 + 退出（原 onQuitRequested → win.quitApp()）
+    QObject::connect(tray, &SystemTrayManager::quitRequested, &application,
+                     [sessionController = sessionController.get(), mainWindow] {
+        sessionController->quitApp(mainWindow);
+    });
 
     // 首次运行才写注册表/快捷方式
     QTimer::singleShot(0, &application, [] { WindowsAppIdentity::ensureShellIntegration(); });
