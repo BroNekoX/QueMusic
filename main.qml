@@ -123,7 +123,6 @@ Window {
     WindowControls {
         id: win
         targetWindow: window
-        tray: SystemTrayManager   // QML 单例：C++ 侧 main.cpp 提前创建
         onSessionClosing: {
             // 会话收尾（阶段 4b：常驻层保存/退出流程在此接入）
         }

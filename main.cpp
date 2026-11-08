@@ -16,7 +16,6 @@
 #include <QFont>
 #include <QVersionNumber>
 #include <QTimer>
-#include <memory>
 #include "cpp/AccountManager.h"
 #include "cpp/AppSettings.h"
 #include "cpp/LogManager.h"
@@ -132,9 +131,9 @@ int main(int argc, char *argv[])
     WarningBuffer::create(nullptr, nullptr);
     // 静默更新检查：等价原 main.qml autoUpdateTimer（3 秒后检查，开关在内部判断）
     UpdateChecker::create(nullptr, nullptr)->startDeferredCheck();
-    // 会话收尾控制器：托盘"退出"与窗口恢复由此接管（原 WindowControls.qml 收尾逻辑）
-    const std::unique_ptr<SessionController> sessionController
-        = std::make_unique<SessionController>(&application);
+    // 会话收尾控制器：托盘"退出"与窗口恢复由此接管（原 WindowControls.qml 收尾逻辑）；
+    // QML 场景（WindowControls）后续也按单例名 SessionController 直接调 markHidden/quitApp
+    SessionController *sessionController = SessionController::create(nullptr, nullptr);
 
     // 系统托盘：C++ 侧实例化并接线（原 main.qml SystemTrayManager 实例块迁出 QML）
     SystemTrayManager *tray = SystemTrayManager::create(nullptr, nullptr);
@@ -179,12 +178,12 @@ int main(int argc, char *argv[])
 
     // 托盘菜单"显示主界面" / 左键单击、双击托盘图标 → 恢复主窗口
     // （原 main.qml onShowWindowRequested/onActivated → win.restoreWindow()）
-    const auto restoreWindow = [sessionController = sessionController.get(), mainWindow] {
+    const auto restoreWindow = [sessionController, mainWindow] {
         sessionController->restoreWindow(mainWindow);
     };
     QObject::connect(tray, &SystemTrayManager::showWindowRequested, &application, restoreWindow);
     QObject::connect(tray, &SystemTrayManager::activated, &application,
-                     [sessionController = sessionController.get(), mainWindow](
+                     [sessionController, mainWindow](
                          SystemTrayManager::ActivationReason reason) {
         // 左键单击 / 双击托盘图标：恢复主界面
         if (reason == SystemTrayManager::Trigger || reason == SystemTrayManager::DoubleClick)
@@ -192,7 +191,7 @@ int main(int argc, char *argv[])
     });
     // 托盘菜单"退出" → 会话保存 + 退出（原 onQuitRequested → win.quitApp()）
     QObject::connect(tray, &SystemTrayManager::quitRequested, &application,
-                     [sessionController = sessionController.get(), mainWindow] {
+                     [sessionController, mainWindow] {
         sessionController->quitApp(mainWindow);
     });
 

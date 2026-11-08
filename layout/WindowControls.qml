@@ -2,6 +2,8 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 // 主窗口生命周期：托盘隐藏/恢复、关闭前保存会话与窗口几何、退出流程。
+// 会话保存 / 退出 / 窗口可见性记忆均已下沉 SessionController（C++ 单例），
+// 托盘气泡提示下沉 SystemTrayManager.notifyTrayHidden()。
 import QtQuick
 import QueMusic 1.0
 
@@ -9,16 +11,13 @@ QtObject {
     id: root
 
     property Window targetWindow
-    property SystemTrayManager tray
 
     property bool forceQuit: false
-    property int restoreVisibility: 0
-    property bool trayTipShown: false
 
     signal sessionClosing()
 
     function closeToTray(): bool {
-        return Config.closeToManage && !forceQuit && tray && tray.available
+        return Config.closeToManage && !forceQuit && SystemTrayManager.available
     }
 
     function toClosing(): void {
@@ -26,60 +25,19 @@ QtObject {
             hideToTray()
             return
         }
-        const q = Playback.queue
-        const p = Playback.player
-        const idx = q ? q.playListIndex : -1
-        if (q && q.count > 0 && idx >= 0) {
-            const item = q.get(idx)
-            Options.lastSongs.name = Playback.musicTitle
-            Options.lastSongs.artist = Playback.musicArtist
-            Options.lastSongs.cover = (p && p.urlStr) || "qrc:/QueMusic/resources/app/musicpic.png"
-            Options.lastSongs.hash = item.path
-            Options.lastSongs.source = item.source
-        }
-        if (Config.rememberWindow && targetWindow
-                && targetWindow.visibility !== Window.Maximized
-                && targetWindow.visibility !== Window.FullScreen) {
-            Config.winX = targetWindow.x
-            Config.winY = targetWindow.y
-            Config.winW = targetWindow.width
-            Config.winH = targetWindow.height
-        }
-        Playback.saveQueue()
-        Playback.flush()
         sessionClosing()
-        if (tray)
-            tray.quitApplication()
+        // 会话保存（LastMedia 五键 / 窗口几何 / 播放队列）+ 退出都由 C++ 完成
+        SessionController.quitApp(targetWindow)
     }
 
     function hideToTray(): void {
         if (!targetWindow || !targetWindow.visible)
             return
-        restoreVisibility = targetWindow.visibility
+        // 隐藏前把可见性记忆交给常驻层（托盘恢复时按此恢复最大化/全屏形态）
+        SessionController.markHidden(targetWindow)
         targetWindow.hide()
-        if (!trayTipShown) {
-            trayTipShown = true
-            if (tray)
-                tray.showMessage("QueMusic", "已最小化到系统托盘，点击托盘图标可恢复",
-                                 SystemTrayManager.Information)
-        }
-    }
-
-    function restoreWindow(): void {
-        if (!targetWindow)
-            return
-        if (!targetWindow.visible) {
-            if (restoreVisibility === Window.Maximized)
-                targetWindow.showMaximized()
-            else if (restoreVisibility === Window.FullScreen)
-                targetWindow.showFullScreen()
-            else
-                targetWindow.showNormal()
-        } else if (targetWindow.visibility === Window.Minimized) {
-            targetWindow.showNormal()
-        }
-        targetWindow.raise()
-        targetWindow.requestActivate()
+        // 一次性气泡提示（内部记录已提示标志）
+        SystemTrayManager.notifyTrayHidden()
     }
 
     function quitApp(): void {

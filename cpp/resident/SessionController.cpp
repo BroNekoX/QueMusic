@@ -9,11 +9,34 @@
 #include "playback/Playback.h"
 
 #include <QCoreApplication>
+#include <QQmlEngine>
 #include <QSettings>
+
+SessionController *SessionController::s_instance = nullptr;
+
+// 单例工厂：静态实例守卫 + C++ 所有权，QML 侧不可接管（与 LogManager 同一模式）
+SessionController *SessionController::create(QQmlEngine *qmlEngine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(qmlEngine)
+    Q_UNUSED(scriptEngine)
+    static SessionController *instance = nullptr;
+    if (!instance) {
+        instance = new SessionController(QCoreApplication::instance());
+        QQmlEngine::setObjectOwnership(instance, QQmlEngine::CppOwnership);
+    }
+    return instance;
+}
 
 SessionController::SessionController(QObject *parent)
     : QObject(parent)
 {
+    s_instance = this;
+}
+
+SessionController::~SessionController()
+{
+    if (s_instance == this)
+        s_instance = nullptr;
 }
 
 void SessionController::saveSession(QQuickWindow *mainWindow)
@@ -64,6 +87,15 @@ void SessionController::restoreWindow(QQuickWindow *mainWindow)
     }
     mainWindow->raise();
     mainWindow->requestActivate();
+}
+
+// 窗口隐藏到托盘前记录可见性（原 WindowControls.qml hideToTray 的
+// restoreVisibility = targetWindow.visibility）；restoreWindow 按此恢复形态。
+// hideToTray 入口已挡住不可见窗口，故这里不会记录到 Hidden。
+void SessionController::markHidden(QQuickWindow *mainWindow)
+{
+    if (mainWindow)
+        m_restoreVisibility = mainWindow->visibility();
 }
 
 // 最后播放歌曲：对应原 QML :29-39。
