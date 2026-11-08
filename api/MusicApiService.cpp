@@ -9,7 +9,6 @@
 #include "platform/BilibiliApi.h"
 #include "platform/KugouApi.h"
 #include "LocalMedia.h"
-#include "LyricTimeline.h"
 #include "platform/NeteaseCloudApi.h"
 #include "platform/QQMusicApi.h"
 #include "platform/SpotifyApi.h"
@@ -32,11 +31,10 @@
 #include <QStandardPaths>
 #include <QVariant>
 
-#include <algorithm>
+#include <utility>
 
 namespace {
 constexpr int kRequestWatchdogMs = 20000;
-constexpr int kLyricTickMs = 320;
 
 QString appConfigPath()
 {
@@ -194,10 +192,6 @@ MusicApiService::MusicApiService(QObject *parent)
         m_pendingByAction.clear();
         setLoadState(false);
     });
-
-    m_lyricTimer.setInterval(kLyricTickMs);
-    m_lyricTimer.setTimerType(Qt::CoarseTimer);
-    connect(&m_lyricTimer, &QTimer::timeout, this, &MusicApiService::advanceLyricIndex);
 }
 
 MusicApiService::~MusicApiService()
@@ -336,7 +330,6 @@ QVariantMap MusicApiService::selfCheck() const
     context.qualityCache = m_qualityCache.get();
     context.currentSource = m_source;
     context.pendingRequests = m_pendingRequests;
-    context.lyricTimesSorted = std::is_sorted(m_lyricTimes.cbegin(), m_lyricTimes.cend());
     return ApiSelfCheck::run(context);
 }
 
@@ -645,8 +638,6 @@ void MusicApiService::setLyricsData(const QVariantList &data)
     if (m_lyricsData == data)
         return;
     m_lyricsData = data;
-    rebuildLyricTimes(data);
-    setLyricIndex(0);
     emit lyricsDataChanged();
 }
 
@@ -658,70 +649,12 @@ void MusicApiService::setLyricsTranslate(const QVariantList &translate)
     emit lyricsTranslateChanged();
 }
 
-void MusicApiService::rebuildLyricTimes(const QVariantList &list)
-{
-    m_lyricTimes.clear();
-    m_lyricTimes.reserve(list.size());
-    for (const QVariant &item : list)
-        m_lyricTimes.append(item.toMap().value("time").toLongLong());
-}
-
-void MusicApiService::setLyricIndex(int index)
-{
-    if (m_lyricIndex != index) {
-        m_lyricIndex = index;
-        emit lyricIndexChanged();
-    }
-    emit lyricFuncted();
-}
-
 void MusicApiService::setCommentsHasMore(bool hasMore)
 {
     if (m_commentsHasMore != hasMore) {
         m_commentsHasMore = hasMore;
         emit commentsHasMoreChanged();
     }
-}
-
-void MusicApiService::advanceLyricIndex()
-{
-    if (m_lyricTimes.isEmpty()) {
-        setLyricIndex(0);
-        return;
-    }
-
-    const qlonglong position = m_lyricPositionMs + m_lyricOffsetMs + kLyricTickMs;
-    setLyricIndex(LyricTimeline::indexAt(m_lyricTimes, position));
-}
-
-void MusicApiService::setLyricFollowActive(bool active)
-{
-    if (m_lyricFollowActive == active)
-        return;
-    m_lyricFollowActive = active;
-    if (active) {
-        m_lyricTimer.start();
-        advanceLyricIndex();
-    } else {
-        m_lyricTimer.stop();
-    }
-    emit lyricFollowActiveChanged();
-}
-
-void MusicApiService::setLyricPositionMs(qlonglong ms)
-{
-    if (m_lyricPositionMs == ms)
-        return;
-    m_lyricPositionMs = ms;
-    emit lyricPositionMsChanged();
-}
-
-void MusicApiService::setLyricOffsetMs(int ms)
-{
-    if (m_lyricOffsetMs == ms)
-        return;
-    m_lyricOffsetMs = ms;
-    emit lyricOffsetMsChanged();
 }
 
 void MusicApiService::setLoadState(bool state)

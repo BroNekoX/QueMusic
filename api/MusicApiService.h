@@ -67,11 +67,6 @@ class MusicApiService : public QObject
     Q_PROPERTY(QVariantList lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
     Q_PROPERTY(QVariantList lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged FINAL)
 
-    Q_PROPERTY(bool lyricFollowActive READ lyricFollowActive WRITE setLyricFollowActive NOTIFY lyricFollowActiveChanged FINAL)
-    Q_PROPERTY(qlonglong lyricPositionMs READ lyricPositionMs WRITE setLyricPositionMs NOTIFY lyricPositionMsChanged FINAL)
-    Q_PROPERTY(int lyricOffsetMs READ lyricOffsetMs WRITE setLyricOffsetMs NOTIFY lyricOffsetMsChanged FINAL)
-    Q_PROPERTY(int lyricIndex READ lyricIndex NOTIFY lyricIndexChanged FINAL)
-
     Q_PROPERTY(bool loadState READ loadState WRITE setLoadState NOTIFY loadStateChanged FINAL)
     Q_PROPERTY(QVariant globalid READ globalid WRITE setGlobalid NOTIFY globalidChanged FINAL)
     Q_PROPERTY(QVariant globaltagid READ globaltagid WRITE setGlobaltagid NOTIFY globaltagidChanged FINAL)
@@ -126,14 +121,6 @@ public:
     void setLyricsData(const QVariantList &data);
     QVariantList lyricsTranslate() const { return m_lyricsTranslate; }
     void setLyricsTranslate(const QVariantList &translate);
-
-    bool lyricFollowActive() const { return m_lyricFollowActive; }
-    void setLyricFollowActive(bool active);
-    qlonglong lyricPositionMs() const { return m_lyricPositionMs; }
-    void setLyricPositionMs(qlonglong ms);
-    int lyricOffsetMs() const { return m_lyricOffsetMs; }
-    void setLyricOffsetMs(int ms);
-    int lyricIndex() const { return m_lyricIndex; }
 
     bool loadState() const { return m_loadState; }
     void setLoadState(bool state);
@@ -209,10 +196,6 @@ signals:
     void sourcesChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
-    void lyricFollowActiveChanged();
-    void lyricPositionMsChanged();
-    void lyricOffsetMsChanged();
-    void lyricIndexChanged();
     void loadStateChanged();
     void globalidChanged();
     void globaltagidChanged();
@@ -226,7 +209,6 @@ signals:
     void localLyricsFailed(const QString &filePath);
     void localMetadataReady(const QString &filePath, const QVariantMap &meta);
     void localMetadataSaved(const QString &filePath, bool ok);
-    void lyricFuncted();
 
 private slots:
     void handleResult(const QString &action, const QVariant &data, int source);
@@ -245,10 +227,6 @@ private:
 
     void beginRequest(const QString &action);
     void endRequest(const QString &action);
-
-    void setLyricIndex(int index);
-    void rebuildLyricTimes(const QVariantList &list);
-    void advanceLyricIndex();
 
     static AccountManager *s_accountManager;
     static MusicApiService *s_instance;
@@ -300,13 +278,6 @@ private:
     QHash<QString, int> m_pendingByAction;
     int m_pendingRequests = 0;
     QTimer m_requestWatchdog;
-
-    QTimer m_lyricTimer;
-    QList<qlonglong> m_lyricTimes;
-    qlonglong m_lyricPositionMs = 0;
-    int m_lyricOffsetMs = 0;
-    int m_lyricIndex = 0;
-    bool m_lyricFollowActive = false;
 
     QVariant m_globalid;
     QVariant m_globaltagid;

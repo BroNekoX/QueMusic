@@ -116,7 +116,6 @@ void checkSourceList(const SelfCheckContext &context, Report &report)
     }
 
     report.check(context.pendingRequests >= 0, "negative pending request count");
-    report.check(context.lyricTimesSorted, "lyric timeline is not sorted");
 }
 
 void checkNormalization(Report &report)
