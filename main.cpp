@@ -20,6 +20,8 @@
 #include "cpp/LogManager.h"
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
+#include "DesktopLyricsWindow.h"
+#include "DesktopMiniPlayerWindow.h"
 #include "api/MusicApiService.h"
 #include <QWKQuick/qwkquickglobal.h>
 
@@ -118,6 +120,10 @@ int main(int argc, char *argv[])
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
     MusicApiService::create(nullptr, nullptr);
     Playback::create(nullptr, nullptr);
+    // 桌面部件 Widgets 窗口：进程级常驻，构造即按 AppSettings 开关自管显隐
+    // （QApplication 非 QWidget，无 parent；窗口显隐/关闭由 AppSettings 开关自管）
+    new DesktopLyricsWindow(nullptr);
+    new DesktopMiniPlayerWindow(nullptr);
     // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
     engine.rootContext()->setContextProperty(QStringLiteral("configDir"), configPath);
 
