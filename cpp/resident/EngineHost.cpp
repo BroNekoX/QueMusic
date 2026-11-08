@@ -11,16 +11,53 @@
 #include <QtQuick/QQuickWindow>
 #include <QWKQuick/qwkquickglobal.h>
 
+#include "AppSettings.h"
+#include "SystemTrayManager.h"
+#include "SessionController.h"
+
 // qmltyperegistration 生成（Qt 构建产物）：注册 QueMusic 模块的 QML_ELEMENT 类型。
 // 进程级只需调用一次（重复调用会重复注册），createEngine 内用静态 bool 守卫。
 extern void qml_register_types_QueMusic();
 
 EngineHost *EngineHost::s_instance = nullptr;
 
+// 构造时机（main.cpp 保证）：SessionController::create / AppSettings::create /
+// SystemTrayManager::create 均已先行，instance() 非空；若调用顺序变化，
+// 下方判空会跳过接线（此时轻量模式自动进入不可用，手动入口仍有效）。
 EngineHost::EngineHost(QObject *parent)
     : QObject(parent)
 {
     s_instance = this;
+
+    // 自动进入定时器：单发，到点执行 activateNow()（轻量模式下已无窗口，
+    // 由状态机守卫忽略）
+    m_autoTimer.setSingleShot(true);
+    connect(&m_autoTimer, &QTimer::timeout, this, &EngineHost::activateNow);
+
+    // 轻量模式自动进入触发源：窗口隐藏到托盘 → 按开关与延迟启动计时
+    if (SessionController *session = SessionController::instance())
+        connect(session, &SessionController::windowHiddenToTray,
+                this, &EngineHost::restartAutoTimer);
+
+    // 设置联动：开关关闭 → 停掉尚未触发的计时；延迟秒数变更 → 计时中则按新间隔重启
+    if (AppSettings *settings = AppSettings::instance()) {
+        connect(settings, &AppSettings::lightweightAutoEnabledChanged, this, [this] {
+            if (!AppSettings::instance()->lightweightAutoEnabled())
+                m_autoTimer.stop();
+        });
+        connect(settings, &AppSettings::lightweightDelaySecondsChanged, this,
+                &EngineHost::restartAutoTimer);
+    }
+}
+
+// 窗口隐藏到托盘 / 延迟秒数变更 → 按实时配置（重）启单发计时。
+// start() 对同一信号重复到达（反复隐藏窗口）自动重启计时。
+void EngineHost::restartAutoTimer()
+{
+    AppSettings *settings = AppSettings::instance();
+    if (!settings || !settings->lightweightAutoEnabled())
+        return;
+    m_autoTimer.start(qMax(1, settings->lightweightDelaySeconds()) * 1000);
 }
 
 EngineHost::~EngineHost()
@@ -125,6 +162,54 @@ void EngineHost::destroyEngine()
     m_engine = nullptr;
     m_rootWindow = nullptr;
     m_state = Inactive;
+    // 销毁后无需再计时（自动进入已达成/被手动路径取代）
+    m_autoTimer.stop();
+}
+
+// 立即进入轻量模式：与 WindowControls.hideToTray 同款隐藏三步（记录形态 →
+// 隐藏 → 托盘气泡），随后执行销毁协议。
+void EngineHost::activateNow()
+{
+    // 过渡态直接忽略：Creating/Destroying 期间不重复触发（销毁协议不可重入）；
+    // Inactive（已是轻量模式）同样忽略——定时器残留触发即落在这里
+    if (m_state != Active) {
+        qWarning() << "[EngineHost] activateNow 在非 Active 状态被调用，忽略"
+                   << "（当前状态：" << m_state << "）";
+        return;
+    }
+    if (m_rootWindow && m_rootWindow->isVisible()) {
+        if (SessionController *session = SessionController::instance())
+            session->markHidden(m_rootWindow);
+        m_rootWindow->hide();
+        if (SystemTrayManager *tray = SystemTrayManager::instance())
+            tray->notifyTrayHidden();
+    }
+    destroyEngine();
+}
+
+// 恢复主界面（托盘恢复路径统一入口）：轻量模式下重新装配引擎，Active 时
+// 仅按记忆形态恢复窗口。
+void EngineHost::restore()
+{
+    // 主动恢复视为用户取消待触发的自动轻量化计时（否则恢复后窗口会被
+    // 到点的定时器再次隐藏）
+    m_autoTimer.stop();
+
+    switch (m_state) {
+    case Active:
+        if (SessionController *session = SessionController::instance())
+            session->restoreWindow(m_rootWindow);
+        break;
+    case Inactive:
+        createEngine();
+        break;
+    case Creating:
+    case Destroying:
+        // 过渡态排队重试：单发 0ms 重入一次，重试时销毁协议已收尾
+        //（Inactive）或装配已完成（Active），不会再无限排队
+        QTimer::singleShot(0, this, &EngineHost::restore);
+        break;
+    }
 }
 
 QQuickWindow *EngineHost::mainWindow() const

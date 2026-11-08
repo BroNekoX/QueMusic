@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QString>
+#include <QTimer>
 #include <QQmlEngine>
 #include <QtQml/qqmlregistration.h>
 
@@ -100,12 +101,28 @@ public:
     // 主窗口（engine.load 后才有；轻量模式下为 null）。托盘"恢复/退出"接线用。
     Q_INVOKABLE QQuickWindow *mainWindow() const;
 
+    // 立即进入轻量模式：窗口可见时先记录托盘隐藏形态（markHidden）→ 隐藏窗口
+    // → 托盘气泡提示 → 执行销毁协议。过渡态（Creating/Destroying）直接忽略。
+    Q_INVOKABLE void activateNow();
+
+    // 恢复主界面（托盘恢复路径统一入口）：
+    //   Active   → SessionController::restoreWindow（最大化/全屏形态由其记忆恢复）；
+    //   Inactive → createEngine() 重新装配（窗口由 main.qml Component.onCompleted
+    //              自动 show，记住窗口开启时按 Config 恢复几何）；
+    //   过渡态   → 经 QTimer::singleShot(0) 排队重试（重试时状态已落定，
+    //              见状态机注释）。
+    Q_INVOKABLE void restore();
+
     bool lightweightActive() const;
 
 signals:
     void lightweightActiveChanged();
 
 private:
+    // 窗口隐藏到托盘（SessionController::windowHiddenToTray）：开关开启时启动
+    // 单发定时器；同一信号重复到达时 start() 自动重启计时
+    void restartAutoTimer();
+
     static EngineHost *s_instance;
 
     QString m_configPath;
@@ -114,6 +131,9 @@ private:
     // QPointer：窗口销毁后自动置空，防止悬空访问
     QPointer<QQuickWindow> m_rootWindow;
     EngineState m_state = Inactive;
+    // 轻量模式自动进入定时器（单发；interval 取 AppSettings.lightweightDelaySeconds
+    // 的实时值，seconds 变更时若在跑则按新间隔重启）
+    QTimer m_autoTimer;
 };
 
 #endif // ENGINEHOST_H
