@@ -145,8 +145,13 @@ QRect DesktopMiniPlayerWindow::controlButtonRect(ControlButton button) const
     case ButtonPinTop:
         offset = size * 4;
         break;
+    case ButtonClose: {
+        // 右上角关闭键（QML closeButton :279-299）：大窗 32x32 y=12，小窗 28x28 与控制行同排
+        const bool small = isSmallMode();
+        const int closeSize = small ? 28 : 32;
+        return QRect(width() - 44, small ? coverRect().y() + 2 : 12, closeSize, closeSize);
+    }
     case ButtonNone:
-    case ButtonClose:
         return QRect();
     }
     return QRect(x + offset, y, size, size);
@@ -421,9 +426,9 @@ void DesktopMiniPlayerWindow::paintEvent(QPaintEvent *)
         painter.drawText(buttonRect, Qt::AlignCenter, glyph);
     }
 
-    // ---- 关闭按钮（QML closeButton :279-299）----
-    const int closeSize = small ? 28 : 32;
-    const QRect closeRect(width() - 44, small ? cover.y() + 2 : 12, closeSize, closeSize);
+    // ---- 关闭按钮（QML closeButton :279-299；命中区与绘制共用 controlButtonRect）----
+    const QRect closeRect = controlButtonRect(ButtonClose);
+    const int closeSize = closeRect.width();
     if (m_hoveredButton == ButtonClose) {
         painter.setPen(Qt::NoPen);
         painter.setBrush(kCloseHover);
