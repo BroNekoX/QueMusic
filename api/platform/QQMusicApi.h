@@ -83,7 +83,6 @@ private:
     QVariantMap parseAlbum(const QJsonObject &album) const;
     QString singerNames(const QJsonValue &value) const;
     SongDetail detailFromJson(const QJsonObject &song) const;
-    void rememberSong(const QJsonObject &song);
     void rememberDetail(const QString &mid, const SongDetail &detail);
     static QString makeSearchId();
     static QVariantList parseLrc(const QString &text);

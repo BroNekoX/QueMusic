@@ -35,18 +35,9 @@ int OnlineListModel::rowCount(const QModelIndex &parent) const
 
 QVariant OnlineListModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid())
-        return {};
-
-    const int column = role - int(Qt::UserRole);
-    if (column < 0 || column >= m_columns.size())
-        return {};
-
-    const int row = index.row();
-    if (row < 0 || row >= m_rows.size())
-        return {};
-
-    return m_rows.at(row).at(column);
+    const int column = role - int(Qt::UserRole), row = index.row();
+    const bool valid = index.isValid() && column >= 0 && column < m_columns.size() && row >= 0 && row < m_rows.size();
+    return valid ? m_rows.at(row).at(column) : QVariant();
 }
 
 QHash<int, QByteArray> OnlineListModel::roleNames() const
@@ -60,7 +51,6 @@ int OnlineListModel::columnFor(const QString &name)
     if (it != m_columnIndex.constEnd())
         return it.value();
 
-    // 防止恶意/异常插件返回无限多的随机字段把模型撑爆。
     constexpr int kMaxColumns = 64;
     if (m_columns.size() >= kMaxColumns)
         return -1;
@@ -70,7 +60,6 @@ int OnlineListModel::columnFor(const QString &name)
     m_columnIndex.insert(name, column);
     m_roleNames.insert(int(Qt::UserRole) + column, name.toLatin1());
 
-    // 新列需要把已有行补齐，保持所有行等长。
     for (QVector<QVariant> &row : m_rows)
         row.append(QVariant());
     return column;
@@ -78,12 +67,10 @@ int OnlineListModel::columnFor(const QString &name)
 
 void OnlineListModel::ensureColumns(const QVector<QVariantMap> &items)
 {
-    for (const QVariantMap &item : items) {
-        for (auto it = item.constBegin(); it != item.constEnd(); ++it) {
-            if (!m_columnIndex.contains(it.key()) && m_columns.size() < 64)
+    for (const QVariantMap &item : items)
+        for (auto it = item.constBegin(); it != item.constEnd(); ++it)
+            if (!m_columnIndex.contains(it.key()))
                 columnFor(it.key());
-        }
-    }
 }
 
 QVector<QVariant> OnlineListModel::rowValues(const QVariantMap &item) const
@@ -99,8 +86,7 @@ QVector<QVariant> OnlineListModel::rowValues(const QVariantMap &item) const
 
 QVariantMap OnlineListModel::get(int index) const
 {
-    if (index < 0 || index >= m_rows.size())
-        return {};
+    if (index < 0 || index >= m_rows.size()) return {};
 
     const QVector<QVariant> &row = m_rows.at(index);
     QVariantMap item;
@@ -113,8 +99,7 @@ QVariantMap OnlineListModel::get(int index) const
 
 void OnlineListModel::clear()
 {
-    if (m_rows.isEmpty())
-        return;
+    if (m_rows.isEmpty()) return;
     beginResetModel();
     m_rows.clear();
     endResetModel();

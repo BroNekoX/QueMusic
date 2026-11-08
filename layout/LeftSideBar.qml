@@ -13,7 +13,7 @@ Rectangle {
     property color choiceColor: Theme.hoverColor
     property color choiceTextColor: Theme.fontColor
     property int choiceIndex: 0
-    required property MainContent mainCont
+    required property Item mainCont
     color: Theme.secondaryColor
 
     Connections {

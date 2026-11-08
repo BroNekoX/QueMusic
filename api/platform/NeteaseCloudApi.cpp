@@ -32,32 +32,32 @@ int paytypeFromFee(qint64 fee)
 
 qint64 feeOf(const QVariantMap &song)
 {
-    return song.value(QStringLiteral("privilege")).toMap()
-        .value(QStringLiteral("fee"), song.value(QStringLiteral("fee")))
+    return song.value("privilege").toMap()
+        .value("fee", song.value("fee"))
         .toLongLong();
 }
 
 QVariantMap songFromMap(const QVariantMap &song)
 {
-    const QVariantList ar = song.value(QStringLiteral("ar")).toList();
+    const QVariantList ar = song.value("ar").toList();
     const QVariantList artists = ar.isEmpty()
-        ? song.value(QStringLiteral("artists")).toList() : ar;
-    const QVariantMap al = song.value(QStringLiteral("al")).toMap();
+        ? song.value("artists").toList() : ar;
+    const QVariantMap al = song.value("al").toMap();
     const QVariantMap album = al.isEmpty()
-        ? song.value(QStringLiteral("album")).toMap() : al;
-    const QString id = songId(song.value(QStringLiteral("id")));
-    const qint64 dt = song.value(QStringLiteral("dt")).toLongLong();
+        ? song.value("album").toMap() : al;
+    const QString id = songId(song.value("id"));
+    const qint64 dt = song.value("dt").toLongLong();
     const int duration = dt > 0
         ? int(dt / 1000)
-        : int(song.value(QStringLiteral("duration")).toLongLong() / 1000);
+        : int(song.value("duration").toLongLong() / 1000);
     return ApiCommon::song(
-        song.value(QStringLiteral("name")).toString(),
+        song.value("name").toString(),
         artists.isEmpty() ? QStringLiteral("未知歌手")
-                          : artists.first().toMap().value(QStringLiteral("name")).toString(),
-        album.value(QStringLiteral("picUrl")).toString(),
+                          : artists.first().toMap().value("name").toString(),
+        album.value("picUrl").toString(),
         id,
         duration,
-        album.value(QStringLiteral("name")).toString(),
+        album.value("name").toString(),
         id, id,
         paytypeFromFee(feeOf(song)));
 }
@@ -74,8 +74,8 @@ QVariantList parseSongList(const QVariantList &songs)
 QVariantList parseYrc(const QString &text)
 {
     QVariantList result;
-    static const QRegularExpression lineRe(QStringLiteral("^\\[(\\d+),(\\d+)\\](.*)$"));
-    static const QRegularExpression wordRe(QStringLiteral("\\((\\d+),(\\d+),(\\d+)\\)([^()]*)"));
+    static const QRegularExpression lineRe("^\\[(\\d+),(\\d+)\\](.*)$");
+    static const QRegularExpression wordRe("\\((\\d+),(\\d+),(\\d+)\\)([^()]*)");
     const QStringList lines = text.split(QLatin1Char('\n'));
     for (const QString &raw : lines) {
         const QString line = raw.trimmed();
@@ -95,23 +95,23 @@ QVariantList parseYrc(const QString &text)
                 continue;
             const qint64 wordStart = word.captured(1).toLongLong();
             words.append(QVariantMap{
-                {QStringLiteral("offset"), int(wordStart >= lineStart ? wordStart - lineStart : wordStart)},
-                {QStringLiteral("duration"), word.captured(2).toInt()},
-                {QStringLiteral("text"), wordText}
+                {"offset", int(wordStart >= lineStart ? wordStart - lineStart : wordStart)},
+                {"duration", word.captured(2).toInt()},
+                {"text", wordText}
             });
             fullText += wordText;
         }
         if (words.isEmpty() || fullText.trimmed().isEmpty())
             continue;
         result.append(QVariantMap{
-            {QStringLiteral("time"), lineStart},
-            {QStringLiteral("text"), fullText},
-            {QStringLiteral("info"), words}
+            {"time", lineStart},
+            {"text", fullText},
+            {"info", words}
         });
     }
     std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("time")).toLongLong()
-               < b.toMap().value(QStringLiteral("time")).toLongLong();
+        return a.toMap().value("time").toLongLong()
+               < b.toMap().value("time").toLongLong();
     });
     return result;
 }
@@ -119,7 +119,7 @@ QVariantList parseYrc(const QString &text)
 QVariantList parseLyrics(const QString &text)
 {
     QVariantList result;
-    static const QRegularExpression re(QStringLiteral("^(\\d{2}):(\\d{2})[.:](\\d{2,3})$"));
+    static const QRegularExpression re("^(\\d{2}):(\\d{2})[.:](\\d{2,3})$");
     const QStringList parts = text.split(QLatin1Char('['));
     result.reserve(parts.size());
     for (int i = 1; i < parts.size(); ++i) {
@@ -136,15 +136,15 @@ QVariantList parseLyrics(const QString &text)
         const QString msText = match.captured(3);
         const int ms = msText.size() == 2 ? msText.toInt() * 10 : msText.toInt();
         result.append(QVariantMap{
-            {QStringLiteral("time"), match.captured(1).toInt() * 60000
+            {"time", match.captured(1).toInt() * 60000
                                          + match.captured(2).toInt() * 1000 + ms},
-            {QStringLiteral("text"), lyric},
-            {QStringLiteral("info"), QVariant()}
+            {"text", lyric},
+            {"info", QVariant()}
         });
     }
     std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("time")).toInt()
-               < b.toMap().value(QStringLiteral("time")).toInt();
+        return a.toMap().value("time").toInt()
+               < b.toMap().value("time").toInt();
     });
     return result;
 }
@@ -155,14 +155,14 @@ QVariantList parseComments(const QVariantList &items)
     info.reserve(items.size());
     for (const QVariant &value : items) {
         const QVariantMap comment = value.toMap();
-        const QVariantMap user = comment.value(QStringLiteral("user")).toMap();
+        const QVariantMap user = comment.value("user").toMap();
         info.append(ApiCommon::comment(
-            user.value(QStringLiteral("nickname")).toString(),
-            user.value(QStringLiteral("avatarUrl")).toString(),
-            comment.value(QStringLiteral("content")).toString(),
-            comment.value(QStringLiteral("time")).toLongLong() / 1000,
-            comment.value(QStringLiteral("likedCount")).toInt(),
-            int(comment.value(QStringLiteral("beReplied")).toList().size())));
+            user.value("nickname").toString(),
+            user.value("avatarUrl").toString(),
+            comment.value("content").toString(),
+            comment.value("time").toLongLong() / 1000,
+            comment.value("likedCount").toInt(),
+            int(comment.value("beReplied").toList().size())));
     }
     return info;
 }
@@ -173,16 +173,16 @@ QVariantList parsePlaylists(const QVariantList &playlists)
     info.reserve(playlists.size());
     for (const QVariant &value : playlists) {
         const QVariantMap playlist = value.toMap();
-        const QVariantMap creator = playlist.value(QStringLiteral("creator")).toMap();
+        const QVariantMap creator = playlist.value("creator").toMap();
         info.append(ApiCommon::song(
-            playlist.value(QStringLiteral("name")).toString(),
-            creator.value(QStringLiteral("nickname")).toString(),
-            playlist.value(QStringLiteral("coverImgUrl")).toString(),
-            songId(playlist.value(QStringLiteral("id"))),
-            playlist.value(QStringLiteral("trackCount")).toInt(),
-            playlist.value(QStringLiteral("description")).toString(),
+            playlist.value("name").toString(),
+            creator.value("nickname").toString(),
+            playlist.value("coverImgUrl").toString(),
+            songId(playlist.value("id")),
+            playlist.value("trackCount").toInt(),
+            playlist.value("description").toString(),
             QString(), QString(), 0,
-            playlist.value(QStringLiteral("playCount")).toLongLong()));
+            playlist.value("playCount").toLongLong()));
     }
     return info;
 }
@@ -198,11 +198,11 @@ public:
 public slots:
     void request(const QString &action, const QVariantMap &call)
     {
-        const QString member = call.value(QStringLiteral("member")).toString();
-        const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
+        const QString member = call.value("member").toString();
+        const QVariantMap arg = call.value("arg").toMap();
         auto invoke = [this](const QString &name, const QVariantMap &args) {
             QVariantMap result = helper()->invoke(name, args);
-            if (result.value(QStringLiteral("status")).toInt() >= 500) {
+            if (result.value("status").toInt() >= 500) {
                 QThread::msleep(150);
                 result = helper()->invoke(name, args);
             }
@@ -210,42 +210,42 @@ public slots:
         };
 
         const QVariantMap raw = invoke(member, arg);
-        const bool transportFailed = raw.value(QStringLiteral("status")).toInt() >= 500;
+        const bool transportFailed = raw.value("status").toInt() >= 500;
         QVariantMap effective = raw;
         if (transportFailed)
-            effective.insert(QStringLiteral("error"), raw.value(QStringLiteral("status")));
+            effective.insert("error", raw.value("status"));
 
         if (action == QLatin1String("getMusicInfo")) {
             static const char *kLevels[] = {"standard", "exhigh", "lossless", "hires"};
-            const int requested = qBound(0, call.value(QStringLiteral("quality")).toInt(), 3);
+            const int requested = qBound(0, call.value("quality").toInt(), 3);
             QString playUrl;
             bool unavailable = false;
             for (int level = requested; level >= 0; --level) {
                 QVariantMap urlArg;
-                urlArg.insert(QStringLiteral("id"), arg.value(QStringLiteral("id")));
-                urlArg.insert(QStringLiteral("level"), QString::fromLatin1(kLevels[level]));
-                const QVariantMap urlRaw = invoke(QStringLiteral("song_url_v1"), urlArg);
-                if (urlRaw.value(QStringLiteral("status")).toInt() >= 500) {
-                    effective.insert(QStringLiteral("error"), urlRaw.value(QStringLiteral("status")));
+                urlArg.insert("id", arg.value("id"));
+                urlArg.insert("level", QString::fromLatin1(kLevels[level]));
+                const QVariantMap urlRaw = invoke("song_url_v1", urlArg);
+                if (urlRaw.value("status").toInt() >= 500) {
+                    effective.insert("error", urlRaw.value("status"));
                     break;
                 }
-                const QVariantList urlData = urlRaw.value(QStringLiteral("body")).toMap()
-                                                 .value(QStringLiteral("data")).toList();
+                const QVariantList urlData = urlRaw.value("body").toMap()
+                                                 .value("data").toList();
                 if (urlData.isEmpty())
                     continue;
                 const QVariantMap first = urlData.first().toMap();
-                playUrl = first.value(QStringLiteral("url")).toString();
+                playUrl = first.value("url").toString();
                 if (playUrl.isEmpty())
                     unavailable = true;
-                const int fee = first.value(QStringLiteral("fee")).toInt();
+                const int fee = first.value("fee").toInt();
                 if (fee > 1 && playUrl.isEmpty())
                     break;
                 if (!playUrl.isEmpty())
                     break;
             }
-            effective.insert(QStringLiteral("play_url"), playUrl);
+            effective.insert("play_url", playUrl);
             if (playUrl.isEmpty() && unavailable)
-                effective.insert(QStringLiteral("url_unavailable"), true);
+                effective.insert("url_unavailable", true);
         }
 
         emit result(action, mapResult(action, effective, call), kSource);
@@ -261,7 +261,7 @@ private:
     {
         if (!m_api) {
             m_api = new ApiHelper;
-            m_api->setFilterRules(QStringLiteral("QCloudMusicApi.debug=false"));
+            m_api->setFilterRules("QCloudMusicApi.debug=false");
         }
         return m_api;
     }
@@ -269,207 +269,149 @@ private:
     static QVariant mapResult(const QString &action, const QVariantMap &raw,
                               const QVariantMap &call)
     {
-        const bool transportFailed = raw.contains(QStringLiteral("error"));
-        const QVariant transportError = raw.value(QStringLiteral("error"));
-        const QVariantMap body = raw.value(QStringLiteral("body")).toMap();
+        const bool transportFailed = raw.contains("error");
+        const QVariant transportError = raw.value("error");
+        const QVariantMap body = raw.value("body").toMap();
         const QVariantMap &data = body.isEmpty() ? raw : body;
         QVariantList info;
         bool commentsHasMore = false;
+        auto unwrapSongs = [](const QVariantList &list) {
+            QVariantList songs;
+            songs.reserve(list.size());
+            for (const QVariant &value : list) {
+                const QVariantMap wrapper = value.toMap();
+                songs << wrapper.value("song", wrapper);
+            }
+            return songs;
+        };
 
         if (action == QLatin1String("getComments")) {
-            info = parseComments(data.value(QStringLiteral("hotComments")).toList());
-            info += parseComments(data.value(QStringLiteral("comments")).toList());
-            commentsHasMore = data.value(QStringLiteral("more")).toBool();
+            info = parseComments(data.value("hotComments").toList());
+            info += parseComments(data.value("comments").toList());
+            commentsHasMore = data.value("more").toBool();
         } else if (action == QLatin1String("searchSongs")
                    || action == QLatin1String("searchLyrics")) {
-            const QVariantMap result = data.value(QStringLiteral("result")).toMap();
-            const int ntype = call.value(QStringLiteral("ntype")).toInt();
+            const QVariantMap result = data.value("result").toMap();
+            const int ntype = call.value("ntype").toInt();
             if (ntype == 1 || ntype == 1006) {
-                info = parseSongList(result.value(QStringLiteral("songs")).toList());
+                info = parseSongList(result.value("songs").toList());
             } else if (ntype == 1000) {
-                info = parsePlaylists(result.value(QStringLiteral("playlists")).toList());
+                info = parsePlaylists(result.value("playlists").toList());
             } else if (ntype == 10) {
-                const QVariantList albums = result.value(QStringLiteral("albums")).toList();
+                const QVariantList albums = result.value("albums").toList();
                 info.reserve(albums.size());
                 for (const QVariant &value : albums) {
                     const QVariantMap album = value.toMap();
-                    info.append(ApiCommon::song(
-                        album.value(QStringLiteral("name")).toString(),
-                        album.value(QStringLiteral("artist")).toMap()
-                            .value(QStringLiteral("name")).toString(),
-                        album.value(QStringLiteral("picUrl")).toString(),
-                        songId(album.value(QStringLiteral("id"))),
-                        0, album.value(QStringLiteral("name")).toString()));
+                    info.append(ApiCommon::song(album.value("name").toString(), album.value("artist").toMap().value("name").toString(),
+                                                album.value("picUrl").toString(), songId(album.value("id")), 0, album.value("name").toString()));
                 }
             }
         } else if (action == QLatin1String("getPlaylistMenu")) {
-            const QVariantMap categories = data.value(QStringLiteral("categories")).toMap();
-            const QVariantList subs = data.value(QStringLiteral("sub")).toList();
+            const QVariantMap categories = data.value("categories").toMap();
+            const QVariantList subs = data.value("sub").toList();
             info.reserve(subs.size());
             for (const QVariant &value : subs) {
                 const QVariantMap sub = value.toMap();
-                if (!sub.value(QStringLiteral("hot")).toBool())
-                    continue;
-                const QString name = sub.value(QStringLiteral("name")).toString();
-                if (name.isEmpty())
-                    continue;
-                info.append(QVariantMap{
-                    {QStringLiteral("title"), name},
-                    {QStringLiteral("id"), name},
-                    {QStringLiteral("tagid"), name},
-                    {QStringLiteral("category"),
-                     categories.value(sub.value(QStringLiteral("category")).toString()).toString()}
-                });
+                if (!sub.value("hot").toBool()) continue;
+                const QString name = sub.value("name").toString();
+                if (name.isEmpty()) continue;
+                info.append(QVariantMap{{"title", name}, {"id", name}, {"tagid", name},
+                                        {"category", categories.value(sub.value("category").toString()).toString()}});
             }
         } else if (action == QLatin1String("getMusicPlaylists")
                    || action == QLatin1String("getHotPlaylists")) {
-            info = parsePlaylists(data.value(QStringLiteral("playlists")).toList());
+            info = parsePlaylists(data.value("playlists").toList());
         } else if (action == QLatin1String("getPlaylistSongs")
                    || action == QLatin1String("getMusicToplist")
                    || action == QLatin1String("getSingerSongs")) {
-            QVariantList songs = data.value(QStringLiteral("songs")).toList();
-            if (songs.isEmpty()) {
-                songs = data.value(QStringLiteral("playlist")).toMap()
-                            .value(QStringLiteral("tracks")).toList();
-            }
+            QVariantList songs = data.value("songs").toList();
+            if (songs.isEmpty()) songs = data.value("playlist").toMap().value("tracks").toList();
             if (action == QLatin1String("getMusicToplist")) {
-                const QVariantMap arg = call.value(QStringLiteral("arg")).toMap();
-                const int offset = arg.value(QStringLiteral("offset")).toInt();
-                const int limit = arg.value(QStringLiteral("limit")).toInt();
+                const QVariantMap arg = call.value("arg").toMap();
+                const int offset = arg.value("offset").toInt();
+                const int limit = arg.value("limit").toInt();
                 if (limit > 0)
                     songs = offset < songs.size() ? songs.mid(offset, limit) : QVariantList();
             }
             info = parseSongList(songs);
         } else if (action == QLatin1String("getPersonalFm")) {
-            QVariantList songs;
-            const QVariantList list = data.value(QStringLiteral("data")).toList();
-            songs.reserve(list.size());
-            for (const QVariant &value : list) {
-                const QVariantMap wrapper = value.toMap();
-                songs.append(wrapper.contains(QStringLiteral("song"))
-                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
-            }
-            info = parseSongList(songs);
+            info = parseSongList(unwrapSongs(data.value("data").toList()));
         } else if (action == QLatin1String("getPersonalRadar")) {
-            info = parseSongList(data.value(QStringLiteral("data")).toMap()
-                                     .value(QStringLiteral("dailySongs")).toList());
+            info = parseSongList(data.value("data").toMap().value("dailySongs").toList());
         } else if (action == QLatin1String("getRecommendSongs")) {
-            const QVariantList list = data.contains(QStringLiteral("data"))
-                ? data.value(QStringLiteral("data")).toList()
-                : data.value(QStringLiteral("result")).toList();
-            QVariantList songs;
-            songs.reserve(list.size());
-            for (const QVariant &value : list) {
-                const QVariantMap wrapper = value.toMap();
-                songs.append(wrapper.contains(QStringLiteral("song"))
-                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
-            }
-            info = parseSongList(songs);
+            info = parseSongList(unwrapSongs(data.contains("data") ? data.value("data").toList() : data.value("result").toList()));
         } else if (action == QLatin1String("getHotPlaylistMenu")) {
-            const QVariantList tags = data.value(QStringLiteral("tags")).toList();
+            const QVariantList tags = data.value("tags").toList();
             info.reserve(tags.size());
             for (const QVariant &value : tags) {
                 const QVariantMap tag = value.toMap();
-                info.append(QVariantMap{
-                    {QStringLiteral("title"), tag.value(QStringLiteral("name")).toString()},
-                    {QStringLiteral("id"), songId(tag.value(QStringLiteral("id")))},
-                    {QStringLiteral("tagid"), tag.value(QStringLiteral("name")).toString()}
-                });
+                info.append(QVariantMap{{"title", tag.value("name").toString()}, {"id", songId(tag.value("id"))},
+                                        {"tagid", tag.value("name").toString()}});
             }
         } else if (action == QLatin1String("getNewSongs")) {
-            QVariantList songs;
-            const QVariantList list = data.value(QStringLiteral("data")).toList();
-            songs.reserve(list.size());
-            for (const QVariant &value : list) {
-                const QVariantMap wrapper = value.toMap();
-                songs.append(wrapper.contains(QStringLiteral("song"))
-                                 ? wrapper.value(QStringLiteral("song")) : wrapper);
-            }
-            info = parseSongList(songs);
+            info = parseSongList(unwrapSongs(data.value("data").toList()));
         } else if (action == QLatin1String("getAllToplist")) {
-            const QVariantList list = data.value(QStringLiteral("list")).toList();
+            const QVariantList list = data.value("list").toList();
             info.reserve(list.size());
             for (const QVariant &value : list) {
                 const QVariantMap toplist = value.toMap();
                 info.append(ApiCommon::song(
-                    toplist.value(QStringLiteral("name")).toString(),
-                    toplist.value(QStringLiteral("updateFrequency")).toString(),
-                    toplist.value(QStringLiteral("coverImgUrl")).toString(),
-                    songId(toplist.value(QStringLiteral("id"))),
-                    0, toplist.value(QStringLiteral("description")).toString()));
+                    toplist.value("name").toString(),
+                    toplist.value("updateFrequency").toString(),
+                    toplist.value("coverImgUrl").toString(),
+                    songId(toplist.value("id")),
+                    0, toplist.value("description").toString()));
             }
         } else if (action == QLatin1String("getHotSingers")
                    || action == QLatin1String("getSingerCategory")) {
-            const QVariantList artists = data.value(QStringLiteral("artists")).toList();
+            const QVariantList artists = data.value("artists").toList();
             info.reserve(artists.size());
             for (const QVariant &value : artists) {
                 const QVariantMap artist = value.toMap();
                 info.append(ApiCommon::song(
-                    artist.value(QStringLiteral("name")).toString(),
+                    artist.value("name").toString(),
                     QString(),
-                    artist.value(QStringLiteral("picUrl")).toString(),
-                    songId(artist.value(QStringLiteral("id")))));
+                    artist.value("picUrl").toString(),
+                    songId(artist.value("id"))));
             }
         } else if (action == QLatin1String("getMusicInfo")) {
-            const QString hash = call.value(QStringLiteral("hash")).toString();
-            const int type = call.value(QStringLiteral("type")).toInt();
-            QString playUrl = raw.value(QStringLiteral("play_url")).toString();
+            const QString hash = call.value("hash").toString();
+            const int type = call.value("type").toInt();
+            QString playUrl = raw.value("play_url").toString();
             if (!transportFailed && playUrl.isEmpty()
-                && !raw.value(QStringLiteral("url_unavailable")).toBool()) {
-                playUrl = QStringLiteral("http://music.163.com/song/media/outer/url?id=")
-                          + hash + QStringLiteral(".mp3");
+                && !raw.value("url_unavailable").toBool()) {
+                playUrl = "http://music.163.com/song/media/outer/url?id="
+                          + hash + ".mp3";
             }
 
-            const QVariantList songs = data.value(QStringLiteral("songs")).toList();
+            const QVariantList songs = data.value("songs").toList();
             const QVariantMap song = songs.isEmpty() ? QVariantMap() : songs.first().toMap();
 
             QString author;
             QString singerImg;
-            const QVariantList ar = song.value(QStringLiteral("ar")).toList();
+            const QVariantList ar = song.value("ar").toList();
             if (!ar.isEmpty()) {
                 const QVariantMap artist = ar.first().toMap();
-                author = artist.value(QStringLiteral("name")).toString();
-                singerImg = artist.value(QStringLiteral("img1v1Url")).toString();
+                author = artist.value("name").toString();
+                singerImg = artist.value("img1v1Url").toString();
                 if (singerImg.isEmpty())
-                    singerImg = artist.value(QStringLiteral("picUrl")).toString();
+                    singerImg = artist.value("picUrl").toString();
             }
-            const QString albumImg = song.value(QStringLiteral("al")).toMap()
-                                         .value(QStringLiteral("picUrl")).toString();
-
-            QVariantMap detail;
-            detail.insert(QStringLiteral("backup_url"), playUrl);
-            detail.insert(QStringLiteral("url"), playUrl);
-            detail.insert(QStringLiteral("songName"), song.value(QStringLiteral("name")).toString());
-            detail.insert(QStringLiteral("author_name"), author);
-            detail.insert(QStringLiteral("singer_img"), singerImg);
-            detail.insert(QStringLiteral("album_img"), albumImg);
-            const qint64 dt = song.value(QStringLiteral("dt")).toLongLong();
-            detail.insert(QStringLiteral("timeLength"),
-                          dt > 0 ? int(dt / 1000)
-                                 : int(song.value(QStringLiteral("duration")).toLongLong() / 1000));
-            QString fileName = song.value(QStringLiteral("name")).toString();
-            if (fileName.isEmpty())
-                fileName = QStringLiteral("unknown");
-            detail.insert(QStringLiteral("fileName"), fileName + QStringLiteral(".mp3"));
-            detail.insert(QStringLiteral("hash"), hash);
-            detail.insert(QStringLiteral("type"), type);
-            if (transportFailed)
-                detail.insert(QStringLiteral("error"), transportError);
+            const QString albumImg = song.value("al").toMap().value("picUrl").toString();
+            const qint64 dt = song.value("dt").toLongLong();
+            const QString fileName = song.value("name").toString();
+            QVariantMap detail{{"backup_url", playUrl}, {"url", playUrl}, {"songName", song.value("name").toString()},
+                               {"author_name", author}, {"singer_img", singerImg}, {"album_img", albumImg},
+                               {"timeLength", dt > 0 ? int(dt / 1000) : int(song.value("duration").toLongLong() / 1000)},
+                               {"fileName", (fileName.isEmpty() ? "unknown" : fileName) + ".mp3"}, {"hash", hash}, {"type", type}};
+            if (transportFailed) detail.insert("error", transportError);
             return detail;
         } else if (action == QLatin1String("getLyricInfo")) {
-            QVariantList lyrics = parseYrc(data.value(QStringLiteral("yrc"))
-                                               .toMap().value(QStringLiteral("lyric")).toString());
-            if (lyrics.isEmpty()) {
-                lyrics = parseLyrics(data.value(QStringLiteral("lrc"))
-                                         .toMap().value(QStringLiteral("lyric")).toString());
-            }
+            QVariantList lyrics = parseYrc(data.value("yrc").toMap().value("lyric").toString());
+            if (lyrics.isEmpty()) lyrics = parseLyrics(data.value("lrc").toMap().value("lyric").toString());
 
-            QString translationText = data.value(QStringLiteral("ytlrc"))
-                                          .toMap().value(QStringLiteral("lyric")).toString();
-            if (translationText.isEmpty()) {
-                translationText = data.value(QStringLiteral("tlyric"))
-                                      .toMap().value(QStringLiteral("lyric")).toString();
-            }
+            QString translationText = data.value("ytlrc").toMap().value("lyric").toString();
+            if (translationText.isEmpty()) translationText = data.value("tlyric").toMap().value("lyric").toString();
             const QVariantList translations = parseLyrics(translationText);
             QVariantList translate;
             if (!translations.isEmpty()) {
@@ -477,35 +419,23 @@ private:
                 byTime.reserve(translations.size());
                 for (const QVariant &value : translations) {
                     const QVariantMap line = value.toMap();
-                    byTime.insert(line.value(QStringLiteral("time")).toLongLong(),
-                                  line.value(QStringLiteral("text")).toString());
+                    byTime.insert(line.value("time").toLongLong(), line.value("text").toString());
                 }
                 translate.reserve(lyrics.size());
-                for (const QVariant &value : std::as_const(lyrics)) {
-                    const qlonglong time = value.toMap()
-                                               .value(QStringLiteral("time")).toLongLong();
-                    translate.append(byTime.value(time));
-                }
+                for (const QVariant &value : std::as_const(lyrics))
+                    translate.append(byTime.value(value.toMap().value("time").toLongLong()));
             }
 
-            QVariantMap detail;
-            detail.insert(QStringLiteral("info"), lyrics);
-            detail.insert(QStringLiteral("translate"), translate);
-            detail.insert(QStringLiteral("hash"),
-                          call.value(QStringLiteral("arg")).toMap()
-                              .value(QStringLiteral("id")).toString());
-            if (transportFailed)
-                detail.insert(QStringLiteral("error"), transportError);
+            QVariantMap detail{{"info", lyrics}, {"translate", translate}, {"hash", call.value("arg").toMap().value("id").toString()}};
+            if (transportFailed) detail.insert("error", transportError);
             return detail;
         } else {
             qWarning() << "[NeteaseCloudApi] 未知 action:" << action;
         }
 
         QVariantMap result = ApiCommon::listResult(info);
-        if (action == QLatin1String("getComments"))
-            result.insert(QStringLiteral("hasMore"), commentsHasMore);
-        if (transportFailed)
-            result.insert(QStringLiteral("error"), transportError);
+        if (action == QLatin1String("getComments")) result.insert("hasMore", commentsHasMore);
+        if (transportFailed) result.insert("error", transportError);
         return result;
     }
 
@@ -547,8 +477,8 @@ void NeteaseCloudApi::enqueue(const QString &action, const QString &member,
     if (m_workers.isEmpty())
         return;
     QVariantMap call = extra;
-    call.insert(QStringLiteral("member"), member);
-    call.insert(QStringLiteral("arg"), arg);
+    call.insert("member", member);
+    call.insert("arg", arg);
 
     CloudWorker *worker = m_workers.at(m_next);
     m_next = (m_next + 1) % m_workers.size();
@@ -588,28 +518,28 @@ void NeteaseCloudApi::onSearchSongs(const QString &keyword, int type, int page, 
     else if (type == 3)
         ntype = 1006;
 
-    enqueue(QStringLiteral("searchSongs"), QStringLiteral("cloudsearch"),
-            {{QStringLiteral("keywords"), keyword},
-             {QStringLiteral("type"), ntype},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("offset"), (page - 1) * pageSize}},
-            {{QStringLiteral("ntype"), ntype}});
+    enqueue("searchSongs", "cloudsearch",
+            {{"keywords", keyword},
+             {"type", ntype},
+             {"limit", pageSize},
+             {"offset", (page - 1) * pageSize}},
+            {{"ntype", ntype}});
 }
 
 void NeteaseCloudApi::onSearchLyrics(const QString &keyword, int page, int pageSize)
 {
-    enqueue(QStringLiteral("searchLyrics"), QStringLiteral("cloudsearch"),
-            {{QStringLiteral("keywords"), keyword},
-             {QStringLiteral("type"), 1},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("offset"), qMax(0, page - 1) * pageSize}},
-            {{QStringLiteral("ntype"), 1}});
+    enqueue("searchLyrics", "cloudsearch",
+            {{"keywords", keyword},
+             {"type", 1},
+             {"limit", pageSize},
+             {"offset", qMax(0, page - 1) * pageSize}},
+            {{"ntype", 1}});
 }
 
 void NeteaseCloudApi::onPlaylistMenu(int type)
 {
     Q_UNUSED(type);
-    enqueue(QStringLiteral("getPlaylistMenu"), QStringLiteral("playlist_catlist"), {});
+    enqueue("getPlaylistMenu", "playlist_catlist", {});
 }
 
 void NeteaseCloudApi::onCategoryPlaylists(const QString &id, int page, int pageSize)
@@ -620,41 +550,41 @@ void NeteaseCloudApi::onCategoryPlaylists(const QString &id, int page, int pageS
 
 void NeteaseCloudApi::onMusicPlaylists(const QString &tagid, int page, int pageSize)
 {
-    enqueue(QStringLiteral("getMusicPlaylists"), QStringLiteral("top_playlist"),
-            {{QStringLiteral("cat"), tagid},
-             {QStringLiteral("order"), QStringLiteral("hot")},
-             {QStringLiteral("offset"), (page - 1) * pageSize},
-             {QStringLiteral("limit"), pageSize}});
+    enqueue("getMusicPlaylists", "top_playlist",
+            {{"cat", tagid},
+             {"order", "hot"},
+             {"offset", (page - 1) * pageSize},
+             {"limit", pageSize}});
 }
 
 void NeteaseCloudApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
-    enqueue(QStringLiteral("getPlaylistSongs"), QStringLiteral("playlist_track_all"),
-            {{QStringLiteral("id"), listid},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("offset"), (page - 1) * pageSize}});
+    enqueue("getPlaylistSongs", "playlist_track_all",
+            {{"id", listid},
+             {"limit", pageSize},
+             {"offset", (page - 1) * pageSize}});
 }
 
 void NeteaseCloudApi::onRecommendSongs(int page, int pageSize)
 {
     Q_UNUSED(page);
-    enqueue(QStringLiteral("getRecommendSongs"), QStringLiteral("personalized_newsong"),
-            {{QStringLiteral("limit"), pageSize}});
+    enqueue("getRecommendSongs", "personalized_newsong",
+            {{"limit", pageSize}});
 }
 
 void NeteaseCloudApi::onHotPlaylistMenu(int type)
 {
     Q_UNUSED(type);
-    enqueue(QStringLiteral("getHotPlaylistMenu"), QStringLiteral("playlist_hot"), {});
+    enqueue("getHotPlaylistMenu", "playlist_hot", {});
 }
 
 void NeteaseCloudApi::onHotPlaylists(int page, int pageSize)
 {
-    enqueue(QStringLiteral("getHotPlaylists"), QStringLiteral("top_playlist"),
-            {{QStringLiteral("cat"), QStringLiteral("全部")},
-             {QStringLiteral("order"), QStringLiteral("hot")},
-             {QStringLiteral("offset"), (page - 1) * pageSize},
-             {QStringLiteral("limit"), pageSize}});
+    enqueue("getHotPlaylists", "top_playlist",
+            {{"cat", QStringLiteral("全部")},
+             {"order", "hot"},
+             {"offset", (page - 1) * pageSize},
+             {"limit", pageSize}});
 }
 
 void NeteaseCloudApi::onNewSongs(int type, int page, int pageSize)
@@ -668,90 +598,90 @@ void NeteaseCloudApi::onNewSongs(int type, int page, int pageSize)
     case 5: ntype = 8;  break;
     default: ntype = 0; break;
     }
-    enqueue(QStringLiteral("getNewSongs"), QStringLiteral("top_song"),
-            {{QStringLiteral("type"), ntype},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("offset"), (page - 1) * pageSize}});
+    enqueue("getNewSongs", "top_song",
+            {{"type", ntype},
+             {"limit", pageSize},
+             {"offset", (page - 1) * pageSize}});
 }
 
 void NeteaseCloudApi::onAllToplist()
 {
-    enqueue(QStringLiteral("getAllToplist"), QStringLiteral("toplist"), {});
+    enqueue("getAllToplist", "toplist", {});
 }
 
 void NeteaseCloudApi::onMusicToplist(int page, int pageSize, int rankid)
 {
-    enqueue(QStringLiteral("getMusicToplist"), QStringLiteral("top_list"),
-            {{QStringLiteral("id"), rankid},
-             {QStringLiteral("offset"), (page - 1) * pageSize},
-             {QStringLiteral("limit"), pageSize}});
+    enqueue("getMusicToplist", "top_list",
+            {{"id", rankid},
+             {"offset", (page - 1) * pageSize},
+             {"limit", pageSize}});
 }
 
 void NeteaseCloudApi::onHotSingers(int page, int pageSize)
 {
-    enqueue(QStringLiteral("getHotSingers"), QStringLiteral("top_artists"),
-            {{QStringLiteral("offset"), (page - 1) * pageSize},
-             {QStringLiteral("limit"), pageSize}});
+    enqueue("getHotSingers", "top_artists",
+            {{"offset", (page - 1) * pageSize},
+             {"limit", pageSize}});
 }
 
 void NeteaseCloudApi::onSingerCategory(int area, int page, int pageSize)
 {
-    enqueue(QStringLiteral("getSingerCategory"), QStringLiteral("artist_list"),
-            {{QStringLiteral("offset"), (page - 1) * pageSize},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("type"), QStringLiteral("1")},
-             {QStringLiteral("area"), area}});
+    enqueue("getSingerCategory", "artist_list",
+            {{"offset", (page - 1) * pageSize},
+             {"limit", pageSize},
+             {"type", "1"},
+             {"area", area}});
 }
 
 void NeteaseCloudApi::onSingerSongs(const QString &singerid, int page, int pageSize)
 {
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
-    enqueue(QStringLiteral("getSingerSongs"), QStringLiteral("artist_top_song"),
-            {{QStringLiteral("id"), singerid}});
+    enqueue("getSingerSongs", "artist_top_song",
+            {{"id", singerid}});
 }
 
 void NeteaseCloudApi::onMusicInfo(const QString &hash, int type)
 {
-    enqueue(QStringLiteral("getMusicInfo"), QStringLiteral("song_detail"),
-            {{QStringLiteral("ids"), hash},
-             {QStringLiteral("id"), hash}},
-            {{QStringLiteral("hash"), hash},
-             {QStringLiteral("type"), type},
-             {QStringLiteral("quality"), m_quality.load(std::memory_order_relaxed)}});
+    enqueue("getMusicInfo", "song_detail",
+            {{"ids", hash},
+             {"id", hash}},
+            {{"hash", hash},
+             {"type", type},
+             {"quality", m_quality.load(std::memory_order_relaxed)}});
 }
 
 void NeteaseCloudApi::onLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration);
-    enqueue(QStringLiteral("getLyricInfo"), QStringLiteral("lyric_new"),
-            {{QStringLiteral("id"), hash}});
+    enqueue("getLyricInfo", "lyric_new",
+            {{"id", hash}});
 }
 
 void NeteaseCloudApi::onComments(const QString &hash, int page, int pageSize)
 {
-    enqueue(QStringLiteral("getComments"), QStringLiteral("comment_music"),
-            {{QStringLiteral("id"), hash},
-             {QStringLiteral("limit"), pageSize},
-             {QStringLiteral("offset"), qMax(0, (page - 1) * pageSize)}});
+    enqueue("getComments", "comment_music",
+            {{"id", hash},
+             {"limit", pageSize},
+             {"offset", qMax(0, (page - 1) * pageSize)}});
 }
 
 void NeteaseCloudApi::onPersonalFm(int page, int pageSize)
 {
     Q_UNUSED(page);
     Q_UNUSED(pageSize);
-    enqueue(QStringLiteral("getPersonalFm"), QStringLiteral("personal_fm"), {});
+    enqueue("getPersonalFm", "personal_fm", {});
 }
 
 void NeteaseCloudApi::onPersonalRadar(int page, int pageSize)
 {
     Q_UNUSED(pageSize);
     if (page > 1) {
-        emit resultReady(QStringLiteral("getPersonalRadar"),
+        emit resultReady("getPersonalRadar",
                          ApiCommon::listResult(QVariantList()), kSource);
         return;
     }
-    enqueue(QStringLiteral("getPersonalRadar"), QStringLiteral("recommend_songs"), {});
+    enqueue("getPersonalRadar", "recommend_songs", {});
 }
 
 #include "NeteaseCloudApi.moc"

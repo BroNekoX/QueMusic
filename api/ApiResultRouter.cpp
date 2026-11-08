@@ -37,12 +37,9 @@ QVariantList ApiResultRouter::songList(const QVariant &value) const
 bool ApiResultRouter::route(const QString &action, const QVariant &data, int source)
 {
     const QVariantMap message = data.toMap();
-    const bool failed = message.contains(QStringLiteral("error"));
-    const QVariant info = message.contains(QStringLiteral("info")) ? message.value(QStringLiteral("info"))
-                                                                  : data;
+    const bool failed = message.contains("error");
+    const QVariant info = message.contains("info") ? message.value("info") : data;
 
-    // 列表结果里可能带 hashhq/hashsq，先喂给音质缓存（播放时要用）。
-    // 评论没有 hash，跳过。
     if (info.typeId() == QMetaType::QVariantList && action != ApiAction::Comments)
         m_qualityCache->remember(info.toList());
 
@@ -56,11 +53,7 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
         menu.reserve(items.size());
         for (const QVariant &value : items) {
             const QVariantMap item = ApiCommon::normalizeItem(value.toMap());
-            menu.append(QVariantMap{
-                {QStringLiteral("title"), item.value(ApiCommon::kTitle)},
-                {QStringLiteral("category"), item.value(QStringLiteral("category"))},
-                {QStringLiteral("id"), item.value(QStringLiteral("id"))}
-            });
+            menu << QVariantMap{{"title", item.value(ApiCommon::kTitle)}, {"category", item.value("category")}, {"id", item.value("id")}};
         }
         m_models.playlistMenu->clear();
         m_models.playlistMenu->append(menu);
@@ -89,7 +82,7 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
         withSource.reserve(normalized.size());
         for (const QVariant &value : normalized) {
             QVariantMap item = value.toMap();
-            item.insert(QStringLiteral("source"), source);
+            item.insert("source", source);
             withSource.append(item);
         }
         m_models.toplistList->append(withSource);
@@ -113,8 +106,7 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
         emit lyricInfoReady(message, source);
     } else if (action == ApiAction::Comments) {
         m_models.comments->append(failed ? QVariantList() : info.toList());
-        emit commentsHasMoreChanged(!failed
-                                    && message.value(QStringLiteral("hasMore")).toBool());
+        emit commentsHasMoreChanged(!failed && message.value("hasMore").toBool());
     } else {
         return false;
     }

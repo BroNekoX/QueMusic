@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
 //
-// AccountManager — 在线音乐账号登录态管理（网易云 / 酷狗）
+// AccountManager — 在线音乐账号登录态管理
 //
 #ifndef ACCOUNTMANAGER_H
 #define ACCOUNTMANAGER_H
@@ -10,6 +10,9 @@
 #include <QObject>
 #include <QThreadPool>
 #include <QTimer>
+#include <QUrl>
+
+#include <functional>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -45,6 +48,14 @@ class AccountManager : public QObject
     Q_PROPERTY(QString kugouQrText READ kugouQrText NOTIFY kugouQrChanged FINAL)
     Q_PROPERTY(int kugouQrState READ kugouQrState NOTIFY kugouQrChanged FINAL)
     Q_PROPERTY(QString kugouQrMessage READ kugouQrMessage NOTIFY kugouQrChanged FINAL)
+    Q_PROPERTY(bool spotifyLoggedIn READ isSpotifyLoggedIn NOTIFY spotifyLoginChanged FINAL)
+    Q_PROPERTY(QString spotifyNickname READ spotifyNickname NOTIFY spotifyLoginChanged FINAL)
+    Q_PROPERTY(QString spotifyAvatar READ spotifyAvatar NOTIFY spotifyLoginChanged FINAL)
+    Q_PROPERTY(QString spotifyLoginMessage READ spotifyLoginMessage NOTIFY spotifyLoginChanged FINAL)
+    Q_PROPERTY(bool appleLoggedIn READ isAppleLoggedIn NOTIFY appleLoginChanged FINAL)
+    Q_PROPERTY(QString appleNickname READ appleNickname NOTIFY appleLoginChanged FINAL)
+    Q_PROPERTY(QString appleAvatar READ appleAvatar NOTIFY appleLoginChanged FINAL)
+    Q_PROPERTY(QString appleLoginMessage READ appleLoginMessage NOTIFY appleLoginChanged FINAL)
 
 public:
     // QML 单例工厂；main.cpp 提前调用一次保证初始化时序
@@ -95,6 +106,17 @@ public:
     int kugouQrState() const { return m_kugouQrState; }
     QString kugouQrMessage() const { return m_kugouQrMessage; }
 
+    bool isSpotifyLoggedIn() const { return m_spotifyLoggedIn; }
+    QString spotifyNickname() const { return m_spotifyNickname; }
+    QString spotifyAvatar() const { return m_spotifyAvatar; }
+    QString spotifyCookie() const { return m_spotifyCookie; }
+    QString spotifyAccessToken() const { return m_spotifyToken; }
+    QString spotifyLoginMessage() const { return m_spotifyLoginMessage; }
+    bool isAppleLoggedIn() const { return m_appleLoggedIn; }
+    QString appleNickname() const { return m_appleNickname; }
+    QString appleAvatar() const { return m_appleAvatar; }
+    QString appleLoginMessage() const { return m_appleLoginMessage; }
+
     Q_INVOKABLE void loadPersisted(); // 启动时恢复登录态
 
 public slots:
@@ -106,6 +128,13 @@ public slots:
     void startKugouQrLogin();
     void cancelKugouQrLogin();
     void logoutKugou();
+
+    Q_INVOKABLE void startSpotifyBrowserLogin();
+    Q_INVOKABLE void loginSpotifyWithCookie(const QString &input);
+    Q_INVOKABLE void logoutSpotify();
+    Q_INVOKABLE void startAppleBrowserLogin();
+    Q_INVOKABLE void loginAppleWithCookie(const QString &input);
+    Q_INVOKABLE void logoutApple();
 
     // 浏览器登录（内嵌 WebView）完成后，由 QML 回填 Cookie / 用户信息
     Q_INVOKABLE void setNeteaseBrowserCookie(const QString &cookie, const QString &nickname,
@@ -123,6 +152,8 @@ signals:
     void kugouLoginChanged();
     void neteaseQrChanged();
     void kugouQrChanged();
+    void spotifyLoginChanged();
+    void appleLoginChanged();
     // type: 0 普通 / 1 成功 / 2 警告 / 3 错误（对接主窗口气泡提示）
     void message(const QString &text, int type);
 
@@ -156,17 +187,39 @@ private:
     void persistKugou();
     void loadNetease();
     void loadKugou();
+    void persistSpotify();
+    void persistApple();
+    void loadSpotify();
+    void loadApple();
+    void browserGet(const QUrl &url, const QByteArray &cookie,
+                    const QList<QPair<QByteArray, QByteArray>> &headers,
+                    const std::function<void(int, const QByteArray &)> &done);
+    void validateSpotifyToken(const QString &token, const QString &cookie);
+    void validateAppleToken(const QString &userToken, const QString &developerToken);
+    void fetchAppleDeveloperToken(const std::function<void(const QString &)> &done);
     void setNeteaseQr(int state, const QString &msg, const QString &qrText = QString());
     void setKugouQr(int state, const QString &msg, const QString &qrText = QString());
 
     bool m_neteaseLoggedIn = false;
     bool m_kugouLoggedIn = false;
+    bool m_spotifyLoggedIn = false;
+    bool m_appleLoggedIn = false;
     QString m_neteaseNickname;
     QString m_neteaseAvatar;
     QString m_kugouNickname;
     QString m_kugouAvatar;
     QString m_neteaseCookie;
     QString m_kugouCookie;
+    QString m_spotifyCookie;
+    QString m_spotifyToken;
+    QString m_spotifyNickname;
+    QString m_spotifyAvatar;
+    QString m_spotifyLoginMessage;
+    QString m_appleUserToken;
+    QString m_appleDeveloperToken;
+    QString m_appleNickname;
+    QString m_appleAvatar;
+    QString m_appleLoginMessage;
 
     // 网易云客户端身份与扫码登录状态控制
     QString m_neteaseDeviceId;        // 持久化的设备号（Account.ini: Netease/deviceId）

@@ -352,6 +352,106 @@ Item {
         }
     }
 
+    QOptionDialog {
+        id: platformLoginDialog
+        property string platform: "Spotify"
+        property string cookieText: ""
+        readonly property string displayName: platform === "Spotify" ? "Spotify" : "Apple Music"
+        readonly property string loginMessage: platform === "Spotify" ? AccountManager.spotifyLoginMessage : AccountManager.appleLoginMessage
+        title: displayName + " - 浏览器登录"
+        cancelText: "取消"
+        confirmText: "关闭"
+        blurSource: settingsView
+        onCancel: close()
+        onConfirm: close()
+
+        function openFor(name) {
+            platform = name
+            cookieText = ""
+            open()
+            if (name === "Spotify") AccountManager.startSpotifyBrowserLogin()
+            else AccountManager.startAppleBrowserLogin()
+        }
+
+        options: Column {
+            width: parent.width
+            spacing: 10
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                color: Theme.textColor
+                font.pixelSize: Style.textmain - 1
+                text: platformLoginDialog.platform === "Spotify"
+                    ? "在浏览器登录 Spotify，复制含 sp_dc 的 Cookie 后粘贴到下方。"
+                    : "在浏览器登录 Apple Music，复制含 media-user-token 的 Cookie 后粘贴到下方。"
+            }
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                color: Theme.fontColor
+                font.pixelSize: Style.textmain
+                text: platformLoginDialog.loginMessage
+            }
+            QButton {
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                text: "打开浏览器登录"
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
+                onClicked: platformLoginDialog.platform === "Spotify"
+                    ? AccountManager.startSpotifyBrowserLogin()
+                    : AccountManager.startAppleBrowserLogin()
+            }
+            TextField {
+                id: cookieInput
+                width: parent.width
+                height: 38
+                leftPadding: 12
+                text: platformLoginDialog.cookieText
+                onTextChanged: platformLoginDialog.cookieText = text
+                placeholderText: platformLoginDialog.platform === "Spotify" ? "粘贴含 sp_dc 的 Cookie" : "粘贴含 media-user-token 的 Cookie"
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
+                background: Rectangle {
+                    radius: 8
+                    color: Theme.primaryColor
+                    border.color: Theme.secondaryColor
+                    border.width: 1
+                }
+            }
+            QButton {
+                width: 150
+                height: 34
+                radius: 17
+                shadowEnabled: false
+                text: "完成登录"
+                buttonColor: Theme.themeColor
+                textColor: Theme.primaryColor
+                onClicked: platformLoginDialog.platform === "Spotify"
+                    ? AccountManager.loginSpotifyWithCookie(platformLoginDialog.cookieText)
+                    : AccountManager.loginAppleWithCookie(platformLoginDialog.cookieText)
+            }
+        }
+
+        Connections {
+            target: AccountManager
+            function onSpotifyLoginChanged() {
+                if (platformLoginDialog.platform === "Spotify" && AccountManager.spotifyLoginMessage === "Spotify 登录成功") {
+                    platformLoginDialog.close()
+                    MusicApi.songSource = 4
+                }
+            }
+            function onAppleLoginChanged() {
+                if (platformLoginDialog.platform === "Apple Music" && AccountManager.appleLoginMessage === "Apple Music 登录成功") {
+                    platformLoginDialog.close()
+                    MusicApi.songSource = 5
+                }
+            }
+        }
+    }
+
     FolderDialog {
         id: downloadFolderDialog
         title: "选择默认下载目录"
@@ -903,8 +1003,9 @@ Item {
                         Grid {
                             x: 16
                             width: parent.width - 32
-                            height: 144
+                            height: 288
                             columns: 3
+                            rows: 2
                             columnSpacing: 14
                             rowSpacing: 14
                             PlatformCard {
@@ -919,16 +1020,12 @@ Item {
                                 name: AccountManager.kugouNickname
                                 onClicked: MusicApi.songSource = 0;
                                 onLogined: {
-                                    if (AccountManager.kugouLoggedIn) {
-                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？",
-                                            function() {
-                                                AccountManager.logoutKugou();
-                                            }
-                                        )
-                                    } else {
-                                        settingsView.kugouShowLogin = true;
-                                        kugouQrDialog.open();
-                                        AccountManager.startKugouQrLogin();
+                                    if (AccountManager.kugouLoggedIn)
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？", function() { AccountManager.logoutKugou() })
+                                    else {
+                                        settingsView.kugouShowLogin = true
+                                        kugouQrDialog.open()
+                                        AccountManager.startKugouQrLogin()
                                     }
                                 }
                             }
@@ -944,16 +1041,12 @@ Item {
                                 name: AccountManager.neteaseNickname
                                 onClicked: MusicApi.songSource = 1;
                                 onLogined: {
-                                    if (AccountManager.neteaseLoggedIn) {
-                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？",
-                                            function() {
-                                                AccountManager.logoutNetease();
-                                            }
-                                        )
-                                    } else {
-                                        settingsView.neteaseShowLogin = true;
-                                        neteaseQrDialog.open();
-                                        AccountManager.startNeteaseQrLogin();
+                                    if (AccountManager.neteaseLoggedIn)
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？", function() { AccountManager.logoutNetease() })
+                                    else {
+                                        settingsView.neteaseShowLogin = true
+                                        neteaseQrDialog.open()
+                                        AccountManager.startNeteaseQrLogin()
                                     }
                                 }
                             }
@@ -967,6 +1060,67 @@ Item {
                                 showLogin: false
                                 idleText: "无需登录"
                                 onClicked: MusicApi.songSource = 2;
+                            }
+                            PlatformCard {
+                                text: "QQ音乐"
+                                chooseColor: "#31C27C"
+                                chooseColor1: Options.darkis ? "#123B2B" : "#D6F5E7"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 3
+                                showLogin: false
+                                idleText: "免登录使用"
+                                onClicked: MusicApi.songSource = 3;
+                            }
+                            PlatformCard {
+                                text: "Spotify"
+                                chooseColor: "#1DB954"
+                                chooseColor1: Options.darkis ? "#103A24" : "#D7F5E3"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 4
+                                enabled: MusicApi.sourceIds.indexOf(4) !== -1
+                                locked: !AccountManager.spotifyLoggedIn
+                                isLogin: AccountManager.spotifyLoggedIn
+                                header: AccountManager.spotifyAvatar
+                                name: AccountManager.spotifyNickname
+                                loginText: "登录"
+                                idleText: "未登录"
+                                onClicked: {
+                                    if (AccountManager.spotifyLoggedIn) MusicApi.songSource = 4
+                                    else platformLoginDialog.openFor("Spotify")
+                                }
+                                onLogined: {
+                                    if (AccountManager.spotifyLoggedIn)
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？", function() { AccountManager.logoutSpotify() })
+                                    else
+                                        platformLoginDialog.openFor("Spotify")
+                                }
+                            }
+                            PlatformCard {
+                                text: "Apple Music"
+                                chooseColor: "#FA243C"
+                                chooseColor1: Options.darkis ? "#4A1117" : "#FFD9DD"
+                                width: settingStack.standWidth / 3 - 20
+                                height: 128
+                                choose: MusicApi.songSource === 5
+                                enabled: MusicApi.sourceIds.indexOf(5) !== -1
+                                locked: !AccountManager.appleLoggedIn
+                                isLogin: AccountManager.appleLoggedIn
+                                header: AccountManager.appleAvatar
+                                name: AccountManager.appleNickname
+                                loginText: "登录"
+                                idleText: "未登录"
+                                onClicked: {
+                                    if (AccountManager.appleLoggedIn) MusicApi.songSource = 5
+                                    else platformLoginDialog.openFor("Apple Music")
+                                }
+                                onLogined: {
+                                    if (AccountManager.appleLoggedIn)
+                                        Options.dialog.openSimpleDialog("警告", "是否退出账号？", function() { AccountManager.logoutApple() })
+                                    else
+                                        platformLoginDialog.openFor("Apple Music")
+                                }
                             }
                         }
                     }

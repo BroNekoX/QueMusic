@@ -45,8 +45,6 @@ Window {
             }
         }
         MusicApi.songSource = Config.mainMusicSource;
-        if (Config.mainMusicSource !== MusicApi.songSource)
-            Config.mainMusicSource = MusicApi.songSource
         MusicApi.downloadPath = Config.downloadFolder;
         MusicApi.soundQuality = Config.soundQuality;
 
@@ -473,13 +471,71 @@ Window {
             mainCont: mainContent
         }
 
-        MainContent {
-            z: 1
+        // 页面切换主内容
+        Rectangle {
             id: mainContent
             x: sidebar.width
             y: 0
+            z: 1
             width: parent.width - x
             height: parent.height - 78
+            color: Theme.secondaryColor
+            property int pageHeight: height - 60
+
+            // 页面顺序 = 侧边栏导航下标：首页 0 / 分类 1 / 收藏 2 / 本地 3 / 下载 4 / 搜索 5
+            property list<Component> pageItem: [homePage, playlistPage, favouritePage, filePage, downloadPage, searchPage]
+            property int pageIndex: 0
+
+            function contentIndexed(choice: int): void {
+                if (choice === pageIndex) return;
+                pageLoader.opacity = 0;
+                pageLoader.shiftY = 180;
+                pageLoader.sourceComponent = pageItem[choice];
+                mainContent.pageIndex = choice;
+            }
+
+            ParallelAnimation {
+                id: pageAnime
+                //property var target
+                NumberAnimation {
+                    property: "opacity"
+                    target: pageLoader
+                    from: 0
+                    to: 1
+                    duration: 280
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    property: "shiftY"
+                    target: pageLoader
+                    from: 180
+                    to: 0
+                    duration: 320
+                    easing.type: Easing.OutExpo
+                }
+            }
+
+            Loader {
+                id: pageLoader
+                x: 0
+                y: 60
+                opacity: 1
+                width: mainContent.width
+                height: mainContent.pageHeight
+                property real shiftY: 0
+                visible: true
+                active: true
+                sourceComponent: homePage
+                transform: Translate { y: pageLoader.shiftY }
+                onLoaded: { pageAnime.running = false; pageAnime.running = true }
+            }
+
+            Component { id: homePage; HomePage {} }
+            Component { id: playlistPage; PlaylistPage {} }
+            Component { id: favouritePage; FavouritePage {} }
+            Component { id: filePage; FilePage {} }
+            Component { id: downloadPage; DownloadPage {} }
+            Component { id: searchPage; SearchPage {} }
         }
 
         PlayerControl {

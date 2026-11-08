@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
-// 在线音源统一接口：request(action,args) -> onXxx()。
-// 新平台只需 override 自己支持的钩子，其余 action 自动回 error。
 
 #ifndef MUSICSOURCE_H
 #define MUSICSOURCE_H
@@ -17,11 +14,10 @@
 
 #include "ApiActions.h"
 
-// 音源当前需要的账号 / 音质上下文。宿主只在登录态或音质变化时重建，
-// 避免每个请求都去拼接 cookie。
 struct SourceCredentials
 {
     QString cookie;
+    QString accessToken;
     QString deviceMid;
     QString deviceDfid;
     bool loggedIn = false;
@@ -29,9 +25,9 @@ struct SourceCredentials
 
     bool operator==(const SourceCredentials &other) const
     {
-        return cookie == other.cookie && deviceMid == other.deviceMid
-            && deviceDfid == other.deviceDfid && loggedIn == other.loggedIn
-            && quality == other.quality;
+        return cookie == other.cookie && accessToken == other.accessToken
+            && deviceMid == other.deviceMid && deviceDfid == other.deviceDfid
+            && loggedIn == other.loggedIn && quality == other.quality;
     }
 };
 
@@ -46,21 +42,17 @@ public:
     virtual QString sourceName() const = 0;
     virtual bool isPlugin() const { return false; }
 
-    // 登录态 / 音质变化时由宿主调用；实现方应自行比较，避免重复处理。
     virtual void applyCredentials(const SourceCredentials &credentials)
     {
         Q_UNUSED(credentials)
     }
 
-    // 唯一入口。默认实现按 action 分发到 onXxx()；多音源宿主
-    // （ScriptSourceHost）可以整体覆盖。
     virtual void request(int sourceId, const QString &action, const QVariantMap &args);
 
 signals:
     void resultReady(const QString &action, const QVariant &data, int source);
 
 protected:
-    // ---- 平台能力钩子（未实现 = 不支持） ----
     virtual void onSearchSongs(const QString &keyword, int type, int page, int pageSize)
     { Q_UNUSED(keyword) Q_UNUSED(type) Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::SearchSongs); }
     virtual void onSearchLyrics(const QString &keyword, int page, int pageSize)
@@ -111,8 +103,6 @@ private:
     int m_sourceId;
 };
 
-// 轻量注册表：sourceId -> MusicSource*。同一个实例可以注册到多个 id
-// （脚本宿主用这种形式服务所有插件）。
 class MusicSourceRegistry
 {
 public:

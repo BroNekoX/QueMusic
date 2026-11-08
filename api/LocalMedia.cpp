@@ -55,12 +55,12 @@ TagLib::String toTagString(const QString &text)
 QString imageMime(const QByteArray &data)
 {
     if (data.startsWith(QByteArrayLiteral("\x89PNG")))
-        return QStringLiteral("image/png");
+        return "image/png";
     if (data.startsWith(QByteArrayLiteral("GIF8")))
-        return QStringLiteral("image/gif");
+        return "image/gif";
     if (data.startsWith(QByteArrayLiteral("BM")))
-        return QStringLiteral("image/bmp");
-    return QStringLiteral("image/jpeg");
+        return "image/bmp";
+    return "image/jpeg";
 }
 
 bool embedCover(TagLib::File *file, const QByteArray &data)
@@ -143,17 +143,17 @@ QVariantMap LocalMedia::readMetadata(const QString &filePath)
 
     if (const TagLib::Tag *tag = ref.tag()) {
         if (!tag->title().isEmpty())
-            meta.insert(QStringLiteral("title"), tagString(tag->title()));
+            meta.insert("title", tagString(tag->title()));
         if (!tag->artist().isEmpty())
-            meta.insert(QStringLiteral("artist"), tagString(tag->artist()));
+            meta.insert("artist", tagString(tag->artist()));
         if (!tag->album().isEmpty())
-            meta.insert(QStringLiteral("album"), tagString(tag->album()));
+            meta.insert("album", tagString(tag->album()));
     }
 
     const QVariantMap lyricInfo = LocalLyricsReader::read(path);
-    if (lyricInfo.value(QStringLiteral("found")).toBool()) {
-        meta.insert(QStringLiteral("lyrics"), lyricInfo.value(QStringLiteral("lyrics")));
-        meta.insert(QStringLiteral("translate"), lyricInfo.value(QStringLiteral("translate")));
+    if (lyricInfo.value("found").toBool()) {
+        meta.insert("lyrics", lyricInfo.value("lyrics"));
+        meta.insert("translate", lyricInfo.value("translate"));
     }
 
     return meta;
@@ -167,9 +167,9 @@ QVariantMap LocalMedia::readAudioInfo(const QString &filePath)
         return info;
 
     const QFileInfo fileInfo(path);
-    info.insert(QStringLiteral("fileName"), fileInfo.fileName());
-    info.insert(QStringLiteral("size"), fileInfo.size());
-    info.insert(QStringLiteral("format"), fileInfo.suffix().toUpper());
+    info.insert("fileName", fileInfo.fileName());
+    info.insert("size", fileInfo.size());
+    info.insert("format", fileInfo.suffix().toUpper());
 
     const QByteArray encoded = QFile::encodeName(path);
     TagLib::FileRef ref(encoded.constData());
@@ -177,18 +177,18 @@ QVariantMap LocalMedia::readAudioInfo(const QString &filePath)
         return info;
 
     if (const TagLib::Tag *tag = ref.tag()) {
-        info.insert(QStringLiteral("title"), tagString(tag->title()));
-        info.insert(QStringLiteral("artist"), tagString(tag->artist()));
-        info.insert(QStringLiteral("album"), tagString(tag->album()));
-        info.insert(QStringLiteral("genre"), tagString(tag->genre()));
-        info.insert(QStringLiteral("year"), int(tag->year()));
-        info.insert(QStringLiteral("track"), int(tag->track()));
+        info.insert("title", tagString(tag->title()));
+        info.insert("artist", tagString(tag->artist()));
+        info.insert("album", tagString(tag->album()));
+        info.insert("genre", tagString(tag->genre()));
+        info.insert("year", int(tag->year()));
+        info.insert("track", int(tag->track()));
     }
     if (const TagLib::AudioProperties *properties = ref.audioProperties()) {
-        info.insert(QStringLiteral("duration"), properties->lengthInSeconds());
-        info.insert(QStringLiteral("bitrate"), properties->bitrate());
-        info.insert(QStringLiteral("sampleRate"), properties->sampleRate());
-        info.insert(QStringLiteral("channels"), properties->channels());
+        info.insert("duration", properties->lengthInSeconds());
+        info.insert("bitrate", properties->bitrate());
+        info.insert("sampleRate", properties->sampleRate());
+        info.insert("channels", properties->channels());
     }
     return info;
 }
@@ -231,17 +231,17 @@ bool LocalMedia::writeMetadata(const QString &filePath, const QVariantMap &meta)
     tag->setArtist(tagged("artist"));
     tag->setAlbum(tagged("album"));
     tag->setGenre(tagged("genre"));
-    tag->setYear(meta.value(QStringLiteral("year")).toString().toUInt());
-    tag->setTrack(meta.value(QStringLiteral("track")).toString().toUInt());
+    tag->setYear(meta.value("year").toString().toUInt());
+    tag->setTrack(meta.value("track").toString().toUInt());
 
-    const QString lyrics = meta.value(QStringLiteral("lyrics")).toString().trimmed();
+    const QString lyrics = meta.value("lyrics").toString().trimmed();
     if (!lyrics.isEmpty()) {
         TagLib::PropertyMap properties = ref.file()->properties();
         properties.replace("LYRICS", TagLib::StringList(toTagString(lyrics)));
         ref.file()->setProperties(properties);
     }
 
-    const QString cover = meta.value(QStringLiteral("cover")).toString();
+    const QString cover = meta.value("cover").toString();
     if (!cover.isEmpty()) {
         QFile image(localPath(cover));
         if (image.open(QIODevice::ReadOnly))
@@ -263,7 +263,7 @@ QString LocalMedia::coverHint(const QString &filePath)
     QFile file(sidecarPath(path, ".json"));
     if (file.open(QIODevice::ReadOnly)) {
         const QVariantMap meta = QJsonDocument::fromJson(file.readAll()).object().toVariantMap();
-        hint = meta.value(QStringLiteral("cover")).toString();
+        hint = meta.value("cover").toString();
     }
 
     if (m_coverHints.size() > 8192)

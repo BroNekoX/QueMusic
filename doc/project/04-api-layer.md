@@ -5,7 +5,7 @@
 > `QualityHashCache` 与 `LocalMedia`。§4.1 里描述的 `DISPATCH` 宏、平台值成员、
 > 手写 `getCategoryPlaylists` 特例都已移除；§4.2 的 QML 方法 / 属性 / 信号保持兼容。
 > 新架构与「新增平台 / 新增 action」的步骤以 [api/README.md](../../api/README.md) 为准。
-> 平台实现已移到 `api/platform/`；QQ音乐为源 3，Spotify 4 / Apple Music 5 预留。
+> 平台实现已移到 `api/platform/`；QQ音乐为源 3，Spotify 4、Apple Music 5 已接入。
 > `allPlaylistMenu` 已从 QVariant 改为 `OnlineListModel`；`getAllToplists()` 合并请求已移除，
 > 统一用 `getAllToplist(source)`。下文保留作为字段语义与平台接口差异的参考，
 > 行号与调度链路部分已过时。

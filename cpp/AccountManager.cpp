@@ -10,8 +10,10 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QNetworkAccessManager>
 #include <QNetworkCookie>
 #include <QNetworkReply>
@@ -850,10 +852,258 @@ void AccountManager::loadKugou()
     m_kugouLoggedIn = true;
 }
 
+void AccountManager::browserGet(const QUrl &url, const QByteArray &cookie,
+                                 const QList<QPair<QByteArray, QByteArray>> &headers,
+                                 const std::function<void(int, const QByteArray &)> &done)
+{
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", kUa);
+    request.setRawHeader("Accept", "application/json, text/plain, */*");
+    if (!cookie.isEmpty()) request.setRawHeader("Cookie", cookie);
+    for (const auto &header : headers) request.setRawHeader(header.first, header.second);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(30000);
+    QNetworkReply *reply = m_nam->get(request);
+    connect(reply, &QNetworkReply::finished, this, [reply, done] {
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        done(status, reply->readAll());
+        reply->deleteLater();
+    });
+}
+
+void AccountManager::startSpotifyBrowserLogin()
+{
+    m_spotifyLoginMessage = "浏览器已打开，登录后复制含 sp_dc 的 Cookie";
+    emit spotifyLoginChanged();
+    QDesktopServices::openUrl(QUrl("https://accounts.spotify.com/en/login"));
+}
+
+void AccountManager::loginSpotifyWithCookie(const QString &input)
+{
+    const QString text = input.trimmed();
+    if (text.isEmpty()) {
+        m_spotifyLoginMessage = "请先粘贴浏览器 Cookie";
+        emit spotifyLoginChanged();
+        return;
+    }
+    m_spotifyLoginMessage = "正在验证 Spotify 账号…";
+    emit spotifyLoginChanged();
+
+    if (!text.contains("sp_dc") && !text.contains(';')) {
+        validateSpotifyToken(text, QString());
+        return;
+    }
+
+    const QUrl url("https://open.spotify.com/get_access_token?reason=transport&productType=web_player");
+    browserGet(url, text.toUtf8(), {{"Origin", "https://open.spotify.com"}, {"Referer", "https://open.spotify.com/"}},
+               [this, text](int status, const QByteArray &body) {
+        const QString token = QJsonDocument::fromJson(body).object().value("accessToken").toString();
+        if (status != 200 || token.isEmpty()) {
+            m_spotifyLoginMessage = "Spotify 验证失败，Cookie 可能已失效";
+            emit spotifyLoginChanged();
+            return;
+        }
+        validateSpotifyToken(token, text);
+    });
+}
+
+void AccountManager::validateSpotifyToken(const QString &token, const QString &cookie)
+{
+    browserGet(QUrl("https://api.spotify.com/v1/me"), {}, {{"Authorization", "Bearer " + token.toUtf8()},
+                                                         {"Origin", "https://open.spotify.com"}},
+               [this, token, cookie](int status, const QByteArray &body) {
+        if (status != 200) {
+            m_spotifyLoginMessage = "Spotify 登录失败，账号信息不可用";
+            emit spotifyLoginChanged();
+            return;
+        }
+        const QJsonObject object = QJsonDocument::fromJson(body).object();
+        const QJsonArray images = object.value("images").toArray();
+        m_spotifyToken = token;
+        if (!cookie.isEmpty()) m_spotifyCookie = cookie;
+        m_spotifyNickname = object.value("display_name").toString();
+        if (m_spotifyNickname.isEmpty()) m_spotifyNickname = object.value("id").toString();
+        m_spotifyAvatar = images.isEmpty() ? QString() : images.first().toObject().value("url").toString();
+        m_spotifyLoggedIn = true;
+        m_spotifyLoginMessage = "Spotify 登录成功";
+        persistSpotify();
+        emit spotifyLoginChanged();
+        emit message(QStringLiteral("Spotify 账号登录成功"), 1);
+    });
+}
+
+void AccountManager::logoutSpotify()
+{
+    m_spotifyLoggedIn = false;
+    m_spotifyCookie.clear();
+    m_spotifyToken.clear();
+    m_spotifyNickname.clear();
+    m_spotifyAvatar.clear();
+    m_spotifyLoginMessage.clear();
+    persistSpotify();
+    emit spotifyLoginChanged();
+}
+
+void AccountManager::startAppleBrowserLogin()
+{
+    m_appleLoginMessage = "浏览器已打开，登录后复制含 media-user-token 的 Cookie";
+    emit appleLoginChanged();
+    QDesktopServices::openUrl(QUrl("https://music.apple.com/us/account/overview"));
+}
+
+void AccountManager::loginAppleWithCookie(const QString &input)
+{
+    const QString text = input.trimmed();
+    if (text.isEmpty()) {
+        m_appleLoginMessage = "请先粘贴浏览器 Cookie";
+        emit appleLoginChanged();
+        return;
+    }
+    const QRegularExpression cookiePattern("media-user-token=([^;\\s]+)");
+    const QRegularExpressionMatch match = cookiePattern.match(text);
+    const QString userToken = match.hasMatch() ? QUrl::fromPercentEncoding(match.captured(1).toUtf8()) : text;
+    m_appleLoginMessage = "正在验证 Apple Music 账号…";
+    emit appleLoginChanged();
+    fetchAppleDeveloperToken([this, userToken](const QString &developerToken) {
+        if (developerToken.isEmpty()) {
+            m_appleLoginMessage = "Apple Music 验证失败，请稍后重试";
+            emit appleLoginChanged();
+            return;
+        }
+        validateAppleToken(userToken, developerToken);
+    });
+}
+
+void AccountManager::fetchAppleDeveloperToken(const std::function<void(const QString &)> &done)
+{
+    if (!m_appleDeveloperToken.isEmpty()) {
+        done(m_appleDeveloperToken);
+        return;
+    }
+    browserGet(QUrl("https://music.apple.com/us/browse"), {}, {}, [this, done](int status, const QByteArray &body) {
+        if (status != 200) {
+            done(QString());
+            return;
+        }
+        const QRegularExpression asset("src=\"(/assets/index[^\"']+\\.js)\"");
+        const QRegularExpressionMatch match = asset.match(QString::fromUtf8(body));
+        if (!match.hasMatch()) {
+            done(QString());
+            return;
+        }
+        const QUrl script("https://music.apple.com" + match.captured(1));
+        browserGet(script, {}, {}, [this, done](int scriptStatus, const QByteArray &scriptBody) {
+            if (scriptStatus != 200) {
+                done(QString());
+                return;
+            }
+            const QRegularExpression jwt("eyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}");
+            const QRegularExpressionMatch token = jwt.match(QString::fromUtf8(scriptBody));
+            done(token.hasMatch() ? token.captured(0) : QString());
+        });
+    });
+}
+
+void AccountManager::validateAppleToken(const QString &userToken, const QString &developerToken)
+{
+    const QList<QPair<QByteArray, QByteArray>> headers{
+        {"Authorization", "Bearer " + developerToken.toUtf8()},
+        {"Media-User-Token", userToken.toUtf8()},
+        {"Origin", "https://music.apple.com"}
+    };
+    browserGet(QUrl("https://amp-api.music.apple.com/v1/me"), {}, headers,
+               [this, userToken, developerToken](int status, const QByteArray &body) {
+        if (status != 200) {
+            m_appleDeveloperToken.clear();
+            m_appleLoginMessage = "Apple Music 登录失败，Cookie 可能已失效";
+            emit appleLoginChanged();
+            return;
+        }
+        const QJsonArray data = QJsonDocument::fromJson(body).object().value("data").toArray();
+        const QJsonObject attributes = data.isEmpty() ? QJsonObject() : data.first().toObject().value("attributes").toObject();
+        QString avatar = attributes.value("artwork").toObject().value("url").toString();
+        avatar.replace("{w}", "300").replace("{h}", "300");
+        m_appleUserToken = userToken;
+        m_appleDeveloperToken = developerToken;
+        m_appleNickname = attributes.value("name").toString();
+        if (m_appleNickname.isEmpty()) m_appleNickname = "Apple Music 用户";
+        m_appleAvatar = avatar;
+        m_appleLoggedIn = true;
+        m_appleLoginMessage = "Apple Music 登录成功";
+        persistApple();
+        emit appleLoginChanged();
+        emit message(QStringLiteral("Apple Music 账号登录成功"), 1);
+    });
+}
+
+void AccountManager::logoutApple()
+{
+    m_appleLoggedIn = false;
+    m_appleUserToken.clear();
+    m_appleDeveloperToken.clear();
+    m_appleNickname.clear();
+    m_appleAvatar.clear();
+    m_appleLoginMessage.clear();
+    persistApple();
+    emit appleLoginChanged();
+}
+
+void AccountManager::persistSpotify()
+{
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup("Spotify");
+    s.setValue("cookie", m_spotifyCookie);
+    s.setValue("token", m_spotifyToken);
+    s.setValue("nickname", m_spotifyNickname);
+    s.setValue("avatar", m_spotifyAvatar);
+    s.endGroup();
+    s.sync();
+}
+
+void AccountManager::persistApple()
+{
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup("AppleMusic");
+    s.setValue("userToken", m_appleUserToken);
+    s.setValue("developerToken", m_appleDeveloperToken);
+    s.setValue("nickname", m_appleNickname);
+    s.setValue("avatar", m_appleAvatar);
+    s.endGroup();
+    s.sync();
+}
+
+void AccountManager::loadSpotify()
+{
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup("Spotify");
+    m_spotifyCookie = s.value("cookie").toString();
+    m_spotifyToken = s.value("token").toString();
+    m_spotifyNickname = s.value("nickname").toString();
+    m_spotifyAvatar = s.value("avatar").toString();
+    s.endGroup();
+    m_spotifyLoggedIn = !m_spotifyCookie.isEmpty() || !m_spotifyToken.isEmpty();
+    if (m_spotifyLoggedIn && m_spotifyNickname.isEmpty()) m_spotifyNickname = "Spotify 用户";
+}
+
+void AccountManager::loadApple()
+{
+    QSettings s(m_configPath, QSettings::IniFormat);
+    s.beginGroup("AppleMusic");
+    m_appleUserToken = s.value("userToken").toString();
+    m_appleDeveloperToken = s.value("developerToken").toString();
+    m_appleNickname = s.value("nickname").toString();
+    m_appleAvatar = s.value("avatar").toString();
+    s.endGroup();
+    m_appleLoggedIn = !m_appleUserToken.isEmpty() && !m_appleDeveloperToken.isEmpty();
+    if (m_appleLoggedIn && m_appleNickname.isEmpty()) m_appleNickname = "Apple Music 用户";
+}
+
 void AccountManager::loadPersisted()
 {
     loadNetease();
     loadKugou();
+    loadSpotify();
+    loadApple();
 }
 
 // 浏览器登录 Cookie 回填（内嵌 WebView 登录完成后调用）

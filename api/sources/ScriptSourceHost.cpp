@@ -89,49 +89,49 @@ QString jsText(const QJSValue &value)
 QStringList functionCandidates(const QString &action)
 {
     if (action == ApiAction::SearchSongs)
-        return {QStringLiteral("searchSongs"), QStringLiteral("search")};
+        return {"searchSongs", "search"};
     if (action == ApiAction::SearchLyrics)
-        return {QStringLiteral("searchLyrics"), QStringLiteral("search")};
+        return {"searchLyrics", "search"};
     if (action == ApiAction::MusicInfo)
-        return {QStringLiteral("getMusicInfo"), QStringLiteral("musicUrl")};
+        return {"getMusicInfo", "musicUrl"};
     if (action == ApiAction::LyricInfo)
-        return {QStringLiteral("getLyricInfo"), QStringLiteral("lyrics")};
+        return {"getLyricInfo", "lyrics"};
     if (action == ApiAction::PlaylistMenu)
-        return {QStringLiteral("getPlaylistMenu"), QStringLiteral("playlistMenu")};
+        return {"getPlaylistMenu", "playlistMenu"};
     if (action == ApiAction::MusicPlaylists || action == ApiAction::CategoryPlaylists)
-        return {QStringLiteral("getMusicPlaylists"), QStringLiteral("playlists")};
+        return {"getMusicPlaylists", "playlists"};
     if (action == ApiAction::PlaylistSongs)
-        return {QStringLiteral("getPlaylistSongs"), QStringLiteral("playlistSongs")};
+        return {"getPlaylistSongs", "playlistSongs"};
     if (action == ApiAction::Comments)
-        return {QStringLiteral("getComments"), QStringLiteral("comments")};
+        return {"getComments", "comments"};
     if (action == ApiAction::RecommendSongs || action == ApiAction::NewSongs)
-        return {QStringLiteral("getNewSongs"), QStringLiteral("newSongs")};
+        return {"getNewSongs", "newSongs"};
     if (action == ApiAction::AllToplist)
-        return {QStringLiteral("getAllToplist"), QStringLiteral("toplists")};
+        return {"getAllToplist", "toplists"};
     if (action == ApiAction::MusicToplist)
-        return {QStringLiteral("getMusicToplist"), QStringLiteral("toplistSongs")};
+        return {"getMusicToplist", "toplistSongs"};
     if (action == ApiAction::HotPlaylistMenu)
-        return {QStringLiteral("getHotPlaylistMenu"), QStringLiteral("hotPlaylistMenu")};
+        return {"getHotPlaylistMenu", "hotPlaylistMenu"};
     if (action == ApiAction::HotPlaylists)
-        return {QStringLiteral("getHotPlaylists"), QStringLiteral("hotPlaylists")};
+        return {"getHotPlaylists", "hotPlaylists"};
     if (action == ApiAction::SingerSongs)
-        return {QStringLiteral("getSingerSongs"), QStringLiteral("singerSongs")};
+        return {"getSingerSongs", "singerSongs"};
     return {action};
 }
 
 QVariantMap shapeMusicInfo(QVariantMap detail, const QVariantMap &args)
 {
-    QString url = detail.value(QStringLiteral("url")).toString();
+    QString url = detail.value("url").toString();
     if (url.isEmpty())
-        url = detail.value(QStringLiteral("backup_url")).toString();
+        url = detail.value("backup_url").toString();
 
-    detail.insert(QStringLiteral("url"), url);
-    if (detail.value(QStringLiteral("backup_url")).toString().isEmpty())
-        detail.insert(QStringLiteral("backup_url"), url);
-    detail.insert(QStringLiteral("hash"), args.value(ApiArg::Hash));
-    detail.insert(QStringLiteral("type"), args.value(ApiArg::Type));
+    detail.insert("url", url);
+    if (detail.value("backup_url").toString().isEmpty())
+        detail.insert("backup_url", url);
+    detail.insert("hash", args.value(ApiArg::Hash));
+    detail.insert("type", args.value(ApiArg::Type));
     if (url.isEmpty())
-        detail.insert(QStringLiteral("url_unavailable"), true);
+        detail.insert("url_unavailable", true);
     return detail;
 }
 
@@ -141,7 +141,7 @@ QVariant shapeResult(const QString &action, const QVariant &raw, int source,
     if (action == ApiAction::MusicInfo) {
         QVariantMap detail;
         if (raw.typeId() == QMetaType::QString)
-            detail.insert(QStringLiteral("url"), raw.toString());
+            detail.insert("url", raw.toString());
         else
             detail = raw.toMap();
         return shapeMusicInfo(detail, args);
@@ -152,48 +152,48 @@ QVariant shapeResult(const QString &action, const QVariant &raw, int source,
         if (raw.typeId() == QMetaType::QVariantMap || raw.typeId() == QMetaType::QVariantHash) {
             payload = raw.toMap();
         } else if (raw.typeId() == QMetaType::QVariantList) {
-            payload.insert(QStringLiteral("info"), raw.toList());
+            payload.insert("info", raw.toList());
         }
-        if (!payload.contains(QStringLiteral("info")))
-            payload.insert(QStringLiteral("info"), QVariantList());
-        if (!payload.contains(QStringLiteral("translate")))
-            payload.insert(QStringLiteral("translate"), QVariantList());
-        payload.insert(QStringLiteral("hash"), args.value(ApiArg::Hash));
+        if (!payload.contains("info"))
+            payload.insert("info", QVariantList());
+        if (!payload.contains("translate"))
+            payload.insert("translate", QVariantList());
+        payload.insert("hash", args.value(ApiArg::Hash));
         return payload;
     }
 
     if (ApiAction::isListAction(action)) {
         QVariantMap payload;
         if (raw.typeId() == QMetaType::QVariantList) {
-            payload.insert(QStringLiteral("info"), raw.toList());
+            payload.insert("info", raw.toList());
         } else {
             const QVariantMap map = raw.toMap();
-            if (map.contains(QStringLiteral("error"))) {
+            if (map.contains("error")) {
                 // 插件用返回值表示失败：保留 error，不要把它当成一条数据。
                 payload = map;
-                if (!payload.contains(QStringLiteral("info")))
-                    payload.insert(QStringLiteral("info"), QVariantList());
-            } else if (map.contains(QStringLiteral("info"))) {
+                if (!payload.contains("info"))
+                    payload.insert("info", QVariantList());
+            } else if (map.contains("info")) {
                 payload = map;
             } else if (map.isEmpty()) {
-                payload.insert(QStringLiteral("info"), QVariantList());
+                payload.insert("info", QVariantList());
             } else {
-                payload.insert(QStringLiteral("info"), QVariantList{map});
+                payload.insert("info", QVariantList{map});
             }
         }
 
         // 与旧行为一致：插件条目自带 source，便于收藏 / 混合列表判断来源。
-        QVariantList items = payload.value(QStringLiteral("info")).toList();
+        QVariantList items = payload.value("info").toList();
         for (QVariant &item : items) {
             QVariantMap map = item.toMap();
-            map.insert(QStringLiteral("source"), source);
+            map.insert("source", source);
             item = map;
         }
-        payload.insert(QStringLiteral("info"), items);
+        payload.insert("info", items);
 
         if (action == ApiAction::Comments
-            && !payload.contains(QStringLiteral("hasMore"))) {
-            payload.insert(QStringLiteral("hasMore"), false);
+            && !payload.contains("hasMore")) {
+            payload.insert("hasMore", false);
         }
         return payload;
     }
@@ -236,7 +236,7 @@ void ScriptSourceWorker::reload(const QString &dir)
     QVariantList list;
     QSet<int> usedIds;
     const QDir root(dir);
-    const QStringList files = root.entryList({QStringLiteral("*.js")}, QDir::Files, QDir::Name);
+    const QStringList files = root.entryList({"*.js"}, QDir::Files, QDir::Name);
     for (const QString &file : files) {
         QFile script(root.filePath(file));
         if (!script.open(QIODevice::ReadOnly))
@@ -245,7 +245,7 @@ void ScriptSourceWorker::reload(const QString &dir)
         auto *js = new QJSEngine;
         js->installExtensions(QJSEngine::ConsoleExtension);
         auto *http = new ScriptHttp(network(), js);
-        js->globalObject().setProperty(QStringLiteral("http"), js->newQObject(http));
+        js->globalObject().setProperty("http", js->newQObject(http));
 
         const QJSValue evaluated = js->evaluate(QString::fromUtf8(script.readAll()),
                                                 root.filePath(file));
@@ -255,12 +255,12 @@ void ScriptSourceWorker::reload(const QString &dir)
             continue;
         }
 
-        const QJSValue meta = js->globalObject().property(QStringLiteral("meta"));
-        QString name = jsText(meta.property(QStringLiteral("name")));
+        const QJSValue meta = js->globalObject().property("meta");
+        QString name = jsText(meta.property("name"));
         if (name.isEmpty())
             name = QFileInfo(file).completeBaseName();
 
-        QString identity = jsText(meta.property(QStringLiteral("id")));
+        QString identity = jsText(meta.property("id"));
         if (identity.isEmpty())
             identity = QFileInfo(file).completeBaseName();
 
@@ -271,30 +271,30 @@ void ScriptSourceWorker::reload(const QString &dir)
         entry->name = name;
 
         QStringList capabilities;
-        const QJSValue caps = meta.property(QStringLiteral("capabilities"));
-        const int capCount = caps.property(QStringLiteral("length")).toInt();
+        const QJSValue caps = meta.property("capabilities");
+        const int capCount = caps.property("length").toInt();
         for (int i = 0; i < capCount; ++i) {
             const QString capability = jsText(caps.property(i));
             if (!capability.isEmpty())
                 capabilities << capability;
         }
 
-        const QJSValue versionValue = meta.property(QStringLiteral("version"));
+        const QJSValue versionValue = meta.property("version");
         const QVariant version = versionValue.isUndefined() || versionValue.isNull()
                                      ? QVariant()
                                      : versionValue.toVariant();
 
         m_entries << entry;
         list << QVariantMap{
-            {QStringLiteral("id"), entry->id},
-            {QStringLiteral("name"), entry->name},
-            {QStringLiteral("file"), file},
-            {QStringLiteral("plugin"), true},
-            {QStringLiteral("version"), version},
-            {QStringLiteral("author"), jsText(meta.property(QStringLiteral("author")))},
-            {QStringLiteral("description"),
-             jsText(meta.property(QStringLiteral("description")))},
-            {QStringLiteral("capabilities"), capabilities},
+            {"id", entry->id},
+            {"name", entry->name},
+            {"file", file},
+            {"plugin", true},
+            {"version", version},
+            {"author", jsText(meta.property("author"))},
+            {"description",
+             jsText(meta.property("description"))},
+            {"capabilities", capabilities},
         };
     }
     emit plugins(list);
@@ -305,8 +305,8 @@ void ScriptSourceWorker::call(int source, const QString &action, const QVariantM
     Entry *entry = find(source);
     if (!entry) {
         emit result(action, QVariantMap{
-            {QStringLiteral("error"), -1},
-            {QStringLiteral("message"), QStringLiteral("plugin not found")}
+            {"error", -1},
+            {"message", "plugin not found"}
         }, source);
         return;
     }
@@ -327,8 +327,8 @@ void ScriptSourceWorker::call(int source, const QString &action, const QVariantM
         qWarning() << "[sources] 插件缺少函数:" << entry->file << action
                    << candidates.join(QLatin1Char('/'));
         emit result(action, QVariantMap{
-            {QStringLiteral("error"), -3},
-            {QStringLiteral("message"), QStringLiteral("缺少函数: ") + action}
+            {"error", -3},
+            {"message", QStringLiteral("缺少函数: ") + action}
         }, source);
         return;
     }
@@ -338,8 +338,8 @@ void ScriptSourceWorker::call(int source, const QString &action, const QVariantM
         qWarning() << "[sources] 插件执行出错:" << entry->file << usedFunction
                    << returned.toString();
         emit result(action, QVariantMap{
-            {QStringLiteral("error"), -2},
-            {QStringLiteral("message"), returned.toString()}
+            {"error", -2},
+            {"message", returned.toString()}
         }, source);
         return;
     }

@@ -36,9 +36,9 @@ QualityHashCache::~QualityHashCache()
 QString QualityHashCache::cachePath()
 {
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
-                        + QStringLiteral("/BroNekoX");
+                        + "/BroNekoX";
     QDir().mkpath(dir);
-    return dir + QStringLiteral("/QueMusicQuality.json");
+    return dir + "/QueMusicQuality.json";
 }
 
 void QualityHashCache::load()
@@ -52,15 +52,14 @@ void QualityHashCache::load()
         for (auto it = section.constBegin(); it != section.constEnd(); ++it) {
             const QString base = it.key();
             const QString alt = it.value().toString();
-            if (base.isEmpty() || alt.isEmpty() || alt == base)
-                continue;
+            if (base.isEmpty() || alt.isEmpty() || alt == base) continue;
             Alternates &alternates = m_alternates[base];
             (hq ? alternates.hq : alternates.sq) = alt;
             m_baseOf.insert(alt, base);
         }
     };
-    loadSection(root.value(QStringLiteral("hq")).toObject(), true);
-    loadSection(root.value(QStringLiteral("sq")).toObject(), false);
+    loadSection(root.value("hq").toObject(), true);
+    loadSection(root.value("sq").toObject(), false);
 }
 
 void QualityHashCache::remember(const QVariantList &items)
@@ -72,8 +71,7 @@ void QualityHashCache::remember(const QVariantList &items)
     for (const QVariant &value : items) {
         const QVariantMap item = value.toMap();
         const QString base = item.value(ApiCommon::kHash).toString();
-        if (base.isEmpty())
-            continue;
+        if (base.isEmpty()) continue;
 
         const QString hq = item.value(ApiCommon::kHashHq).toString();
         const QString sq = item.value(ApiCommon::kHashSq).toString();
@@ -88,14 +86,10 @@ void QualityHashCache::remember(const QVariantList &items)
             m_baseOf.insert(sq, base);
             changed = true;
         }
-        if (!alternates.hq.isEmpty() || !alternates.sq.isEmpty())
-            m_alternates.insert(base, alternates);
+        if (!alternates.hq.isEmpty() || !alternates.sq.isEmpty()) m_alternates.insert(base, alternates);
     }
 
-    if (changed) {
-        pruneIfNeeded();
-        scheduleSave();
-    }
+    if (changed) { pruneIfNeeded(); scheduleSave(); }
 }
 
 QString QualityHashCache::resolve(const QString &hash, int quality) const
@@ -147,8 +141,8 @@ void QualityHashCache::save()
     }
 
     QJsonObject root;
-    root.insert(QStringLiteral("hq"), hq);
-    root.insert(QStringLiteral("sq"), sq);
+    root.insert("hq", hq);
+    root.insert("sq", sq);
 
     QSaveFile file(cachePath());
     if (!file.open(QIODevice::WriteOnly))

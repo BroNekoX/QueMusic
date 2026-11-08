@@ -18,21 +18,20 @@ namespace {
 
 QString sizedCover(const QVariantMap &data, int size)
 {
-    QString cover = data.value(QStringLiteral("album_img")).toString();
+    QString cover = data.value("album_img").toString();
     cover.replace(QLatin1String("{size}"), QString::number(size));
     return cover;
 }
 
 int durationMsOf(const QVariantMap &data)
 {
-    const double length = data.value(QStringLiteral("timeLength")).toDouble();
+    const double length = data.value("timeLength").toDouble();
     return int(length * (length < 1000 ? 1000 : 1));
 }
 
 QVariantList placeholderLyrics()
 {
-    return {QVariantMap{{QStringLiteral("time"), 0},
-                        {QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏")}}};
+    return {QVariantMap{{"time", 0}, {"text", QStringLiteral("纯音乐，请欣赏")}}};
 }
 
 } // namespace
@@ -57,21 +56,19 @@ void PlaybackCoordinator::beginPlay(const QString &hash, int source)
 void PlaybackCoordinator::invalidate()
 {
     ++m_playGeneration;
-    m_playHash = QStringLiteral("\x1f");
+    m_playHash = "\x1f";
     m_playSource = -1;
 }
 
 bool PlaybackCoordinator::isStalePlayResponse(const QString &playHash, int source) const
 {
-    if (playHash.isEmpty() || m_playHash.isEmpty())
-        return false;
-    return playHash != m_playHash || source != m_playSource;
+    return !playHash.isEmpty() && !m_playHash.isEmpty() && (playHash != m_playHash || source != m_playSource);
 }
 
 void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
 {
-    const int type = data.value(QStringLiteral("type")).toInt();
-    const QString playHash = data.value(QStringLiteral("hash")).toString();
+    const int type = data.value("type").toInt();
+    const QString playHash = data.value("hash").toString();
     const QString playUrl = ApiCommon::firstNonEmpty(data, {"url", "backup_url"});
 
     if (type == 0 && isStalePlayResponse(playHash, source)) {
@@ -80,8 +77,8 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
         return;
     }
 
-    const QString songName = data.value(QStringLiteral("songName")).toString();
-    const QString author = data.value(QStringLiteral("author_name")).toString();
+    const QString songName = data.value("songName").toString();
+    const QString author = data.value("author_name").toString();
 
     if (type == 2) {
         emit playUrlReady(m_qualityCache->baseOf(playHash), playUrl, songName, author,
@@ -90,20 +87,15 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
     }
 
     if (playUrl.isEmpty()) {
-        const bool networkFailed = data.contains(QStringLiteral("error"));
-        const QString reason = data.value(QStringLiteral("errReason")).toString();
+        const bool networkFailed = data.contains("error");
+        const QString reason = data.value("errReason").toString();
         const bool kugouNotLoggedIn = source == ApiSource::Kugou && !m_kugouLoggedIn;
-        QString message;
-        if (networkFailed) {
-            message = QStringLiteral("网络请求失败，请检查网络后重试");
-        } else if (reason == QLatin1String("vip")) {
-            message = kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
-                                       : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放");
-        } else if (kugouNotLoggedIn) {
-            message = QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试");
-        } else {
-            message = QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
-        }
+        const QString message = networkFailed ? QStringLiteral("网络请求失败，请检查网络后重试")
+            : reason == QLatin1String("vip")
+                ? (kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
+                                    : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放"))
+                : kugouNotLoggedIn ? QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试")
+                                   : QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
         qDebug() << "[api] 无法播放:" << message << "hash:" << playHash.left(8);
         emit playFailed(m_qualityCache->baseOf(playHash), source);
         emit warned(message, 2);
@@ -111,7 +103,7 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
     }
 
     const QString identityHash = m_qualityCache->baseOf(playHash);
-    const double timeLength = data.value(QStringLiteral("timeLength")).toDouble();
+    const double timeLength = data.value("timeLength").toDouble();
     const int durationSeconds = int(timeLength);
     const int timeMs = int(timeLength * (timeLength < 1000 ? 1000 : 1));
 
@@ -119,8 +111,8 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
         m_biliTrack = BiliTrack{playHash, songName, author, durationSeconds};
 
     if (type == 0) {
-        QString solve = data.value(QStringLiteral("album_img")).toString();
-        solve.replace(QLatin1String("{size}"), QStringLiteral("128"));
+        QString solve = data.value("album_img").toString();
+        solve.replace(QLatin1String("{size}"), "128");
         emit urlplay(playUrl, songName, author, sizedCover(data, 512), solve, identityHash, source);
 
         if (m_lyricGenerations.size() > 32) {
@@ -135,13 +127,13 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
         emit lyricRequested(playHash, timeMs, source);
     } else if (type == 1) {
         QVariantMap meta;
-        meta.insert(QStringLiteral("title"), songName);
-        meta.insert(QStringLiteral("artist"), author);
-        meta.insert(QStringLiteral("cover"), sizedCover(data, 512));
-        meta.insert(QStringLiteral("duration"), durationSeconds);
-        meta.insert(QStringLiteral("hash"), playHash);
-        meta.insert(QStringLiteral("url"), playUrl);
-        meta.insert(QStringLiteral("fileName"), data.value(QStringLiteral("fileName")).toString());
+        meta.insert("title", songName);
+        meta.insert("artist", author);
+        meta.insert("cover", sizedCover(data, 512));
+        meta.insert("duration", durationSeconds);
+        meta.insert("hash", playHash);
+        meta.insert("url", playUrl);
+        meta.insert("fileName", data.value("fileName").toString());
 
         if (m_pendingDownloads.size() > 32)
             m_pendingDownloads.clear();
@@ -152,7 +144,7 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
 
 void PlaybackCoordinator::handleLyricInfo(const QVariantMap &data, int source)
 {
-    const QString lyricHash = data.value(QStringLiteral("hash")).toString();
+    const QString lyricHash = data.value("hash").toString();
 
     if (m_lyricGenerations.contains(lyricHash)) {
         const int generation = m_lyricGenerations.take(lyricHash);
@@ -162,9 +154,9 @@ void PlaybackCoordinator::handleLyricInfo(const QVariantMap &data, int source)
         }
     }
 
-    const bool failed = data.contains(QStringLiteral("error"));
-    const QVariantList onlineLyrics = data.value(QStringLiteral("info")).toList();
-    const QVariantList translate = data.value(QStringLiteral("translate")).toList();
+    const bool failed = data.contains("error");
+    const QVariantList onlineLyrics = data.value("info").toList();
+    const QVariantList translate = data.value("translate").toList();
 
     if (failed) {
         emit warned(QStringLiteral("歌词加载失败，请检查网络后重试"), 0);
@@ -203,10 +195,10 @@ void PlaybackCoordinator::handleLyricInfo(const QVariantMap &data, int source)
         if (it != m_pendingDownloads.end()) {
             QVariantMap meta = it.value();
             m_pendingDownloads.erase(it);
-            meta.insert(QStringLiteral("lyrics"), data.value(QStringLiteral("info")));
-            meta.insert(QStringLiteral("translate"), translate);
-            const QString fileName = meta.value(QStringLiteral("fileName")).toString();
-            emit downloadRequested(meta.value(QStringLiteral("url")).toString(), fileName, meta);
+            meta.insert("lyrics", data.value("info"));
+            meta.insert("translate", translate);
+            const QString fileName = meta.value("fileName").toString();
+            emit downloadRequested(meta.value("url").toString(), fileName, meta);
             emit warned(QStringLiteral("已添加下载: ") + fileName, 1);
         }
     }
@@ -340,11 +332,11 @@ void PlaybackCoordinator::readLocalLyricsAsync(const QString &filePath, const QS
                 if (generation != m_localLyricsGeneration)
                     return;
 
-                const QVariantList lyrics = result.value(QStringLiteral("lyrics")).toList();
-                if (result.value(QStringLiteral("found")).toBool() && !lyrics.isEmpty()) {
+                const QVariantList lyrics = result.value("lyrics").toList();
+                if (result.value("found").toBool() && !lyrics.isEmpty()) {
                     emit localLyricsReady(filePath, lyrics,
-                                          result.value(QStringLiteral("translate")).toList());
-                    if (result.value(QStringLiteral("source")).toString()
+                                          result.value("translate").toList());
+                    if (result.value("source").toString()
                         == QLatin1String("embedded-sylt")) {
                         findLocalLyrics(filePath, title, artist, duration);
                     }

@@ -98,8 +98,8 @@ Item {
         width: parent.width - 48
         z: 10
         Text {
-            x: 24
-            y: 24
+            x: 0
+            y: 0
             height: 40
             anchors.verticalCenter: parent.verticalCenter
             text: "下载管理"

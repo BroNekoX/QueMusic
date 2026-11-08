@@ -135,16 +135,6 @@ file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPE
 file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
-# 模块内全部 QML/JS；qmltc 跳过清单须在 qt6_add_qml_module() 解析参数前备好，故先统一为变量
-set(QUE_MUSIC_QML_FILES
-    main.qml
-    SettingsView.qml
-    api/qrcode.js
-    ${LAYOUT_QML}
-    ${LYRICS_UI_QML}
-    ${PAGE_QML}
-    ${QML_COMPONENTS}
-    )
 
 # qmltc 白名单 / 跳过清单（QUEMUSIC_ENABLE_QMLTC=ON 且布局满足条件时才真正启用）
 set(QUE_MUSIC_QMLTC_ACTIVE FALSE)
@@ -157,19 +147,18 @@ endif()
 if(QUE_MUSIC_QMLTC_ACTIVE)
     list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS ENABLE_TYPE_COMPILER)
 endif()
-# Qt 6.12 新增的「AOT 查找签名运行期校验」会让 qmlcachegen 在部分 JS 代码上崩溃
-# （QQmlJSLookupSignaturesRecorder::cantDesync 空指针；本项目 pages/FilePage.qml 命中）。
-# 这是 Qt 编译器的缺陷，关掉校验即可，字节码与 AOT 编译仍然照常进行。
-if(Qt6_VERSION VERSION_GREATER_EQUAL 6.12)
-    list(APPEND QUE_MUSIC_QML_MODULE_OPTIONS NO_GENERATE_AOT_VALIDATION)
-endif()
 
 qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
     URI QueMusic
     VERSION 1.0
     ${QUE_MUSIC_QML_MODULE_OPTIONS}
     QML_FILES
-        ${QUE_MUSIC_QML_FILES}
+        main.qml
+        api/qrcode.js
+        ${LAYOUT_QML}
+        ${LYRICS_UI_QML}
+        ${PAGE_QML}
+        ${QML_COMPONENTS}
 
     RESOURCES
         resources/window-bar/close.svg resources/window-bar/closed.svg
@@ -300,6 +289,10 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         api/platform/BilibiliApi.h
         api/platform/QQMusicApi.cpp
         api/platform/QQMusicApi.h
+        api/platform/SpotifyApi.cpp
+        api/platform/SpotifyApi.h
+        api/platform/AppleMusicApi.cpp
+        api/platform/AppleMusicApi.h
 )
 
 qt6_add_shaders(${PROJECT_NAME} "effectshaders"
@@ -402,7 +395,7 @@ endif()
 
 
 
-# ds大肥鱼喵
+# ds大肥鱼生成喵，没啥用
 # ---------------------------------------------------------------------------
 # 安装规则（Linux 打包：Flatpak / AUR / AppImage 共用）
 #

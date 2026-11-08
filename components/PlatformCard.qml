@@ -11,11 +11,14 @@ Rectangle {
     property color chooseColor1: Theme.containColor
     property bool choose: false
     property bool isLogin: false
+    property bool locked: false
     property bool showLogin: true
+    property string loginText: "扫码登录"
     property string name: ""
     property string header: ""
     property string idleText: "未绑定账户"
     property string text: "Music"
+    opacity: enabled ? 1 : 0.55
     color: choose ? chooseColor1 : Theme.secondaryColor
     border.color: choose ? chooseColor : Theme.sideColor
     signal clicked()
@@ -32,13 +35,14 @@ Rectangle {
     MouseArea {
         id: area
         anchors.fill: parent
+        enabled: root.enabled
         hoverEnabled: true
         onClicked: root.clicked()
         QButton {
             x: root.width - width - 16
             y: 80
-            visible: root.showLogin
-            text: root.isLogin ? "退出登录" : "扫码登录"
+            visible: root.showLogin && root.enabled
+            text: root.isLogin ? "退出登录" : root.loginText
             height: 32
             radius: 16
             shadowEnabled: false
@@ -96,7 +100,7 @@ Rectangle {
         border.color: root.chooseColor1
         Text {
             anchors.centerIn: parent
-            text: root.choose ? "当前主平台" : "选择此平台"
+            text: root.choose ? "当前主平台" : root.locked ? "需要登录" : root.enabled ? "选择此平台" : "即将支持"
             font.bold: true
             font.pixelSize: Style.textTip
             color: root.choose ? Theme.secondaryColor : root.chooseColor

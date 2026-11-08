@@ -164,38 +164,35 @@ Rectangle {
         clip: false
         width: 300
         height: 50
-        Item {
-            id: musicpic
+
+        // 封面
+        MultiEffect {
             z: 5
             width: 50
             height: 50
             clip: false
             x: 24
-            property int radius: 12
-            Image {
-                id: sourcepic
-                anchors.fill: musicpic
+            source: Image {
+                width: 50
+                height: 50
                 fillMode: Image.PreserveAspectCrop
                 visible: false
+                cache: Config.picCache
                 source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
                 sourceSize: Qt.size(64, 64)
             }
+            maskEnabled: true
+            maskSource: maskpic
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
             Rectangle {
                 id: maskpic
-                anchors.fill: musicpic
-                color: "#ff000000"
-                radius: musicpic.radius
+                width: 50
+                height: 50
+                color: "#000000"
+                radius: 12
                 layer.enabled: true
                 visible: false
-            }
-            MultiEffect {
-                z: 1
-                anchors.fill: musicpic
-                source: sourcepic
-                maskEnabled: true
-                maskSource: maskpic
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
             }
         }
 

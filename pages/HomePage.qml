@@ -49,7 +49,7 @@ Item {
         Options.warned("已加入播放列表", 1)
     }
 
-    // 每日推荐：数据走私人雷达
+    // 每日推荐
     function openDaily(): void {
         MusicApi.personalRadar.clear()
         MusicApi.getPersonalRadar(1, 20, MusicApi.songSource)
@@ -57,7 +57,7 @@ Item {
         Options.exitIndex = 1
     }
 
-    // 分类歌单：index 是 getHotlistMenu 下标，歌单漫游卡与窗口 tabbar 共用
+    // 分类歌单
     function openCategory(index: int): void {
         const menu = MusicApi.getHotlistMenu
         if (index < 0 || index >= menu.count) {

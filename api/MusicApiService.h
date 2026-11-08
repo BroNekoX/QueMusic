@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 QueMusic Contributors
-//
-// QML 单例 MusicApi：只做门面、请求生命周期和宿主状态。
-// 平台差异在 MusicSource，结果映射在 ApiResultRouter，播放链在 PlaybackCoordinator。
 
 #ifndef MUSICAPISERVICE_H
 #define MUSICAPISERVICE_H
@@ -30,8 +27,10 @@ class BilibiliApi;
 class KugouApi;
 class LocalMedia;
 class NeteaseCloudApi;
+class AppleMusicApi;
 class PlaybackCoordinator;
 class QQMusicApi;
+class SpotifyApi;
 class QualityHashCache;
 class QQmlEngine;
 class QJSEngine;
@@ -151,7 +150,6 @@ public:
     QString downloadPath() const { return m_downloader.downloadPath(); }
     void setDownloadPath(const QString &path) { m_downloader.setDownloadPath(path); }
 
-    // ---- 在线接口（QML 可见，签名保持不变） ----
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);
     Q_INVOKABLE void getPlaylistMenu(int type, int source = -1);
@@ -181,12 +179,9 @@ public:
     Q_INVOKABLE void getComments(const QString &hash, int page = 1, int pageSize = 30,
                                  int source = -1);
 
-    // 播放/下载便捷入口：内部按当前音质挑 hash、按条目自带 source 选平台，
-    // QML 不再重复写三段 if。
     Q_INVOKABLE bool playSong(const QVariantMap &song, int source = -1);
     Q_INVOKABLE bool downloadSong(const QVariantMap &song, int source = -1);
 
-    // ---- 本地媒体（QML 可见，签名保持不变） ----
     Q_INVOKABLE void setLocalLyrics();
     Q_INVOKABLE void readLocalMetadataAsync(const QString &filePath);
     Q_INVOKABLE QString readLocalCoverHint(const QString &filePath);
@@ -266,6 +261,8 @@ private:
     std::unique_ptr<NeteaseCloudApi> m_netease;
     std::unique_ptr<BilibiliApi> m_bilibili;
     std::unique_ptr<QQMusicApi> m_qq;
+    std::unique_ptr<SpotifyApi> m_spotify;
+    std::unique_ptr<AppleMusicApi> m_apple;
     std::unique_ptr<ScriptSourceHost> m_scripts;
     std::unique_ptr<QualityHashCache> m_qualityCache;
     std::unique_ptr<LocalMedia> m_localMedia;

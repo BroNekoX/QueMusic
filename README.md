@@ -117,7 +117,7 @@ QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的�
 
 在线媒体层是一套「多平台同构」的统一接入层，QML 侧完全感知不到平台差异：
 
-- **平台实现** — `platform/NeteaseCloudApi`（基于 QCloudMusicApi + Crypto++）、`KugouApi`、`BilibiliApi`、`QQMusicApi` 暴露完全相同的一组动作签名，并统一回传 `resultReady(action, data, source)` 信号；Spotify / Apple Music 的 source id 已预留。
+- **平台实现** — `platform/NeteaseCloudApi`（基于 QCloudMusicApi + Crypto++）、`KugouApi`、`BilibiliApi`、`QQMusicApi`、`SpotifyApi`、`AppleMusicApi` 暴露完全相同的一组动作签名，并统一回传 `resultReady(action, data, source)` 信号。Spotify / Apple Music 必须登录后才能切换，设置页提供浏览器 Cookie 登录；两者播放均为 30 秒试听。
 - **统一字段层** — `ApiCommon` 把各平台五花八门的返回结构归一到同一套字段（`title` / `artist` / `cover` / `hash` / `hashhq` / `hashsq` / `paytype` / `duration` / `album` / `playcount`），列表模型直接消费，无需在 QML 里写平台分支。
 - **调度中枢** — `MusicApiService`（QML 单例 `MusicApi`）按 `source` 分派请求、处理音质选择与降级（标准 128k / 高清 320k / 无损 FLAC，高档缺失时自动回退），并把结果灌入 `OnlineListModel`。
 - **配套模块** — `AccountManager` 管理登录态与二维码登录（内置二维码生成）、`DownloadManager` 负责多任务下载与重试、`CoverHelper` 负责封面抓取与磁盘缓存、`ColorExtractor` 从封面提取主色驱动自适应主题。
@@ -203,7 +203,7 @@ clone 时忘了带子模块就补一句 `git submodule update --init --recursive
 QueMusic/
 ├── main.cpp / main.qml       入口
 ├── cpp/                      C++ 后端：音频引擎、曲库、下载、账号、日志
-├── api/                      在线音源框架：酷狗 / 网易云 / B站 / QQ音乐 + JS 音源插件
+├── api/                      在线音源框架：酷狗 / 网易云 / B站 / QQ音乐 / Spotify / Apple Music + JS 音源插件
 ├── components/               自研 QML 组件
 ├── layout/  pages/  centers/ 布局、普通页面、沉浸播放页
 ├── lyricsui/  shaders/       歌词界面、GLSL 着色器

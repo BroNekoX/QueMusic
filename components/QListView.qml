@@ -516,7 +516,7 @@ ListView {
         }
     }
 
-    // 图片遮罩
+    // 共享图片背景遮罩
     Rectangle {
         id: mask
         width: 44

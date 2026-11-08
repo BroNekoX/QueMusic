@@ -4,6 +4,7 @@
 #ifndef APICOMMON_H
 #define APICOMMON_H
 
+#include <QJsonObject>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -12,16 +13,16 @@
 
 namespace ApiCommon {
 
-inline const QString kTitle = QStringLiteral("title");
-inline const QString kArtist = QStringLiteral("artist");
-inline const QString kCover = QStringLiteral("cover");
-inline const QString kHash = QStringLiteral("hash");
-inline const QString kHashHq = QStringLiteral("hashhq");
-inline const QString kHashSq = QStringLiteral("hashsq");
-inline const QString kPaytype = QStringLiteral("paytype");
-inline const QString kDuration = QStringLiteral("duration");
-inline const QString kAlbum = QStringLiteral("album");
-inline const QString kPlaycount = QStringLiteral("playcount");
+inline const QString kTitle = "title";
+inline const QString kArtist = "artist";
+inline const QString kCover = "cover";
+inline const QString kHash = "hash";
+inline const QString kHashHq = "hashhq";
+inline const QString kHashSq = "hashsq";
+inline const QString kPaytype = "paytype";
+inline const QString kDuration = "duration";
+inline const QString kAlbum = "album";
+inline const QString kPlaycount = "playcount";
 
 inline constexpr int kPaytypeFree = 0;
 inline constexpr int kPaytypePaid = 3;
@@ -31,44 +32,36 @@ inline QVariantMap song(QString title, QString artist, QString cover, QString ha
                         QString hashhq = QString(), QString hashsq = QString(),
                         int paytype = 0, qint64 playcount = 0)
 {
-    if (hashhq.isEmpty())
-        hashhq = hash;
-    if (hashsq.isEmpty())
-        hashsq = hash;
-    return {
-        {kTitle, std::move(title)},
-        {kArtist, std::move(artist)},
-        {kCover, std::move(cover)},
-        {kHash, std::move(hash)},
-        {kHashHq, std::move(hashhq)},
-        {kHashSq, std::move(hashsq)},
-        {kPaytype, paytype},
-        {kDuration, duration},
-        {kAlbum, std::move(album)},
-        {kPlaycount, playcount}
-    };
+    hashhq = hashhq.isEmpty() ? hash : hashhq;
+    hashsq = hashsq.isEmpty() ? hash : hashsq;
+    return {{kTitle, std::move(title)}, {kArtist, std::move(artist)}, {kCover, std::move(cover)}, {kHash, std::move(hash)},
+            {kHashHq, std::move(hashhq)}, {kHashSq, std::move(hashsq)}, {kPaytype, paytype}, {kDuration, duration},
+            {kAlbum, std::move(album)}, {kPlaycount, playcount}};
 }
 
 inline QVariantMap listResult(QVariantList items)
 {
-    return {{QStringLiteral("info"), std::move(items)}};
+    return {{"info", std::move(items)}};
 }
 
-inline QVariantMap comment(QString user, QString avatar, QString content,
-                           qint64 time = 0, int liked = 0, int replies = 0)
+inline QVariantMap listResult(QVariantList items, bool hasMore)
 {
-    return {
-        {QStringLiteral("user"), std::move(user)},
-        {QStringLiteral("avatar"), std::move(avatar)},
-        {QStringLiteral("content"), std::move(content)},
-        {QStringLiteral("time"), time},
-        {QStringLiteral("liked"), liked},
-        {QStringLiteral("replies"), replies}
-    };
+    return {{"info", std::move(items)}, {"hasMore", hasMore}};
 }
 
-// 统一字段归一化：把平台差异字段（name/singer/pic/id）补齐成 QML 使用的
-// 标准字段，并给缺省字段填上稳定类型。所有音源（含脚本插件）共用这一份。
+inline QVariantMap listResult(QVariantList items, const QJsonObject &json)
+{
+    QVariantMap result = listResult(std::move(items));
+    if (json.contains("error")) result.insert("error", json.value("error"));
+    return result;
+}
+
+inline QVariantMap comment(QString user, QString avatar, QString content, qint64 time = 0, int liked = 0, int replies = 0)
+{
+    return {{"user", std::move(user)}, {"avatar", std::move(avatar)}, {"content", std::move(content)},
+            {"time", time}, {"liked", liked}, {"replies", replies}};
+}
+
 inline bool hasValue(const QVariantMap &map, const QString &key)
 {
     const QVariant value = map.value(key);
@@ -85,10 +78,10 @@ inline QVariantMap normalizeItem(QVariantMap item)
             item.insert(key, item.value(fallback));
     };
 
-    fill(kTitle, QStringLiteral("name"));
-    fill(kArtist, QStringLiteral("singer"));
-    fill(kCover, QStringLiteral("pic"));
-    fill(kHash, QStringLiteral("id"));
+    fill(kTitle, "name");
+    fill(kArtist, "singer");
+    fill(kCover, "pic");
+    fill(kHash, "id");
 
     if (!hasValue(item, kTitle))     item.insert(kTitle, QString());
     if (!hasValue(item, kArtist))    item.insert(kArtist, QString());

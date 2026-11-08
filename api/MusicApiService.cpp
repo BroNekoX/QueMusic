@@ -12,6 +12,8 @@
 #include "LyricTimeline.h"
 #include "platform/NeteaseCloudApi.h"
 #include "platform/QQMusicApi.h"
+#include "platform/SpotifyApi.h"
+#include "platform/AppleMusicApi.h"
 #include "PlaybackCoordinator.h"
 #include "QualityHashCache.h"
 #include "SelfCheck.h"
@@ -39,7 +41,7 @@ constexpr int kLyricTickMs = 320;
 QString appConfigPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
-           + QStringLiteral("/BroNekoX");
+           + "/BroNekoX";
 }
 } // namespace
 
@@ -81,6 +83,8 @@ MusicApiService::MusicApiService(QObject *parent)
     m_netease = std::make_unique<NeteaseCloudApi>(this);
     m_bilibili = std::make_unique<BilibiliApi>(this);
     m_qq = std::make_unique<QQMusicApi>(this);
+    m_spotify = std::make_unique<SpotifyApi>(this);
+    m_apple = std::make_unique<AppleMusicApi>(this);
     m_scripts = std::make_unique<ScriptSourceHost>(this);
 
     OnlineModels models;
@@ -106,11 +110,15 @@ MusicApiService::MusicApiService(QObject *parent)
     m_registry.map(ApiSource::Netease, m_netease.get());
     m_registry.map(ApiSource::Bilibili, m_bilibili.get());
     m_registry.map(ApiSource::QQMusic, m_qq.get());
+    m_registry.map(ApiSource::Spotify, m_spotify.get());
+    m_registry.map(ApiSource::AppleMusic, m_apple.get());
 
     connect(m_kugou.get(), &KugouApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_netease.get(), &NeteaseCloudApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_bilibili.get(), &BilibiliApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_qq.get(), &QQMusicApi::resultReady, this, &MusicApiService::handleResult);
+    connect(m_spotify.get(), &SpotifyApi::resultReady, this, &MusicApiService::handleResult);
+    connect(m_apple.get(), &AppleMusicApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_scripts.get(), &ScriptSourceHost::resultReady, this, &MusicApiService::handleResult);
     connect(m_scripts.get(), &ScriptSourceHost::pluginsChanged, this,
             &MusicApiService::rebuildSources);
@@ -165,14 +173,14 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(this, &MusicApiService::songFilterChanged, this,
             [this] { m_router->setSongFilter(m_songFilter); });
 
-    const QString sourcesDir = appConfigPath() + QStringLiteral("/QueMusic/sources");
+    const QString sourcesDir = appConfigPath() + "/QueMusic/sources";
     QDir().mkpath(sourcesDir);
     m_scripts->setPluginDir(sourcesDir);
     rebuildSources();
     m_scripts->reload();
 
-    QSettings options(appConfigPath() + QStringLiteral("/QueMusic.ini"), QSettings::IniFormat);
-    m_soundQuality = options.value(QStringLiteral("Options/soundQuality"), 1).toInt();
+    QSettings options(appConfigPath() + "/QueMusic.ini", QSettings::IniFormat);
+    m_soundQuality = options.value("Options/soundQuality", 1).toInt();
     refreshCredentials();
 
     m_requestWatchdog.setSingleShot(true);
@@ -211,6 +219,13 @@ void MusicApiService::setAccountManager(AccountManager *am)
                 &MusicApiService::refreshAccountState);
         connect(m_account, &AccountManager::kugouLoginChanged, this,
                 &MusicApiService::refreshAccountState);
+        connect(m_account, &AccountManager::spotifyLoginChanged, this, [this] {
+            refreshCredentials();
+            if (!m_account->isSpotifyLoggedIn() && m_source == ApiSource::Spotify) setSongSource(ApiSource::Kugou);
+        });
+        connect(m_account, &AccountManager::appleLoginChanged, this, [this] {
+            if (!m_account->isAppleLoggedIn() && m_source == ApiSource::AppleMusic) setSongSource(ApiSource::Kugou);
+        });
     }
     refreshAccountState();
 }
@@ -240,6 +255,13 @@ void MusicApiService::refreshCredentials()
         netease.loggedIn = m_account->isNeteaseLoggedIn();
         netease.quality = m_soundQuality;
         m_credentials.insert(ApiSource::Netease, netease);
+
+        SourceCredentials spotify;
+        spotify.cookie = m_account->spotifyCookie();
+        spotify.accessToken = m_account->spotifyAccessToken();
+        spotify.loggedIn = m_account->isSpotifyLoggedIn();
+        spotify.quality = m_soundQuality;
+        m_credentials.insert(ApiSource::Spotify, spotify);
     }
 
     SourceCredentials fallback;
@@ -257,26 +279,34 @@ void MusicApiService::refreshCredentials()
 
 void MusicApiService::setSongSource(int source)
 {
+    if (source == ApiSource::Spotify && (!m_account || !m_account->isSpotifyLoggedIn())) {
+        emit warned("请先登录 Spotify", 2);
+        return;
+    }
+    if (source == ApiSource::AppleMusic && (!m_account || !m_account->isAppleLoggedIn())) {
+        emit warned("请先登录 Apple Music", 2);
+        return;
+    }
     if (source < ApiSource::PluginBase && !m_registry.contains(source)) {
         qWarning() << "[api] 无效音源，回退酷狗:" << source;
         source = ApiSource::Kugou;
     }
-    if (m_source == source)
-        return;
-    m_source = source;
-    if (m_playback)
-        m_playback->setDefaultSource(source);
-    emit songSourceChanged();
+    if (m_source != source) {
+        m_source = source;
+        if (m_playback)
+            m_playback->setDefaultSource(source);
+        emit songSourceChanged();
+    }
 }
 
 void MusicApiService::setSoundQuality(int quality)
 {
     const int bounded = qBound(0, quality, 3);
-    if (m_soundQuality == bounded)
-        return;
-    m_soundQuality = bounded;
-    refreshCredentials();
-    emit soundQualityChanged();
+    if (m_soundQuality != bounded) {
+        m_soundQuality = bounded;
+        refreshCredentials();
+        emit soundQualityChanged();
+    }
 }
 
 int MusicApiService::resolveSource(int source) const
@@ -286,9 +316,7 @@ int MusicApiService::resolveSource(int source) const
 
 int MusicApiService::sourceIdAt(int index) const
 {
-    if (index < 0 || index >= m_sourceIds.size())
-        return m_source;
-    return m_sourceIds.at(index).toInt();
+    return index >= 0 && index < m_sourceIds.size() ? m_sourceIds.at(index).toInt() : m_source;
 }
 
 QString MusicApiService::sourceNameOf(int source) const
@@ -316,20 +344,15 @@ void MusicApiService::rebuildSources()
 {
     rebuildPluginMappings();
 
-    QVariantList list{
-        QVariantMap{{QStringLiteral("id"), ApiSource::Kugou},
-                    {QStringLiteral("name"), QStringLiteral("酷狗音乐")},
-                    {QStringLiteral("plugin"), false}},
-        QVariantMap{{QStringLiteral("id"), ApiSource::Netease},
-                    {QStringLiteral("name"), QStringLiteral("网易云音乐")},
-                    {QStringLiteral("plugin"), false}},
-        QVariantMap{{QStringLiteral("id"), ApiSource::Bilibili},
-                    {QStringLiteral("name"), QStringLiteral("哔哩哔哩")},
-                    {QStringLiteral("plugin"), false}},
-        QVariantMap{{QStringLiteral("id"), ApiSource::QQMusic},
-                    {QStringLiteral("name"), QStringLiteral("QQ音乐")},
-                    {QStringLiteral("plugin"), false}}
+    auto builtin = [](int id, const QString &name) {
+        return QVariantMap{{"id", id}, {"name", name}, {"plugin", false}};
     };
+    QVariantList list{builtin(ApiSource::Kugou, QStringLiteral("酷狗音乐")),
+                      builtin(ApiSource::Netease, QStringLiteral("网易云音乐")),
+                      builtin(ApiSource::Bilibili, QStringLiteral("哔哩哔哩")),
+                      builtin(ApiSource::QQMusic, QStringLiteral("QQ音乐")),
+                      builtin(ApiSource::Spotify, "Spotify"),
+                      builtin(ApiSource::AppleMusic, "Apple Music")};
     list += m_scripts->plugins();
 
     m_sourceList = list;
@@ -339,8 +362,8 @@ void MusicApiService::rebuildSources()
     m_sourceIds.reserve(list.size());
     for (const QVariant &entry : list) {
         const QVariantMap info = entry.toMap();
-        m_sourceNames.append(info.value(QStringLiteral("name")).toString());
-        m_sourceIds.append(info.value(QStringLiteral("id")).toInt());
+        m_sourceNames.append(info.value("name").toString());
+        m_sourceIds.append(info.value("id").toInt());
     }
 
     refreshCredentials();
@@ -356,9 +379,8 @@ void MusicApiService::rebuildPluginMappings()
     const QVariantList plugins = m_scripts->plugins();
     m_pluginSourceIds.reserve(plugins.size());
     for (const QVariant &entry : plugins) {
-        const int id = entry.toMap().value(QStringLiteral("id")).toInt();
-        if (id <= 0)
-            continue;
+        const int id = entry.toMap().value("id").toInt();
+        if (id <= 0) continue;
         m_registry.map(id, m_scripts.get());
         m_pluginSourceIds.append(id);
     }
@@ -384,8 +406,7 @@ void MusicApiService::sendResolved(const QString &action, const QVariantMap &arg
     MusicSource *provider = m_registry.source(resolvedSource);
     if (!provider) {
         qWarning() << "[api] 音源不可用:" << resolvedSource << "action:" << action;
-        if (tracked)
-            endRequest(action);
+        if (tracked) endRequest(action);
         return;
     }
 
@@ -395,12 +416,7 @@ void MusicApiService::sendResolved(const QString &action, const QVariantMap &arg
 void MusicApiService::searchSongs(const QString &keyword, int type, int page, int pageSize,
                                   int source)
 {
-    send(ApiAction::SearchSongs,
-         QVariantMap{{ApiArg::Keyword, keyword},
-                     {ApiArg::Type, type},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::SearchSongs, {{ApiArg::Keyword, keyword}, {ApiArg::Type, type}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getPlaylistMenu(int type, int source)
@@ -412,35 +428,22 @@ void MusicApiService::getPlaylistMenu(int type, int source)
 
 void MusicApiService::getMusicPlaylists(const QString &tagid, int page, int pageSize, int source)
 {
-    send(ApiAction::MusicPlaylists,
-         QVariantMap{{ApiArg::TagId, tagid},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::MusicPlaylists, {{ApiArg::TagId, tagid}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getCategoryPlaylists(const QString &id, int page, int pageSize, int source)
 {
-    send(ApiAction::CategoryPlaylists,
-         QVariantMap{{ApiArg::Id, id},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::CategoryPlaylists, {{ApiArg::Id, id}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getPlaylistSongs(const QString &listid, int page, int pageSize, int source)
 {
-    send(ApiAction::PlaylistSongs,
-         QVariantMap{{ApiArg::ListId, listid},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::PlaylistSongs, {{ApiArg::ListId, listid}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getRecommendSongs(int page, int pageSize, int source)
 {
-    send(ApiAction::RecommendSongs,
-         QVariantMap{{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+    send(ApiAction::RecommendSongs, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getHotPlaylistMenu(int type, int source)
@@ -450,17 +453,12 @@ void MusicApiService::getHotPlaylistMenu(int type, int source)
 
 void MusicApiService::getHotPlaylists(int page, int pageSize, int source)
 {
-    send(ApiAction::HotPlaylists,
-         QVariantMap{{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+    send(ApiAction::HotPlaylists, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getNewSongs(int type, int page, int pageSize, int source)
 {
-    send(ApiAction::NewSongs,
-         QVariantMap{{ApiArg::Type, type},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::NewSongs, {{ApiArg::Type, type}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getAllToplist(int source)
@@ -471,72 +469,44 @@ void MusicApiService::getAllToplist(int source)
 
 void MusicApiService::getMusicToplist(int page, int pageSize, int rankid, int source)
 {
-    send(ApiAction::MusicToplist,
-         QVariantMap{{ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize},
-                     {ApiArg::RankId, rankid}},
-         source);
+    send(ApiAction::MusicToplist, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}, {ApiArg::RankId, rankid}}, source);
 }
 
 void MusicApiService::getHotSingers(int page, int pageSize, int source)
 {
-    send(ApiAction::HotSingers,
-         QVariantMap{{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+    send(ApiAction::HotSingers, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getSingerCategory(int area, int page, int pageSize, int source)
 {
-    send(ApiAction::SingerCategory,
-         QVariantMap{{ApiArg::Area, area},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::SingerCategory, {{ApiArg::Area, area}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getSingerSongs(const QString &singerid, int page, int pageSize, int source)
 {
-    send(ApiAction::SingerSongs,
-         QVariantMap{{ApiArg::SingerId, singerid},
-                     {ApiArg::Page, page},
-                     {ApiArg::PageSize, pageSize}},
-         source);
+    send(ApiAction::SingerSongs, {{ApiArg::SingerId, singerid}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
 {
     const int resolved = resolveSource(source);
-    const QString playHash = resolved == ApiSource::Kugou
-                                 ? m_qualityCache->resolve(hash, m_soundQuality)
-                                 : hash;
+    const QString playHash = resolved == ApiSource::Kugou ? m_qualityCache->resolve(hash, m_soundQuality) : hash;
 
-    if (type == 0)
-        m_playback->beginPlay(playHash, resolved);
+    if (type == 0) m_playback->beginPlay(playHash, resolved);
 
-    sendResolved(ApiAction::MusicInfo,
-                 QVariantMap{{ApiArg::Hash, playHash},
-                             {ApiArg::Id, playHash},
-                             {ApiArg::Type, type}},
-                 resolved, type != 2);
+    sendResolved(ApiAction::MusicInfo, {{ApiArg::Hash, playHash}, {ApiArg::Id, playHash}, {ApiArg::Type, type}}, resolved, type != 2);
 }
 
 void MusicApiService::prefetchMusicInfo(const QString &hash, int source)
 {
-    if (hash.isEmpty())
-        return;
+    if (hash.isEmpty()) return;
 
     const int resolved = resolveSource(source);
     MusicSource *provider = m_registry.source(resolved);
-    if (!provider || provider->isPlugin())
-        return;
+    if (!provider || provider->isPlugin()) return;
 
-    const QString playHash = resolved == ApiSource::Kugou
-                                 ? m_qualityCache->resolve(hash, m_soundQuality)
-                                 : hash;
-    sendResolved(ApiAction::MusicInfo,
-                 QVariantMap{{ApiArg::Hash, playHash},
-                             {ApiArg::Id, playHash},
-                             {ApiArg::Type, 2}},
-                 resolved, false);
+    const QString playHash = resolved == ApiSource::Kugou ? m_qualityCache->resolve(hash, m_soundQuality) : hash;
+    sendResolved(ApiAction::MusicInfo, {{ApiArg::Hash, playHash}, {ApiArg::Id, playHash}, {ApiArg::Type, 2}}, resolved, false);
 }
 
 void MusicApiService::invalidatePlayRequest()
@@ -546,88 +516,61 @@ void MusicApiService::invalidatePlayRequest()
 
 void MusicApiService::getLyricInfo(const QString &hash, int duration, int source)
 {
-    send(ApiAction::LyricInfo,
-         QVariantMap{{ApiArg::Hash, hash}, {ApiArg::Duration, duration}}, source, false);
+    send(ApiAction::LyricInfo, {{ApiArg::Hash, hash}, {ApiArg::Duration, duration}}, source, false);
 }
 
 void MusicApiService::getPersonalFm(int page, int pageSize, int source)
 {
-    send(ApiAction::PersonalFm,
-         QVariantMap{{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+    send(ApiAction::PersonalFm, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getPersonalRadar(int page, int pageSize, int source)
 {
-    send(ApiAction::PersonalRadar,
-         QVariantMap{{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+    send(ApiAction::PersonalRadar, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getComments(const QString &hash, int page, int pageSize, int source)
 {
-    if (hash.isEmpty())
-        return;
-    send(ApiAction::Comments,
-         QVariantMap{{ApiArg::Hash, hash},
-                     {ApiArg::Page, qMax(1, page)},
-                     {ApiArg::PageSize, qBound(1, pageSize, 50)}},
-         source);
+    if (hash.isEmpty()) return;
+    send(ApiAction::Comments, {{ApiArg::Hash, hash}, {ApiArg::Page, qMax(1, page)}, {ApiArg::PageSize, qBound(1, pageSize, 50)}}, source);
 }
 
 QString MusicApiService::qualityHashFor(const QVariantMap &song) const
 {
     QString base = song.value(ApiCommon::kHash).toString();
-    if (base.isEmpty())
-        base = song.value(QStringLiteral("favId")).toString();
-    if (base.isEmpty())
-        base = song.value(QStringLiteral("id")).toString();
-    if (base.isEmpty())
-        return QString();
-
+    if (base.isEmpty()) base = song.value("favId").toString();
+    if (base.isEmpty()) base = song.value("id").toString();
     if (m_soundQuality >= 2) {
         const QString sq = song.value(ApiCommon::kHashSq).toString();
-        if (!sq.isEmpty())
-            return sq;
-    } else if (m_soundQuality == 1) {
+        return sq.isEmpty() ? base : sq;
+    }
+    if (m_soundQuality == 1) {
         const QString hq = song.value(ApiCommon::kHashHq).toString();
-        if (!hq.isEmpty())
-            return hq;
+        return hq.isEmpty() ? base : hq;
     }
     return base;
 }
 
 bool MusicApiService::playSong(const QVariantMap &song, int source)
 {
-    int resolved = source;
-    if (resolved < 0) {
-        const QVariant itemSource = song.value(QStringLiteral("source"));
-        resolved = itemSource.isValid() ? itemSource.toInt() : m_source;
-    }
+    const QVariant itemSource = song.value("source");
+    int resolved = source >= 0 ? source : itemSource.isValid() ? itemSource.toInt() : m_source;
     if (resolved < 0) resolved = m_source;
-    if (!m_registry.contains(resolved))
-        return false;
 
     const QString hash = qualityHashFor(song);
-    if (hash.isEmpty())
-        return false;
+    if (hash.isEmpty() || !m_registry.contains(resolved)) return false;
     getMusicInfo(hash, 0, resolved);
     return true;
 }
 
 bool MusicApiService::downloadSong(const QVariantMap &song, int source)
 {
-    int resolved = source;
-    if (resolved < 0) {
-        const QVariant itemSource = song.value(QStringLiteral("source"));
-        resolved = itemSource.isValid() ? itemSource.toInt() : m_source;
-    }
-    if (resolved < 0)
-        resolved = m_source;
-    if (!m_registry.contains(resolved))
-        return false;
+    const QVariant itemSource = song.value("source");
+    int resolved = source >= 0 ? source : itemSource.isValid() ? itemSource.toInt() : m_source;
+    if (resolved < 0) resolved = m_source;
 
     const QString hash = qualityHashFor(song);
-    if (hash.isEmpty())
-        return false;
+    if (hash.isEmpty() || !m_registry.contains(resolved)) return false;
     getMusicInfo(hash, 1, resolved);
     return true;
 }
@@ -640,10 +583,12 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
     if (!prefetch)
         endRequest(action);
 
-    if (message.contains(QStringLiteral("error"))) {
+    if (message.contains("error")) {
         qWarning() << "[api] 请求失败:" << action
-                   << "error:" << message.value(QStringLiteral("error")).toInt()
+                   << "error:" << message.value("error").toInt()
                    << "source:" << source;
+        const QString text = message.value("message").toString();
+        if (!text.isEmpty()) emit warned(text, 2);
     }
 
     if (!m_router->route(action, data, source))
@@ -652,8 +597,8 @@ void MusicApiService::handleResult(const QString &action, const QVariant &data, 
 
 void MusicApiService::setLocalLyrics()
 {
-    setLyricsData({QVariantMap{{QStringLiteral("time"), 0},
-                               {QStringLiteral("text"), QStringLiteral("纯音乐，请欣赏")}}});
+    setLyricsData({QVariantMap{{"time", 0},
+                               {"text", QStringLiteral("纯音乐，请欣赏")}}});
     setLyricsTranslate({});
 }
 
@@ -718,7 +663,7 @@ void MusicApiService::rebuildLyricTimes(const QVariantList &list)
     m_lyricTimes.clear();
     m_lyricTimes.reserve(list.size());
     for (const QVariant &item : list)
-        m_lyricTimes.append(item.toMap().value(QStringLiteral("time")).toLongLong());
+        m_lyricTimes.append(item.toMap().value("time").toLongLong());
 }
 
 void MusicApiService::setLyricIndex(int index)

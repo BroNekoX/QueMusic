@@ -15,7 +15,7 @@ MusicApiService              薄门面：QML 属性/信号、加载态、歌词�
 MusicSourceRegistry           source id -> MusicSource*
    │
    ├── platform/KugouApi / NeteaseCloudApi / BilibiliApi / QQMusicApi
-   │                                              （内置平台）
+   │   / SpotifyApi / AppleMusicApi               （内置平台）
    └── ScriptSourceHost                           （JS 音源宿主，独立工作线程）
           │  emit resultReady(action, data, source)
           ▼
@@ -44,7 +44,7 @@ ApiResultRouter              action -> OnlineListModel / 歌词 / 播放链路
 | `ApiCommon.h` | 统一字段、`song()/listResult()/comment()`、结果归一化 |
 | `ApiHttp.h` | GET / JSON POST helper（UA/Referer/Cookie/超时） |
 | `OnlineListModel.{h,cpp}` | 列式 `QAbstractListModel`，提供 `get/clear/append/remove` |
-| `platform/KugouApi.*` / `NeteaseCloudApi.*` / `BilibiliApi.*` / `QQMusicApi.*` | 平台实现 |
+| `platform/KugouApi.*` / `NeteaseCloudApi.*` / `BilibiliApi.*` / `QQMusicApi.*` / `SpotifyApi.*` / `AppleMusicApi.*` | 平台实现 |
 | `sources/ScriptSourceHost.*` | JS 音源宿主（QJSEngine + 独立线程） |
 
 ## Action 协议
@@ -83,8 +83,8 @@ emit resultReady(action, data, sourceId);
 
 ## 新增一个平台
 
-1. 在 `ApiSource` 分配固定 source id：当前酷狗 0、网易云 1、B站 2、QQ 3；
-   Spotify 4、Apple Music 5 已预留。脚本音源从 100 开始，不能占用内置编号。
+1. 在 `ApiSource` 分配固定 source id：酷狗 0、网易云 1、B站 2、QQ 3、
+   Spotify 4、Apple Music 5。脚本音源从 100 开始，不能占用内置编号。
 2. 新建 `api/platform/XxxApi : public MusicSource`，override `sourceName()`、
    `applyCredentials()` 和需要的 `onXxx()`。
 3. 在 `MusicApiService` 构造函数里创建、映射进 `m_registry`、连接
@@ -133,11 +133,15 @@ function lyrics(t)     { /* -> {info:[{time,text,info?}], translate:[]} */ }
 | 1 | 网易云音乐 | `platform/NeteaseCloudApi` | QCloudMusicApi worker |
 | 2 | 哔哩哔哩 | `platform/BilibiliApi` | WBI 签名、视频音频流 |
 | 3 | QQ音乐 | `platform/QQMusicApi` | 免登录搜索/歌单/榜单/歌词/评论；VIP 播放仍受账号限制 |
-| 4 | Spotify | 预留 | — |
-| 5 | Apple Music | 预留 | — |
+| 4 | Spotify | `platform/SpotifyApi` | 登录后 Web API：搜索/歌单/歌手/榜单；30 秒试听；无歌词/评论 |
+| 5 | Apple Music | `platform/AppleMusicApi` | 登录后 iTunes/Apple Music 数据：搜索/专辑/歌手/榜单；30 秒试听；无歌词/评论 |
 
 QQ 音乐的接口分散在 `u.y.qq.com`、`c.y.qq.com`、`i.y.qq.com`，
 统一在 `QQMusicApi` 内按 action 解析；没有把平台字段泄漏到路由层。
+Spotify / Apple Music 必须先登录才能切换；设置页打开浏览器登录页，
+回填浏览器 Cookie（Spotify 含 `sp_dc`，Apple Music 含 `media-user-token`）后校验账号。
+登录态保存在本机 `Account.ini`，退出账号会清空并把当前音源切回酷狗。
+两者播放仍是 30 秒试听，完整播放需要平台自己的 OAuth / DRM。
 
 ## 性能相关
 

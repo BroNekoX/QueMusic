@@ -29,18 +29,17 @@ inline void request(QNetworkAccessManager *nam, QObject *context, const QUrl &ur
     networkRequest.setRawHeader("Accept-Encoding", "identity");
     if (operation == QNetworkAccessManager::PostOperation) {
         networkRequest.setHeader(QNetworkRequest::ContentTypeHeader,
-                                 QStringLiteral("application/json;charset=UTF-8"));
+                                 "application/json;charset=UTF-8");
         networkRequest.setRawHeader("Accept", "application/json");
     }
     networkRequest.setTransferTimeout(15000);
+    networkRequest.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     if (!cookie.isEmpty() && url.scheme() == QLatin1String("https"))
         networkRequest.setRawHeader("Cookie", cookie);
     for (const auto &header : extraHeaders)
         networkRequest.setRawHeader(header.first, header.second);
 
-    QNetworkReply *reply = operation == QNetworkAccessManager::PostOperation
-                               ? nam->post(networkRequest, body)
-                               : nam->get(networkRequest);
+    QNetworkReply *reply = operation == QNetworkAccessManager::PostOperation ? nam->post(networkRequest, body) : nam->get(networkRequest);
     QObject::connect(context, &QObject::destroyed, reply, &QNetworkReply::abort);
     QObject::connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
     QObject::connect(reply, &QNetworkReply::finished, context,
@@ -48,8 +47,7 @@ inline void request(QNetworkAccessManager *nam, QObject *context, const QUrl &ur
         const QNetworkReply::NetworkError error = reply->error();
         const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray response = reply->readAll();
-        const bool accepted = error == QNetworkReply::NoError
-                              || (httpStatus >= 200 && httpStatus < 300 && !response.isEmpty());
+        const bool accepted = error == QNetworkReply::NoError || (httpStatus >= 200 && httpStatus < 300 && !response.isEmpty());
         if (!accepted) {
             QUrl clean = reply->url();
             clean.setQuery(QString());
@@ -71,15 +69,15 @@ inline void get(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
 
 inline void getJson(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
                     const QByteArray &userAgent, const QByteArray &referer,
-                    const QByteArray &cookie, std::function<void(const QJsonObject &)> done)
+                    const QByteArray &cookie, std::function<void(const QJsonObject &)> done,
+                    const QList<QPair<QByteArray, QByteArray>> &extraHeaders = {})
 {
     get(nam, context, url, userAgent, referer, cookie,
         [done = std::move(done)](const QByteArray &body, QNetworkReply::NetworkError error) {
             QJsonObject object = QJsonDocument::fromJson(body).object();
-            if (error != QNetworkReply::NoError)
-                object.insert(QStringLiteral("error"), int(error));
+            if (error != QNetworkReply::NoError) object.insert("error", int(error));
             done(object);
-        });
+        }, extraHeaders);
 }
 
 inline void postJson(QNetworkAccessManager *nam, QObject *context, const QUrl &url,
@@ -92,8 +90,7 @@ inline void postJson(QNetworkAccessManager *nam, QObject *context, const QUrl &u
             QNetworkAccessManager::PostOperation, body,
             [done = std::move(done)](const QByteArray &response, QNetworkReply::NetworkError error) {
                 QJsonObject object = QJsonDocument::fromJson(response).object();
-                if (error != QNetworkReply::NoError)
-                    object.insert(QStringLiteral("error"), int(error));
+                if (error != QNetworkReply::NoError) object.insert("error", int(error));
                 done(object);
             },
             extraHeaders);
