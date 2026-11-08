@@ -36,6 +36,9 @@ QtObject {
         // 隐藏前把可见性记忆交给常驻层（托盘恢复时按此恢复最大化/全屏形态）
         SessionController.markHidden(targetWindow)
         targetWindow.hide()
+        // 隐藏后主动释放场景图资源（纹理/几何缓冲）：此路径引擎与窗口都保留，
+        // 不释放则托盘常驻期间一直占着显存/纹理；重新显示时 Qt 会自动重建所需资源
+        targetWindow.releaseResources()
         // 一次性气泡提示（内部记录已提示标志）
         SystemTrayManager.notifyTrayHidden()
     }
