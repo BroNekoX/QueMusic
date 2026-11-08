@@ -5,12 +5,8 @@
 // Copyright (C) 2023-2024 Stdware Collections (https://www.github.com/stdware)
 // Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
 #include <QtWidgets/QApplication>
-#include <QtQml/QQmlApplicationEngine>
-#include <QtQml/QQmlContext>
 #include <QStandardPaths>
-#include <QtQuick/QQuickWindow>
 #include <QCoreApplication>
-#include <QPointer>
 #include <QSettings>
 #include <QDebug>
 #include <QFont>
@@ -22,6 +18,7 @@
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
 #include "cpp/SystemTrayManager.h"
+#include "cpp/resident/EngineHost.h"
 #include "cpp/resident/SessionController.h"
 #include "cpp/resident/SmtcController.h"
 #include "cpp/resident/UpdateChecker.h"
@@ -29,9 +26,6 @@
 #include "DesktopLyricsWindow.h"
 #include "DesktopMiniPlayerWindow.h"
 #include "api/MusicApiService.h"
-#include <QWKQuick/qwkquickglobal.h>
-
-extern void qml_register_types_QueMusic();
 
 // 渲染相关开关必须早于 QApplication
 static void applyRenderOptions(const QString &configPath)
@@ -112,12 +106,8 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
-    QQmlApplicationEngine engine;
-    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型
-    engine.addImportPath(QStringLiteral("qrc:/"));
-
-    LogManager::create(&engine, &engine);   // 日志单例：接管 Qt 消息，写入安装目录/logs
-    AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例
+    LogManager::create(nullptr, nullptr);   // 日志单例：接管 Qt 消息，写入安装目录/logs
+    AccountManager *accountManager = AccountManager::create(nullptr, nullptr);   // 账号单例
 
     // 设置单例（QML 侧名字仍是 Config）：必须先于 MusicApiService/Playback 构造，
     // 它们的初始化与信号联动都依赖它
@@ -135,6 +125,13 @@ int main(int argc, char *argv[])
     // 会话收尾控制器：托盘"退出"与窗口恢复由此接管（原 WindowControls.qml 收尾逻辑）；
     // QML 场景（WindowControls）后续也按单例名 SessionController 直接调 markHidden/quitApp
     SessionController *sessionController = SessionController::create(nullptr, nullptr);
+
+    // 引擎宿主：QML 引擎/主窗口的创建、销毁（轻量模式）与状态机归其管理。
+    // 必须在 SessionController::create 之后（构造函数要接它的 windowHiddenToTray
+    // 信号），且先于 createEngine()（常驻单例须先就位，QML 首次访问才复用同一实例）。
+    // 配置路径存入宿主，createEngine 内 setContextProperty("configDir", ...) 用。
+    EngineHost::create(nullptr, nullptr);
+    EngineHost::instance()->init(configPath);
 
     // 系统托盘：C++ 侧实例化并接线（原 main.qml SystemTrayManager 实例块迁出 QML）
     SystemTrayManager *tray = SystemTrayManager::create(nullptr, nullptr);
@@ -170,37 +167,27 @@ int main(int argc, char *argv[])
     // （QApplication 非 QWidget，无 parent；窗口显隐/关闭由 AppSettings 开关自管）
     new DesktopLyricsWindow(nullptr);
     new DesktopMiniPlayerWindow(nullptr);
-    // 注入 QML 上下文属性（各单例定义见 cpp/AppModels.h）
-    engine.rootContext()->setContextProperty(QStringLiteral("configDir"), configPath);
-
-    QWK::registerTypes(&engine);
-    engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));
-
-    // 主窗口（engine.load 后才存在）：托盘"恢复窗口/退出"需要 QQuickWindow。
-    // 用 QPointer 持有，窗口销毁后自动置空（quitApp/restoreWindow 均判空容错）。
-    const QPointer<QQuickWindow> mainWindow(
-        qobject_cast<QQuickWindow *>(engine.rootObjects().value(0)));
-    if (!mainWindow)
-        qWarning() << "[主窗口] engine.load 后未取得 QQuickWindow，托盘恢复窗口不可用";
-
-    // 托盘菜单"显示主界面" / 左键单击、双击托盘图标 → 恢复主窗口
-    // （原 main.qml onShowWindowRequested/onActivated → win.restoreWindow()）
-    const auto restoreWindow = [sessionController, mainWindow] {
-        sessionController->restoreWindow(mainWindow);
-    };
-    QObject::connect(tray, &SystemTrayManager::showWindowRequested, &application, restoreWindow);
+    // 托盘菜单"显示主界面" / 左键单击、双击托盘图标 → 恢复主界面（统一走
+    // EngineHost::restore：轻量模式下重新装配引擎，Active 时按记忆形态恢复窗口）
+    QObject::connect(tray, &SystemTrayManager::showWindowRequested, &application,
+                     [] { EngineHost::instance()->restore(); });
     QObject::connect(tray, &SystemTrayManager::activated, &application,
-                     [sessionController, mainWindow](
-                         SystemTrayManager::ActivationReason reason) {
+                     [](SystemTrayManager::ActivationReason reason) {
         // 左键单击 / 双击托盘图标：恢复主界面
         if (reason == SystemTrayManager::Trigger || reason == SystemTrayManager::DoubleClick)
-            sessionController->restoreWindow(mainWindow);
+            EngineHost::instance()->restore();
     });
-    // 托盘菜单"退出" → 会话保存 + 退出（原 onQuitRequested → win.quitApp()）
+    // 托盘菜单"退出" → 会话保存 + 退出（原 onQuitRequested → win.quitApp()）；
+    // 主窗口惰性取自 EngineHost（轻量模式下为 null，仅跳过几何保存）
     QObject::connect(tray, &SystemTrayManager::quitRequested, &application,
-                     [sessionController, mainWindow] {
-        sessionController->quitApp(mainWindow);
+                     [sessionController] {
+        sessionController->quitApp(EngineHost::instance()->mainWindow());
     });
+
+    // 装配 QML 引擎并加载主界面（原引擎装配段整体迁入 EngineHost）：
+    // 常驻单例均已就位，窗口由 main.qml Component.onCompleted 自动 show，
+    // 记住窗口开启时按 Config 恢复几何
+    EngineHost::instance()->createEngine();
 
     // 首次运行才写注册表/快捷方式
     QTimer::singleShot(0, &application, [] { WindowsAppIdentity::ensureShellIntegration(); });
