@@ -20,7 +20,6 @@ Window {
     Component.onCompleted: {
         Options.queue = Playback.queue
         Options.dialog = globalDialog
-        Options.desktop = desktopPlayer
         Options.smtc = smtc
         Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
@@ -30,8 +29,6 @@ Window {
         Options.songInfo = songInfo
         Options.favPicker = favPicker
 
-        Options.desktopPlayerLoader = desktopPlayerLoader
-        Options.desktopLyricsLoader = desktopLyricsLoader
         Options.openMaxLyric = openMaxLyric
         Options.settingOutAnime = settingOutAnime
         Options.mainSearchInput = mainSearchInput
@@ -128,8 +125,7 @@ Window {
         targetWindow: window
         tray: systemTray
         onSessionClosing: {
-            desktopLyricsLoader.active = false
-            desktopPlayerLoader.active = false
+            // 会话收尾（阶段 4b：常驻层保存/退出流程在此接入）
         }
     }
 
@@ -748,24 +744,6 @@ Window {
         }
     }
 
-    DesktopPlayer {
-        id: desktopPlayer
-    }
-
-    Loader {
-        id: desktopPlayerLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
-    }
-    Loader {
-        id: desktopLyricsLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopLyrics.qml"
-    }
     QAlertDialog {
         id: globalDialog
         title: "Dialog"

@@ -499,25 +499,6 @@ Rectangle {
             }
         }
         SButton {
-            iconCharacter: "\uf123"
-            width: 40
-            height: 40
-            radius: 40
-            buttonColor: "transparent"
-            hoverColor: Theme.hoverColor
-            iconColor: musicControlMin.iconColor
-            shadowEnabled: false
-            iconSize: Style.texticon + 1
-            onClicked: {
-                if(Options.desktop.visible) {
-                    Options.desktop.close()
-                } else {
-                    Options.desktop.open()
-                }
-            }
-            tipText: "桌面部件"
-        }
-        SButton {
             iconCharacter: "\uf098"
             width: 40
             height: 40
