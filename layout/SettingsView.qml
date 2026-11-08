@@ -1299,15 +1299,61 @@ Item {
                         SettingItemCard {
                             label: "自动进入延迟"
                             tip: "窗口关闭到自动进入轻量模式的等待时长，默认 60 秒即 1 分钟"
-                            controlItem: QSlider {
+                            controlItem: Row {
+                                id: delayRow
                                 anchors.fill: parent
-                                from: 5
-                                to: 86400
-                                stepSize: 5
-                                leftText: true
-                                valueText: value.toString() + " 秒"
-                                value: Config.lightweightDelaySeconds
-                                onMoved: Config.lightweightDelaySeconds = value
+                                spacing: 4
+                                // Config 值变化回显输入框；文本已一致时跳过，避免打断输入光标
+                                property int syncValue: Config.lightweightDelaySeconds
+                                onSyncValueChanged: {
+                                    if (delayInput.inputText !== String(syncValue))
+                                        delayInput.inputText = String(syncValue)
+                                }
+
+                                QInput {
+                                    id: delayInput
+                                    width: parent.width - 80
+                                    height: 36
+                                    Component.onCompleted: inputText = String(Config.lightweightDelaySeconds)
+                                    onInputTextChanged: {
+                                        // 仅接受正整数；越界钳制 0~86400，空串/非法输入回退上次合法值
+                                        if (/^\d+$/.test(inputText)) {
+                                            let v = Math.max(0, Math.min(86400, parseInt(inputText, 10)))
+                                            if (v !== Config.lightweightDelaySeconds)
+                                                Config.lightweightDelaySeconds = v
+                                            if (inputText !== String(v))
+                                                inputText = String(v)
+                                        } else {
+                                            inputText = String(delayRow.syncValue)
+                                        }
+                                    }
+                                }
+
+                                SButton {
+                                    width: 36
+                                    height: 36
+                                    radius: Style.labelRadius
+                                    iconCharacter: "\uf068"
+                                    tipText: "减少 1 秒"
+                                    onClicked: {
+                                        let v = Math.max(0, Config.lightweightDelaySeconds - 1)
+                                        Config.lightweightDelaySeconds = v
+                                        delayInput.inputText = String(v)
+                                    }
+                                }
+
+                                SButton {
+                                    width: 36
+                                    height: 36
+                                    radius: Style.labelRadius
+                                    iconCharacter: "\uf067"
+                                    tipText: "增加 1 秒"
+                                    onClicked: {
+                                        let v = Math.min(86400, Config.lightweightDelaySeconds + 1)
+                                        Config.lightweightDelaySeconds = v
+                                        delayInput.inputText = String(v)
+                                    }
+                                }
                             }
                             bottomLine: false
                         }
