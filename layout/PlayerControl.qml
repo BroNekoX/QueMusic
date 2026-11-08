@@ -499,6 +499,25 @@ Rectangle {
             }
         }
         SButton {
+            iconCharacter: "\uf123"
+            width: 40
+            height: 40
+            radius: 40
+            buttonColor: "transparent"
+            hoverColor: Theme.hoverColor
+            iconColor: musicControlMin.iconColor
+            shadowEnabled: false
+            iconSize: Style.texticon + 1
+            onClicked: {
+                if(desktopWidgets.visible) {
+                    desktopWidgets.close();
+                } else {
+                    desktopWidgets.open();
+                }
+            }
+            tipText: "桌面部件"
+        }
+        SButton {
             iconCharacter: "\uf098"
             width: 40
             height: 40
@@ -597,5 +616,9 @@ Rectangle {
 
     MusicInfo {
         id: musicInfo
+    }
+
+    DesktopWidgets {
+        id: desktopWidgets
     }
 }
