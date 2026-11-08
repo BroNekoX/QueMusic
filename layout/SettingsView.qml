@@ -1258,6 +1258,61 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "轻量模式" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: settingStack.cardColor
+                    radius: Style.cubeRadius
+                    Column {
+                        width: parent.width
+                        topPadding: 12
+                        Component.onCompleted: parent.height = height
+                        spacing: 12
+
+                        SettingItemCard {
+                            label: "立即进入轻量模式"
+                            tip: "隐藏窗口到托盘并卸载界面，仅保留后台播放核心"
+                            controlItem: QButton {
+                                anchors.fill: parent
+                                shadowEnabled: false
+                                radius: Style.labelRadius
+                                borderWidth: 2
+                                text: "立即进入"
+                                fontSize: Style.text
+                                onClicked: EngineHost.activateNow()
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "自动进入轻量模式"
+                            tip: "启用后，将在窗口关闭一段时间后自动激活轻量模式"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.lightweightAutoEnabled
+                                onToggled: Config.lightweightAutoEnabled = !Config.lightweightAutoEnabled
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "自动进入延迟"
+                            tip: "窗口关闭到自动进入轻量模式的等待时长，默认 60 秒即 1 分钟"
+                            controlItem: QSlider {
+                                anchors.fill: parent
+                                from: 5
+                                to: 86400
+                                stepSize: 5
+                                leftText: true
+                                valueText: value.toString() + " 秒"
+                                value: Config.lightweightDelaySeconds
+                                onMoved: Config.lightweightDelaySeconds = value
+                            }
+                            bottomLine: false
+                        }
+                    }
+                }
             }
         }
 
@@ -1706,60 +1761,6 @@ Item {
                     }
                 }
 
-                QHead { text: "轻量模式" }
-
-                Rectangle {
-                    width: settingStack.standWidth
-                    color: settingStack.cardColor
-                    radius: Style.cubeRadius
-                    Column {
-                        width: parent.width
-                        topPadding: 12
-                        Component.onCompleted: parent.height = height
-                        spacing: 12
-
-                        SettingItemCard {
-                            label: "立即进入轻量模式"
-                            tip: "隐藏窗口到托盘并卸载界面，仅保留后台播放核心"
-                            controlItem: QButton {
-                                anchors.fill: parent
-                                shadowEnabled: false
-                                radius: Style.labelRadius
-                                borderWidth: 2
-                                text: "立即进入"
-                                fontSize: Style.text
-                                onClicked: EngineHost.activateNow()
-                            }
-                        }
-
-                        SettingItemCard {
-                            label: "自动进入轻量模式"
-                            tip: "启用后，将在窗口关闭一段时间后自动激活轻量模式"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
-                                letRight: true
-                                switchTrue: Config.lightweightAutoEnabled
-                                onToggled: Config.lightweightAutoEnabled = !Config.lightweightAutoEnabled
-                            }
-                        }
-
-                        SettingItemCard {
-                            label: "自动进入延迟"
-                            tip: "窗口关闭到自动进入轻量模式的等待时长，默认 60 秒即 1 分钟"
-                            controlItem: QSlider {
-                                anchors.fill: parent
-                                from: 5
-                                to: 86400
-                                stepSize: 5
-                                leftText: true
-                                valueText: value.toString() + " 秒"
-                                value: Config.lightweightDelaySeconds
-                                onMoved: Config.lightweightDelaySeconds = value
-                            }
-                            bottomLine: false
-                        }
-                    }
-                }
             }
         }
 
