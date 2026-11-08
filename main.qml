@@ -17,6 +17,10 @@ Window {
     color: Theme.primaryColor
     title: "QueMusic"
 
+    // 销毁协议进行中（EngineHost.destroyEngine 程序化 close 窗口前置位）：
+    // onClosing 据此直接放行，避免销毁路径误触 toClosing/quitApp
+    property bool teardownActive: false
+
     Component.onCompleted: {
         Options.queue = Playback.queue
         Options.dialog = globalDialog
@@ -66,6 +70,34 @@ Window {
         });
     }
 
+    // 销毁协议（EngineHost.destroyEngine 经 QMetaObject::invokeMethod 调用，
+    // 只会出现在轻量模式的卸载路径上）：
+    //   1. 依序置空 Component.onCompleted 注入的 Options 部件引用（与注入清单
+    //      一一对应）——消费方多随场景待销毁，直接赋值即可，不触发动画/绑定副作用；
+    //   2. 复位 MusicApi 会话态：nowIndex/globalid 是 C++ 常驻单例的存活状态，
+    //      不复位会被下次重建的场景读到旧值；
+    //   3. 最后 windowAgent.destroy()——QWindowKit 的 QuickWindowAgent 不支持
+    //      解绑（setup 每实例仅一次），只能整体销毁对象来移除 winId 事件过滤器；
+    //      此后本函数不得再触碰任何场景对象。
+    function performTeardown(): void {
+        teardownActive = true;
+        Options.queue = null
+        Options.dialog = null
+        Options.coverHelper = null
+        Options.mainLayout = null
+        Options.getWave = null
+        Options.textWatch = null
+        Options.picWatch = null
+        Options.songInfo = null
+        Options.favPicker = null
+        Options.openMaxLyric = null
+        Options.settingOutAnime = null
+        Options.mainSearchInput = null
+        MusicApi.nowIndex = 0
+        MusicApi.globalid = 0
+        windowAgent.destroy()
+    }
+
     // 静默更新检查已迁常驻层 UpdateChecker（main.cpp 启动时 startDeferredCheck()）
 
 
@@ -89,6 +121,12 @@ Window {
 
     // 系统级关闭（Alt+F4、任务栏右键"关闭窗口"）与关闭按钮行为保持一致
     onClosing: (close) => {
+        // EngineHost 销毁协议的程序化 close：直接放行（窗口随后 deleteLater），
+        // 不能再走 hideToTray/toClosing —— 后者会保存会话甚至退出整个应用
+        if(window.teardownActive) {
+            close.accepted = true;
+            return;
+        }
         if(win.closeToTray()) {
             close.accepted = false;
             win.hideToTray();
