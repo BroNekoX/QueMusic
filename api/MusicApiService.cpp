@@ -20,6 +20,7 @@
 #include "sources/ScriptSourceHost.h"
 
 #include "../cpp/AccountManager.h"
+#include "../cpp/AppSettings.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -27,7 +28,6 @@
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <QSet>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QVariant>
 
@@ -177,8 +177,18 @@ MusicApiService::MusicApiService(QObject *parent)
     rebuildSources();
     m_scripts->reload();
 
-    QSettings options(appConfigPath() + "/QueMusic.ini", QSettings::IniFormat);
-    m_soundQuality = options.value("Options/soundQuality", 1).toInt();
+    // 音质/下载目录/启动歌曲源：初值取自 AppSettings，之后由对应 changed 信号自动同步
+    // （songSource 是用户实时命令，QML 各处直接赋值，不联动 mainMusicSource）
+    if (auto *appSettings = AppSettings::instance()) {
+        m_soundQuality = appSettings->soundQuality();
+        setDownloadPath(appSettings->downloadFolder());
+        setSongSource(appSettings->mainMusicSource());
+
+        connect(appSettings, &AppSettings::soundQualityChanged, this,
+                [this, appSettings] { setSoundQuality(appSettings->soundQuality()); });
+        connect(appSettings, &AppSettings::downloadFolderChanged, this,
+                [this, appSettings] { setDownloadPath(appSettings->downloadFolder()); });
+    }
     refreshCredentials();
 
     m_requestWatchdog.setSingleShot(true);
