@@ -16,6 +16,7 @@
 #include <QVersionNumber>
 #include <QTimer>
 #include "cpp/AccountManager.h"
+#include "cpp/AppSettings.h"
 #include "cpp/LogManager.h"
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
@@ -109,6 +110,10 @@ int main(int argc, char *argv[])
 
     LogManager::create(&engine, &engine);   // 日志单例：接管 Qt 消息，写入安装目录/logs
     AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例
+
+    // 设置单例（QML 侧名字仍是 Config）：必须先于 MusicApiService/Playback 构造，
+    // 它们的初始化与信号联动都依赖它
+    AppSettings::create(nullptr, nullptr);
 
     MusicApiService::setSharedAccountManager(accountManager);   // 在线音乐 API 单例
     MusicApiService::create(nullptr, nullptr);

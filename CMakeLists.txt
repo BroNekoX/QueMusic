@@ -120,7 +120,6 @@ endif()
 set_source_files_properties(
     components/Style.qml
     components/Theme.qml
-    components/Config.qml
     components/ShortCut.qml
     components/Options.qml
     components/PluginSlots.qml
@@ -190,6 +189,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         shaders/LyricsStage.cpp
         shaders/LyricsStage.h
         cpp/AppModels.h
+        cpp/AppSettings.cpp
+        cpp/AppSettings.h
         cpp/MediaTypes.h
         cpp/DbService.cpp
         cpp/DbService.h
