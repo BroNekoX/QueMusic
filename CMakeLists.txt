@@ -257,6 +257,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/resident/UpdateChecker.h
         cpp/resident/SmtcController.cpp
         cpp/resident/SmtcController.h
+        cpp/resident/EngineHost.cpp
+        cpp/resident/EngineHost.h
         cpp/desktopwidgets/DesktopLyricsWindow.cpp
         cpp/desktopwidgets/DesktopLyricsWindow.h
         cpp/desktopwidgets/DesktopMiniPlayerWindow.cpp

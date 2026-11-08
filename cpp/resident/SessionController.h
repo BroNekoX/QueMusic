@@ -27,6 +27,11 @@ class SessionController : public QObject
     QML_ELEMENT
     QML_SINGLETON
 
+signals:
+    // 窗口已隐藏到托盘（markHidden 成功记录可见性后发出，C++ 侧常驻信号）。
+    // 轻量模式自动进入的触发源：EngineHost 据此启动延迟销毁定时器。
+    void windowHiddenToTray();
+
 public:
     // QML 单例工厂。集成阶段 main.cpp 提前调用一次；之后 QML 首次访问
     // SessionController 时复用同一实例。

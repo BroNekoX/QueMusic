@@ -94,8 +94,12 @@ void SessionController::restoreWindow(QQuickWindow *mainWindow)
 // hideToTray 入口已挡住不可见窗口，故这里不会记录到 Hidden。
 void SessionController::markHidden(QQuickWindow *mainWindow)
 {
-    if (mainWindow)
+    if (mainWindow) {
         m_restoreVisibility = mainWindow->visibility();
+        // 成功记录隐藏（真实发生了窗口隐藏）才通知：EngineHost 据此启动
+        // 轻量模式自动进入的延迟定时器
+        emit windowHiddenToTray();
+    }
 }
 
 // 最后播放歌曲：对应原 QML :29-39。
