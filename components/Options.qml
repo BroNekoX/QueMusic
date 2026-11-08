@@ -10,7 +10,6 @@ QtObject {
     // 跨文件共享对象：main.qml 启动时注入
     property QueueModel queue
     property QAlertDialog dialog
-    property SmtcBridge smtc
     readonly property bool isMacOS: Qt.platform.os === "osx"
 
     property Item mainLayout

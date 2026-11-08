@@ -20,7 +20,6 @@ Window {
     Component.onCompleted: {
         Options.queue = Playback.queue
         Options.dialog = globalDialog
-        Options.smtc = smtc
         Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
         Options.getWave = getWave
@@ -708,13 +707,9 @@ Window {
         bands: 128
     }
 
-    // 托盘已迁至 C++ 常驻层实例化（main.cpp），信号在 C++ 侧接线：
-    // 恢复窗口 / 播放控制 / 退出收尾由 SessionController + Playback 完成。
-
-    SmtcBridge {
-        id: smtc
-        targetWindow: window
-    }
+    // 托盘与 SMTC 已迁至 C++ 常驻层（main.cpp）：托盘信号在 C++ 侧接线，
+    // 恢复窗口 / 播放控制 / 退出收尾由 SessionController + Playback 完成；
+    // SMTC 以隐藏宿主窗口注册（SmtcController），主窗口销毁后仍存活。
 
     SearchCard {
         id: searchCard

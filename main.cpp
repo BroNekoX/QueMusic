@@ -23,6 +23,7 @@
 #include "cpp/playback/Playback.h"
 #include "cpp/SystemTrayManager.h"
 #include "cpp/resident/SessionController.h"
+#include "cpp/resident/SmtcController.h"
 #include "cpp/resident/UpdateChecker.h"
 #include "cpp/resident/WarningBuffer.h"
 #include "DesktopLyricsWindow.h"
@@ -158,6 +159,12 @@ int main(int argc, char *argv[])
     QObject::connect(tray, &SystemTrayManager::previousRequested, playback, &Playback::previous);
     QObject::connect(tray, &SystemTrayManager::nextRequested, playback,
                      [playback] { playback->next(false); });
+
+    // Windows SMTC：以进程私有的隐藏宿主窗口注册，随常驻层存活
+    // （SMTC 的 QML 桥接管线迁出 QML；主窗口销毁不影响系统媒体控件）
+#ifdef Q_OS_WIN
+    new SmtcController(playback, &application);
+#endif
 
     // 桌面部件 Widgets 窗口：进程级常驻，构造即按 AppSettings 开关自管显隐
     // （QApplication 非 QWidget，无 parent；窗口显隐/关闭由 AppSettings 开关自管）
