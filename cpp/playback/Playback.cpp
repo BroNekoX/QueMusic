@@ -3,6 +3,7 @@
 
 #include "Playback.h"
 
+#include "AppSettings.h"
 #include "LyricTimeline.h"
 #include "MusicApiService.h"
 #include "webdav/WebDavCache.h"
@@ -48,11 +49,21 @@ Playback::Playback(QObject *parent)
     m_cursor.setAvoid(m_shuffleAvoid);
     m_engine.setVolume(outVolume());
 
-    {
-        QSettings settings;
-        const QString cacheDir = settings.value(QStringLiteral("Options/cacheUrl")).toString();
+    // 封面缓存目录：初值来自 AppSettings，之后由 cacheUrlChanged 信号驱动
+    if (auto *appSettings = AppSettings::instance()) {
+        const QString cacheDir = appSettings->cacheUrl();
         if (!cacheDir.isEmpty())
             m_cover->setCacheDir(cacheDir);
+
+        // 设置页改动运行时参数 → 自动刷新（SettingsView 里的手动 refreshSettings 调用仍兼容）
+        connect(appSettings, &AppSettings::volumeStepChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::fadeEnabledChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::fadeMsChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::shuffleAvoidChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::historyLimitChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::cacheUrlChanged, this, [this, appSettings] {
+            m_cover->setCacheDir(appSettings->cacheUrl());
+        });
     }
     connect(m_cover, &CoverHelper::localCoverReady, this, &Playback::onLocalCoverReady);
 
@@ -155,17 +166,22 @@ void Playback::bindApi()
 
 void Playback::loadSettings()
 {
+    // musicVolume/muted/cycleIndex 是 C++ 自有键，保持 QSettings 直读；
+    // QML 侧的键一律经 AppSettings 读取
     QSettings settings;
     settings.beginGroup(QStringLiteral("Options"));
     m_volume = qBound(0.0, settings.value(QStringLiteral("musicVolume"), 0.6).toDouble(), 1.0);
     m_muted = settings.value(QStringLiteral("muted"), false).toBool();
     m_cycle = qBound(0, settings.value(QStringLiteral("cycleIndex"), 0).toInt(), 3);
-    m_volumeStepPercent = qBound(1, settings.value(QStringLiteral("volumeStep"), 5).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), true).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), 200).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), 2).toInt());
-    m_historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), 200).toInt());
     settings.endGroup();
+
+    if (auto *appSettings = AppSettings::instance()) {
+        m_volumeStepPercent = qBound(1, appSettings->volumeStep(), 50);
+        m_fadeEnabled = appSettings->fadeEnabled();
+        m_fadeMs = qBound(0, appSettings->fadeMs(), 2000);
+        m_shuffleAvoid = qMax(0, appSettings->shuffleAvoid());
+        m_historyLimit = qMax(20, appSettings->historyLimit());
+    }
 }
 
 void Playback::refreshSettings()
@@ -175,14 +191,14 @@ void Playback::refreshSettings()
 
 void Playback::refreshRuntimeSettings()
 {
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("Options"));
-    const int volumeStep = qBound(1, settings.value(QStringLiteral("volumeStep"), m_volumeStepPercent).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), m_fadeEnabled).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), m_fadeMs).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), m_shuffleAvoid).toInt());
-    const int historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), m_historyLimit).toInt());
-    settings.endGroup();
+    auto *appSettings = AppSettings::instance();
+    if (!appSettings)
+        return;
+    const int volumeStep = qBound(1, appSettings->volumeStep(), 50);
+    m_fadeEnabled = appSettings->fadeEnabled();
+    m_fadeMs = qBound(0, appSettings->fadeMs(), 2000);
+    m_shuffleAvoid = qMax(0, appSettings->shuffleAvoid());
+    const int historyLimit = qMax(20, appSettings->historyLimit());
 
     if (volumeStep != m_volumeStepPercent) {
         m_volumeStepPercent = volumeStep;
@@ -654,14 +670,14 @@ void Playback::seekBy(qint64 ms)
 
 void Playback::seekBack()
 {
-    QSettings settings;
-    seekBy(-qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    auto *appSettings = AppSettings::instance();
+    seekBy(-qint64(qMax(1, appSettings ? appSettings->seekStep() : 5)) * 1000);
 }
 
 void Playback::seekForward()
 {
-    QSettings settings;
-    seekBy(qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    auto *appSettings = AppSettings::instance();
+    seekBy(qint64(qMax(1, appSettings ? appSettings->seekStep() : 5)) * 1000);
 }
 
 void Playback::setAbPoint(int which)
