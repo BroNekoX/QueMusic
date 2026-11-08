@@ -1333,7 +1333,7 @@ Item {
                                     width: 36
                                     height: 36
                                     radius: Style.labelRadius
-                                    iconCharacter: "\uf068"
+                                    iconCharacter: "\uf059"
                                     tipText: "减少 1 秒"
                                     onClicked: {
                                         let v = Math.max(0, Config.lightweightDelaySeconds - 1)
@@ -1346,7 +1346,7 @@ Item {
                                     width: 36
                                     height: 36
                                     radius: Style.labelRadius
-                                    iconCharacter: "\uf067"
+                                    iconCharacter: "\uf008"
                                     tipText: "增加 1 秒"
                                     onClicked: {
                                         let v = Math.min(86400, Config.lightweightDelaySeconds + 1)
