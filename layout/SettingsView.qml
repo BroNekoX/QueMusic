@@ -1263,13 +1263,13 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
+                    height: lightModeCard.height
                     color: settingStack.cardColor
                     radius: Style.cubeRadius
                     Column {
+                        id: lightModeCard
                         width: parent.width
-                        topPadding: 12
-                        Component.onCompleted: parent.height = height
-                        spacing: 12
+                        padding: 0
 
                         SettingItemCard {
                             label: "立即进入轻量模式"
@@ -1711,13 +1711,13 @@ Item {
 
                 Rectangle {
                     width: settingStack.standWidth
+                    height: desktopWidgetCard.height
                     color: settingStack.cardColor
                     radius: Style.cubeRadius
                     Column {
+                        id: desktopWidgetCard
                         width: parent.width
-                        topPadding: 12
-                        Component.onCompleted: parent.height = height
-                        spacing: 12
+                        padding: 0
 
                         SettingItemCard {
                             label: "桌面歌词"
@@ -1739,23 +1739,29 @@ Item {
                                 switchTrue: Config.desktopMiniPlayerOn
                                 onToggled: Config.desktopMiniPlayerOn = !Config.desktopMiniPlayerOn
                             }
+                            bottomLine: false
                         }
 
                         // 独立开关说明
-                        Rectangle {
-                            x: 16
-                            width: parent.width - 32
-                            height: 46
-                            color: Theme.hoverColor
-                            radius: Style.labelRadius
-                            Text {
-                                x: 12
-                                width: parent.width - 24
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "两者可同时开启：桌面歌词与小窗播放器相互独立，可同时显示在桌面。"
-                                color: Theme.textColor
-                                font.pixelSize: 12
-                                wrapMode: Text.WordWrap
+                        Item {
+                            width: parent.width
+                            height: 58
+                            Rectangle {
+                                x: 16
+                                y: 12
+                                width: parent.width - 32
+                                height: 46
+                                color: Theme.hoverColor
+                                radius: Style.labelRadius
+                                Text {
+                                    x: 12
+                                    width: parent.width - 24
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "两者可同时开启：桌面歌词与小窗播放器相互独立，可同时显示在桌面。"
+                                    color: Theme.textColor
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                         }
                     }
