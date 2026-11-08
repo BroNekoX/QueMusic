@@ -63,30 +63,10 @@ Window {
 
         Qt.callLater(function() {
             Playback.coverHelper.pruneCache(Config.cacheSize);
-
-            if(Config.autoUpdate)
-                autoUpdateTimer.start();
         });
     }
 
-    function silentUpdateCheck(): void {
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                const remote = parseInt(xhr.responseText.trim().substring(0, 3));
-                if (remote > Options.versionCode)
-                    mainWarn.tiped("发现新版本 v" + remote + "，请在设置-关于中查看", 1);
-            }
-        }
-        xhr.open("GET", "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt");
-        xhr.send();
-    }
-
-    Timer {
-        id: autoUpdateTimer
-        interval: 3000
-        onTriggered: window.silentUpdateCheck()
-    }
+    // 静默更新检查已迁常驻层 UpdateChecker（main.cpp 启动时 startDeferredCheck()）
 
 
     // 标题栏是窗口拖拽区：插件挂进去的对象要标记可命中，否则点击会被拖拽吞掉
@@ -754,11 +734,19 @@ Window {
                 mainWarn.tiped(text,type);
             }
         }
+        // Playback.warned 已被常驻层 WarningBuffer 捕获（QML 侧不再直连，避免双弹）；
+        // 实时警告统一从 WarningBuffer.warnedArrived 接入（含 UpdateChecker 更新提示）
         Connections {
-            target: Playback
-            function onWarned(text: string, type: int): void {
+            target: WarningBuffer
+            function onWarnedArrived(text: string, type: int): void {
                 mainWarn.tiped(text, type);
             }
+        }
+        // 场景创建/重建时重放常驻层缓存的最近警告（QML 场景不在期间产生的提示不丢）
+        Component.onCompleted: {
+            const recent = WarningBuffer.recent()
+            for (let i = 0; i < recent.length; ++i)
+                mainWarn.tiped(recent[i].text, recent[i].type)
         }
     }
     QMessage {
