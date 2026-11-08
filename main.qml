@@ -44,9 +44,6 @@ Window {
                 windowAgent.setWindowAttribute("title-bar-height", 40);
             }
         }
-        MusicApi.songSource = Config.mainMusicSource;
-        MusicApi.downloadPath = Config.downloadFolder;
-        MusicApi.soundQuality = Config.soundQuality;
 
         const apiCheck = MusicApi.selfCheck()
         if (!apiCheck.ok) {
@@ -74,17 +71,6 @@ Window {
             if(Config.autoUpdate)
                 autoUpdateTimer.start();
         });
-    }
-
-    Binding {
-        target: MusicApi
-        property: "soundQuality"
-        value: Config.soundQuality
-    }
-    Binding {
-        target: MusicApi
-        property: "downloadPath"
-        value: Config.downloadFolder
     }
 
     function silentUpdateCheck(): void {
