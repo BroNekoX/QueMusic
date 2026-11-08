@@ -43,6 +43,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/webdav
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/plugins
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/resident
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/desktopwidgets
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
@@ -254,6 +255,10 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/resident/WarningBuffer.h
         cpp/resident/UpdateChecker.cpp
         cpp/resident/UpdateChecker.h
+        cpp/desktopwidgets/DesktopLyricsWindow.cpp
+        cpp/desktopwidgets/DesktopLyricsWindow.h
+        cpp/desktopwidgets/DesktopMiniPlayerWindow.cpp
+        cpp/desktopwidgets/DesktopMiniPlayerWindow.h
         cpp/platform/WindowsAppIdentity.cpp
         cpp/platform/WindowsAppIdentity.h
         cpp/audio/AudioEngine.cpp
