@@ -39,18 +39,23 @@ EngineHost::EngineHost(QObject *parent)
         connect(session, &SessionController::windowHiddenToTray,
                 this, &EngineHost::restartAutoTimer);
 
-    // 设置联动：开关关闭 → 停掉尚未触发的计时；延迟秒数变更 → 计时中则按新间隔重启
+    // 设置联动：开关关闭 → 停掉尚未触发的计时；延迟秒数变更 → 仅当计时已在
+    // 跑（窗口已隐藏、倒计时中）才按新间隔重启——不能因改设置凭空启动计时，
+    // 否则可见窗口会在延迟后被误销毁
     if (AppSettings *settings = AppSettings::instance()) {
         connect(settings, &AppSettings::lightweightAutoEnabledChanged, this, [this] {
             if (!AppSettings::instance()->lightweightAutoEnabled())
                 m_autoTimer.stop();
         });
-        connect(settings, &AppSettings::lightweightDelaySecondsChanged, this,
-                &EngineHost::restartAutoTimer);
+        connect(settings, &AppSettings::lightweightDelaySecondsChanged, this, [this] {
+            if (m_autoTimer.isActive())
+                m_autoTimer.start(qMax(1, AppSettings::instance()->lightweightDelaySeconds())
+                                      * 1000);
+        });
     }
 }
 
-// 窗口隐藏到托盘 / 延迟秒数变更 → 按实时配置（重）启单发计时。
+// 窗口隐藏到托盘 → 按实时配置（重）启单发计时。
 // start() 对同一信号重复到达（反复隐藏窗口）自动重启计时。
 void EngineHost::restartAutoTimer()
 {
