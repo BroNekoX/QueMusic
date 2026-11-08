@@ -129,8 +129,10 @@ Rectangle {
     }
 
     // 歌词模块心跳：按注入索引刷新行位置与等待动画（索引本体由 Playback 的 C++ 引擎计算）
+    // repeat 必须显式开启：QML Timer 缺省单次触发，进入页面只会对位一次就停
     Timer {
         interval: 320
+        repeat: true
         running: musicControlMax.visible && Playback.player.onMedia
         onTriggered: if(lyricLoader.item) lyricLoader.item.timerFunction()
     }
