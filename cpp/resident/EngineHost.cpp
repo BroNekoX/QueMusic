@@ -157,6 +157,11 @@ void EngineHost::destroyEngine()
         //    main.qml 未实现该钩子时 invokeMethod 返回 false，仅告警不中断。
         if (!QMetaObject::invokeMethod(root, "performTeardown"))
             qWarning() << "[EngineHost] main.qml 未实现 performTeardown()（销毁协议 QML 钩子缺失）";
+        // 1.5 隐藏/销毁前主动释放场景图资源（纹理、批处理几何等）：
+        //     QQuickWindow::releaseResources() 的文档用途即"窗口即将隐藏时释放
+        //     显存/纹理"；随后窗口整体销毁也会兜底，这里提前释放可让轻量模式的
+        //     内存回落更及时。窗口立即隐藏，无视觉影响。
+        root->releaseResources();
         // 2. 窗口关闭 + 延迟删除
         root->close();
         root->deleteLater();
