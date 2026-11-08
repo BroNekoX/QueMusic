@@ -1651,6 +1651,60 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "桌面部件" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    color: settingStack.cardColor
+                    radius: Style.cubeRadius
+                    Column {
+                        width: parent.width
+                        topPadding: 12
+                        Component.onCompleted: parent.height = height
+                        spacing: 12
+
+                        SettingItemCard {
+                            label: "桌面歌词"
+                            tip: "在桌面显示可拖动、缩放的悬浮歌词栏"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.desktopLyricsOn
+                                onToggled: Config.desktopLyricsOn = !Config.desktopLyricsOn
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "小窗播放器"
+                            tip: "在桌面显示带封面与进度条的迷你播放器"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.desktopMiniPlayerOn
+                                onToggled: Config.desktopMiniPlayerOn = !Config.desktopMiniPlayerOn
+                            }
+                        }
+
+                        // 独立开关说明
+                        Rectangle {
+                            x: 16
+                            width: parent.width - 32
+                            height: 46
+                            color: Theme.hoverColor
+                            radius: Style.labelRadius
+                            Text {
+                                x: 12
+                                width: parent.width - 24
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "两者可同时开启：桌面歌词与小窗播放器相互独立，可同时显示在桌面。"
+                                color: Theme.textColor
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+                }
             }
         }
 
