@@ -157,6 +157,15 @@ void EngineHost::destroyEngine()
         //    main.qml 未实现该钩子时 invokeMethod 返回 false，仅告警不中断。
         if (!QMetaObject::invokeMethod(root, "performTeardown"))
             qWarning() << "[EngineHost] main.qml 未实现 performTeardown()（销毁协议 QML 钩子缺失）";
+        // 1.4 JS 堆回收：~QJSEngine 析构不会清理 persistent JS 堆，需要释放
+        //     全部内存须在析构前手动 collectGarbage()（Qt 文档要求）。此刻
+        //     performTeardown 已解绑 QML 侧引用，堆内不可达对象最多；必须在
+        //     引擎存活、deleteLater 之前的同一同步帧调用。trim 只裁剪当前
+        //     无活实例的组件元数据，安全幂等。
+        if (m_engine) {
+            m_engine->collectGarbage();
+            m_engine->trimComponentCache();
+        }
         // 1.5 隐藏/销毁前主动释放场景图资源（纹理、批处理几何等）：
         //     QQuickWindow::releaseResources() 的文档用途即"窗口即将隐藏时释放
         //     显存/纹理"；随后窗口整体销毁也会兜底，这里提前释放可让轻量模式的
