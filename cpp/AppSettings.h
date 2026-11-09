@@ -166,7 +166,7 @@ public:
     APPSETTINGS_BOOL(displayDebugControl, DisplayDebugControl, false)
 
     // ---- 新增（纯 C++ 常驻层改造）----
-    APPSETTINGS_BOOL(lightweightAutoEnabled, LightweightAutoEnabled, false)  // 轻量模式自动进入开关
+    APPSETTINGS_BOOL(lightweightAutoEnabled, LightweightAutoEnabled, true)  // 轻量模式自动进入开关
     APPSETTINGS_INT(lightweightDelaySeconds, LightweightDelaySeconds, 60)    // 轻量模式延迟秒数
     APPSETTINGS_BOOL(desktopLyricsOn, DesktopLyricsOn, false)                // 桌面歌词开关
     APPSETTINGS_BOOL(desktopMiniPlayerOn, DesktopMiniPlayerOn, false)        // 小窗播放器开关
@@ -222,7 +222,7 @@ private:
     APPSETTINGS_MEMBER_BOOL(qmlAnimator, false)
     APPSETTINGS_MEMBER_BOOL(displayDebugControl, false)
 
-    APPSETTINGS_MEMBER_BOOL(lightweightAutoEnabled, false)
+    APPSETTINGS_MEMBER_BOOL(lightweightAutoEnabled, true)
     APPSETTINGS_MEMBER_INT(lightweightDelaySeconds, 60)
     APPSETTINGS_MEMBER_BOOL(desktopLyricsOn, false)
     APPSETTINGS_MEMBER_BOOL(desktopMiniPlayerOn, false)
