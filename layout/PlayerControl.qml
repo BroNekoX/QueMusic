@@ -509,10 +509,10 @@ Rectangle {
             shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
-                if(Options.desktop.visible) {
-                    Options.desktop.close()
+                if(desktopWidgets.visible) {
+                    desktopWidgets.close();
                 } else {
-                    Options.desktop.open()
+                    desktopWidgets.open();
                 }
             }
             tipText: "桌面部件"
@@ -616,5 +616,9 @@ Rectangle {
 
     MusicInfo {
         id: musicInfo
+    }
+
+    DesktopWidgets {
+        id: desktopWidgets
     }
 }

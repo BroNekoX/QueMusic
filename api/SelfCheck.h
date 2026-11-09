@@ -21,7 +21,6 @@ struct SelfCheckContext
     QualityHashCache *qualityCache = nullptr;
     int currentSource = -1;
     int pendingRequests = 0;
-    bool lyricTimesSorted = true;
 };
 
 namespace ApiSelfCheck {

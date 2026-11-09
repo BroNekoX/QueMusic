@@ -10,8 +10,6 @@ QtObject {
     // 跨文件共享对象：main.qml 启动时注入
     property QueueModel queue
     property QAlertDialog dialog
-    property DesktopPlayer desktop
-    property SmtcBridge smtc
     readonly property bool isMacOS: Qt.platform.os === "osx"
 
     property Item mainLayout
@@ -21,8 +19,6 @@ QtObject {
     property SongInfoDialog songInfo
     property FavoriteFolderDialog favPicker
     property CoverHelper coverHelper
-    property Loader desktopPlayerLoader
-    property Loader desktopLyricsLoader
     property NumberAnimation openMaxLyric
     property NumberAnimation settingOutAnime
     property TextField mainSearchInput

@@ -1258,6 +1258,107 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "轻量模式" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: lightModeCard.height
+                    color: settingStack.cardColor
+                    radius: Style.cubeRadius
+                    Column {
+                        id: lightModeCard
+                        width: parent.width
+                        padding: 0
+
+                        SettingItemCard {
+                            label: "立即进入轻量模式"
+                            tip: "隐藏窗口到托盘并卸载界面，仅保留后台播放核心"
+                            controlItem: QButton {
+                                anchors.fill: parent
+                                shadowEnabled: false
+                                radius: Style.labelRadius
+                                borderWidth: 2
+                                text: "立即进入"
+                                fontSize: Style.text
+                                onClicked: EngineHost.activateNow()
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "自动进入轻量模式"
+                            tip: "启用后，将在窗口关闭一段时间后自动激活轻量模式"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.lightweightAutoEnabled
+                                onToggled: Config.lightweightAutoEnabled = !Config.lightweightAutoEnabled
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "自动进入延迟"
+                            tip: "窗口关闭到自动进入轻量模式的等待时长，默认 60 秒即 1 分钟"
+                            controlItem: Row {
+                                id: delayRow
+                                anchors.fill: parent
+                                spacing: 4
+                                // Config 值变化回显输入框；文本已一致时跳过，避免打断输入光标
+                                property int syncValue: Config.lightweightDelaySeconds
+                                onSyncValueChanged: {
+                                    if (delayInput.inputText !== String(syncValue))
+                                        delayInput.inputText = String(syncValue)
+                                }
+
+                                QInput {
+                                    id: delayInput
+                                    width: parent.width - 80
+                                    height: 36
+                                    Component.onCompleted: inputText = String(Config.lightweightDelaySeconds)
+                                    onInputTextChanged: {
+                                        // 仅接受正整数；越界钳制 0~86400，空串/非法输入回退上次合法值
+                                        if (/^\d+$/.test(inputText)) {
+                                            let v = Math.max(0, Math.min(86400, parseInt(inputText, 10)))
+                                            if (v !== Config.lightweightDelaySeconds)
+                                                Config.lightweightDelaySeconds = v
+                                            if (inputText !== String(v))
+                                                inputText = String(v)
+                                        } else {
+                                            inputText = String(delayRow.syncValue)
+                                        }
+                                    }
+                                }
+
+                                SButton {
+                                    width: 36
+                                    height: 36
+                                    radius: Style.labelRadius
+                                    iconCharacter: "\uf059"
+                                    tipText: "减少 1 秒"
+                                    onClicked: {
+                                        let v = Math.max(0, Config.lightweightDelaySeconds - 1)
+                                        Config.lightweightDelaySeconds = v
+                                        delayInput.inputText = String(v)
+                                    }
+                                }
+
+                                SButton {
+                                    width: 36
+                                    height: 36
+                                    radius: Style.labelRadius
+                                    iconCharacter: "\uf008"
+                                    tipText: "增加 1 秒"
+                                    onClicked: {
+                                        let v = Math.min(86400, Config.lightweightDelaySeconds + 1)
+                                        Config.lightweightDelaySeconds = v
+                                        delayInput.inputText = String(v)
+                                    }
+                                }
+                            }
+                            bottomLine: false
+                        }
+                    }
+                }
             }
         }
 
@@ -1651,6 +1752,67 @@ Item {
                         }
                     }
                 }
+
+                QHead { text: "桌面部件" }
+
+                Rectangle {
+                    width: settingStack.standWidth
+                    height: desktopWidgetCard.height
+                    color: settingStack.cardColor
+                    radius: Style.cubeRadius
+                    Column {
+                        id: desktopWidgetCard
+                        width: parent.width
+                        padding: 0
+
+                        SettingItemCard {
+                            label: "桌面歌词"
+                            tip: "在桌面显示可拖动、缩放的悬浮歌词栏"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.desktopLyricsOn
+                                onToggled: Config.desktopLyricsOn = !Config.desktopLyricsOn
+                            }
+                        }
+
+                        SettingItemCard {
+                            label: "小窗播放器"
+                            tip: "在桌面显示带封面与进度条的迷你播放器"
+                            controlItem: QSwitch {
+                                anchors.fill: parent
+                                letRight: true
+                                switchTrue: Config.desktopMiniPlayerOn
+                                onToggled: Config.desktopMiniPlayerOn = !Config.desktopMiniPlayerOn
+                            }
+                            bottomLine: false
+                        }
+
+                        // 独立开关说明
+                        Item {
+                            width: parent.width
+                            height: 58
+                            Rectangle {
+                                x: 16
+                                y: 12
+                                width: parent.width - 32
+                                height: 46
+                                color: Theme.hoverColor
+                                radius: Style.labelRadius
+                                Text {
+                                    x: 12
+                                    width: parent.width - 24
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "两者可同时开启：桌面歌词与小窗播放器相互独立，可同时显示在桌面。"
+                                    color: Theme.textColor
+                                    font.pixelSize: 12
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                    }
+                }
+
             }
         }
 

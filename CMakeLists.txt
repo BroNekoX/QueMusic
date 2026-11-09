@@ -42,6 +42,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/playback
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/webdav
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/plugins
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/resident
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/desktopwidgets
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
@@ -120,7 +122,6 @@ endif()
 set_source_files_properties(
     components/Style.qml
     components/Theme.qml
-    components/Config.qml
     components/ShortCut.qml
     components/Options.qml
     components/PluginSlots.qml
@@ -190,6 +191,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         shaders/LyricsStage.cpp
         shaders/LyricsStage.h
         cpp/AppModels.h
+        cpp/AppSettings.cpp
+        cpp/AppSettings.h
         cpp/MediaTypes.h
         cpp/DbService.cpp
         cpp/DbService.h
@@ -246,6 +249,22 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/LogManager.h
         cpp/SystemTrayManager.cpp
         cpp/SystemTrayManager.h
+        cpp/resident/SessionController.cpp
+        cpp/resident/SessionController.h
+        cpp/resident/WarningBuffer.cpp
+        cpp/resident/WarningBuffer.h
+        cpp/resident/UpdateChecker.cpp
+        cpp/resident/UpdateChecker.h
+        cpp/resident/SmtcController.cpp
+        cpp/resident/SmtcController.h
+        cpp/resident/EngineHost.cpp
+        cpp/resident/EngineHost.h
+        cpp/resident/DesktopWidgetsController.cpp
+        cpp/resident/DesktopWidgetsController.h
+        cpp/desktopwidgets/DesktopLyricsWindow.cpp
+        cpp/desktopwidgets/DesktopLyricsWindow.h
+        cpp/desktopwidgets/DesktopMiniPlayerWindow.cpp
+        cpp/desktopwidgets/DesktopMiniPlayerWindow.h
         cpp/platform/WindowsAppIdentity.cpp
         cpp/platform/WindowsAppIdentity.h
         cpp/audio/AudioEngine.cpp

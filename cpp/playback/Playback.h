@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QVector>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include <atomic>
@@ -52,6 +53,8 @@ class Playback : public QObject
     Q_PROPERTY(QString musicArtist READ musicArtist NOTIFY musicArtistChanged FINAL)
     Q_PROPERTY(QString musicHash READ musicHash NOTIFY musicHashChanged FINAL)
     Q_PROPERTY(int musicSource READ musicSource NOTIFY musicSourceChanged FINAL)
+    Q_PROPERTY(int lyricIndex READ lyricIndex NOTIFY lyricIndexChanged FINAL)
+    Q_PROPERTY(int lyricOffsetMs READ lyricOffsetMs WRITE setLyricOffsetMs NOTIFY lyricOffsetMsChanged FINAL)
     Q_PROPERTY(int kSourceWebDav READ kSourceWebDav CONSTANT FINAL)
 
 public:
@@ -93,6 +96,9 @@ public:
     QString musicArtist() const { return m_artist; }
     QString musicHash() const { return m_hash; }
     int musicSource() const { return m_source; }
+    int lyricIndex() const { return m_lyricIndex; }
+    int lyricOffsetMs() const { return m_lyricOffsetMs; }
+    void setLyricOffsetMs(int ms);
     int kSourceWebDav() const { return 3; }
 
     Q_INVOKABLE void playIndex(int index);
@@ -135,6 +141,8 @@ signals:
     void musicArtistChanged();
     void musicHashChanged();
     void musicSourceChanged();
+    void lyricIndexChanged();
+    void lyricOffsetMsChanged();
     void warned(const QString &text, int type);
 
 private:
@@ -178,6 +186,12 @@ private:
     void onLocalLyricsReady(const QString &filePath, const QVariantList &lyrics,
                             const QVariantList &translate);
     void onLocalLyricsFailed(const QString &filePath);
+    void onLyricsDataChanged();
+    void rebuildLyricTimes(const QVariantList &list);
+    void resetLyricFollow();
+    void updateLyricFollow();
+    void advanceLyricIndex();
+    void setLyricIndex(int index);
     void onLocalCoverReady(const QString &filePath, const QString &coverUrl);
     void onWebDavCached(const QString &url, const QString &localPath);
     void onUrlplay(const QString &playurl, const QString &title, const QString &artist,
@@ -228,4 +242,9 @@ private:
     int m_sleepRemain = 0;
     int m_abA = -1;
     int m_abB = -1;
+
+    QTimer m_lyricTimer;
+    QVector<qlonglong> m_lyricTimes;
+    int m_lyricIndex = 0;
+    int m_lyricOffsetMs = 0;
 };

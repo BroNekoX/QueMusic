@@ -9,7 +9,6 @@
 #include "platform/BilibiliApi.h"
 #include "platform/KugouApi.h"
 #include "LocalMedia.h"
-#include "LyricTimeline.h"
 #include "platform/NeteaseCloudApi.h"
 #include "platform/QQMusicApi.h"
 #include "platform/SpotifyApi.h"
@@ -21,6 +20,7 @@
 #include "sources/ScriptSourceHost.h"
 
 #include "../cpp/AccountManager.h"
+#include "../cpp/AppSettings.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -28,15 +28,13 @@
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <QSet>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QVariant>
 
-#include <algorithm>
+#include <utility>
 
 namespace {
 constexpr int kRequestWatchdogMs = 20000;
-constexpr int kLyricTickMs = 320;
 
 QString appConfigPath()
 {
@@ -179,8 +177,18 @@ MusicApiService::MusicApiService(QObject *parent)
     rebuildSources();
     m_scripts->reload();
 
-    QSettings options(appConfigPath() + "/QueMusic.ini", QSettings::IniFormat);
-    m_soundQuality = options.value("Options/soundQuality", 1).toInt();
+    // 音质/下载目录/启动歌曲源：初值取自 AppSettings，之后由对应 changed 信号自动同步
+    // （songSource 是用户实时命令，QML 各处直接赋值，不联动 mainMusicSource）
+    if (auto *appSettings = AppSettings::instance()) {
+        m_soundQuality = appSettings->soundQuality();
+        setDownloadPath(appSettings->downloadFolder());
+        setSongSource(appSettings->mainMusicSource());
+
+        connect(appSettings, &AppSettings::soundQualityChanged, this,
+                [this, appSettings] { setSoundQuality(appSettings->soundQuality()); });
+        connect(appSettings, &AppSettings::downloadFolderChanged, this,
+                [this, appSettings] { setDownloadPath(appSettings->downloadFolder()); });
+    }
     refreshCredentials();
 
     m_requestWatchdog.setSingleShot(true);
@@ -194,10 +202,6 @@ MusicApiService::MusicApiService(QObject *parent)
         m_pendingByAction.clear();
         setLoadState(false);
     });
-
-    m_lyricTimer.setInterval(kLyricTickMs);
-    m_lyricTimer.setTimerType(Qt::CoarseTimer);
-    connect(&m_lyricTimer, &QTimer::timeout, this, &MusicApiService::advanceLyricIndex);
 }
 
 MusicApiService::~MusicApiService()
@@ -228,6 +232,40 @@ void MusicApiService::setAccountManager(AccountManager *am)
         });
     }
     refreshAccountState();
+}
+
+// 进入轻量模式（EngineHost::destroyEngine）时由常驻层调用：清空全部浏览型/
+// 结果型 OnlineListModel。这些模型由 ApiResultRouter 只增不减地 append，跨
+// 轻量模式存活的话会累积成内存地板。逐项取舍：
+//   - 清空：所有"列表数据"性质的模型——搜索结果、新歌/每日推荐、歌单广场
+//     （musicPlaylists）、全部歌单菜单（allPlaylistMenu）、歌单内歌曲
+//     （playlistSong）、热歌榜单列表（hotPlayLists）、热歌分类菜单
+//     （getHotlistMenu）、排行榜（musicToplist/toplistList）、歌手列表
+//     （singerList）、私人漫游/私人雷达（personalFm/personalRadar）、评论
+//     （comments，含 commentsHasMore 翻页标志）。均为页面浏览缓存，重新进入
+//     后由 QML 重新拉取。
+//   - 保留 m_lyricsData/m_lyricsTranslate：桌面歌词部件与 SMTC 在轻量模式下
+//     仍需当前播放歌词；本方法只处理浏览型数据，不动播放会话态。
+//   - 保留登录态（m_account/m_credentials）、音源与音质设置（m_source/
+//     m_soundQuality/m_sourceList 等）、globalid/globaltagid/globalinfo、
+//     nowIndex、下载器：均为会话/配置态，与浏览缓存无关，用户未要求清理。
+void MusicApiService::clearTransientModels()
+{
+    m_searchSongsResults.clear();
+    m_newSongs.clear();
+    m_recommendSongs.clear();
+    m_musicPlaylists.clear();
+    m_allPlaylistMenu.clear();
+    m_playlistSong.clear();
+    m_hotPlayLists.clear();
+    m_getHotlistMenu.clear();
+    m_musicToplist.clear();
+    m_toplistList.clear();
+    m_singerList.clear();
+    m_personalFm.clear();
+    m_personalRadar.clear();
+    m_comments.clear();
+    m_commentsHasMore = false;
 }
 
 void MusicApiService::refreshAccountState()
@@ -336,7 +374,6 @@ QVariantMap MusicApiService::selfCheck() const
     context.qualityCache = m_qualityCache.get();
     context.currentSource = m_source;
     context.pendingRequests = m_pendingRequests;
-    context.lyricTimesSorted = std::is_sorted(m_lyricTimes.cbegin(), m_lyricTimes.cend());
     return ApiSelfCheck::run(context);
 }
 
@@ -645,8 +682,6 @@ void MusicApiService::setLyricsData(const QVariantList &data)
     if (m_lyricsData == data)
         return;
     m_lyricsData = data;
-    rebuildLyricTimes(data);
-    setLyricIndex(0);
     emit lyricsDataChanged();
 }
 
@@ -658,70 +693,12 @@ void MusicApiService::setLyricsTranslate(const QVariantList &translate)
     emit lyricsTranslateChanged();
 }
 
-void MusicApiService::rebuildLyricTimes(const QVariantList &list)
-{
-    m_lyricTimes.clear();
-    m_lyricTimes.reserve(list.size());
-    for (const QVariant &item : list)
-        m_lyricTimes.append(item.toMap().value("time").toLongLong());
-}
-
-void MusicApiService::setLyricIndex(int index)
-{
-    if (m_lyricIndex != index) {
-        m_lyricIndex = index;
-        emit lyricIndexChanged();
-    }
-    emit lyricFuncted();
-}
-
 void MusicApiService::setCommentsHasMore(bool hasMore)
 {
     if (m_commentsHasMore != hasMore) {
         m_commentsHasMore = hasMore;
         emit commentsHasMoreChanged();
     }
-}
-
-void MusicApiService::advanceLyricIndex()
-{
-    if (m_lyricTimes.isEmpty()) {
-        setLyricIndex(0);
-        return;
-    }
-
-    const qlonglong position = m_lyricPositionMs + m_lyricOffsetMs + kLyricTickMs;
-    setLyricIndex(LyricTimeline::indexAt(m_lyricTimes, position));
-}
-
-void MusicApiService::setLyricFollowActive(bool active)
-{
-    if (m_lyricFollowActive == active)
-        return;
-    m_lyricFollowActive = active;
-    if (active) {
-        m_lyricTimer.start();
-        advanceLyricIndex();
-    } else {
-        m_lyricTimer.stop();
-    }
-    emit lyricFollowActiveChanged();
-}
-
-void MusicApiService::setLyricPositionMs(qlonglong ms)
-{
-    if (m_lyricPositionMs == ms)
-        return;
-    m_lyricPositionMs = ms;
-    emit lyricPositionMsChanged();
-}
-
-void MusicApiService::setLyricOffsetMs(int ms)
-{
-    if (m_lyricOffsetMs == ms)
-        return;
-    m_lyricOffsetMs = ms;
-    emit lyricOffsetMsChanged();
 }
 
 void MusicApiService::setLoadState(bool state)

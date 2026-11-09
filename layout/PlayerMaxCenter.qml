@@ -16,7 +16,6 @@ Rectangle {
     property color thirdColor: "#9d4edd"
 
     property int lyricThemeMode: 0           // 0=默认 1=封面 2=歌词
-    property int lyricMoveMs: 0              // 歌词位置校准
     property bool lyricTranslateOpen: true
 
     // 歌词界面：内置界面 + 已安装插件由 LyricsPlugins 统一维护，换界面 = 换 Loader 加载的文件
@@ -52,7 +51,7 @@ Rectangle {
             mediaActive: () => Playback.player.onMedia,
             lyricsModel: () => MusicApi.lyricsData || [],
             translateModel: () => MusicApi.lyricsTranslate || [],
-            currentIndex: () => MusicApi.lyricIndex,
+            currentIndex: () => Playback.lyricIndex,
             title: () => Playback.musicTitle,
             artist: () => Playback.musicArtist,
             coverUrl: () => Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
@@ -63,7 +62,7 @@ Rectangle {
             lyricSize: () => Style.lyricSize,
             basicCd: () => Style.lyricBasicCd,
             lyricType: () => musicControlMax.lyricThemeMode,
-            lyricMove: () => musicControlMax.lyricMoveMs,
+            lyricMove: () => Playback.lyricOffsetMs,
             openTranslate: () => musicControlMax.lyricTranslateOpen
         };
         for (const k in src)
@@ -129,18 +128,14 @@ Rectangle {
         onLoaded: musicControlMax.inject(lyricLoader.item)
     }
 
-    Connections {
-        target: MusicApi
-        function onLyricFuncted(): void {
-            if(lyricLoader.item) {
-                lyricLoader.item.timerFunction();
-            }
-        }
+    // 歌词模块心跳：按注入索引刷新行位置与等待动画（索引本体由 Playback 的 C++ 引擎计算）
+    // repeat 必须显式开启：QML Timer 缺省单次触发，进入页面只会对位一次就停
+    Timer {
+        interval: 320
+        repeat: true
+        running: musicControlMax.visible && Playback.player.onMedia
+        onTriggered: if(lyricLoader.item) lyricLoader.item.timerFunction()
     }
-
-    Binding { target: MusicApi; property: "lyricFollowActive"; value: musicControlMax.visible && Playback.player.onMedia }
-    Binding { target: MusicApi; property: "lyricPositionMs"; value: Playback.player.position }
-    Binding { target: MusicApi; property: "lyricOffsetMs"; value: musicControlMax.lyricMoveMs }
 
     SButton {
         id: playerminedButton
@@ -336,9 +331,9 @@ Rectangle {
                     height: 36
                     leftText: true
                     valueText: (value / 1000).toFixed(1) + "s"
-                    value: musicControlMax.lyricMoveMs
+                    value: Playback.lyricOffsetMs
                     onMoved: {
-                        musicControlMax.lyricMoveMs = value;
+                        Playback.lyricOffsetMs = value;
                     }
                 }
             }

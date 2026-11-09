@@ -17,11 +17,13 @@ Window {
     color: Theme.primaryColor
     title: "QueMusic"
 
+    // 销毁协议进行中（EngineHost.destroyEngine 程序化 close 窗口前置位）：
+    // onClosing 据此直接放行，避免销毁路径误触 toClosing/quitApp
+    property bool teardownActive: false
+
     Component.onCompleted: {
         Options.queue = Playback.queue
         Options.dialog = globalDialog
-        Options.desktop = desktopPlayer
-        Options.smtc = smtc
         Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
         Options.getWave = getWave
@@ -30,8 +32,6 @@ Window {
         Options.songInfo = songInfo
         Options.favPicker = favPicker
 
-        Options.desktopPlayerLoader = desktopPlayerLoader
-        Options.desktopLyricsLoader = desktopLyricsLoader
         Options.openMaxLyric = openMaxLyric
         Options.settingOutAnime = settingOutAnime
         Options.mainSearchInput = mainSearchInput
@@ -44,9 +44,6 @@ Window {
                 windowAgent.setWindowAttribute("title-bar-height", 40);
             }
         }
-        MusicApi.songSource = Config.mainMusicSource;
-        MusicApi.downloadPath = Config.downloadFolder;
-        MusicApi.soundQuality = Config.soundQuality;
 
         const apiCheck = MusicApi.selfCheck()
         if (!apiCheck.ok) {
@@ -70,41 +67,38 @@ Window {
 
         Qt.callLater(function() {
             Playback.coverHelper.pruneCache(Config.cacheSize);
-
-            if(Config.autoUpdate)
-                autoUpdateTimer.start();
         });
     }
 
-    Binding {
-        target: MusicApi
-        property: "soundQuality"
-        value: Config.soundQuality
-    }
-    Binding {
-        target: MusicApi
-        property: "downloadPath"
-        value: Config.downloadFolder
+    // 销毁协议（EngineHost.destroyEngine 经 QMetaObject::invokeMethod 调用，
+    // 只会出现在轻量模式的卸载路径上）：
+    //   1. 依序置空 Component.onCompleted 注入的 Options 部件引用（与注入清单
+    //      一一对应）——消费方多随场景待销毁，直接赋值即可，不触发动画/绑定副作用；
+    //   2. 复位 MusicApi 会话态：nowIndex/globalid 是 C++ 常驻单例的存活状态，
+    //      不复位会被下次重建的场景读到旧值；
+    //   3. 最后 windowAgent.destroy()——QWindowKit 的 QuickWindowAgent 不支持
+    //      解绑（setup 每实例仅一次），只能整体销毁对象来移除 winId 事件过滤器；
+    //      此后本函数不得再触碰任何场景对象。
+    function performTeardown(): void {
+        teardownActive = true;
+        Options.queue = null
+        Options.dialog = null
+        Options.coverHelper = null
+        Options.mainLayout = null
+        Options.getWave = null
+        Options.textWatch = null
+        Options.picWatch = null
+        Options.songInfo = null
+        Options.favPicker = null
+        Options.openMaxLyric = null
+        Options.settingOutAnime = null
+        Options.mainSearchInput = null
+        MusicApi.nowIndex = 0
+        MusicApi.globalid = 0
+        windowAgent.destroy()
     }
 
-    function silentUpdateCheck(): void {
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                const remote = parseInt(xhr.responseText.trim().substring(0, 3));
-                if (remote > Options.versionCode)
-                    mainWarn.tiped("发现新版本 v" + remote + "，请在设置-关于中查看", 1);
-            }
-        }
-        xhr.open("GET", "https://raw.githubusercontent.com/BroNekoX/QueMusic/main/doc/updater.txt");
-        xhr.send();
-    }
-
-    Timer {
-        id: autoUpdateTimer
-        interval: 3000
-        onTriggered: window.silentUpdateCheck()
-    }
+    // 静默更新检查已迁常驻层 UpdateChecker（main.cpp 启动时 startDeferredCheck()）
 
 
     // 标题栏是窗口拖拽区：插件挂进去的对象要标记可命中，否则点击会被拖拽吞掉
@@ -127,6 +121,12 @@ Window {
 
     // 系统级关闭（Alt+F4、任务栏右键"关闭窗口"）与关闭按钮行为保持一致
     onClosing: (close) => {
+        // EngineHost 销毁协议的程序化 close：直接放行（窗口随后 deleteLater），
+        // 不能再走 hideToTray/toClosing —— 后者会保存会话甚至退出整个应用
+        if(window.teardownActive) {
+            close.accepted = true;
+            return;
+        }
         if(win.closeToTray()) {
             close.accepted = false;
             win.hideToTray();
@@ -140,10 +140,8 @@ Window {
     WindowControls {
         id: win
         targetWindow: window
-        tray: systemTray
         onSessionClosing: {
-            desktopLyricsLoader.active = false
-            desktopPlayerLoader.active = false
+            // 会话收尾（阶段 4b：常驻层保存/退出流程在此接入）
         }
     }
 
@@ -406,11 +404,13 @@ Window {
                 windowAgent.setWindowAttribute("dwm-blur", false);
                 if(Style.backmode === 0) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.secondaryColor;
                 } else if(Style.backmode === 1) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.containColor;
                     mainContent.color = Theme.blurOverlayColor;
@@ -441,6 +441,7 @@ Window {
                     }
                 } else if(Style.backmode === 4) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Theme.primaryBlurColor;
                     window.color = "transparent";
                     mainContent.color = Theme.primaryBlurColor;
@@ -457,7 +458,7 @@ Window {
             height: parent.height
             visible: false
             asynchronous: true
-            //sourceSize: Qt.size(width, height)
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
 
         }
@@ -727,30 +728,9 @@ Window {
         bands: 128
     }
 
-    SystemTrayManager {
-        id: systemTray
-        iconSource: "qrc:/QueMusic/resources/icon.ico"
-        title: "QueMusic"
-        playing: Playback.inplay
-        nowPlaying: Playback.musicTitle + (Playback.musicArtist ? " - " + Playback.musicArtist : "")
-
-        onShowWindowRequested: win.restoreWindow()
-        onPlayPauseRequested: Playback.togglePlay()
-        onPreviousRequested: Playback.previous()
-        onNextRequested: Playback.next(false)
-        onQuitRequested: win.quitApp()
-        onActivated: (reason) => {
-            // 左键单击 / 双击托盘图标：恢复主界面
-            if(reason === SystemTrayManager.Trigger || reason === SystemTrayManager.DoubleClick)
-                win.restoreWindow();
-        }
-    }
-
-    SmtcBridge {
-        id: smtc
-        targetWindow: window
-    }
-
+    // 托盘与 SMTC 已迁至 C++ 常驻层（main.cpp）：托盘信号在 C++ 侧接线，
+    // 恢复窗口 / 播放控制 / 退出收尾由 SessionController + Playback 完成；
+    // SMTC 以隐藏宿主窗口注册（SmtcController），主窗口销毁后仍存活。
 
     SearchCard {
         id: searchCard
@@ -762,24 +742,6 @@ Window {
         }
     }
 
-    DesktopPlayer {
-        id: desktopPlayer
-    }
-
-    Loader {
-        id: desktopPlayerLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
-    }
-    Loader {
-        id: desktopLyricsLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopLyrics.qml"
-    }
     QAlertDialog {
         id: globalDialog
         title: "Dialog"
@@ -813,11 +775,19 @@ Window {
                 mainWarn.tiped(text,type);
             }
         }
+        // Playback.warned 已被常驻层 WarningBuffer 捕获（QML 侧不再直连，避免双弹）；
+        // 实时警告统一从 WarningBuffer.warnedArrived 接入（含 UpdateChecker 更新提示）
         Connections {
-            target: Playback
-            function onWarned(text: string, type: int): void {
+            target: WarningBuffer
+            function onWarnedArrived(text: string, type: int): void {
                 mainWarn.tiped(text, type);
             }
+        }
+        // 场景创建/重建时重放常驻层缓存的最近警告（QML 场景不在期间产生的提示不丢）
+        Component.onCompleted: {
+            const recent = WarningBuffer.recent()
+            for (let i = 0; i < recent.length; ++i)
+                mainWarn.tiped(recent[i].text, recent[i].type)
         }
     }
     QMessage {

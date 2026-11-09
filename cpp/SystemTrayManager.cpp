@@ -8,6 +8,7 @@
 #include <QCoreApplication>
 #include <QIcon>
 #include <QMenu>
+#include <QQmlEngine>
 #include <QSize>
 #include <QStyle>
 #include <QSystemTrayIcon>
@@ -54,11 +55,28 @@ QIcon resolveTrayIcon(const QString &source)
 
 } // namespace
 
+SystemTrayManager *SystemTrayManager::s_instance = nullptr;
+
+// 单例工厂：静态实例守卫 + C++ 所有权，QML 侧不可接管（与 LogManager 同一模式）
+SystemTrayManager *SystemTrayManager::create(QQmlEngine *qmlEngine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(qmlEngine)
+    Q_UNUSED(scriptEngine)
+    static SystemTrayManager *instance = nullptr;
+    if (!instance) {
+        instance = new SystemTrayManager(QCoreApplication::instance());
+        QQmlEngine::setObjectOwnership(instance, QQmlEngine::CppOwnership);
+    }
+    return instance;
+}
+
 SystemTrayManager::SystemTrayManager(QObject *parent)
     : QObject(parent)
     , m_tray(new QSystemTrayIcon(this))
     , m_menu(new QMenu())
 {
+    s_instance = this;
+
     QAction *showAction = m_menu->addAction(QStringLiteral("显示主界面"));
     connect(showAction, &QAction::triggered, this, &SystemTrayManager::showWindowRequested);
 
@@ -102,6 +120,8 @@ SystemTrayManager::SystemTrayManager(QObject *parent)
 
 SystemTrayManager::~SystemTrayManager()
 {
+    if (s_instance == this)
+        s_instance = nullptr;
     m_tray->setContextMenu(nullptr); // 先解绑再释放，避免悬空指针
     delete m_menu;
 }
@@ -201,6 +221,18 @@ void SystemTrayManager::showMessage(const QString &title, const QString &body,
 void SystemTrayManager::quitApplication()
 {
     QCoreApplication::quit();
+}
+
+// 一次性气泡：对应原 WindowControls.qml hideToTray() 里的
+//   if (!trayTipShown) { trayTipShown = true; tray.showMessage(...) }
+void SystemTrayManager::notifyTrayHidden()
+{
+    if (m_trayTipShown)
+        return;
+    m_trayTipShown = true;
+    showMessage(QStringLiteral("QueMusic"),
+                QStringLiteral("已最小化到系统托盘，点击托盘图标可恢复"),
+                Information);
 }
 
 void SystemTrayManager::updateToolTip()

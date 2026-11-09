@@ -358,6 +358,17 @@ Item {
         }
 
         function rebuild(): void {
+            // 几何变化（进出全屏 / 最大化还原 / 歌词大小设置）→ 字号与行距变化 → 行高变化走到这里。
+            // 上一句换行留下的弹簧动画仍在逐帧写 standY，settle 时还会把属性写回旧几何算出的
+            // 目标值；不先停掉，下面的重排会被覆写回旧行距——表现为间距要等下一句换行才纠正。
+            // 停掉即"取消进行中动画器"，随后的赋值就是复用 tick 换行重排的公式、按当前
+            // currentLine 立即对位（isUserScrolling 的 scrollOffset 另存，不受影响）。
+            fixedHAnime.running = false;
+            finalHAnime.running = false;
+            for (let i = 0; i < lyricRep.count; i++) {
+                const it = lyricRep.itemAt(i);
+                if (it) it.stopAnime();
+            }
             let sum = 0
             const arr = [];
             for (let i = 0; i < lyricRep.count; i++) {
@@ -436,6 +447,11 @@ Item {
                     lyricAnime.delay = durationMs;
                     lyricAnime.duration = d < -3 ? 460 : 460 + (d + 4) * 32;
                     lyricAnime.running = true;
+                }
+
+                // 停掉本行弹簧动画，交出 standY 写权（几何变化重排前由 rebuild 调用）
+                function stopAnime(): void {
+                    lyricAnime.running = false;
                 }
 
                 onHeightChanged: {

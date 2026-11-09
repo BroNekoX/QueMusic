@@ -3,6 +3,8 @@
 
 #include "Playback.h"
 
+#include "AppSettings.h"
+#include "LyricTimeline.h"
 #include "MusicApiService.h"
 #include "webdav/WebDavCache.h"
 #include "webdav/WebDavStore.h"
@@ -18,6 +20,9 @@
 #include <QSettings>
 
 namespace {
+
+// 歌词跟随心跳周期（ms），与歌词界面每帧刷新节奏一致
+constexpr int kLyricTickMs = 320;
 
 QString localFile(const QString &path)
 {
@@ -44,11 +49,21 @@ Playback::Playback(QObject *parent)
     m_cursor.setAvoid(m_shuffleAvoid);
     m_engine.setVolume(outVolume());
 
-    {
-        QSettings settings;
-        const QString cacheDir = settings.value(QStringLiteral("Options/cacheUrl")).toString();
+    // 封面缓存目录：初值来自 AppSettings，之后由 cacheUrlChanged 信号驱动
+    if (auto *appSettings = AppSettings::instance()) {
+        const QString cacheDir = appSettings->cacheUrl();
         if (!cacheDir.isEmpty())
             m_cover->setCacheDir(cacheDir);
+
+        // 设置页改动运行时参数 → 自动刷新（SettingsView 里的手动 refreshSettings 调用仍兼容）
+        connect(appSettings, &AppSettings::volumeStepChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::fadeEnabledChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::fadeMsChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::shuffleAvoidChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::historyLimitChanged, this, &Playback::refreshRuntimeSettings);
+        connect(appSettings, &AppSettings::cacheUrlChanged, this, [this, appSettings] {
+            m_cover->setCacheDir(appSettings->cacheUrl());
+        });
     }
     connect(m_cover, &CoverHelper::localCoverReady, this, &Playback::onLocalCoverReady);
 
@@ -58,6 +73,8 @@ Playback::Playback(QObject *parent)
     connect(&m_engine, &AudioEngine::positionChanged, this, &Playback::onEnginePositionChanged);
     connect(&m_engine, &AudioEngine::errorOccurred, this, &Playback::onEngineError);
     connect(&m_engine, &AudioEngine::sourceChanged, this, &Playback::clearAb);
+    connect(&m_engine, &AudioEngine::sourceChanged, this, &Playback::resetLyricFollow);
+    connect(&m_engine, &AudioEngine::playingChanged, this, &Playback::updateLyricFollow);
     connect(&m_engine, &AudioEngine::metaDataChanged, this, &Playback::onEngineMetaDataChanged);
 
     m_engine.setTrackAdvancedCallback([this] { onTrackAdvanced(); });
@@ -80,6 +97,10 @@ Playback::Playback(QObject *parent)
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(2000);
     connect(&m_saveTimer, &QTimer::timeout, &m_history, &PlaybackHistory::save);
+
+    m_lyricTimer.setInterval(kLyricTickMs);
+    m_lyricTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_lyricTimer, &QTimer::timeout, this, &Playback::advanceLyricIndex);
 
     bindApi();
 }
@@ -139,22 +160,28 @@ void Playback::bindApi()
     connect(api, &MusicApiService::localMetadataReady, this, &Playback::onLocalMetadataReady);
     connect(api, &MusicApiService::localLyricsReady, this, &Playback::onLocalLyricsReady);
     connect(api, &MusicApiService::localLyricsFailed, this, &Playback::onLocalLyricsFailed);
+    connect(api, &MusicApiService::lyricsDataChanged, this, &Playback::onLyricsDataChanged);
     connect(api, &MusicApiService::warned, this, &Playback::warned);
 }
 
 void Playback::loadSettings()
 {
+    // musicVolume/muted/cycleIndex 是 C++ 自有键，保持 QSettings 直读；
+    // QML 侧的键一律经 AppSettings 读取
     QSettings settings;
     settings.beginGroup(QStringLiteral("Options"));
     m_volume = qBound(0.0, settings.value(QStringLiteral("musicVolume"), 0.6).toDouble(), 1.0);
     m_muted = settings.value(QStringLiteral("muted"), false).toBool();
     m_cycle = qBound(0, settings.value(QStringLiteral("cycleIndex"), 0).toInt(), 3);
-    m_volumeStepPercent = qBound(1, settings.value(QStringLiteral("volumeStep"), 5).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), true).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), 200).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), 2).toInt());
-    m_historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), 200).toInt());
     settings.endGroup();
+
+    if (auto *appSettings = AppSettings::instance()) {
+        m_volumeStepPercent = qBound(1, appSettings->volumeStep(), 50);
+        m_fadeEnabled = appSettings->fadeEnabled();
+        m_fadeMs = qBound(0, appSettings->fadeMs(), 2000);
+        m_shuffleAvoid = qMax(0, appSettings->shuffleAvoid());
+        m_historyLimit = qMax(20, appSettings->historyLimit());
+    }
 }
 
 void Playback::refreshSettings()
@@ -164,14 +191,14 @@ void Playback::refreshSettings()
 
 void Playback::refreshRuntimeSettings()
 {
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("Options"));
-    const int volumeStep = qBound(1, settings.value(QStringLiteral("volumeStep"), m_volumeStepPercent).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), m_fadeEnabled).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), m_fadeMs).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), m_shuffleAvoid).toInt());
-    const int historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), m_historyLimit).toInt());
-    settings.endGroup();
+    auto *appSettings = AppSettings::instance();
+    if (!appSettings)
+        return;
+    const int volumeStep = qBound(1, appSettings->volumeStep(), 50);
+    m_fadeEnabled = appSettings->fadeEnabled();
+    m_fadeMs = qBound(0, appSettings->fadeMs(), 2000);
+    m_shuffleAvoid = qMax(0, appSettings->shuffleAvoid());
+    const int historyLimit = qMax(20, appSettings->historyLimit());
 
     if (volumeStep != m_volumeStepPercent) {
         m_volumeStepPercent = volumeStep;
@@ -643,14 +670,14 @@ void Playback::seekBy(qint64 ms)
 
 void Playback::seekBack()
 {
-    QSettings settings;
-    seekBy(-qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    auto *appSettings = AppSettings::instance();
+    seekBy(-qint64(qMax(1, appSettings ? appSettings->seekStep() : 5)) * 1000);
 }
 
 void Playback::seekForward()
 {
-    QSettings settings;
-    seekBy(qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    auto *appSettings = AppSettings::instance();
+    seekBy(qint64(qMax(1, appSettings ? appSettings->seekStep() : 5)) * 1000);
 }
 
 void Playback::setAbPoint(int which)
@@ -741,6 +768,7 @@ void Playback::onQueueChanged()
 
 void Playback::onEngineMediaStatusChanged()
 {
+    updateLyricFollow();
     switch (m_engine.mediaStatus()) {
     case AudioEngine::LoadedMedia:
         m_autoSkipCount = 0;
@@ -773,6 +801,7 @@ void Playback::onEngineMediaStatusChanged()
 
 void Playback::onEnginePositionChanged()
 {
+    updateLyricFollow();
     if (abArmed() && m_engine.position() >= m_abB)
         m_engine.setPosition(m_abA);
 }
@@ -780,6 +809,7 @@ void Playback::onEnginePositionChanged()
 void Playback::onEngineError(int code, const QString &message)
 {
     Q_UNUSED(code);
+    updateLyricFollow();
     if (!m_inplay) {
         m_engine.stop();
         return;
@@ -859,6 +889,71 @@ void Playback::onLocalLyricsFailed(const QString &filePath)
     if (m_api->lyricsData().size() > 1)
         return;
     m_api->setLocalLyrics();
+}
+
+// ── 歌词跟随引擎 ──
+// 歌词列表就绪（在线/本地/清空统一经 lyricsDataChanged 到达）：重建时间轴并复位索引
+void Playback::onLyricsDataChanged()
+{
+    rebuildLyricTimes(m_api->lyricsData());
+    setLyricIndex(0);
+    updateLyricFollow();
+}
+
+void Playback::rebuildLyricTimes(const QVariantList &list)
+{
+    m_lyricTimes.clear();
+    m_lyricTimes.reserve(list.size());
+    for (const QVariant &item : list)
+        m_lyricTimes.append(item.toMap().value("time").toLongLong());
+}
+
+// 换歌/换源：清空时间轴并复位索引，跟随定时器一并停掉
+void Playback::resetLyricFollow()
+{
+    m_lyricTimes.clear();
+    setLyricIndex(0);
+    m_lyricTimer.stop();
+}
+
+// 门控纯 C++：有媒体 && 有歌词时间轴 && 正在播放 才喂歌词跟随定时器
+void Playback::updateLyricFollow()
+{
+    const bool active = m_engine.onMedia() && !m_lyricTimes.isEmpty() && m_engine.playing();
+    if (active) {
+        if (!m_lyricTimer.isActive())
+            m_lyricTimer.start();
+    } else if (m_lyricTimer.isActive()) {
+        m_lyricTimer.stop();
+    }
+}
+
+void Playback::advanceLyricIndex()
+{
+    if (m_lyricTimes.isEmpty()) {
+        setLyricIndex(0);
+        return;
+    }
+
+    const qlonglong position = m_engine.position() + m_lyricOffsetMs + kLyricTickMs;
+    setLyricIndex(LyricTimeline::indexAt(m_lyricTimes, position));
+}
+
+void Playback::setLyricIndex(int index)
+{
+    if (m_lyricIndex == index)
+        return;
+    m_lyricIndex = index;
+    emit lyricIndexChanged();
+}
+
+// 写入即命令：歌词校准偏移常驻 C++，界面拖动滑杆直接赋值即可
+void Playback::setLyricOffsetMs(int ms)
+{
+    if (m_lyricOffsetMs == ms)
+        return;
+    m_lyricOffsetMs = ms;
+    emit lyricOffsetMsChanged();
 }
 
 void Playback::onLocalCoverReady(const QString &filePath, const QString &coverUrl)
