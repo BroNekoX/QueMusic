@@ -77,6 +77,11 @@ AppSettings::AppSettings(QObject *parent)
     APPSETTINGS_LOAD_BOOL(qmlAnimator)
     APPSETTINGS_LOAD_BOOL(displayDebugControl)
 
+    APPSETTINGS_LOAD_BOOL(lightweightAutoEnabled)
+    APPSETTINGS_LOAD_INT(lightweightDelaySeconds)
+    APPSETTINGS_LOAD_BOOL(desktopLyricsOn)
+    APPSETTINGS_LOAD_BOOL(desktopMiniPlayerOn)
+
     settings.endGroup();
 
 #undef APPSETTINGS_LOAD_BOOL
