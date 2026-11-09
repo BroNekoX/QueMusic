@@ -4,18 +4,15 @@
 #include "SessionController.h"
 
 #include "AppSettings.h"
+#include "DesktopWidgetsController.h"
 #include "EngineHost.h"
 #include "QueueModel.h"
 #include "audio/AudioEngine.h"
 #include "playback/Playback.h"
-#include "DesktopLyricsWindow.h"
-#include "DesktopMiniPlayerWindow.h"
 
-#include <QApplication>
 #include <QCoreApplication>
 #include <QQmlEngine>
 #include <QSettings>
-#include <QWidget>
 
 SessionController *SessionController::s_instance = nullptr;
 
@@ -85,15 +82,11 @@ void SessionController::doQuitApp(QQuickWindow *mainWindow)
         host->destroyEngine();
     }
 
-    // 桌面部件窗口（顶层 QWidget，Qt 不会自动删除）随退出立即关闭——
-    // 留到 QApplication 收尾阶段会在屏幕上滞留数十秒；deleteLater 后随下方
+    // 桌面部件窗口随退出立即销毁——留到 QApplication 收尾阶段会在屏幕上
+    // 滞留数十秒；控制器统一 deleteLater（同开关 false 分支），随下方
     // DeferredDelete 冲刷立即销毁
-    const QWidgetList topLevels = QApplication::topLevelWidgets();
-    for (QWidget *widget : topLevels) {
-        if (qobject_cast<DesktopLyricsWindow *>(widget)
-            || qobject_cast<DesktopMiniPlayerWindow *>(widget))
-            widget->deleteLater();
-    }
+    if (auto *widgets = DesktopWidgetsController::instance())
+        widgets->shutdownAll();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
     QCoreApplication::quit();

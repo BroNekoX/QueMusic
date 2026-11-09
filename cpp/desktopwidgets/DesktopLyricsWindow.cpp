@@ -89,15 +89,9 @@ DesktopLyricsWindow::DesktopLyricsWindow(QWidget *parent)
         connect(m_playback, &Playback::inplayChanged, this, [this] { update(); });
     }
 
-    // 显隐跟随设置开关（设置页开关 / 关闭按钮共同驱动）
-    if (auto *settings = AppSettings::instance()) {
-        connect(settings, &AppSettings::desktopLyricsOnChanged, this, [this] {
-            auto *s = AppSettings::instance();
-            setVisible(s && s->desktopLyricsOn());
-        });
-        if (settings->desktopLyricsOn())
-            show();
-    }
+    // 注意：不再连接 AppSettings::desktopLyricsOnChanged 自管显隐——创建/
+    // 显示/销毁统一由 cpp/resident/DesktopWidgetsController 响应开关完成
+    // （按开关创建、关闭即销毁），构造出的实例由控制器紧随其后 show()
 
     updateLyricIndex();  // QML Component.onCompleted: updateCurrentIndex()
 }
@@ -143,7 +137,8 @@ void DesktopLyricsWindow::updateTickTimer()
         m_tickTimer->stop();
 }
 
-// 关闭按钮与 closeEvent 统一走这里：写回开关 false，由 NOTIFY 联动隐藏
+// 关闭按钮与 closeEvent 统一走这里：写回开关 false，DesktopWidgetsController
+// 响应 NOTIFY 完成销毁（关闭即销毁，本类不做任何自管显隐）
 void DesktopLyricsWindow::requestClose()
 {
     auto *settings = AppSettings::instance();

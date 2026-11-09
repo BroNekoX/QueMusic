@@ -23,8 +23,7 @@
 #include "cpp/resident/SmtcController.h"
 #include "cpp/resident/UpdateChecker.h"
 #include "cpp/resident/WarningBuffer.h"
-#include "DesktopLyricsWindow.h"
-#include "DesktopMiniPlayerWindow.h"
+#include "cpp/resident/DesktopWidgetsController.h"
 #include "api/MusicApiService.h"
 
 // 渲染相关开关必须早于 QApplication
@@ -163,10 +162,10 @@ int main(int argc, char *argv[])
     new SmtcController(playback, &application);
 #endif
 
-    // 桌面部件 Widgets 窗口：进程级常驻，构造即按 AppSettings 开关自管显隐
-    // （QApplication 非 QWidget，无 parent；窗口显隐/关闭由 AppSettings 开关自管）
-    new DesktopLyricsWindow(nullptr);
-    new DesktopMiniPlayerWindow(nullptr);
+    // 桌面部件（桌面歌词/小窗播放器）生命周期控制器：按 AppSettings 开关
+    // 创建/销毁对应窗口（开关开→创建显示、关→hide + deleteLater 销毁，不留
+    // 缓存实例）；构造时按当前开关值播种，重启后开关为开的部件立即恢复显示
+    DesktopWidgetsController::create(nullptr, nullptr);
     // 托盘菜单"显示主界面" / 左键单击、双击托盘图标 → 恢复主界面（统一走
     // EngineHost::restore：轻量模式下重新装配引擎，Active 时按记忆形态恢复窗口）
     QObject::connect(tray, &SystemTrayManager::showWindowRequested, &application,

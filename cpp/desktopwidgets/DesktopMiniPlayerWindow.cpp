@@ -79,15 +79,9 @@ DesktopMiniPlayerWindow::DesktopMiniPlayerWindow(QWidget *parent)
     }
     refreshCoverImage();
 
-    // 显隐跟随设置开关（设置页开关 / 关闭按钮共同驱动）
-    if (auto *settings = AppSettings::instance()) {
-        connect(settings, &AppSettings::desktopMiniPlayerOnChanged, this, [this] {
-            auto *s = AppSettings::instance();
-            setVisible(s && s->desktopMiniPlayerOn());
-        });
-        if (settings->desktopMiniPlayerOn())
-            show();
-    }
+    // 注意：不再连接 AppSettings::desktopMiniPlayerOnChanged 自管显隐——创建/
+    // 显示/销毁统一由 cpp/resident/DesktopWidgetsController 响应开关完成
+    // （按开关创建、关闭即销毁），构造出的实例由控制器紧随其后 show()
 }
 
 DesktopMiniPlayerWindow::~DesktopMiniPlayerWindow() = default;
@@ -189,11 +183,13 @@ bool DesktopMiniPlayerWindow::resizeEdgesAt(const QPoint &pos, Qt::Edges *edgesO
 // ---------------------------------------------------------------------------
 // 关闭 / 按钮 / 进度条行为
 // ---------------------------------------------------------------------------
+// 关闭按钮与 closeEvent 统一走这里：写回开关 false，DesktopWidgetsController
+// 响应 NOTIFY 完成销毁（关闭即销毁，本类不做任何自管显隐）
 void DesktopMiniPlayerWindow::requestClose()
 {
     auto *settings = AppSettings::instance();
     if (settings && settings->desktopMiniPlayerOn())
-        settings->setDesktopMiniPlayerOn(false);  // NOTIFY → 显隐联动隐藏
+        settings->setDesktopMiniPlayerOn(false);  // NOTIFY → 控制器销毁窗口
     else
         hide();  // 开关本来就是关（如 Alt+F4 强关）时兜底直接隐藏
 }
