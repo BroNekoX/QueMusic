@@ -58,6 +58,8 @@ public:
     // 退出应用：先保存会话，再请求事件循环退出。
     // 对应原 QML 的 win.quitApp() → toClosing → tray.quitApplication()
     // （内部含 saveSession，WindowsControls.toClosing 的非托盘分支直接调本方法）。
+    // 收尾本体延迟到 doQuitApp：本方法可能自 QML onClosing 调用栈一路进来，
+    // 引擎/窗口的同步销毁必须在干净栈上执行（见 doQuitApp 注释）。
     Q_INVOKABLE void quitApp(QQuickWindow *mainWindow);
 
     // 恢复主窗口：对应原 WindowControls.qml restoreWindow()（托盘单击/双击、
@@ -71,6 +73,10 @@ public:
     Q_INVOKABLE void markHidden(QQuickWindow *mainWindow);
 
 private:
+    // 退出收尾本体（quitApp 经 QueuedConnection 调入）：停音频引擎 →
+    // 销毁 QML 引擎与桌面部件窗口（窗口+边框原子消失）→ quit()
+    void doQuitApp(QQuickWindow *mainWindow);
+
     void saveLastSong();
     void saveWindowGeometry(QQuickWindow *mainWindow);
 

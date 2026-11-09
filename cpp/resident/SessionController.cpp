@@ -4,13 +4,18 @@
 #include "SessionController.h"
 
 #include "AppSettings.h"
+#include "EngineHost.h"
 #include "QueueModel.h"
 #include "audio/AudioEngine.h"
 #include "playback/Playback.h"
+#include "DesktopLyricsWindow.h"
+#include "DesktopMiniPlayerWindow.h"
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QQmlEngine>
 #include <QSettings>
+#include <QWidget>
 
 SessionController *SessionController::s_instance = nullptr;
 
@@ -54,7 +59,43 @@ void SessionController::saveSession(QQuickWindow *mainWindow)
 
 void SessionController::quitApp(QQuickWindow *mainWindow)
 {
-    saveSession(mainWindow);
+    // 收尾整体延迟到下一轮事件：调用方可能是 QML onClosing（窗口关闭事件
+    // 处理栈）或托盘菜单动作，若在此栈上同步销毁引擎与窗口，返回时栈上
+    // 仍持有已析构对象的上下文（onClosing 的 JS 帧），触发释放后访问崩溃。
+    QMetaObject::invokeMethod(this, [this, mainWindow] { doQuitApp(mainWindow); },
+                              Qt::QueuedConnection);
+}
+
+void SessionController::doQuitApp(QQuickWindow *mainWindow)
+{
+    // 退出顺序敏感，三件事必须在 quit() 之前、事件循环仍存活时完成：
+    //   1. 停住音频引擎——stop() 内部经输出线程 BlockingQueuedConnection 投递，
+    //      一旦拖到 QApplication 析构阶段再执行，事件投递与线程收尾相互卡死，
+    //      实测阻塞数十秒后触发 Qt 断言崩溃；
+    //   2. 销毁 QML 引擎——窗口与边框原子消失；否则 QML 内容在析构深处先没、
+    //      原生边框滞留数秒才随 HWND 销毁。DeferredDelete 需手动冲刷：
+    //      quit() 之后事件循环不再处理删除队列，窗口不会真正落地销毁；
+    //   3. quit()
+    Playback *playback = Playback::create(nullptr, nullptr);
+    if (AudioEngine *engine = playback ? playback->player() : nullptr)
+        engine->stop();
+
+    EngineHost *host = EngineHost::instance();
+    if (host && host->mainWindow()) {
+        host->destroyEngine();
+    }
+
+    // 桌面部件窗口（顶层 QWidget，Qt 不会自动删除）随退出立即关闭——
+    // 留到 QApplication 收尾阶段会在屏幕上滞留数十秒；deleteLater 后随下方
+    // DeferredDelete 冲刷立即销毁
+    const QWidgetList topLevels = QApplication::topLevelWidgets();
+    for (QWidget *widget : topLevels) {
+        if (qobject_cast<DesktopLyricsWindow *>(widget)
+            || qobject_cast<DesktopMiniPlayerWindow *>(widget))
+            widget->deleteLater();
+    }
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
     QCoreApplication::quit();
 }
 
