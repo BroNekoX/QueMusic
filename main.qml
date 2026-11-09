@@ -404,11 +404,13 @@ Window {
                 windowAgent.setWindowAttribute("dwm-blur", false);
                 if(Style.backmode === 0) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.secondaryColor;
                 } else if(Style.backmode === 1) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.containColor;
                     mainContent.color = Theme.blurOverlayColor;
@@ -439,6 +441,7 @@ Window {
                     }
                 } else if(Style.backmode === 4) {
                     backGround.visible = false;
+                    backGround.source = "";
                     sidebar.color = Theme.primaryBlurColor;
                     window.color = "transparent";
                     mainContent.color = Theme.primaryBlurColor;
@@ -455,7 +458,7 @@ Window {
             height: parent.height
             visible: false
             asynchronous: true
-            //sourceSize: Qt.size(width, height)
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
 
         }
