@@ -116,6 +116,15 @@ public:
     bool commentsHasMore() const { return m_commentsHasMore; }
     void setCommentsHasMore(bool hasMore);
 
+    // 轻量模式（引擎销毁）前调用：清空全部浏览型/结果型在线列表。
+    // 本单例跨引擎销毁常驻，而这些列表只是 QML 页面的浏览缓存，不跨轻量
+    // 保留（搜索结果同样不保留）；不清则会构成轻量模式内存的地板。
+    // 保留项（见 .cpp 实现）：lyricsData/lyricsTranslate（桌面歌词部件与
+    // SMTC 仍需当前歌词）及登录态、音源配置等会话态。
+    // 只能在引擎销毁路径（QML 页面即将随引擎一起销毁）调用，此时 model
+    // reset 不会触发存活视图的异常刷新。
+    void clearTransientModels();
+
     OnlineListModel *allPlaylistMenu() { return &m_allPlaylistMenu; }
     QVariantList lyricsData() const { return m_lyricsData; }
     void setLyricsData(const QVariantList &data);

@@ -14,6 +14,7 @@
 #include "AppSettings.h"
 #include "SystemTrayManager.h"
 #include "SessionController.h"
+#include "api/MusicApiService.h"
 
 // qmltyperegistration 生成（Qt 构建产物）：注册 QueMusic 模块的 QML_ELEMENT 类型。
 // 进程级只需调用一次（重复调用会重复注册），createEngine 内用静态 bool 守卫。
@@ -157,6 +158,14 @@ void EngineHost::destroyEngine()
         //    main.qml 未实现该钩子时 invokeMethod 返回 false，仅告警不中断。
         if (!QMetaObject::invokeMethod(root, "performTeardown"))
             qWarning() << "[EngineHost] main.qml 未实现 performTeardown()（销毁协议 QML 钩子缺失）";
+        // 1.3 常驻层浏览数据不跨轻量保留：MusicApiService 是引擎创建前构造的
+        //     C++ 单例，其在线列表模型（搜索结果、歌单、榜单、评论等）由
+        //     ApiResultRouter 只增不减地 append，跨轻量模式存活会构成内存
+        //     地板。此刻 QML 页面即将随引擎销毁，持有这些模型的视图已不在
+        //     交互路径上，清空触发的 model reset 安全。歌词与登录态等会话态
+        //     不受影响（见 MusicApiService::clearTransientModels 注释）。
+        if (MusicApiService *api = MusicApiService::instance())
+            api->clearTransientModels();
         // 1.4 JS 堆回收：~QJSEngine 析构不会清理 persistent JS 堆，需要释放
         //     全部内存须在析构前手动 collectGarbage()（Qt 文档要求）。此刻
         //     performTeardown 已解绑 QML 侧引用，堆内不可达对象最多；必须在

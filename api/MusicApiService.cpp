@@ -234,6 +234,40 @@ void MusicApiService::setAccountManager(AccountManager *am)
     refreshAccountState();
 }
 
+// 进入轻量模式（EngineHost::destroyEngine）时由常驻层调用：清空全部浏览型/
+// 结果型 OnlineListModel。这些模型由 ApiResultRouter 只增不减地 append，跨
+// 轻量模式存活的话会累积成内存地板。逐项取舍：
+//   - 清空：所有"列表数据"性质的模型——搜索结果、新歌/每日推荐、歌单广场
+//     （musicPlaylists）、全部歌单菜单（allPlaylistMenu）、歌单内歌曲
+//     （playlistSong）、热歌榜单列表（hotPlayLists）、热歌分类菜单
+//     （getHotlistMenu）、排行榜（musicToplist/toplistList）、歌手列表
+//     （singerList）、私人漫游/私人雷达（personalFm/personalRadar）、评论
+//     （comments，含 commentsHasMore 翻页标志）。均为页面浏览缓存，重新进入
+//     后由 QML 重新拉取。
+//   - 保留 m_lyricsData/m_lyricsTranslate：桌面歌词部件与 SMTC 在轻量模式下
+//     仍需当前播放歌词；本方法只处理浏览型数据，不动播放会话态。
+//   - 保留登录态（m_account/m_credentials）、音源与音质设置（m_source/
+//     m_soundQuality/m_sourceList 等）、globalid/globaltagid/globalinfo、
+//     nowIndex、下载器：均为会话/配置态，与浏览缓存无关，用户未要求清理。
+void MusicApiService::clearTransientModels()
+{
+    m_searchSongsResults.clear();
+    m_newSongs.clear();
+    m_recommendSongs.clear();
+    m_musicPlaylists.clear();
+    m_allPlaylistMenu.clear();
+    m_playlistSong.clear();
+    m_hotPlayLists.clear();
+    m_getHotlistMenu.clear();
+    m_musicToplist.clear();
+    m_toplistList.clear();
+    m_singerList.clear();
+    m_personalFm.clear();
+    m_personalRadar.clear();
+    m_comments.clear();
+    m_commentsHasMore = false;
+}
+
 void MusicApiService::refreshAccountState()
 {
     refreshCredentials();
