@@ -40,7 +40,6 @@ endif()
 
 # 期望可被 qmltc 编译的组件（仅使用 QtQuick/QtQml + 本模块内这批文件，构成自洽闭包）
 set(QUE_MUSIC_QMLTC_ALLOWED
-    components/Style.qml
     components/StyleThemes.qml
     components/StyleSettings.qml
     components/Options.qml

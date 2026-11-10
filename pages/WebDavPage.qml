@@ -294,8 +294,7 @@ Item {
                 height: 44
                 visible: !listDir.isDir
                 // 落地过就有同目录封面可用；没落地先用占位图（远端封面要带鉴权头，QML 加载不了）
-                image: listDir.localCover !== "" ? listDir.localCover
-                                                : "qrc:/QueMusic/resources/app/musicpic.png"
+                image: listDir.localCover
                 radius1: 10
                 radius2: 10
                 radius3: 10

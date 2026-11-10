@@ -21,7 +21,6 @@ Window {
         Options.queue = Playback.queue
         Options.dialog = globalDialog
         Options.desktop = desktopPlayer
-        Options.smtc = smtc
         Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
         Options.getWave = getWave
@@ -29,13 +28,12 @@ Window {
         Options.picWatch = picWatch
         Options.songInfo = songInfo
         Options.favPicker = favPicker
-
-        Options.desktopPlayerLoader = desktopPlayerLoader
-        Options.desktopLyricsLoader = desktopLyricsLoader
         Options.openMaxLyric = openMaxLyric
         Options.settingOutAnime = settingOutAnime
         Options.mainSearchInput = mainSearchInput
+        Options.musicpic = picWidget
         windowAgent.setup(window);
+        windowAgent.setTitleBar(titleBar);
         // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
         if(!Options.isMacOS) {
             // dwm-blur acrylic-material mica mica-alt
@@ -44,9 +42,6 @@ Window {
                 windowAgent.setWindowAttribute("title-bar-height", 40);
             }
         }
-        MusicApi.songSource = Config.mainMusicSource;
-        MusicApi.downloadPath = Config.downloadFolder;
-        MusicApi.soundQuality = Config.soundQuality;
 
         const apiCheck = MusicApi.selfCheck()
         if (!apiCheck.ok) {
@@ -55,15 +50,6 @@ Window {
             console.log("[api self-check] passed", apiCheck.passed, "checks,",
                         apiCheck.elapsedMs, "ms")
         }
-
-        if(Config.rememberWindow && Config.winW > 0) {
-            window.x = Config.winX;
-            window.y = Config.winY;
-            window.width = Config.winW;
-            window.height = Config.winH;
-        }
-
-        window.visible = true;
 
         Options.changeUi();
         Options.changeTheme();
@@ -74,17 +60,6 @@ Window {
             if(Config.autoUpdate)
                 autoUpdateTimer.start();
         });
-    }
-
-    Binding {
-        target: MusicApi
-        property: "soundQuality"
-        value: Config.soundQuality
-    }
-    Binding {
-        target: MusicApi
-        property: "downloadPath"
-        value: Config.downloadFolder
     }
 
     function silentUpdateCheck(): void {
@@ -118,33 +93,15 @@ Window {
         Options.searchText = text;
         MusicApi.searchSongsResults.clear();
         mainContent.contentIndexed(5);
-        Config.searchList = Config.searchList.filter(value => value !== text);
-        Config.searchList.splice(0, 0, text);
+        Config.searchList = [text].concat(Config.searchList.filter(value => value !== text));
         MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
         Options.reSearch();
         Options.exitIndex = 1;
     }
 
-    // 系统级关闭（Alt+F4、任务栏右键"关闭窗口"）与关闭按钮行为保持一致
     onClosing: (close) => {
-        if(win.closeToTray()) {
-            close.accepted = false;
-            win.hideToTray();
-            return;
-        }
-        // 未开启托盘时也要走保存与会话收尾，不能直接放行
-        close.accepted = false;
-        win.toClosing();
-    }
-
-    WindowControls {
-        id: win
-        targetWindow: window
-        tray: systemTray
-        onSessionClosing: {
-            desktopLyricsLoader.active = false
-            desktopPlayerLoader.active = false
-        }
+        close.accepted = false
+        App.requestClose()
     }
 
     Shortcut {
@@ -212,9 +169,6 @@ Window {
         height: 60
         //color: "transparent"
         property bool toBarLyric: musicControlMax.y === 0
-
-        // 此组件创建时，将此组件与 qwindowkit 绑定，标题栏事件由此传入
-        Component.onCompleted: windowAgent.setTitleBar(titleBar);
 
         Item {
             id: appTitleBlock
@@ -382,7 +336,7 @@ Window {
                 id: closeButton
                 source: closeButton.hovered ? hover : unhover
                 hoverColor: "#ee4848"
-                onClicked: win.toClosing();
+                onClicked: App.requestClose()
                 Component.onCompleted: {
                     if(Options.isMacOS) {
                         visible = false;
@@ -409,17 +363,20 @@ Window {
                     sidebar.color = Style.sidebarColor ? Theme.secondaryColor : Theme.primaryColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.secondaryColor;
+                    backGround.source = "";
                 } else if(Style.backmode === 1) {
                     backGround.visible = false;
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.containColor;
                     mainContent.color = Theme.blurOverlayColor;
+                    backGround.source = "";
                 } else if(Style.backmode === 2) {
                     backGround.visible = true;
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.blurOverlayColor;
                     backGround.source = "qrc:/QueMusic/resources/pic/cloudRainbow.png";
+                    backGround.source = "";
                 } else if(Style.backmode === 3) {
                     backGround.visible = true;
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
@@ -444,7 +401,12 @@ Window {
                     sidebar.color = Theme.primaryBlurColor;
                     window.color = "transparent";
                     mainContent.color = Theme.primaryBlurColor;
-                    windowAgent.setWindowAttribute("dwm-blur", true);
+                    if(Options.isMacOS) {
+                        windowAgent.setWindowAttribute("blur-effect", "none");
+                    } else {
+                        windowAgent.setWindowAttribute("dwm-blur", true);
+                    }
+                    backGround.source = "";
                 }
             }
         }
@@ -727,30 +689,6 @@ Window {
         bands: 128
     }
 
-    SystemTrayManager {
-        id: systemTray
-        iconSource: "qrc:/QueMusic/resources/icon.ico"
-        title: "QueMusic"
-        playing: Playback.inplay
-        nowPlaying: Playback.musicTitle + (Playback.musicArtist ? " - " + Playback.musicArtist : "")
-
-        onShowWindowRequested: win.restoreWindow()
-        onPlayPauseRequested: Playback.togglePlay()
-        onPreviousRequested: Playback.previous()
-        onNextRequested: Playback.next(false)
-        onQuitRequested: win.quitApp()
-        onActivated: (reason) => {
-            // 左键单击 / 双击托盘图标：恢复主界面
-            if(reason === SystemTrayManager.Trigger || reason === SystemTrayManager.DoubleClick)
-                win.restoreWindow();
-        }
-    }
-
-    SmtcBridge {
-        id: smtc
-        targetWindow: window
-    }
-
 
     SearchCard {
         id: searchCard
@@ -766,20 +704,6 @@ Window {
         id: desktopPlayer
     }
 
-    Loader {
-        id: desktopPlayerLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopPlayerWindow.qml"
-    }
-    Loader {
-        id: desktopLyricsLoader
-        active: false
-        asynchronous: true
-        visible: status === Loader.Ready
-        source: "qrc:/QueMusic/components/DesktopLyrics.qml"
-    }
     QAlertDialog {
         id: globalDialog
         title: "Dialog"
@@ -913,5 +837,23 @@ Window {
     PluginSlot { slotName: "window.overlay"; target: Overlay.overlay }
     PluginHost {
         onPluginLoaded: window.syncTitleBarHitTest()
+    }
+
+    Rectangle {
+        id: picWidget
+        width: 256
+        height: 256
+        radius: 24
+        color: Theme.containColor
+        visible: false
+        layer.enabled: true
+        layer.smooth: true
+        Text {
+            anchors.centerIn: parent
+            text: "\uf044"
+            color: Theme.fontColor
+            font.pixelSize: 128
+            font.family: Fonts.icon
+        }
     }
 }

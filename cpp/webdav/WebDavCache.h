@@ -10,6 +10,7 @@
 #include <QList>
 #include <QObject>
 #include <QString>
+#include <QQmlEngine>
 #include <QtQml/qqml.h>
 
 class QNetworkAccessManager;

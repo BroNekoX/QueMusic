@@ -104,8 +104,7 @@ Item {
                 width: 68
                 height: 68
                 radius: 10
-                image: row.preview ? row.preview
-                                          : "qrc:/QueMusic/resources/app/musicpic.png"
+                image: row.preview ? row.preview : ""
             }
 
             Text {

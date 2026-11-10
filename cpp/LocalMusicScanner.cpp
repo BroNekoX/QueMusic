@@ -3,7 +3,7 @@
 //
 #include "LocalMusicScanner.h"
 
-#include "CoverHelper.h"
+#include "module/CoverHelper.h"
 #include "DbService.h"
 #include "SearchResultModel.h"
 #include <QDir>

@@ -249,8 +249,7 @@ Rectangle {
                         radius2: 10
                         radius3: 10
                         radius4: 10
-                        image: themeRow.preview ? themeRow.preview
-                                                  : "qrc:/QueMusic/resources/app/musicpic.png"
+                        image: themeRow.preview
                     }
 
                     Column {

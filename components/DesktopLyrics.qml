@@ -16,7 +16,6 @@ Window {
     title: "QueMusic 桌面歌词"
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-    property bool active: true   // 外部控制显示/隐藏
     property int lyricSize: height / 4 - 18
 
 
@@ -24,10 +23,13 @@ Window {
     property var lyricsData: MusicApi.lyricsData || []
     property int currentIndex: 0
     property int nextIndex: 1
-    onLyricsDataChanged: desktopLyricsWindow.updateCurrentIndex()
+    onLyricsDataChanged: {
+        if (visible)
+            updateCurrentIndex();
+    }
     onClosing: {
-        Options.desktop.desktopPlayerMode = 0;
-        Options.desktopLyricsLoader.active = false;
+        Desktop.playerMode = 0;
+        Desktop.lyrics.active = false;
     }
 
     // 播放时下标只会前进，从上次位置增量推进，避免每 tick 全表扫描
@@ -263,20 +265,14 @@ Window {
                 hoverColor: "#66fafafa"
                 iconColor: "#fffdfdfd"
                 shadowEnabled: false
-                onClicked: {
-                    Options.desktop.desktopPlayerMode = 0;
-                    Options.desktopLyricsLoader.active = false;
-                }
+                onClicked: desktopLyricsWindow.close()
                 tipText: "关闭"
             }
         }
     }
 
-    // 窗口可见性跟随 active
-    onActiveChanged: visible = active;
-
-    Component.onCompleted: {
-        updateCurrentIndex();
-        active = true;
+    onVisibleChanged: {
+        if (visible)
+            updateCurrentIndex();
     }
 }

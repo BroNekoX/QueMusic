@@ -236,10 +236,15 @@ jobs:
           QT_LIB_DIR="$QTDIR/lib"
 
           mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/plugins \
-                   AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+                   AppDir/usr/share/applications
 
           cp packaging/QueMusic.desktop AppDir/usr/share/applications/
-          cp resources/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png
+          # 16→512 整套 freedesktop 图标（packaging/make-icons.py linux 生成），
+          # 只给 256 一档时，高分屏/小尺寸下会被拉伸或缩小。
+          for _s in 16 24 32 48 64 128 256 512; do
+            install -Dm644 "resources/icons/${_s}.png" \
+              "AppDir/usr/share/icons/hicolor/${_s}x${_s}/apps/quemusic.png"
+          done
 
           # ---- 平台插件：xcb + 全部 wayland ----
           # Qt 6.10 的 Wayland 平台插件叫 libqwayland.so（Qt5 才叫 libqwayland-generic.so），
@@ -493,7 +498,7 @@ jobs:
             --appdir AppDir \
             --executable build/bin/QueMusic \
             --desktop-file AppDir/usr/share/applications/QueMusic.desktop \
-            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/quemusic.png \
+            --icon-file AppDir/usr/share/icons/hicolor/512x512/apps/quemusic.png \
             --plugin qt \
             --custom-apprun AppRun.sh \
             --exclude-library libwayland-client.so.0 \

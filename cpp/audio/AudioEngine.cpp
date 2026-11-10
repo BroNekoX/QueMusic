@@ -4,6 +4,7 @@
 #include "AudioEngine.h"
 
 #include "AudioSpectrumSink.h"
+#include "AppSettings.h"
 
 #include <QAudio>
 #include <QAudioSink>
@@ -14,7 +15,6 @@
 #include <QJsonDocument>
 #include <QMediaDevices>
 #include <QMetaObject>
-#include <QSettings>
 #include <QStringList>
 #include <QThread>
 #include <QTimer>
@@ -153,6 +153,7 @@ AudioEngine::~AudioEngine()
     if (m_saveTimer && m_saveTimer->isActive()) {
         m_saveTimer->stop();
         saveSettings();
+        AppSettings::sync();
     }
     m_quit.store(true);
     stopThread();
@@ -1430,45 +1431,38 @@ std::shared_ptr<AudioSpectrumSinkHandle> AudioEngine::acquireSpectrumHandle()
 
 void AudioEngine::loadSettings()
 {
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("AudioDsp"));
-
-    m_eq.enabled = settings.value(QStringLiteral("eqEnabled"), false).toBool();
+    m_eq.enabled = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("eqEnabled"), false).toBool();
     const QJsonArray gains = QJsonDocument::fromJson(
-                                 settings.value(QStringLiteral("eqGains")).toByteArray())
+                                 AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("eqGains")).toByteArray())
                                  .array();
     for (int i = 0; i < AudioDsp::kBandCount && i < gains.size(); ++i)
         m_eq.gains[i] = qBound(-24.0, gains.at(i).toDouble(), 24.0);
-    m_eq.q = qBound(0.2, settings.value(QStringLiteral("eqQ"), 1.41).toDouble(), 8.0);
-    m_eq.preampDb = qBound(-24.0, settings.value(QStringLiteral("preampDb"), 0.0).toDouble(), 24.0);
-    m_eq.autoHeadroom = settings.value(QStringLiteral("autoHeadroom"), true).toBool();
-    m_eq.balance = qBound(-1.0, settings.value(QStringLiteral("balance"), 0.0).toDouble(), 1.0);
-    m_eq.stereoWidth = qBound(0.0, settings.value(QStringLiteral("stereoWidth"), 1.0).toDouble(), 2.0);
-    m_eq.mono = settings.value(QStringLiteral("mono"), false).toBool();
-    m_eq.swapChannels = settings.value(QStringLiteral("swapChannels"), false).toBool();
-    m_eq.channelGain[0] = qBound(-24.0, settings.value(QStringLiteral("gainLeft"), 0.0).toDouble(), 24.0);
-    m_eq.channelGain[1] = qBound(-24.0, settings.value(QStringLiteral("gainRight"), 0.0).toDouble(), 24.0);
-    m_eq.rgMode = qBound(0, settings.value(QStringLiteral("rgMode"), 0).toInt(), 2);
-    m_eq.rgPreampDb = qBound(-24.0, settings.value(QStringLiteral("rgPreamp"), 0.0).toDouble(), 24.0);
-    m_eq.rgPreventClip = settings.value(QStringLiteral("rgPreventClip"), true).toBool();
-    m_eq.limiter = settings.value(QStringLiteral("limiter"), false).toBool();
-    m_eq.limiterThresholdDb = qBound(-24.0, settings.value(QStringLiteral("limiterDb"), -0.5).toDouble(), 0.0);
-    m_pitchSemitones = qBound(-12.0, settings.value(QStringLiteral("pitchSemitones"), 0.0).toDouble(), 12.0);
+    m_eq.q = qBound(0.2, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("eqQ"), 1.41).toDouble(), 8.0);
+    m_eq.preampDb = qBound(-24.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("preampDb"), 0.0).toDouble(), 24.0);
+    m_eq.autoHeadroom = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("autoHeadroom"), true).toBool();
+    m_eq.balance = qBound(-1.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("balance"), 0.0).toDouble(), 1.0);
+    m_eq.stereoWidth = qBound(0.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("stereoWidth"), 1.0).toDouble(), 2.0);
+    m_eq.mono = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("mono"), false).toBool();
+    m_eq.swapChannels = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("swapChannels"), false).toBool();
+    m_eq.channelGain[0] = qBound(-24.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("gainLeft"), 0.0).toDouble(), 24.0);
+    m_eq.channelGain[1] = qBound(-24.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("gainRight"), 0.0).toDouble(), 24.0);
+    m_eq.rgMode = qBound(0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("rgMode"), 0).toInt(), 2);
+    m_eq.rgPreampDb = qBound(-24.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("rgPreamp"), 0.0).toDouble(), 24.0);
+    m_eq.rgPreventClip = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("rgPreventClip"), true).toBool();
+    m_eq.limiter = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("limiter"), false).toBool();
+    m_eq.limiterThresholdDb = qBound(-24.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("limiterDb"), -0.5).toDouble(), 0.0);
+    m_pitchSemitones = qBound(-12.0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("pitchSemitones"), 0.0).toDouble(), 12.0);
     m_pitchMilli.store(int(std::lround(std::pow(2.0, double(m_pitchSemitones) / 12.0) * 1000.0)),
                        std::memory_order_relaxed);
-    m_eq.masterEnabled = settings.value(QStringLiteral("dspEnabled"), true).toBool();
+    m_eq.masterEnabled = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("dspEnabled"), true).toBool();
     m_dspEnabled.store(m_eq.masterEnabled, std::memory_order_relaxed);
-    m_requestedRate = qBound(0, settings.value(QStringLiteral("outputSampleRate"), 0).toInt(), 384000);
+    m_requestedRate = qBound(0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("outputSampleRate"), 0).toInt(), 384000);
     {
-        const int saved = settings.value(QStringLiteral("outputBufferMs"), 0).toInt();
+        const int saved = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("outputBufferMs"), 0).toInt();
         m_bufferMs = saved <= 0 ? kBufferMsDefault : qBound(kBufferMsMin, saved, kBufferMsMax);
     }
 
-    settings.endGroup();
-
-    settings.beginGroup(QStringLiteral("AudioOutput"));
-    m_deviceId = settings.value(QStringLiteral("deviceId")).toString();
-    settings.endGroup();
+    m_deviceId = AppSettings::value(QStringLiteral("AudioOutput"), QStringLiteral("deviceId")).toString();
 }
 
 void AudioEngine::scheduleSave()
@@ -1483,32 +1477,28 @@ void AudioEngine::saveSettings()
     for (int i = 0; i < AudioDsp::kBandCount; ++i)
         gains.append(m_eq.gains[i]);
 
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("AudioDsp"));
-    settings.setValue(QStringLiteral("eqEnabled"), m_eq.enabled);
-    settings.setValue(QStringLiteral("eqGains"),
-                      QJsonDocument(gains).toJson(QJsonDocument::Compact));
-    settings.setValue(QStringLiteral("eqQ"), m_eq.q);
-    settings.setValue(QStringLiteral("preampDb"), m_eq.preampDb);
-    settings.setValue(QStringLiteral("autoHeadroom"), m_eq.autoHeadroom);
-    settings.setValue(QStringLiteral("balance"), m_eq.balance);
-    settings.setValue(QStringLiteral("stereoWidth"), m_eq.stereoWidth);
-    settings.setValue(QStringLiteral("mono"), m_eq.mono);
-    settings.setValue(QStringLiteral("swapChannels"), m_eq.swapChannels);
-    settings.setValue(QStringLiteral("gainLeft"), m_eq.channelGain[0]);
-    settings.setValue(QStringLiteral("gainRight"), m_eq.channelGain[1]);
-    settings.setValue(QStringLiteral("rgMode"), m_eq.rgMode);
-    settings.setValue(QStringLiteral("rgPreamp"), m_eq.rgPreampDb);
-    settings.setValue(QStringLiteral("rgPreventClip"), m_eq.rgPreventClip);
-    settings.setValue(QStringLiteral("limiter"), m_eq.limiter);
-    settings.setValue(QStringLiteral("limiterDb"), m_eq.limiterThresholdDb);
-    settings.setValue(QStringLiteral("dspEnabled"), dspEnabled());
-    settings.setValue(QStringLiteral("outputSampleRate"), m_requestedRate);
-    settings.setValue(QStringLiteral("outputBufferMs"), m_bufferMs);
-    settings.setValue(QStringLiteral("pitchSemitones"), m_pitchSemitones);
-    settings.endGroup();
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("eqEnabled"), m_eq.enabled);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("eqGains"),
+                          QJsonDocument(gains).toJson(QJsonDocument::Compact));
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("eqQ"), m_eq.q);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("preampDb"), m_eq.preampDb);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("autoHeadroom"), m_eq.autoHeadroom);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("balance"), m_eq.balance);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("stereoWidth"), m_eq.stereoWidth);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("mono"), m_eq.mono);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("swapChannels"), m_eq.swapChannels);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("gainLeft"), m_eq.channelGain[0]);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("gainRight"), m_eq.channelGain[1]);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("rgMode"), m_eq.rgMode);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("rgPreamp"), m_eq.rgPreampDb);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("rgPreventClip"), m_eq.rgPreventClip);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("limiter"), m_eq.limiter);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("limiterDb"), m_eq.limiterThresholdDb);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("dspEnabled"), dspEnabled());
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("outputSampleRate"), m_requestedRate);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("outputBufferMs"), m_bufferMs);
+    AppSettings::setValue(QStringLiteral("AudioDsp"), QStringLiteral("pitchSemitones"), m_pitchSemitones);
+    AppSettings::setValue(QStringLiteral("AudioOutput"), QStringLiteral("deviceId"), m_deviceId);
 
-    settings.beginGroup(QStringLiteral("AudioOutput"));
-    settings.setValue(QStringLiteral("deviceId"), m_deviceId);
-    settings.endGroup();
+    AppSettings::sync();
 }

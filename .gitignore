@@ -65,6 +65,11 @@ dist/
 *.msix
 *.msixupload
 
+# --- macOS 图标中间产物（workflow 每次重新生成） ---
+resources/app/icon.icns
+icon.iconset/
+icon-macos-*.png
+
 # --- Linux 打包中间产物 ---
 AppDir/
 squashfs-root/

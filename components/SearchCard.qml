@@ -65,10 +65,10 @@ Popup {
                             Config.searchList = [];
                             break;
                         case 1:
-                            if(Config.searchList.length > 10) Config.searchList.length = 10;
+                            if(Config.searchList.length > 10) Config.searchList = Config.searchList.slice(0, 10);
                             break;
                         case 1:
-                            if(Config.searchList.length > 20) Config.searchList.length = 20;
+                            if(Config.searchList.length > 20) Config.searchList = Config.searchList.slice(0, 20);
                             break;
                     }
                 }

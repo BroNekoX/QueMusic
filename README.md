@@ -202,7 +202,8 @@ clone 时忘了带子模块就补一句 `git submodule update --init --recursive
 ```
 QueMusic/
 ├── main.cpp / main.qml       入口
-├── cpp/                      C++ 后端：音频引擎、曲库、下载、账号、日志
+├── cpp/                      C++ 模块：音频引擎、曲库、下载、账号、日志
+├── widgets/                      C++ 主后端
 ├── api/                      在线音源框架：酷狗 / 网易云 / B站 / QQ音乐 / Spotify / Apple Music + JS 音源插件
 ├── components/               自研 QML 组件
 ├── layout/  pages/  centers/ 布局、普通页面、沉浸播放页

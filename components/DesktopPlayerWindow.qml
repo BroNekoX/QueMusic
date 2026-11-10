@@ -24,8 +24,8 @@ Window {
     readonly property bool isSmall: height < 132
 
     onClosing: {
-        Options.desktop.desktopPlayerMode = 0;
-        Options.desktopPlayerLoader.active = false;
+        Desktop.playerMode = 0;
+        Desktop.player.active = false;
     }
 
     // 右侧缩放
@@ -92,7 +92,7 @@ Window {
             width: desktopPlayerWindow.isSmall ? 52 : 64
             height: desktopPlayerWindow.isSmall ? 52 : 64
             radius: 8
-            image: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+            image: Playback.player.urlStr
             sourceSize: Qt.size(64, 64)
         }
 
@@ -289,10 +289,7 @@ Window {
             hoverColor: Qt.rgba(1.0, 0.4, 0.4, 0.4)
             iconColor: Theme.textColor
             shadowEnabled: false
-            onClicked: {
-                Options.desktop.desktopPlayerMode = 0;
-                Options.desktopPlayerLoader.active = false;
-            }
+            onClicked: desktopPlayerWindow.close()
 
             tipText: "关闭"
         }

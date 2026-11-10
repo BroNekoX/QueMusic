@@ -39,21 +39,21 @@ Item {
     }
 
     function playLastSong(): void {
-        if (Options.lastSongs.hash === "") return
-        MusicApi.getMusicInfo(Options.lastSongs.hash, 0, Options.lastSongs.source)
+        if (Config.lastSongHash === "") return
+        Playback.playItem(Config.lastSongName, Config.lastSongHash, Config.lastSongArtist, Config.lastSongSource)
     }
 
     function queueLastSong(): void {
-        if (Options.lastSongs.hash === "" || Options.queue.indexOfPath(Options.lastSongs.hash) !== -1) return
-        Options.queue.append({ name: Options.lastSongs.name, path: Options.lastSongs.hash, songer: Options.lastSongs.artist, source: Options.lastSongs.source })
-        Options.warned("已加入播放列表", 1)
+        if (Config.lastSongHash === "") return
+        if (Playback.enqueue(Config.lastSongName, Config.lastSongHash, Config.lastSongArtist, Config.lastSongSource))
+            Options.warned("已加入播放列表", 1)
     }
 
     // 每日推荐
     function openDaily(): void {
         MusicApi.personalRadar.clear()
         MusicApi.getPersonalRadar(1, 20, MusicApi.songSource)
-        dailyWindow.opened("每日推荐", "qrc:/QueMusic/resources/app/musicpic.png")
+        dailyWindow.opened("每日推荐", "")
         Options.exitIndex = 1
     }
 
@@ -73,7 +73,7 @@ Item {
         MusicApi.globaltagid = tag.tagid
         MusicApi.musicPlaylists.clear()
         MusicApi.getMusicPlaylists(tag.tagid, 1, 20)
-        recommendWindow.opened("歌单漫游", "qrc:/QueMusic/resources/app/musicpic.png") //tag.title, (tag.cover || "").replace("{size}", "256")
+        recommendWindow.opened("歌单漫游", "") //tag.title, (tag.cover || "").replace("{size}", "256")
         Options.exitIndex = 1
     }
 
@@ -227,17 +227,10 @@ Item {
                     id: headerMain
                     width: homeView.standWidth
                     // 竖向布局或窗口偏窄时自动叠成三行
-                    readonly property bool stacked: width < 700
-                    readonly property real heroWidth: stacked ? width : width * 0.52 - 8
-                    readonly property real sideWidth: stacked ? width : width * 0.48 - 8
+                    readonly property real heroWidth: width * 0.52 - 8
+                    readonly property real sideWidth: width * 0.48 - 8
                     readonly property int sideCardHeight: 76
-                    height: stacked ? 200 + sideCardHeight * 2 : 168
-                    onStackedChanged: {
-                        if(stacked) {
-                            homeView.scrollToY -= sideCardHeight * 2 + 32;
-                            homeView.contentY -= sideCardHeight * 2 + 32;
-                        }
-                    }
+                    height: 168
 
                     QFloatCard {
                         id: dailyCard
@@ -316,7 +309,7 @@ Item {
                                 anchors.margins: 10
                                 radius: Style.labelRadius
                                 sourceSize: Qt.size(192, 192)
-                                image: "qrc:/QueMusic/resources/app/rainbowMusicIcon.png"
+                                image: "qrc:/QueMusic/resources/app/rainbowMusicIcon.jpg"
                             }
                             RectangularShadow {
                                 anchors.fill: parent
@@ -331,15 +324,15 @@ Item {
 
                     QFloatCard {
                         id: lastPlayedCard
-                        x: headerMain.stacked ? 0 : headerMain.heroWidth + 16
-                        y: headerMain.stacked ? 184 : 0
+                        x: headerMain.heroWidth + 16
+                        y: 0
                         width: headerMain.sideWidth
                         height: headerMain.sideCardHeight
                         onClicked: homePage.playLastSong()
 
                         Text {
                             anchors.centerIn: parent
-                            visible: Options.lastSongs.name === ""
+                            visible: Config.lastSongHash === ""
                             text: "还没有播放记录"
                             color: Theme.textColor
                             font.pixelSize: Style.text
@@ -353,7 +346,7 @@ Item {
                             height: 48
                             radius: Style.labelRadius
                             sourceSize: Qt.size(64, 64)
-                            image: Options.lastSongs.cover || "qrc:/QueMusic/resources/app/musicpic.png"
+                            image: Config.lastSongCover
                         }
 
                         Text {
@@ -369,7 +362,7 @@ Item {
                             width: parent.width - 160
                             x: 76
                             y: 29
-                            text: Options.lastSongs.name
+                            text: Config.lastSongName
                             color: Theme.fontColor
                             font.pixelSize: Style.textmain
                             font.bold: true
@@ -380,7 +373,7 @@ Item {
                             width: parent.width - 160
                             x: 76
                             y: 48
-                            text: Options.lastSongs.artist
+                            text: Config.lastSongArtist
                             color: Theme.textColor
                             verticalAlignment: Text.AlignVCenter
                             font.pixelSize: Style.textTip
@@ -423,8 +416,8 @@ Item {
                     // 歌单漫游
                     QFloatCard {
                         id: fmCard
-                        x: headerMain.stacked ? 0 : headerMain.heroWidth + 16
-                        y: headerMain.stacked ? 276 : 92
+                        x: headerMain.heroWidth + 16
+                        y: 92
                         width: headerMain.sideWidth
                         height: headerMain.sideCardHeight
                         onClicked: homePage.openCategory(homePage.roamIndex)
@@ -508,9 +501,7 @@ Item {
                 required property var model
 
                 readonly property bool hovered: hotPlayListsArea.containsMouse
-                readonly property string playcountText: hotPlayRow.playcount >= 10000
-                    ? (hotPlayRow.playcount / 10000).toFixed(1) + "万"
-                    : Math.round(hotPlayRow.playcount).toString()
+                readonly property string playcountText: hotPlayRow.playcount >= 10000 ? (hotPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(hotPlayRow.playcount).toString()
                 readonly property string durationText: hotPlayRow.duration > 0 ? Math.round(hotPlayRow.duration) + " 首" : ""
 
                 // 封面为正方形，高度随列宽自适应；106 = 标题 10+38 + 歌手 + 间距 + 底栏 30

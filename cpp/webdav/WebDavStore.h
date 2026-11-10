@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
-// WebDAV 服务器配置与凭据：配置写 QSettings，密码在 Windows 上用 DPAPI 加密后落盘
+// WebDAV 服务器配置与凭据：配置写 AppSettings，密码在 Windows 上用 DPAPI 加密后落盘
 #pragma once
 
 #include <QCoreApplication>

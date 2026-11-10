@@ -12,7 +12,7 @@ Item {
     visible: false
 
     property string id: ""
-    property string cover: "qrc:/QueMusic/resources/app/musicpic.png"
+    property string cover: ""
     property string title: "MusicFolder"
     property string artist: "Artist"
     property string descript: "Description"
@@ -41,7 +41,7 @@ Item {
         root.id = info.hash || info.id;
         root.title = info.title || "";
         root.artist = info.artist || "";
-        root.cover = (info.cover || "").replace("{size}", "128") || "qrc:/QueMusic/resources/app/musicpic.png";
+        root.cover = (info.cover || "").replace("{size}", "128");
         root.descript = info.album || "Not have Description";
         root.duration = info.duration || 0;
         root.playcount = info.playcount || 0;

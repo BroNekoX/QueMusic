@@ -223,7 +223,8 @@ Item {
         const rows = [];
         for (let i = 0; i < total; i++) {
             const item = searching ? Songs.searchResults.getRow(i) : Songs.get(i);
-            if (!item || !item.name || !item.path) continue;
+            if (item === undefined || item === null) continue;
+            if (!item.name || !item.path) continue;
             rows.push({ name: item.tagTitle || item.name, path: item.path, songer: item.tagArtist || item.singer || "", source: -1 });
         }
         // 批量接口内部去重，并只发一次插入信号
@@ -1159,8 +1160,8 @@ Item {
 
                     readonly property string coverUrl: {
                         if (listfile.tagCoverUrl !== "") return listfile.tagCoverUrl;
-                        if (!listfile.path) return "qrc:/QueMusic/resources/app/musicpic.png";
-                        return MusicApi.readLocalCoverHint(listfile.path) || "qrc:/QueMusic/resources/app/musicpic.png";
+                        if (!listfile.path) return "";
+                        return MusicApi.readLocalCoverHint(listfile.path);
                     }
                     property string songTitle: listfile.tagTitle || listfile.name
                     property string artistName: listfile.tagArtist || listfile.singer || ""
@@ -1558,8 +1559,8 @@ Item {
                         height: 44
                         image: {
                             if (listLocalFile.coverUrl !== "") return listLocalFile.coverUrl;
-                            if (!listLocalFile.rowPath) return "qrc:/QueMusic/resources/app/musicpic.png";
-                            return MusicApi.readLocalCoverHint(listLocalFile.rowPath) || "qrc:/QueMusic/resources/app/musicpic.png";
+                            if (!listLocalFile.rowPath) return "";
+                            return MusicApi.readLocalCoverHint(listLocalFile.rowPath);
                         }
                         radius1: 10
                         radius2: 10

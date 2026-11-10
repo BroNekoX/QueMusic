@@ -39,9 +39,11 @@ qt_add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/widgets
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/playback
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/webdav
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/plugins
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/module
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib
     ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/taglib/taglib/toolkit
@@ -64,22 +66,6 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
 if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
-endif()
-
-# QWindowKit运行时库
-set(QUEMUSIC_QWK_RUNTIME_COPY ON)
-if(QWINDOWKIT_BUILD_STATIC)
-    set(QUEMUSIC_QWK_RUNTIME_COPY OFF)
-endif()
-
-# Linux / macOS 要把 QWindowKit 动态库放到可执行文件旁边
-if(NOT WIN32 AND QUEMUSIC_QWK_RUNTIME_COPY)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:QWindowKit::Core>
-            $<TARGET_FILE:QWindowKit::Quick>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMENT "Copying QWindowKit runtime libraries next to the executable...")
 endif()
 
 # LTO：合并本工程各翻译单元（Qt 动态库不参与）
@@ -118,11 +104,10 @@ elseif(APPLE)
 endif()
 
 set_source_files_properties(
-    components/Style.qml
     components/Theme.qml
-    components/Config.qml
     components/ShortCut.qml
     components/Options.qml
+    components/Desktop.qml
     components/PluginSlots.qml
     components/Fonts.qml
     lyricsui/LyricsFreeConfig.qml
@@ -169,19 +154,19 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         resources/window-bar/return.svg resources/window-bar/returnd.svg
         resources/window-bar/setting.svg resources/window-bar/settingd.svg
         resources/icon.ico
+        resources/icon.png
         resources/loader.gif
         resources/pic/back1.jpg
         resources/pic/back2.jpg
         resources/pic/back3.jpg
         resources/pic/cloudRainbow.png
         resources/app/header.png
-        resources/app/rainbowMusicIcon.png
+        resources/app/rainbowMusicIcon.jpg
         resources/fonts/feather.ttf
         resources/fonts/Figtree.otf
         resources/app/musicpic.png
         resources/app/cd.png
         resources/app/cdpoint.png
-        resources/app/icons/bronekox.jpg
         resources/app/icons/qticon.png
         resources/app/icons/qwk.png
     SOURCES
@@ -193,12 +178,12 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/MediaTypes.h
         cpp/DbService.cpp
         cpp/DbService.h
-        cpp/CoverHelper.cpp
-        cpp/CoverHelper.h
-        cpp/ColorExtractor.cpp
-        cpp/ColorExtractor.h
-        cpp/GetWave.cpp
-        cpp/GetWave.h
+        cpp/module/CoverHelper.cpp
+        cpp/module/CoverHelper.h
+        cpp/module/ColorExtractor.cpp
+        cpp/module/ColorExtractor.h
+        cpp/module/GetWave.cpp
+        cpp/module/GetWave.h
         cpp/FolderModel.cpp
         cpp/FolderModel.h
         cpp/DownloadManager.cpp
@@ -209,12 +194,18 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/Favorites.h
         cpp/AccountManager.cpp
         cpp/AccountManager.h
+        widgets/AppSettings.cpp
+        widgets/AppSettings.h
+        widgets/Config.cpp
+        widgets/Config.h
+        widgets/Style.cpp
+        widgets/Style.h
         cpp/LocalLyricsReader.cpp
         cpp/LocalLyricsReader.h
-        cpp/SpringAnimator.cpp
-        cpp/SpringAnimator.h
-        cpp/CustomFlow.cpp
-        cpp/CustomFlow.h
+        cpp/module/SpringAnimator.cpp
+        cpp/module/SpringAnimator.h
+        cpp/module/CustomFlow.cpp
+        cpp/module/CustomFlow.h
         cpp/QueueModel.cpp
         cpp/QueueModel.h
         cpp/playback/Playback.cpp
@@ -240,12 +231,16 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/plugins/FunctionPluginStore.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
-        cpp/WindowsSmtcManager.cpp
-        cpp/WindowsSmtcManager.h
+        widgets/WindowsSmtcManager.cpp
+        widgets/WindowsSmtcManager.h
         cpp/LogManager.cpp
         cpp/LogManager.h
-        cpp/SystemTrayManager.cpp
-        cpp/SystemTrayManager.h
+        widgets/SmtcBridge.cpp
+        widgets/SmtcBridge.h
+        widgets/App.cpp
+        widgets/App.h
+        widgets/SystemTrayManager.cpp
+        widgets/SystemTrayManager.h
         cpp/platform/WindowsAppIdentity.cpp
         cpp/platform/WindowsAppIdentity.h
         cpp/audio/AudioEngine.cpp
@@ -333,12 +328,12 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Core
         Qt6::Sql
         Qt6::Gui
+        Qt6::Widgets
         Qt6::Qml
         Qt6::Quick
         Qt6::Network
         Qt6::Multimedia
         Qt6::Concurrent
-        Qt6::Widgets
         QCloudMusicApi
         quemusic::taglib
         quemusic::zlib
@@ -346,7 +341,6 @@ target_link_libraries(${PROJECT_NAME}
         cryptopp::cryptopp
         LyricPvCore
         LyricPvCoreplugin
-    PUBLIC
         QWindowKit::Quick
 )
 # Windows：SMTC 互操作（runtimeobject）与应用身份注册（COM / 注册表）
@@ -390,12 +384,22 @@ if(NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/multimedia/ffmpegmediaplugin.dll"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/swscale-8.dll"
         COMMENT "Removing unused Qt Multimedia FFmpeg backend (saves ~1.7MB)...")
+
+    # 托盘已改回 QtWidgets 原生实现，不再需要 Qt.labs.platform
+    if(WIN32)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf
+                    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qml/Qt/labs/platform"
+            COMMAND ${CMAKE_COMMAND} -E rm -f
+                    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Qt6LabsPlatform.dll"
+            COMMENT "Removing unused Qt LabsPlatform plugin...")
+    endif()
 endif()
 
 
 
 
-# ds大肥鱼生成喵，没啥用
+# 没啥用,暂时留着喵
 # ---------------------------------------------------------------------------
 # 安装规则（Linux 打包：Flatpak / AUR / AppImage 共用）
 #
@@ -405,7 +409,7 @@ endif()
 #   bin/QueMusic
 #   share/applications/<app-id>.desktop
 #   share/metainfo/<app-id>.metainfo.xml
-#   share/icons/hicolor/512x512/apps/<app-id>.png
+#   share/icons/hicolor/<size>x<size>/apps/<app-id>.png  (16→512，由 packaging/make-icons.py 生成)
 # QML 与资源都已编入 qrc，不需要额外安装 QML 文件。
 # ---------------------------------------------------------------------------
 include(GNUInstallDirs)
@@ -421,7 +425,11 @@ if(UNIX AND NOT APPLE)
             DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES packaging/linux/${QUE_MUSIC_APP_ID}.metainfo.xml
             DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
-    install(FILES resources/app/rainbowMusicIcon.png
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps
-            RENAME ${QUE_MUSIC_APP_ID}.png)
+    # freedesktop 图标：16→512 整套，由 packaging/make-icons.py linux 从设计稿生成。
+    # 只装一个尺寸时，启动器/任务栏在其它 DPI 下只能放大或缩小，容易糊。
+    foreach(_icon_size IN ITEMS 16 24 32 48 64 128 256 512)
+        install(FILES resources/icons/${_icon_size}.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/apps
+                RENAME ${QUE_MUSIC_APP_ID}.png)
+    endforeach()
 endif()

@@ -88,7 +88,9 @@ try {
 } finally { Pop-Location }
 
 Write-Host '==> 生成 MSIX 图标…'
-$iconSource = Join-Path $PSScriptRoot '..\..\resources\app\rainbowMusicIcon.png'
+# 用设计原图（512），不要用 resources/app/rainbowMusicIcon.png —— 那是旧图标，
+# 和 exe 里的 resources/icon.ico、macOS 的 .icns 不是同一版设计。
+$iconSource = Join-Path $PSScriptRoot '..\..\resources\originicon.png'
 Export-Icon $iconSource (Join-Path $staging 'Assets\Square44x44Logo.png') 44
 Export-Icon $iconSource (Join-Path $staging 'Assets\Square150x150Logo.png') 150
 Export-Icon $iconSource (Join-Path $staging 'Assets\Square310x310Logo.png') 310

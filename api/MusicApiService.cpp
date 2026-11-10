@@ -21,6 +21,7 @@
 #include "sources/ScriptSourceHost.h"
 
 #include "../cpp/AccountManager.h"
+#include "Config.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -28,7 +29,6 @@
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <QSet>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QVariant>
 
@@ -173,14 +173,38 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(this, &MusicApiService::songFilterChanged, this,
             [this] { m_router->setSongFilter(m_songFilter); });
 
+    Config *config = Config::instance();
+    m_source = config->mainMusicSource();
+    m_soundQuality = qBound(0, config->soundQuality(), 3);
+    m_downloader.setDownloadPath(config->downloadFolder());
+    if (m_playback)
+        m_playback->setDefaultSource(m_source);
+    connect(config, &Config::mainMusicSourceChanged, this, [this, config] {
+        const int source = config->mainMusicSource();
+        if (m_source == source)
+            return;
+        m_source = source;
+        if (m_playback)
+            m_playback->setDefaultSource(source);
+        emit songSourceChanged();
+    });
+    connect(config, &Config::soundQualityChanged, this, [this, config] {
+        const int quality = qBound(0, config->soundQuality(), 3);
+        if (m_soundQuality == quality)
+            return;
+        m_soundQuality = quality;
+        refreshCredentials();
+        emit soundQualityChanged();
+    });
+    connect(config, &Config::downloadFolderChanged, this, [this, config] {
+        m_downloader.setDownloadPath(config->downloadFolder());
+    });
+
     const QString sourcesDir = appConfigPath() + "/QueMusic/sources";
     QDir().mkpath(sourcesDir);
     m_scripts->setPluginDir(sourcesDir);
     rebuildSources();
     m_scripts->reload();
-
-    QSettings options(appConfigPath() + "/QueMusic.ini", QSettings::IniFormat);
-    m_soundQuality = options.value("Options/soundQuality", 1).toInt();
     refreshCredentials();
 
     m_requestWatchdog.setSingleShot(true);
@@ -293,10 +317,16 @@ void MusicApiService::setSongSource(int source)
     }
     if (m_source != source) {
         m_source = source;
+        Config::instance()->set_mainMusicSource(source);
         if (m_playback)
             m_playback->setDefaultSource(source);
         emit songSourceChanged();
     }
+}
+
+void MusicApiService::setDownloadPath(const QString &path)
+{
+    Config::instance()->set_downloadFolder(path);
 }
 
 void MusicApiService::setSoundQuality(int quality)
@@ -304,6 +334,7 @@ void MusicApiService::setSoundQuality(int quality)
     const int bounded = qBound(0, quality, 3);
     if (m_soundQuality != bounded) {
         m_soundQuality = bounded;
+        Config::instance()->set_soundQuality(bounded);
         refreshCredentials();
         emit soundQualityChanged();
     }

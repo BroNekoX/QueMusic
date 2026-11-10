@@ -27,7 +27,7 @@ QOptionDialog {
             return coverPick
         if (embeddedCover !== "")
             return embeddedCover
-        return "qrc:/QueMusic/resources/app/musicpic.png"
+        return ""
     }
 
     function edit(path: string, src: int): void {

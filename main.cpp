@@ -4,9 +4,10 @@
 // Portions based on QWindowKit example code:
 // Copyright (C) 2023-2024 Stdware Collections (https://www.github.com/stdware)
 // Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)
-#include <QtWidgets/QApplication>
-#include <QtQml/QQmlApplicationEngine>
+#include <QApplication>
+#include <QIcon>
 #include <QtQml/QQmlContext>
+#include <QtQml/QQmlEngine>
 #include <QStandardPaths>
 #include <QtQuick/QQuickWindow>
 #include <QCoreApplication>
@@ -17,6 +18,9 @@
 #include <QTimer>
 #include "cpp/AccountManager.h"
 #include "cpp/LogManager.h"
+#include "widgets/App.h"
+#include "widgets/Config.h"
+#include "widgets/AppSettings.h"
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
 #include "api/MusicApiService.h"
@@ -27,15 +31,15 @@ extern void qml_register_types_QueMusic();
 // 渲染相关开关必须早于 QApplication
 static void applyRenderOptions(const QString &configPath)
 {
-    QSettings opt(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
-    switch (opt.value(QStringLiteral("Options/gpuRenderMode"), 0).toInt()) {
+    const Config::RenderOptions options = Config::readRenderOptions(configPath);
+    switch (options.gpuRenderMode) {
     case 1: qputenv("QSG_RHI_BACKEND", "opengl"); break;
     case 2: qputenv("QSG_RHI_BACKEND", "vulkan"); break;
     case 3: qputenv("QT_QUICK_BACKEND", "software"); break;
     }
-    if (opt.value(QStringLiteral("Options/timerAnimator"), 0).toBool())
+    if (options.timerAnimator)
         qputenv("QSG_NO_VSYNC", "1");
-    if (!opt.value(QStringLiteral("Options/qmlAnimator"), 0).toBool())
+    if (!options.qmlAnimator)
         qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", "1");
 }
 
@@ -51,7 +55,11 @@ static void setupApplicationMetadata(QApplication &application)
 {
     applyCoreMetadata(application);
     // QIcon 只识别 ":/xxx" 资源路径（"qrc:/xxx" 会加载失败）
+#if defined(Q_OS_WIN)
     application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.ico")));
+#else
+    application.setWindowIcon(QIcon(QStringLiteral(":/QueMusic/resources/icon.png")));
+#endif
     // Wayland app_id / Flatpak / 桌面集成：必须与 .desktop 文件名、AppStream <id> 一致
     application.setDesktopFileName(QStringLiteral("io.github.BroNekoX.QueMusic"));
 }
@@ -94,8 +102,8 @@ int main(int argc, char *argv[])
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-    QApplication application(argc, argv);   // 用 QApplication：托盘图标/原生托盘菜单依赖 QtWidgets
-    application.setQuitOnLastWindowClosed(false);   // 常驻托盘：退出统一走 QML 的 Qt.quit()
+    QApplication application(argc, argv);   // 原生托盘/菜单依赖 QtWidgets
+    application.setQuitOnLastWindowClosed(false);
 
     QQuickWindow::setDefaultAlphaBuffer(true);
     setupApplicationMetadata(application);
@@ -103,7 +111,7 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
-    QQmlApplicationEngine engine;
+    QQmlEngine engine;
     qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型
     engine.addImportPath(QStringLiteral("qrc:/"));
 
@@ -117,12 +125,14 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("configDir"), configPath);
 
     QWK::registerTypes(&engine);
-    engine.load(QUrl(QStringLiteral("qrc:/QueMusic/main.qml")));
+    App::create(&engine, nullptr);
+    App::instance()->showMainWindow();
 
     // 首次运行才写注册表/快捷方式
     QTimer::singleShot(0, &application, [] { WindowsAppIdentity::ensureShellIntegration(); });
 
     const int exitCode = application.exec();
+    AppSettings::sync();
     delete MusicApiService::instance();
     return exitCode;
 }

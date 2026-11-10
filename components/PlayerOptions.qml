@@ -213,7 +213,6 @@ QOptionDialog {
                         switchTrue: Config.fadeEnabled
                         onToggled: {
                             Config.fadeEnabled = !Config.fadeEnabled
-                            Playback.refreshSettings()
                         }
                     }
                 }
@@ -234,7 +233,6 @@ QOptionDialog {
                         value: Config.fadeMs
                         onMoved: {
                             Config.fadeMs = value
-                            Playback.refreshSettings()
                         }
                     }
                 }

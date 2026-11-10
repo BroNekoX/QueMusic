@@ -91,7 +91,7 @@ Popup {
                 height: 112
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: Options.picWatch.dialog(Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png",
+                    onClicked: Options.picWatch.dialog(Playback.player.urlStr,
                                                Playback.musicTitle)
                 }
             }
@@ -365,7 +365,7 @@ Popup {
                     width: 30
                     height: 30
                     radius: 15
-                    image: commentItem.avatar || "qrc:/QueMusic/resources/app/musicpic.png"
+                    image: commentItem.avatar
                 }
                 Column {
                     id: body

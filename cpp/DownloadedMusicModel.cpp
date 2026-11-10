@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "DownloadedMusicModel.h"
-#include "CoverHelper.h"
+#include "module/CoverHelper.h"
 #include "MediaTypes.h"
 #include <QDir>
 #include <QFile>

@@ -4,6 +4,7 @@
 #include "AccountManager.h"
 #include "platform/KugouApi.h"
 #include "apihelper.h"
+#include "AppSettings.h"
 
 #include <QCoreApplication>
 #include <QtConcurrent>
@@ -19,7 +20,6 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRandomGenerator>
-#include <QSettings>
 #include <QUrlQuery>
 
 namespace {
@@ -102,19 +102,15 @@ QString AccountManager::ensureNeteaseDeviceId()
     if (!m_neteaseDeviceId.isEmpty())
         return m_neteaseDeviceId;
 
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Netease"));
-    m_neteaseDeviceId = s.value(QStringLiteral("deviceId")).toString().trimmed();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_neteaseDeviceId = s.value(QStringLiteral("Netease"), QStringLiteral("deviceId")).toString().trimmed();
 
     if (m_neteaseDeviceId.isEmpty()) {
         static const QString hex = QStringLiteral("0123456789ABCDEF");
         for (int i = 0; i < 52; ++i) // 与 SDK 生成格式一致（52 位大写 hex）
             m_neteaseDeviceId.append(hex.at(QRandomGenerator::global()->bounded(hex.size())));
-        QSettings w(m_configPath, QSettings::IniFormat);
-        w.beginGroup(QStringLiteral("Netease"));
-        w.setValue(QStringLiteral("deviceId"), m_neteaseDeviceId);
-        w.endGroup();
+        SettingsFile w(m_configPath);
+        w.setValue(QStringLiteral("Netease"), QStringLiteral("deviceId"), m_neteaseDeviceId);
         w.sync();
     }
     return m_neteaseDeviceId;
@@ -176,10 +172,8 @@ void AccountManager::ensureNeteaseAnonymousToken()
                                     .arg(body.value(QStringLiteral("message")).toString());
     } else {
         m_neteaseAnonymousToken = token;
-        QSettings s(m_configPath, QSettings::IniFormat);
-        s.beginGroup(QStringLiteral("Netease"));
-        s.setValue(QStringLiteral("anonymousToken"), token);
-        s.endGroup();
+        SettingsFile s(m_configPath);
+        s.setValue(QStringLiteral("Netease"), QStringLiteral("anonymousToken"), token);
         s.sync();
         m_api->set_cookie(mergeNeteaseIdentity(m_neteaseCookie));
         qWarning() << "[网易云] 设备匿名注册成功，已获取 MUSIC_A";
@@ -608,17 +602,13 @@ void AccountManager::startKugouQrLogin()
     m_kugouKey.clear();
 
     // 设备信息（无则生成并持久化）
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Kugou"));
-    m_kugouGuid = s.value(QStringLiteral("guid")).toString();
-    m_kugouDfid = s.value(QStringLiteral("dfid")).toString();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_kugouGuid = s.value(QStringLiteral("Kugou"), QStringLiteral("guid")).toString();
+    m_kugouDfid = s.value(QStringLiteral("Kugou"), QStringLiteral("dfid")).toString();
     if (m_kugouGuid.isEmpty()) {
         m_kugouGuid = KugouApi::randomGuid();
-        QSettings w(m_configPath, QSettings::IniFormat);
-        w.beginGroup(QStringLiteral("Kugou"));
-        w.setValue(QStringLiteral("guid"), m_kugouGuid);
-        w.endGroup();
+        SettingsFile w(m_configPath);
+        w.setValue(QStringLiteral("Kugou"), QStringLiteral("guid"), m_kugouGuid);
         w.sync();
     }
     if (m_kugouDfid.isEmpty()) {
@@ -628,10 +618,8 @@ void AccountManager::startKugouQrLogin()
         for (int i = 0; i < 24; ++i)
             dfid.append(pool[QRandomGenerator::global()->bounded(36)]);
         m_kugouDfid = dfid;
-        QSettings w(m_configPath, QSettings::IniFormat);
-        w.beginGroup(QStringLiteral("Kugou"));
-        w.setValue(QStringLiteral("dfid"), m_kugouDfid);
-        w.endGroup();
+        SettingsFile w(m_configPath);
+        w.setValue(QStringLiteral("Kugou"), QStringLiteral("dfid"), m_kugouDfid);
         w.sync();
     }
     m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
@@ -773,36 +761,30 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
 // 退出登录时清掉该平台的持久化登录态（设备标识等保留）
 void AccountManager::clearLoginSettings(const QString &group)
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(group);
-    s.remove(QStringLiteral("cookie"));
-    s.remove(QStringLiteral("nickname"));
-    s.remove(QStringLiteral("avatar"));
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    s.remove(group, QStringLiteral("cookie"));
+    s.remove(group, QStringLiteral("nickname"));
+    s.remove(group, QStringLiteral("avatar"));
     s.sync();
 }
 
 void AccountManager::persistNetease()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Netease"));
-    s.setValue(QStringLiteral("cookie"), m_neteaseCookie);
-    s.setValue(QStringLiteral("nickname"), m_neteaseNickname);
-    s.setValue(QStringLiteral("avatar"), m_neteaseAvatar);
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    s.setValue(QStringLiteral("Netease"), QStringLiteral("cookie"), m_neteaseCookie);
+    s.setValue(QStringLiteral("Netease"), QStringLiteral("nickname"), m_neteaseNickname);
+    s.setValue(QStringLiteral("Netease"), QStringLiteral("avatar"), m_neteaseAvatar);
     s.sync();
 }
 
 void AccountManager::persistKugou()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Kugou"));
-    s.setValue(QStringLiteral("cookie"), m_kugouCookie);
-    s.setValue(QStringLiteral("nickname"), m_kugouNickname);
-    s.setValue(QStringLiteral("avatar"), m_kugouAvatar);
-    s.setValue(QStringLiteral("guid"), m_kugouGuid);
-    s.setValue(QStringLiteral("dfid"), m_kugouDfid);
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    s.setValue(QStringLiteral("Kugou"), QStringLiteral("cookie"), m_kugouCookie);
+    s.setValue(QStringLiteral("Kugou"), QStringLiteral("nickname"), m_kugouNickname);
+    s.setValue(QStringLiteral("Kugou"), QStringLiteral("avatar"), m_kugouAvatar);
+    s.setValue(QStringLiteral("Kugou"), QStringLiteral("guid"), m_kugouGuid);
+    s.setValue(QStringLiteral("Kugou"), QStringLiteral("dfid"), m_kugouDfid);
     s.sync();
 }
 
@@ -810,13 +792,11 @@ void AccountManager::loadNetease()
 {
     ensureNeteaseDeviceId(); // 身份先就绪，下面给 cookie 补 deviceId/os=pc
 
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Netease"));
-    m_neteaseAnonymousToken = s.value(QStringLiteral("anonymousToken")).toString().trimmed();
-    m_neteaseCookie = s.value(QStringLiteral("cookie")).toString();
-    m_neteaseNickname = s.value(QStringLiteral("nickname")).toString();
-    m_neteaseAvatar = s.value(QStringLiteral("avatar")).toString();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_neteaseAnonymousToken = s.value(QStringLiteral("Netease"), QStringLiteral("anonymousToken")).toString().trimmed();
+    m_neteaseCookie = s.value(QStringLiteral("Netease"), QStringLiteral("cookie")).toString();
+    m_neteaseNickname = s.value(QStringLiteral("Netease"), QStringLiteral("nickname")).toString();
+    m_neteaseAvatar = s.value(QStringLiteral("Netease"), QStringLiteral("avatar")).toString();
 
     if (m_neteaseCookie.isEmpty())
         return;
@@ -834,14 +814,12 @@ void AccountManager::loadNetease()
 
 void AccountManager::loadKugou()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup(QStringLiteral("Kugou"));
-    m_kugouCookie = s.value(QStringLiteral("cookie")).toString();
-    m_kugouNickname = s.value(QStringLiteral("nickname")).toString();
-    m_kugouAvatar = s.value(QStringLiteral("avatar")).toString();
-    m_kugouGuid = s.value(QStringLiteral("guid")).toString();
-    m_kugouDfid = s.value(QStringLiteral("dfid")).toString();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_kugouCookie = s.value(QStringLiteral("Kugou"), QStringLiteral("cookie")).toString();
+    m_kugouNickname = s.value(QStringLiteral("Kugou"), QStringLiteral("nickname")).toString();
+    m_kugouAvatar = s.value(QStringLiteral("Kugou"), QStringLiteral("avatar")).toString();
+    m_kugouGuid = s.value(QStringLiteral("Kugou"), QStringLiteral("guid")).toString();
+    m_kugouDfid = s.value(QStringLiteral("Kugou"), QStringLiteral("dfid")).toString();
 
     if (m_kugouCookie.isEmpty())
         return;
@@ -1050,50 +1028,42 @@ void AccountManager::logoutApple()
 
 void AccountManager::persistSpotify()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup("Spotify");
-    s.setValue("cookie", m_spotifyCookie);
-    s.setValue("token", m_spotifyToken);
-    s.setValue("nickname", m_spotifyNickname);
-    s.setValue("avatar", m_spotifyAvatar);
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    s.setValue("Spotify", "cookie", m_spotifyCookie);
+    s.setValue("Spotify", "token", m_spotifyToken);
+    s.setValue("Spotify", "nickname", m_spotifyNickname);
+    s.setValue("Spotify", "avatar", m_spotifyAvatar);
     s.sync();
 }
 
 void AccountManager::persistApple()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup("AppleMusic");
-    s.setValue("userToken", m_appleUserToken);
-    s.setValue("developerToken", m_appleDeveloperToken);
-    s.setValue("nickname", m_appleNickname);
-    s.setValue("avatar", m_appleAvatar);
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    s.setValue("AppleMusic", "userToken", m_appleUserToken);
+    s.setValue("AppleMusic", "developerToken", m_appleDeveloperToken);
+    s.setValue("AppleMusic", "nickname", m_appleNickname);
+    s.setValue("AppleMusic", "avatar", m_appleAvatar);
     s.sync();
 }
 
 void AccountManager::loadSpotify()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup("Spotify");
-    m_spotifyCookie = s.value("cookie").toString();
-    m_spotifyToken = s.value("token").toString();
-    m_spotifyNickname = s.value("nickname").toString();
-    m_spotifyAvatar = s.value("avatar").toString();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_spotifyCookie = s.value("Spotify", "cookie").toString();
+    m_spotifyToken = s.value("Spotify", "token").toString();
+    m_spotifyNickname = s.value("Spotify", "nickname").toString();
+    m_spotifyAvatar = s.value("Spotify", "avatar").toString();
     m_spotifyLoggedIn = !m_spotifyCookie.isEmpty() || !m_spotifyToken.isEmpty();
     if (m_spotifyLoggedIn && m_spotifyNickname.isEmpty()) m_spotifyNickname = "Spotify 用户";
 }
 
 void AccountManager::loadApple()
 {
-    QSettings s(m_configPath, QSettings::IniFormat);
-    s.beginGroup("AppleMusic");
-    m_appleUserToken = s.value("userToken").toString();
-    m_appleDeveloperToken = s.value("developerToken").toString();
-    m_appleNickname = s.value("nickname").toString();
-    m_appleAvatar = s.value("avatar").toString();
-    s.endGroup();
+    SettingsFile s(m_configPath);
+    m_appleUserToken = s.value("AppleMusic", "userToken").toString();
+    m_appleDeveloperToken = s.value("AppleMusic", "developerToken").toString();
+    m_appleNickname = s.value("AppleMusic", "nickname").toString();
+    m_appleAvatar = s.value("AppleMusic", "avatar").toString();
     m_appleLoggedIn = !m_appleUserToken.isEmpty() && !m_appleDeveloperToken.isEmpty();
     if (m_appleLoggedIn && m_appleNickname.isEmpty()) m_appleNickname = "Apple Music 用户";
 }

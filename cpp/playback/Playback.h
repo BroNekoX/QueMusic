@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "CoverHelper.h"
+#include "module/CoverHelper.h"
 #include "PlaybackCursor.h"
 #include "PlaybackHistory.h"
 #include "audio/AudioEngine.h"
@@ -77,7 +77,6 @@ public:
     Q_INVOKABLE void setVolume(qreal value);
     qreal outVolume() const { return m_muted ? 0.0 : m_volume; }
     qreal volumeStep() const { return m_volumeStepPercent / 100.0; }
-    Q_INVOKABLE void refreshSettings();
     bool muted() const { return m_muted; }
     void setMuted(bool muted);
 
@@ -150,8 +149,6 @@ private:
 
     void bindApi();
     void bindWebDav();
-    void loadSettings();
-    void refreshRuntimeSettings();
     void openLocal(const QueueTrack &track, const QString &localPath);
     void openOnline(const QueueTrack &track);
     void openWebDav(const QueueTrack &track);
@@ -160,6 +157,7 @@ private:
     void adoptAuto(int index, const QString &path);
     void recordHistory();
     void loadQueue();
+    void restoreLastSong();
     void sleepEnd();
     int rowFor(int index, const QString &path) const;
     void setMusicHash(const QString &hash);

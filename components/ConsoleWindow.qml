@@ -627,7 +627,7 @@ Window {
                     Image {
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 64
-                        source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+                        source: Playback.player.urlStr
                         sourceSize.width: 64
                         sourceSize.height: 64
                         fillMode: Image.PreserveAspectCrop

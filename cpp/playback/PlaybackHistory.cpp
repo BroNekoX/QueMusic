@@ -3,10 +3,12 @@
 
 #include "PlaybackHistory.h"
 
+#include "Config.h"
+#include "AppSettings.h"
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QSettings>
 
 PlaybackHistory::PlaybackHistory(QObject *parent)
     : QAbstractListModel(parent)
@@ -113,8 +115,7 @@ void PlaybackHistory::clear()
 
 void PlaybackHistory::load()
 {
-    QSettings settings;
-    const QString json = settings.value(QStringLiteral("Options/playHistory")).toString();
+    const QString json = Config::instance()->playHistory();
     const QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
     const QJsonArray array = document.isArray() ? document.array() : QJsonArray();
 
@@ -156,10 +157,9 @@ void PlaybackHistory::save()
             {QStringLiteral("time"), entry.time}
         });
     }
-    QSettings settings;
-    settings.setValue(QStringLiteral("Options/playHistory"),
-                      QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
-    settings.sync();
+    Config::instance()->set_playHistory(
+        QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
+    AppSettings::sync();
 }
 
 void PlaybackHistory::trim()

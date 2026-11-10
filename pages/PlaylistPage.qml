@@ -414,7 +414,7 @@ Item {
                     }
                     MultiEffect {
                         source: Image {
-                            source: (toplistCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                            source: (toplistCard.cover || "").replace("{size}","128")
                             width: 156
                             height: 156
                             sourceSize: Qt.size(128,128)
@@ -603,7 +603,7 @@ Item {
                         width: 96
                         height: 96
                         radius: 48
-                        image: (singerCard.cover || "").replace("{size}","128") || "qrc:/QueMusic/resources/app/musicpic.png"
+                        image: (singerCard.cover || "").replace("{size}","128")
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter

@@ -870,7 +870,7 @@ Item {
                                         visible: Style.colorList.length > 4
                                         buttonColor: "#fa6666"
                                         onClicked: {
-                                            Style.colorList.length -= 1;
+                                            Style.colorList = Style.colorList.slice(0, Style.colorList.length - 1);
                                         }
                                     }
                                     SButton {
@@ -890,7 +890,7 @@ Item {
                                 id: themeColorChoose
                                 blurSource: settingsView
                                 onAccepted: {
-                                    Style.colorList.push(Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0));
+                                    Style.colorList = Style.colorList.concat([Qt.hsva(selectedColor.hsvHue,0.9,0.8,1.0)]);
                                     Options.warned("已添加主题颜色", 1);
                                 }
                             }
@@ -1812,7 +1812,6 @@ Item {
                                 value: Config.volumeStep
                                 onMoved: {
                 Config.volumeStep = value
-                Playback.refreshSettings()
             }
                             }
                             bottomLine: false
@@ -1851,7 +1850,6 @@ Item {
                                 switchTrue: Config.fadeEnabled
                                 onToggled: {
                                 Config.fadeEnabled = !Config.fadeEnabled
-                                Playback.refreshSettings()
                             }
                             }
                         }
@@ -1869,7 +1867,6 @@ Item {
                                 value: Config.fadeMs
                                 onMoved: {
                                 Config.fadeMs = value
-                                Playback.refreshSettings()
                             }
                             }
                         }

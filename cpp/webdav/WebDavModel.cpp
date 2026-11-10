@@ -3,7 +3,7 @@
 //
 #include "WebDavModel.h"
 
-#include "CoverHelper.h"
+#include "module/CoverHelper.h"
 #include "DbService.h"
 #include "MediaTypes.h"
 #include "WebDavCache.h"   // 已落地的封面按缓存的同一规则查

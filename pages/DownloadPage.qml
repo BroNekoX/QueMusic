@@ -448,7 +448,7 @@ Item {
                         width: 44
                         height: 44
                         radius: 10
-                        image: row.cover || "qrc:/QueMusic/resources/app/musicpic.png"
+                        image: row.cover
                     }
 
                     Text {

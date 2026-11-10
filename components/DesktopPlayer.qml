@@ -15,30 +15,8 @@ Popup {
     height: parent.height - 180
     x: parent.width - 380
     y: 80
-    // 当前桌面部件模式：0.无 1.灵动岛 2.小窗播放器 3.歌词栏
-    property int desktopPlayerMode: 0
     function changeDesktopPlayerMode(index: int): void {
-        desktopPlayer.desktopPlayerMode = index;
-        switch(index) {
-            case 0:
-                // 无：全部关闭
-                Options.desktopPlayerLoader.active = false;
-                Options.desktopLyricsLoader.active = false;
-                break;
-            case 1:
-                // 小窗播放器：开启小窗，关闭灵动岛
-                Options.desktopLyricsLoader.active = false;
-                Options.desktopPlayerLoader.active = true;
-                if (Options.desktopPlayerLoader.status === Loader.Ready) {
-                    Options.desktopPlayerLoader.item.show();
-                }
-                break;
-            case 2:
-                // 歌词栏：暂未实现
-                Options.desktopPlayerLoader.active = false;
-                Options.desktopLyricsLoader.active = true;
-                break;
-        }
+        Desktop.setMode(index)
     }
 
     background: QBlurCard {
@@ -92,7 +70,7 @@ Popup {
                     required property int index
                     width: parent.width
                     radius: Style.labelRadius
-                    color: desktopPlayer.desktopPlayerMode === index ? Theme.themeColor : Theme.primaryColor
+                    color: Desktop.playerMode === index ? Theme.themeColor : Theme.primaryColor
                     height: 56
                     border.width: 2
                     border.color: Theme.sideColor
@@ -109,7 +87,7 @@ Popup {
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: 16
                         text: widgetButton.modelData
-                        color: desktopPlayer.desktopPlayerMode === widgetButton.index ? Theme.secondaryColor : Theme.fontColor
+                        color: Desktop.playerMode === widgetButton.index ? Theme.secondaryColor : Theme.fontColor
                     }
                     Text {
                         x: parent.width - 42
@@ -117,7 +95,7 @@ Popup {
                         text: "\uf099"
                         font.pixelSize: Style.texticon
                         font.family: Fonts.icon
-                        visible: desktopPlayer.desktopPlayerMode === widgetButton.index
+                        visible: Desktop.playerMode === widgetButton.index
                         color: Theme.secondaryColor
                     }
                     MouseArea {
@@ -139,20 +117,10 @@ Popup {
                     text: switchTrue ? "工作中" : "不支持"
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: Options.smtc.mgr.available
+                    switchTrue: App.smtcAvailable
                     onToggled: {
                     }
                 }
-            }
-        }
-    }
-
-    // 小窗播放器异步加载完成后自动显示（避免关闭按钮 hide 后无法再次出现）
-    Connections {
-        target: Options.desktopPlayerLoader
-        function onStatusChanged(): void {
-            if (Options.desktopPlayerLoader.status === Loader.Ready && desktopPlayer.desktopPlayerMode === 1) {
-                Options.desktopPlayerLoader.item.show();
             }
         }
     }

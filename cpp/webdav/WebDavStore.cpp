@@ -3,8 +3,8 @@
 //
 #include "WebDavStore.h"
 #include "WebDavClient.h"
+#include "AppSettings.h"
 
-#include <QSettings>
 #include <QUuid>
 
 #ifdef Q_OS_WIN
@@ -121,8 +121,7 @@ QVariantList WebDavStore::servers() const
 
 void WebDavStore::load()
 {
-    QSettings settings;
-    m_servers = settings.value(QStringLiteral("webdav/servers")).toList();
+    m_servers = AppSettings::value(QStringLiteral("webdav"), QStringLiteral("servers")).toList();
     m_publicDirty = true;
 }
 
@@ -130,8 +129,8 @@ void WebDavStore::save() const
 {
     m_publicDirty = true;                           // 配置变了，脱敏副本要重建
     m_authCacheId.clear();                          // 配置变了，缓存的鉴权头作废
-    QSettings settings;
-    settings.setValue(QStringLiteral("webdav/servers"), m_servers);
+    AppSettings::setValue(QStringLiteral("webdav"), QStringLiteral("servers"), m_servers);
+    AppSettings::sync();
 }
 
 int WebDavStore::indexOf(const QString &id) const

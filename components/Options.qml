@@ -11,7 +11,6 @@ QtObject {
     property QueueModel queue
     property QAlertDialog dialog
     property DesktopPlayer desktop
-    property SmtcBridge smtc
     readonly property bool isMacOS: Qt.platform.os === "osx"
 
     property Item mainLayout
@@ -21,8 +20,6 @@ QtObject {
     property SongInfoDialog songInfo
     property FavoriteFolderDialog favPicker
     property CoverHelper coverHelper
-    property Loader desktopPlayerLoader
-    property Loader desktopLyricsLoader
     property NumberAnimation openMaxLyric
     property NumberAnimation settingOutAnime
     property TextField mainSearchInput
@@ -37,9 +34,6 @@ QtObject {
     property bool isSmall: Style.leftBarMode === 0 ? (mainLayout ? mainLayout.width < 1080 : false) : Style.leftBarMode === 1 ? false : true
     property real barWidth: isSmall ? 74 : 210
     Behavior on barWidth { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
-
-    // 最后播放的歌曲（关闭软件时保存，下次打开首页显示）
-    property OptionsLastSongs lastSongs: OptionsLastSongs {}
 
     signal changeOptions()
     signal exit()
@@ -336,4 +330,6 @@ QtObject {
             break;
         }
     }
+
+    property Item musicpic// 默认回退图片
 }

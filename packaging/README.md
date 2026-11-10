@@ -26,6 +26,51 @@
 4. ad-hoc 签名（无证书也能本机运行）
 5. 打包成 `.dmg` 并上传为 artifact
 
+### 应用图标（三端统一）
+
+只有一份设计母版，其它都是 `packaging/make-icons.py` 生成的：
+
+| 文件 | 尺寸 | 用途 |
+|------|------|------|
+| `resources/originicon.png` | 512 × 512 | 设计原图（**尺寸固定**），所有图标的来源 |
+| `resources/icon.png` | 128 × 128 | 程序窗口图标（qrc 里的 `:/QueMusic/resources/icon.png`） |
+| `resources/icon.ico` | 16/20/24/32/40/48/64/128/256 | Windows exe 资源 + Inno Setup `SetupIconFile` |
+| `resources/icons/<size>.png` | 16/24/32/48/64/128/256/512 | Linux freedesktop hicolor |
+| `icon-macos-1024.png` | 1024 × 1024 | macOS 画布，CI 里临时生成（已 gitignore） |
+
+改完设计稿后重新生成：
+
+```bash
+python3 packaging/make-icons.py all     # 三端全部（macOS 画布 + ico + Linux PNG）
+python3 packaging/make-icons.py ico     # 只重做 Windows .ico
+python3 packaging/make-icons.py linux   # 只重做 Linux hicolor PNG
+python3 packaging/make-icons.py check   # 校验产物是否完整、是否落后于设计稿（CI 也跑）
+```
+
+> `.ico` 里 ≤128 的档用 32bpp BMP（兼容老 shell / Inno Setup），256 用 PNG 压缩
+> （Windows Vista+ 都认），所以既不会像单尺寸那样被 Explorer 放大，也不至于让
+> 资源体积翻几倍。
+
+#### macOS 网格
+
+macOS **不会**替 `.icns` 加圆角或留白：系统把 icns 里的图片直接铺满 Dock /
+Finder 分配的那个方格。所以图标必须自带留白，Apple 的模板是：
+
+| 项 | 数值 |
+|----|------|
+| 画布 | 1024 × 1024 |
+| 主体（圆角底板） | 824 × 824，居中，四周各留 100px 透明 |
+| 主体圆角半径 | 185.4px（主体的 22.5%） |
+
+工作流里的 `Generate .icns app icon` 先用 `packaging/make-icons.py macos`
+把设计稿合成为这张 1024 画布，再用 `sips` 切 10 个尺寸、`iconutil` 打包；
+源图优先取 `resources/originicon.png`，没有就退回 `resources/icon.png`。
+如果直接把「铺满整张画布」的稿子喂给 `sips`，Dock 里的图标会比系统图标大
+1024/824 ≈ 24%，四角也会更方。
+
+> 设计稿目前是「底板占满画布、圆角 22.1%（相对底板）」；合成时仍按 Apple 的
+> 185.4px 重新裁一次圆角，保证和系统图标完全一致。`--radius 0` 可关掉这层覆盖。
+
 ### 触发方式
 
 #### 方式 A：手动触发（不发布也能出包）

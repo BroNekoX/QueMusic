@@ -30,7 +30,7 @@
 | App ID | com.bronekox.quemusic 无对应域名 | Flathub 审核会核对 App ID 域名归属 | Linux 侧改为 io.github.BroNekoX.QueMusic |
 | .desktop | 旧文件 Exec/Icon 与 App ID 不匹配 | 启动器图标丢失、Wayland 下窗口归类错误 | 新增规范文件（§2.3） |
 | AppStream metainfo | 不存在 | Flathub 硬性要求，商店展示也用它 | 新增（§2.3） |
-| 图标 | resources/icon.png 只有 128×128 | AppStream 建议 ≥256，Flathub 会挑 | 安装 512×512 的 rainbowMusicIcon.png |
+| 图标 | 原来只装一张 512 的旧图 | AppStream 建议 ≥256，Flathub 会挑尺寸 | 已改为 16→512 整套 hicolor（`resources/icons/`，`packaging/make-icons.py linux` 生成） |
 | Wayland app_id | 未调用 setDesktopFileName | 任务栏图标/分组错误 | 已在 main.cpp 补 |
 | 截图比例 | 1156×759（≈3:2） | AppStream 只接受 16:9 / 4:3 | 需裁成 1200×675 或 1024×768 |
 | 在线音源 + 下载 | 网易云/酷狗/B站 + DownloadManager | **Flathub / MS Store 的政策红线** | 见 §6，建议做 distro 构建 |
@@ -57,9 +57,12 @@ if(UNIX AND NOT APPLE)
             DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES packaging/linux/${QUE_MUSIC_APP_ID}.metainfo.xml
             DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
-    install(FILES resources/app/rainbowMusicIcon.png
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps
-            RENAME ${QUE_MUSIC_APP_ID}.png)
+    # 图标：16→512 整套（packaging/make-icons.py linux 生成）
+    foreach(_icon_size IN ITEMS 16 24 32 48 64 128 256 512)
+        install(FILES resources/icons/${_icon_size}.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_icon_size}x${_icon_size}/apps
+                RENAME ${QUE_MUSIC_APP_ID}.png)
+    endforeach()
 endif()
 ```
 

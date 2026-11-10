@@ -62,7 +62,7 @@ ListView {
     function artistOf(it: var): string { return it ? (it.artist || it.singer || "") : "" }
     function coverOf(it: var): string {
         const s = it && it.cover ? String(it.cover).replace("{size}", "256") : ""
-        return s !== "" ? s : "qrc:/QueMusic/resources/app/musicpic.png"
+        return s
     }
     // 源：模型未给出时按 key 推断，本地路径记为 -1
     function sourceOf(it: var): var {
@@ -354,7 +354,7 @@ ListView {
                                        ? listDel.model.paytype : 0
         readonly property string displayCover: listDel.cover
             ? listDel.cover.replace("{size}", "64")
-            : "qrc:/QueMusic/resources/app/musicpic.png"
+            : ""
 
         readonly property bool isFav: {
             view.favModel.favoriteRevision
@@ -377,7 +377,10 @@ ListView {
         ListView.onPooled: { listDel.transY = 0; listDel.opacity = 1; }
 
         MultiEffect {
-            source: Image {
+            source: image.status === Image.Ready ? image : Options.musicpic
+
+            Image {
+                id: image
                 source: listDel.displayCover
                 width: 44
                 height: 44

@@ -3,7 +3,7 @@ import QtQuick.Effects
 
 Item {
     id: root
-    property string source: "qrc:/QueMusic/resources/app/musicpic.png"
+    property string source
     property bool rotation: false
     NumberAnimation {
         target: cdImage

@@ -148,7 +148,7 @@ public:
 
     DownloadManager *downloader() { return &m_downloader; }
     QString downloadPath() const { return m_downloader.downloadPath(); }
-    void setDownloadPath(const QString &path) { m_downloader.setDownloadPath(path); }
+    void setDownloadPath(const QString &path);
 
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);

@@ -61,7 +61,7 @@ Item {
         height: 96
         radius: 16
         visible: !root.mainHeadMode
-        image: root.image || "qrc:/QueMusic/resources/app/musicpic.png"
+        image: root.image
     }
 
     Text {

@@ -2,7 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 #include "plugins/LyricsPluginStore.h"
 
-#include <QSettings>
+#include "AppSettings.h"
 
 namespace {
 
@@ -35,8 +35,8 @@ LyricsPluginStore::LyricsPluginStore(QObject *parent)
     : PluginStore(QStringLiteral("歌词界面插件"), QStringLiteral("lyrics"), parent)
 {
     load();
-    m_selectedId = QSettings().value(QStringLiteral("Plugins/lyrics"),
-                                     QStringLiteral("builtin.default")).toString();
+    m_selectedId = AppSettings::value(QStringLiteral("Plugins"), QStringLiteral("lyrics"),
+                                        QStringLiteral("builtin.default")).toString();
     refreshSource();
     if (!m_source.isEmpty())
         return;
@@ -62,7 +62,8 @@ void LyricsPluginStore::setSelectedId(const QString &id)
         return;
     m_selectedId = id;
     refreshSource();
-    QSettings().setValue(QStringLiteral("Plugins/lyrics"), id);
+    AppSettings::setValue(QStringLiteral("Plugins"), QStringLiteral("lyrics"), id);
+    AppSettings::sync();
     emit selectedIdChanged();
 }
 

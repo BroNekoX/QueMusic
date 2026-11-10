@@ -86,19 +86,42 @@ jobs:
             printf '  %s: %s\n' "$m" "$(pkg-config --modversion "$m")"
           done
 
+      # macOS 不会替 .icns 加留白：系统把图标直接铺满 Dock / Finder 给它的方格。
+      # Apple 的图标网格 = 1024 画布 + 居中 824 主体（四周 100px 透明留白）+ 185.4 圆角。
+      # 直接把「铺满整张画布」的设计稿丢给 sips，Dock 里就会比系统图标大约 24%（1024/824），
+      # 而且没有透明圆角。所以先把源图合成为标准网格，再由它切出整套 iconset。
       - name: Generate .icns app icon
         run: |
+          set -euo pipefail
+          python3 -m pip install --break-system-packages --quiet pillow
+          # 有设计原图（512/1024）就用原图，放大倍数小、更清晰；没有就退回仓库里的 icon.png
+          ICON_SRC=resources/icon.png
+          if [ -f resources/originicon.png ]; then ICON_SRC=resources/originicon.png; fi
+          echo "icon source: $ICON_SRC"
+          sips -g pixelWidth -g pixelHeight "$ICON_SRC" | tail -n +2
+          python3 packaging/make-icons.py macos \
+            --source "$ICON_SRC" \
+            --out icon-macos-1024.png
           mkdir -p icon.iconset
-          sips -z 16 16     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16.png
-          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_16x16@2x.png
-          sips -z 32 32     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32.png
-          sips -z 64 64     resources/app/rainbowMusicIcon.png --out icon.iconset/icon_32x32@2x.png
-          sips -z 128 128   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128.png
-          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_128x128@2x.png
-          sips -z 256 256   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256.png
-          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_256x256@2x.png
-          sips -z 512 512   resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512.png
-          sips -z 1024 1024 resources/app/rainbowMusicIcon.png --out icon.iconset/icon_512x512@2x.png
+          sips -z 16 16     icon-macos-1024.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32     icon-macos-1024.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     icon-macos-1024.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64     icon-macos-1024.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   icon-macos-1024.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256   icon-macos-1024.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   icon-macos-1024.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512   icon-macos-1024.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   icon-macos-1024.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 icon-macos-1024.png --out icon.iconset/icon_512x512@2x.png
+          # 留白必须真的写进 PNG：四角不透明说明 sips 把 alpha 压掉了，Dock 里会变成方块
+          python3 - <<'PY'
+          from PIL import Image
+          im = Image.open("icon.iconset/icon_512x512@2x.png").convert("RGBA")
+          assert im.size == (1024, 1024), im.size
+          assert im.getpixel((0, 0))[3] == 0, "图标四角不透明：macOS 留白丢了"
+          assert im.getpixel((512, 512))[3] == 255, "图标中心透明：合成出错"
+          print("iconset ok:", im.size, "corner alpha =", im.getpixel((0, 0))[3])
+          PY
           iconutil -c icns icon.iconset -o resources/app/icon.icns
 
       - name: Configure (CMake)

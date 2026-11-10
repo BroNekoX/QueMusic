@@ -7,7 +7,6 @@
 #include <QObject>
 #include <QString>
 #include <QWindow>
-#include <QtQmlIntegration/qqmlintegration.h>
 
 // Windows SMTC（System Media Transport Controls，系统媒体传输控件）管理器。
 // 在 Windows 下启用（MSVC 与 MinGW-w64 均可，直连 WinRT ABI，不依赖 WRL）；
@@ -15,7 +14,6 @@
 class WindowsSmtcManager : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
 
     // 是否已成功初始化（在 Windows 下才可能为 true）
     Q_PROPERTY(bool available READ isAvailable NOTIFY availableChanged FINAL)

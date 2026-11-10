@@ -55,7 +55,11 @@ package() {
     install -Dm755 build/bin/QueMusic "${pkgdir}/usr/bin/QueMusic"
     install -Dm644 packaging/QueMusic.desktop \
         "${pkgdir}/usr/share/applications/QueMusic.desktop"
-    install -Dm644 resources/app/rainbowMusicIcon.png \
-        "${pkgdir}/usr/share/pixmaps/quemusic.png"
+    # freedesktop 图标：16→512 整套（packaging/make-icons.py linux 生成），
+    # 和 QueMusic.desktop 里的 Icon=quemusic 对应。
+    for _s in 16 24 32 48 64 128 256 512; do
+        install -Dm644 "resources/icons/${_s}.png" \
+            "${pkgdir}/usr/share/icons/hicolor/${_s}x${_s}/apps/quemusic.png"
+    done
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

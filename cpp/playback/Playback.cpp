@@ -3,7 +3,9 @@
 
 #include "Playback.h"
 
+#include "Config.h"
 #include "MusicApiService.h"
+#include "AppSettings.h"
 #include "webdav/WebDavCache.h"
 #include "webdav/WebDavStore.h"
 
@@ -15,7 +17,6 @@
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QQmlEngine>
-#include <QSettings>
 
 namespace {
 
@@ -34,9 +35,20 @@ QString localFile(const QString &path)
 Playback::Playback(QObject *parent)
     : QObject(parent)
 {
-    loadSettings();
+    Config *config = Config::instance();
+    m_volume = qBound(0.0, config->musicVolume(), 1.0);
+    m_muted = config->muted();
+    m_cycle = qBound(0, config->cycleIndex(), 3);
+    m_volumeStepPercent = qBound(1, config->volumeStep(), 50);
+    m_fadeEnabled = config->fadeEnabled();
+    m_fadeMs = qBound(0, config->fadeMs(), 2000);
+    m_shuffleAvoid = qMax(0, config->shuffleAvoid());
+    m_historyLimit = qMax(20, config->historyLimit());
+
     m_cover = new CoverHelper(this);
     QQmlEngine::setObjectOwnership(m_cover, QQmlEngine::CppOwnership);
+    if (!config->cacheUrl().isEmpty())
+        m_cover->setCacheDir(config->cacheUrl());
     m_history.setLimit(m_historyLimit);
     m_history.load();
     m_cursor.setTracks(m_queue.tracks());
@@ -44,12 +56,55 @@ Playback::Playback(QObject *parent)
     m_cursor.setAvoid(m_shuffleAvoid);
     m_engine.setVolume(outVolume());
 
-    {
-        QSettings settings;
-        const QString cacheDir = settings.value(QStringLiteral("Options/cacheUrl")).toString();
-        if (!cacheDir.isEmpty())
-            m_cover->setCacheDir(cacheDir);
-    }
+    connect(config, &Config::musicVolumeChanged, this, [this, config] {
+        const qreal volume = qBound(0.0, config->musicVolume(), 1.0);
+        if (qFuzzyCompare(m_volume, volume))
+            return;
+        m_volume = volume;
+        updateVolume();
+        emit volumeChanged();
+    });
+    connect(config, &Config::mutedChanged, this, [this, config] {
+        if (m_muted == config->muted())
+            return;
+        m_muted = config->muted();
+        updateVolume();
+        emit mutedChanged();
+        emit volumeChanged();
+    });
+    connect(config, &Config::cycleIndexChanged, this, [this, config] {
+        const int cycle = qBound(0, config->cycleIndex(), 3);
+        if (m_cycle == cycle)
+            return;
+        m_cycle = cycle;
+        m_cursor.setCycle(cycle);
+        emit cycleIndexChanged();
+        prepareNext();
+    });
+    connect(config, &Config::volumeStepChanged, this, [this, config] {
+        const int step = qBound(1, config->volumeStep(), 50);
+        if (m_volumeStepPercent == step)
+            return;
+        m_volumeStepPercent = step;
+        emit volumeStepChanged();
+    });
+    connect(config, &Config::fadeEnabledChanged, this, [this, config] {
+        m_fadeEnabled = config->fadeEnabled();
+    });
+    connect(config, &Config::fadeMsChanged, this, [this, config] {
+        m_fadeMs = qBound(0, config->fadeMs(), 2000);
+    });
+    connect(config, &Config::shuffleAvoidChanged, this, [this, config] {
+        m_shuffleAvoid = qMax(0, config->shuffleAvoid());
+        m_cursor.setAvoid(m_shuffleAvoid);
+    });
+    connect(config, &Config::historyLimitChanged, this, [this, config] {
+        m_historyLimit = qMax(20, config->historyLimit());
+        m_history.setLimit(m_historyLimit);
+    });
+    connect(config, &Config::cacheUrlChanged, this, [this, config] {
+        m_cover->setCacheDir(config->cacheUrl());
+    });
     connect(m_cover, &CoverHelper::localCoverReady, this, &Playback::onLocalCoverReady);
 
     connect(&m_queue, &QueueModel::countChanged, this, &Playback::countChanged);
@@ -92,6 +147,7 @@ Playback::~Playback()
     m_engine.stop();
     m_engine.setTrackAdvancedCallback({});
     m_history.save();
+    AppSettings::sync();
 }
 
 Playback *Playback::create(QQmlEngine *, QJSEngine *)
@@ -142,48 +198,6 @@ void Playback::bindApi()
     connect(api, &MusicApiService::warned, this, &Playback::warned);
 }
 
-void Playback::loadSettings()
-{
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("Options"));
-    m_volume = qBound(0.0, settings.value(QStringLiteral("musicVolume"), 0.6).toDouble(), 1.0);
-    m_muted = settings.value(QStringLiteral("muted"), false).toBool();
-    m_cycle = qBound(0, settings.value(QStringLiteral("cycleIndex"), 0).toInt(), 3);
-    m_volumeStepPercent = qBound(1, settings.value(QStringLiteral("volumeStep"), 5).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), true).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), 200).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), 2).toInt());
-    m_historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), 200).toInt());
-    settings.endGroup();
-}
-
-void Playback::refreshSettings()
-{
-    refreshRuntimeSettings();
-}
-
-void Playback::refreshRuntimeSettings()
-{
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("Options"));
-    const int volumeStep = qBound(1, settings.value(QStringLiteral("volumeStep"), m_volumeStepPercent).toInt(), 50);
-    m_fadeEnabled = settings.value(QStringLiteral("fadeEnabled"), m_fadeEnabled).toBool();
-    m_fadeMs = qBound(0, settings.value(QStringLiteral("fadeMs"), m_fadeMs).toInt(), 2000);
-    m_shuffleAvoid = qMax(0, settings.value(QStringLiteral("shuffleAvoid"), m_shuffleAvoid).toInt());
-    const int historyLimit = qMax(20, settings.value(QStringLiteral("historyLimit"), m_historyLimit).toInt());
-    settings.endGroup();
-
-    if (volumeStep != m_volumeStepPercent) {
-        m_volumeStepPercent = volumeStep;
-        emit volumeStepChanged();
-    }
-    m_cursor.setAvoid(m_shuffleAvoid);
-    if (historyLimit != m_historyLimit) {
-        m_historyLimit = historyLimit;
-        m_history.setLimit(historyLimit);
-    }
-}
-
 void Playback::setVolume(qreal value)
 {
     const qreal clamped = qBound(0.0, value, 1.0);
@@ -191,8 +205,7 @@ void Playback::setVolume(qreal value)
         return;
     m_volume = clamped;
     updateVolume();
-    QSettings settings;
-    settings.setValue(QStringLiteral("Options/musicVolume"), m_volume);
+    Config::instance()->set_musicVolume(m_volume);
     emit volumeChanged();
 }
 
@@ -212,8 +225,7 @@ void Playback::setMuted(bool muted)
         return;
     m_muted = muted;
     updateVolume();
-    QSettings settings;
-    settings.setValue(QStringLiteral("Options/muted"), m_muted);
+    Config::instance()->set_muted(m_muted);
     emit mutedChanged();
     emit volumeChanged();
 }
@@ -643,14 +655,12 @@ void Playback::seekBy(qint64 ms)
 
 void Playback::seekBack()
 {
-    QSettings settings;
-    seekBy(-qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    seekBy(-qint64(qMax(1, Config::instance()->seekStep())) * 1000);
 }
 
 void Playback::seekForward()
 {
-    QSettings settings;
-    seekBy(qint64(qMax(1, settings.value(QStringLiteral("Options/seekStep"), 5).toInt())) * 1000);
+    seekBy(qint64(qMax(1, Config::instance()->seekStep())) * 1000);
 }
 
 void Playback::setAbPoint(int which)
@@ -705,7 +715,6 @@ QString Playback::sleepLabel() const
 
 void Playback::sleepEnd()
 {
-    refreshRuntimeSettings();
     stopSleep();
     setInplay(false);
     m_engine.clearNextSource();
@@ -1034,8 +1043,7 @@ void Playback::setCycleIndex(int index)
         return;
     m_cycle = clamped;
     m_cursor.setCycle(clamped);
-    QSettings settings;
-    settings.setValue(QStringLiteral("Options/cycleIndex"), clamped);
+    Config::instance()->set_cycleIndex(clamped);
     emit cycleIndexChanged();
     prepareNext();
 }
@@ -1088,51 +1096,82 @@ void Playback::saveQueue()
             {QStringLiteral("source"), track.source}
         });
     }
-    QSettings settings;
-    settings.setValue(QStringLiteral("Options/lastQueue"),
-                      QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
-    settings.setValue(QStringLiteral("Options/lastQueueIndex"), m_queue.playListIndex());
-    settings.sync();
+    Config::instance()->set_lastQueue(
+        QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
+    Config::instance()->set_lastQueueIndex(m_queue.playListIndex());
+    AppSettings::sync();
 }
 
 void Playback::loadQueue()
 {
     m_queueLoaded = true;
-    if (m_queue.count() > 0)
-        return;
-    QSettings settings;
-    if (!settings.value(QStringLiteral("Options/autoRestoreQueue"), true).toBool())
+    Config *config = Config::instance();
+
+    if (m_queue.count() == 0 && config->autoRestoreQueue()) {
+        const QJsonDocument document = QJsonDocument::fromJson(config->lastQueue().toUtf8());
+        if (document.isArray()) {
+            QVector<QueueTrack> tracks;
+            const QJsonArray array = document.array();
+            tracks.reserve(array.size());
+            for (const QJsonValue &value : array) {
+                const QJsonObject object = value.toObject();
+                QueueTrack track;
+                track.name = object.value(QStringLiteral("name")).toString();
+                track.path = object.value(QStringLiteral("path")).toString();
+                track.songer = object.value(QStringLiteral("songer")).toString();
+                track.source = object.value(QStringLiteral("source")).toInt(-1);
+                if (track.source < 0)
+                    track.path = localFile(track.path);
+                if (!track.path.isEmpty())
+                    tracks.append(track);
+            }
+            if (!tracks.isEmpty()) {
+                m_queue.appendTracks(tracks, false);
+                const int index = config->lastQueueIndex();
+                if (index >= 0 && index < m_queue.count()) {
+                    m_queue.setPlayListIndex(index);
+                    m_cursor.setIndex(index);
+                }
+            }
+        }
+    }
+
+    restoreLastSong();
+}
+
+void Playback::restoreLastSong()
+{
+    Config *config = Config::instance();
+    const QString hash = config->lastSongHash();
+    if (hash.isEmpty())
         return;
 
-    const QJsonDocument document = QJsonDocument::fromJson(
-        settings.value(QStringLiteral("Options/lastQueue")).toString().toUtf8());
-    if (!document.isArray())
+    const int source = config->lastSongSource();
+    const QString path = source < 0 ? localFile(hash) : hash;
+    if (path.isEmpty())
         return;
 
-    QVector<QueueTrack> tracks;
-    const QJsonArray array = document.array();
-    tracks.reserve(array.size());
-    for (const QJsonValue &value : array) {
-        const QJsonObject object = value.toObject();
+    int index = m_queue.indexOfPath(path);
+    if (index < 0) {
         QueueTrack track;
-        track.name = object.value(QStringLiteral("name")).toString();
-        track.path = object.value(QStringLiteral("path")).toString();
-        track.songer = object.value(QStringLiteral("songer")).toString();
-        track.source = object.value(QStringLiteral("source")).toInt(-1);
-        if (track.source < 0)
-            track.path = localFile(track.path);
-        if (!track.path.isEmpty())
-            tracks.append(track);
+        track.name = config->lastSongName();
+        track.path = path;
+        track.songer = config->lastSongArtist();
+        track.source = source;
+        m_queue.appendTrack(track);
+        index = m_queue.count() - 1;
     }
-    if (tracks.isEmpty())
-        return;
 
-    m_queue.appendTracks(tracks, false);
-    const int index = settings.value(QStringLiteral("Options/lastQueueIndex"), -1).toInt();
-    if (index >= 0 && index < m_queue.count()) {
-        m_queue.setPlayListIndex(index);
-        m_cursor.setIndex(index);
-    }
+    const QueueTrack track = m_queue.trackAt(index);
+    m_current = track;
+    m_queue.setPlayListIndex(index);
+    m_cursor.setIndex(index);
+    setMusicTitle(track.name);
+    setMusicArtist(track.songer);
+    setMusicHash(track.path);
+    setMusicSource(track.source);
+    m_engine.setNoTitle(track.name);
+    m_engine.setUrlStr(config->lastSongCover());
 }
 
 void Playback::clearHistory()

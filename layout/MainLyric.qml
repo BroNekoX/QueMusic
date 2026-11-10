@@ -23,7 +23,7 @@ Item {
     property int currentIndex: 0            // 当前行索引（宿主定时器遍历列表后注入）
     property string title: ""
     property string artist: ""
-    property string coverUrl: "qrc:/QueMusic/resources/app/musicpic.png"
+    property string coverUrl: ""
     property color mainColor: "#00ee66"
     property color secondColor: "#00b1ee"
     property color thirdColor: "#9d4edd"
@@ -358,19 +358,23 @@ Item {
         }
 
         function rebuild(): void {
+            fixedHAnime.running = false;
+            finalHAnime.running = false;
             let sum = 0
             const arr = [];
             for (let i = 0; i < lyricRep.count; i++) {
                 arr.push(sum);
                 const it = lyricRep.itemAt(i);
+                if (it) it.stopAnime();
                 const h = it ? it.height : 0;
                 heights[i] = h;
                 sum += h; // 累加下一行起点
             }
             prefixSum = arr;
+            const basicIndexY = prefixSum[currentLine];
             for (let i = 0; i < lyricRep.count; i++) {
-                const basicIndexY = prefixSum[currentLine];
-                if (lyricRep.itemAt(i)) lyricRep.itemAt(i).standY = Math.floor(prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos);
+                const it = lyricRep.itemAt(i);
+                if (it) it.standY = Math.floor(prefixSum[i] - basicIndexY + lyricContent.height * lyricContent.alignPos);
             }
         }
 
@@ -404,6 +408,10 @@ Item {
                     duration: 460
                     bounce: 0.2 + Style.springValue * 0.05
                     autoStart: false
+                }
+
+                function stopAnime(): void {
+                    lyricAnime.running = false;
                 }
 
                 function animeTo(ty: real): void {

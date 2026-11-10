@@ -20,12 +20,11 @@ MultiEffect {
     property alias radius4: mask.bottomRightRadius
     property alias picScale: mask.scale
     property size sourceSize: Qt.size(width,height)
+    source: image.status === Image.Ready ? image : Options.musicpic
 
-    readonly property url fallbackSource: "qrc:/QueMusic/resources/app/musicpic.png"
-    property bool loadFailed: false
-    onImageChanged: loadFailed = false
-    source: Image {
-        source: root.loadFailed ? root.fallbackSource : root.image
+    Image {
+        id: image
+        source: root.image
         width: root.width
         height: root.height
         sourceSize: root.sourceSize
@@ -33,10 +32,6 @@ MultiEffect {
         asynchronous: true
         fillMode: Image.PreserveAspectCrop
         visible: false
-        onStatusChanged: {
-            if(status === Image.Error && source !== root.fallbackSource)
-                root.loadFailed = true;
-        }
     }
     maskEnabled: true
     maskSource: mask

@@ -172,13 +172,15 @@ Rectangle {
             height: 50
             clip: false
             x: 24
-            source: Image {
+            source: image.status === Image.Ready ? image : Options.musicpic
+            Image {
+                id: image
                 width: 50
                 height: 50
                 fillMode: Image.PreserveAspectCrop
                 visible: false
                 cache: Config.picCache
-                source: Playback.player.urlStr || "qrc:/QueMusic/resources/app/musicpic.png"
+                source: Playback.player.urlStr
                 sourceSize: Qt.size(64, 64)
             }
             maskEnabled: true

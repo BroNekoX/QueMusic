@@ -3,6 +3,8 @@
 //
 #include "LogManager.h"
 
+#include "Config.h"
+
 #include <QCoreApplication>
 #include <QDate>
 #include <QDateTime>
@@ -12,7 +14,6 @@
 #include <QStandardPaths>
 #include <QThread>
 #include <QUrl>
-#include <QSettings>
 
 #include <cstdio>
 #include <cstdlib>
@@ -29,14 +30,8 @@ LogManager::LogManager(QObject *parent)
     QString baseDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/logs");
     m_logDir = QDir(baseDir).absolutePath();
 
-    // 3) 读取配置（与 QML Settings 共享同一 ini：configDir + /BroNekoX/QueMusic.ini）
-    {
-        const QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
-        QSettings settings(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
-        m_enabled = settings.value(QStringLiteral("Options/logEnabled"), true).toBool();
-        m_minimumLevel = settings.value(QStringLiteral("Options/logLevel"), int(Level::Info)).toInt();
-        m_minimumLevel = qBound(int(Level::Debug), m_minimumLevel, int(Level::Fatal));
-    }
+    m_enabled = Config::instance()->logEnabled();
+    m_minimumLevel = qBound(int(Level::Debug), Config::instance()->logLevel(), int(Level::Fatal));
 
     // 4) 立即创建/打开今天的日志文件并写入会话横幅
     ensureLogFile();
@@ -221,10 +216,8 @@ void LogManager::ensureLogFile()
 
 void LogManager::persistSettings() const
 {
-    const QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
-    QSettings settings(configPath + QStringLiteral("/BroNekoX/QueMusic.ini"), QSettings::IniFormat);
-    settings.setValue(QStringLiteral("Options/logEnabled"), m_enabled);
-    settings.setValue(QStringLiteral("Options/logLevel"), m_minimumLevel);
+    Config::instance()->set_logEnabled(m_enabled);
+    Config::instance()->set_logLevel(m_minimumLevel);
 }
 
 QString LogManager::levelLabel(int level)
