@@ -3,6 +3,7 @@
 #include "AppSettings.h"
 #include "Config.h"
 #include "SmtcBridge.h"
+#include "Style.h"
 #include "SystemTrayManager.h"
 
 #include "audio/AudioEngine.h"
@@ -60,6 +61,14 @@ App::App(QQmlEngine *engine)
     connect(m_smtc, &SmtcBridge::availableChanged, this, &App::smtcAvailableChanged);
 
     QTimer::singleShot(400, this, &App::playStartupFile);
+
+    // 换字体：排队刷新，避免在 QML 赋值调用栈里改界面对象
+    auto *style = Style::instance();
+    const auto scheduleFontRefresh = [this] {
+        QTimer::singleShot(0, this, &App::onGlobalFontChanged);
+    };
+    connect(style, &Style::globalFontChanged, this, scheduleFontRefresh);
+    connect(style, &Style::fontStyleChanged, this, scheduleFontRefresh);
 }
 
 App::~App()
@@ -105,9 +114,13 @@ void App::showMainWindow()
     }
     QQmlEngine::setObjectOwnership(m_window, QQmlEngine::CppOwnership);
 
-    if (Config::instance()->rememberWindow() && Config::instance()->winW() > 0)
+    if (!m_pendingGeometry.isEmpty()) {
+        m_window->setGeometry(m_pendingGeometry);
+        m_pendingGeometry = QRect();
+    } else if (Config::instance()->rememberWindow() && Config::instance()->winW() > 0) {
         m_window->setGeometry(Config::instance()->winX(), Config::instance()->winY(),
                               Config::instance()->winW(), Config::instance()->winH());
+    }
     m_normalGeometry = m_window->geometry();
 
     const auto trackGeometry = [this] {
@@ -128,6 +141,33 @@ void App::showMainWindow()
 
     m_window->raise();
     m_window->requestActivate();
+}
+
+void App::onGlobalFontChanged()
+{
+    Style::instance()->applyGlobalFont();
+    QTimer::singleShot(0, this, &App::reloadUi);
+}
+
+void App::reloadUi()
+{
+    if (!m_window || m_collapsing)
+        return;
+
+    saveWindow();
+    m_pendingGeometry = m_window->geometry();
+    m_restoreVisibility = m_window->visibility();
+
+    QQuickWindow *window = m_window;
+    m_window = nullptr;
+    window->hide();
+    window->releaseResources();
+    // 等旧窗口真正销毁后再建新的，避免两棵 QML 树短暂并存
+    connect(window, &QObject::destroyed, this, [this] {
+        if (!m_quitting)
+            QTimer::singleShot(0, this, &App::showMainWindow);
+    });
+    window->deleteLater();
 }
 
 void App::collapseToTray()

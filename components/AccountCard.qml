@@ -43,6 +43,7 @@ Rectangle {
             color: Theme.fontColor
             verticalAlignment: Text.AlignVCenter
             font.bold: true
+            font.family: Fonts.text
             font.pixelSize: Style.textH2
         }
         Text {

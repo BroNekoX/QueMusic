@@ -3,6 +3,8 @@
 //
 #include "ColorExtractor.h"
 
+#include <QBuffer>
+#include <QImageReader>
 #include <QNetworkReply>
 #include <QtConcurrent>
 
@@ -12,6 +14,7 @@ namespace {
 
 constexpr int kColorCount = 3;
 constexpr int kSampleSize = 48; // 固定采样，控制遍历量
+constexpr int kDecodeSize = 96; // 解码即降采样
 constexpr int kSimilarDistance = 120;
 constexpr int kSimilarDistanceSq = kSimilarDistance * kSimilarDistance;
 
@@ -19,6 +22,38 @@ constexpr int kSimilarDistanceSq = kSimilarDistance * kSimilarDistance;
 QVector<QColor> defaultColors()
 {
     return { QColor(0x00, 0xEE, 0x66), QColor(0x00, 0xB1, 0xEE), QColor(0x9D, 0x4E, 0xDD) };
+}
+
+QImage readScaled(QImageReader &reader)
+{
+    const QSize size = reader.size();
+    if (size.isValid() && (size.width() > kDecodeSize || size.height() > kDecodeSize))
+        reader.setScaledSize(size.scaled(kDecodeSize, kDecodeSize, Qt::KeepAspectRatio));
+    return reader.read();
+}
+
+QImage decodeForColor(const QString &path)
+{
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    QImage image = readScaled(reader);
+    if (image.isNull()) // 格式不支持缩放解码时退回整图
+        image.load(path);
+    return image;
+}
+
+QImage decodeForColor(const QByteArray &data)
+{
+    QBuffer buffer;
+    buffer.setData(data);
+    if (!buffer.open(QIODevice::ReadOnly))
+        return QImage();
+    QImageReader reader(&buffer);
+    reader.setAutoTransform(true);
+    QImage image = readScaled(reader);
+    if (image.isNull())
+        image.loadFromData(data);
+    return image;
 }
 
 } // namespace
@@ -58,20 +93,26 @@ void ColorExtractor::extractColorsFromUrl(const QUrl &url)
 {
     m_imageSource = url;
 
+    // 取消上一张封面的下载
+    if (m_pendingReply) {
+        m_pendingReply->abort();
+        m_pendingReply.clear();
+    }
+
     if (url.isLocalFile()) {
         const QString path = url.toLocalFile();
         runTask(url.toString(), [path]() {
-            QImage image;
-            image.load(path);
-            return extract(image);
+            return extract(decodeForColor(path));
         });
     } else if (!url.isEmpty()) {
-        m_networkManager->get(QNetworkRequest(url));
+        m_pendingReply = m_networkManager->get(QNetworkRequest(url));
     }
 }
 
 void ColorExtractor::onImageDownloaded(QNetworkReply *reply)
 {
+    if (reply == m_pendingReply)
+        m_pendingReply.clear();
     reply->deleteLater();
 
     if (reply->error() != QNetworkReply::NoError)
@@ -81,9 +122,7 @@ void ColorExtractor::onImageDownloaded(QNetworkReply *reply)
     const QString cacheKey = reply->url().toString();
     // 网络图解码也放后台
     runTask(cacheKey, [data]() {
-        QImage image;
-        image.loadFromData(data);
-        return extract(image);
+        return extract(decodeForColor(data));
     });
 }
 

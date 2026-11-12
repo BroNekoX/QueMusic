@@ -20,6 +20,7 @@
 #include "cpp/LogManager.h"
 #include "widgets/App.h"
 #include "widgets/Config.h"
+#include "widgets/Style.h"
 #include "widgets/AppSettings.h"
 #include "cpp/platform/WindowsAppIdentity.h"
 #include "cpp/playback/Playback.h"
@@ -112,8 +113,11 @@ int main(int argc, char *argv[])
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, configPath);
 
     QQmlEngine engine;
-    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型
+    qml_register_types_QueMusic();   // 注册 QML_ELEMENT 类型（qrc 资源也可用了）
     engine.addImportPath(QStringLiteral("qrc:/"));
+
+    // 必须在任何 QML Text 创建之前应用：Text 只在构造时继承应用字体
+    Style::instance()->applyGlobalFont();
 
     LogManager::create(&engine, &engine);   // 日志单例：接管 Qt 消息，写入安装目录/logs
     AccountManager *accountManager = AccountManager::create(&engine, &engine);   // 账号单例

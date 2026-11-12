@@ -19,8 +19,8 @@ Rectangle {
     property int lyricMoveMs: 0              // 歌词位置校准
     property bool lyricTranslateOpen: true
 
-    // 歌词界面：内置界面 + 已安装插件由 LyricsPlugins 统一维护，换界面 = 换 Loader 加载的文件
-    readonly property string lyricThemeSource: LyricsPlugins.source
+    // 歌词界面：内置界面 + 已安装插件由 Plugins 统一维护，换界面 = 换 Loader 加载的文件
+    readonly property string lyricThemeSource: Plugins.lyricsSource
 
     // 样式写入口（白名单）
     readonly property var styleAllow: ({
@@ -224,7 +224,7 @@ Rectangle {
             width: parent.width
             spacing: 6
             Repeater {
-                model: LyricsPlugins.plugins
+                model: Plugins.lyrics
                 delegate: Rectangle {
                     id: themeRow
                     required property string author
@@ -237,7 +237,7 @@ Rectangle {
                     radius: Style.labelRadius
                     color: themeRow.selected ? Theme.themeColor
                            : (themeArea.containsMouse ? Theme.hoverColor : "transparent")
-                    readonly property bool selected: themeRow.id === LyricsPlugins.selectedId
+                    readonly property bool selected: themeRow.id === Plugins.lyricsId
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     QPicture {
@@ -290,7 +290,7 @@ Rectangle {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: LyricsPlugins.selectedId = themeRow.id
+                        onClicked: Plugins.selectLyrics(themeRow.id)
                     }
                 }
             }

@@ -76,14 +76,14 @@
 | `shaders/` | `MeshGradientItem.cpp/.h`、`LyricsStage.cpp/.h` |
 | `cpp/` 顶层 | `AppModels.h`、`MediaTypes.h`、`DbService`、`CoverHelper`、`ColorExtractor`、`GetWave`、`FolderModel`、`DownloadManager`、`DownloadedMusicModel`、`Favorites`、`AccountManager`、`LocalLyricsReader`、`CustomFlow`、`QueueModel`、`LocalMusicScanner`、`SearchResultModel`、`WindowsSmtcManager`、`LogManager`、`SystemTrayManager`（各 .cpp+.h） |
 | `cpp/webdav/` | `WebDavCache`、`WebDavClient`、`WebDavModel`、`WebDavStore` |
-| `cpp/plugins/` | `PluginStore`、`LyricsPluginStore`、`FunctionPluginStore` |
+| `cpp/plugins/` | `PluginStore`（QML 单例 `Plugins`，统一管理功能插件与歌词界面插件） |
 | `cpp/audio/` | `AudioEngine`、`AudioDsp`、`FfmpegDecoder`、`PitchShifter`、`TimeStretch`（.cpp+.h）＋ 纯头 `AudioRing.h`、`AudioSpectrumSink.h` |
 | `api/` | `MusicApiService`、`OnlineListModel`、`NeteaseCloudApi`、`KugouApi`、`BilibiliApi`（.cpp+.h）＋ 纯头 `ApiCommon.h` |
 
 **RESOURCES**：`resources/window-bar/*.svg`（close/closed、airplay/airplayd、maximize/maximized、minimize/minimized、restore/restored、return/returnd、setting/settingd）、`resources/icon.ico`、`resources/icon.png`、`resources/loader.gif`、`resources/pic/{back1,back2,back3}.jpg`、`resources/pic/cloudRainbow.png`、`resources/app/{header.png,rainbowMusicIcon.jpg,musicpic.png,cd.png,cdpoint.png}`、`resources/app/icons/{qticon.png,qwk.png}`、`resources/fonts/{feather.ttf,Figtree.otf}`
 
 **QML 单例声明**（`set_source_files_properties(... QT_QML_SINGLETON_TYPE TRUE)`，共 10 个）：
-`components/{Style,Theme,Config,ShortCut,Options,Playback,PluginSlots,Fonts}.qml`、`lyricsui/{LyricsFreeConfig,Lyrics3DConfig}.qml`
+`components/{Style,Theme,Config,ShortCut,Options,Playback,Fonts}.qml`、`lyricsui/{LyricsFreeConfig,Lyrics3DConfig}.qml`
 
 ### 7.1.6 着色器编译（`qt6_add_shaders`，两次调用，均 `BATCHABLE`）
 
@@ -492,9 +492,9 @@ python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 -O ~/Qt -m qtmultime
 
 | 键名 | 类型 | 默认值 | 写入方 | 读取方 | 作用 |
 |---|---|---|---|---|---|
-| `Plugins/lyrics` | string | `"builtin.default"` | `LyricsPluginStore::setSelectedId()` | `LyricsPluginStore` 构造 | 选中的歌词界面插件 id（内置：`builtin.default` / `builtin.free` / `builtin.3d(Beta)`；选中项被卸载则回退默认） |
-| `Plugins/function/<pluginId>` | bool | `true` | `FunctionPluginStore::setEnabled()` | `FunctionPluginStore::loadEnabled()` | 每个功能插件的启用开关；插件卸载后键保留 |
-| `Plugins/settings/<pluginId>/<任意键>` | 任意 | 无 | 插件自身（`PluginApi.settings`，`Settings { category: "Plugins/settings/" + pluginId }`） | 插件自身 | 插件私有设置命名空间（键名由插件决定，未确认） |
+| `Plugins/lyrics` | string | `"builtin.default"` | `PluginStore::selectLyrics()` | `PluginStore` 构造 | 选中的歌词界面插件 id（内置：`builtin.default` / `builtin.free` / `builtin.3d(Beta)`；选中项被卸载则回退默认） |
+| `Plugins/function/<pluginId>` | bool | `true` | `PluginStore::setEnabled()` | `PluginStore::rebuild()` | 每个功能插件的启用开关；插件卸载后键保留 |
+| `Plugins/settings/<pluginId>/<任意键>` | 任意 | 无 | 插件自身（`PluginContext.settings`，`Settings { category: "Plugins/settings/" + pluginId }`） | 插件自身 | 插件私有设置命名空间（键名由插件决定）；与启用开关的 `Plugins/function/<id>` 分开 |
 | `webdav/servers` | list<map> | 空 | `WebDavStore::save()`（add/update/remove 后自动） | `WebDavStore::load()`（构造时） | WebDAV 服务器列表；元素字段：`id`(UUID 无花括号)、`name`、`url`(规范化 `scheme://host/path/`)、`user`、`password`(Windows 用 DPAPI 后 Base64；其它平台仅 Base64，**非加密**)；`servers()` 对外会剔除 `password` |
 
 ### 7.7.10 `Account.ini`（`cpp/AccountManager.cpp`，文件 `<exe 目录>/Account.ini`，非主 ini）
@@ -515,7 +515,7 @@ python3 -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 -O ~/Qt -m qtmultime
 ### 7.7.11 未持久化 / 非 ini 的「类设置」说明
 
 - `components/Theme.qml` 是**纯内存** `QtObject`（无 `Settings`），颜色由 `Options.changeTheme()` 依 `Style.theme` 与 `Style.color` 计算，不落盘。
-- `components/Fonts.qml`、`components/Options.qml`、`components/Playback.qml`、`components/PluginSlots.qml` 为运行时单例，本身不持久化（`Playback` 通过 `Config.playHistory`/`lastQueue` 间接落盘）。
+- `components/Fonts.qml`、`components/Options.qml`、`components/Playback.qml` 为运行时单例，本身不持久化（`Playback` 通过 `Config.playHistory`/`lastQueue` 间接落盘）。
 - `api/MusicApiService` 另有 `loadQualityCache()`/`saveQualityCache()`（`m_altsSaveTimer`），存的是音质探测缓存而非配置键（未确认文件位置）。
 - `components/Config.qml` 中声明但全仓库无读写的 7 个键见 7.2 表末。
 

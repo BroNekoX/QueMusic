@@ -822,8 +822,7 @@ Item {
                             label: "全局主题"
                             tip: "设置应用的全局主题"
                             isBigItem: true
-                            controlItem: QWideDrop {
-                                anchors.fill: parent
+                            QWideDrop {
                                 model: ["浅色主题","深色主题","跟随系统"]
                                 choice: Style.theme
                                 onTransformed: (choiced) => {
@@ -836,8 +835,7 @@ Item {
                         SettingItemCard {
                             label: "全局主题色"
                             tip: "设置应用的全局主要配色"
-                            controlItem: Item {
-                                anchors.fill: parent
+                            Item {
                                 Row {
                                     height: 36
                                     anchors.right: parent.right
@@ -899,8 +897,7 @@ Item {
                         SettingItemCard {
                             label: "配色方案"
                             tip: "设置通过主题色来改变整个应用色调的方法"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Style.colorStyle
                                 model: ["默认","Material","FluentUI","QuietUI","Material You"]
                                 onTransformed: (choiced) => {
@@ -914,8 +911,7 @@ Item {
                             label: "应用背景"
                             tip: "设置在背景显示的样式"
                             isBigItem: true
-                            controlItem: QWideDrop {
-                                anchors.fill: parent
+                            QWideDrop {
                                 model: ["默认","浅主题色","云母材质","图片","模糊窗口"]
                                 choice: Style.backmode
                                 onTransformed: (choiced) => {
@@ -931,8 +927,7 @@ Item {
                             tip: "设置应用背景壁纸显示的图片"
                             display: Style.backmode === 3
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Style.backpic
                                 model: ["示例1","示例2","示例3","自定义图片"]
                                 onTransformed: (choiced) => {
@@ -1138,10 +1133,25 @@ Item {
                         Component.onCompleted: parent.height = height
 
                         SettingItemCard {
+                            label: "打开欢迎界面"
+                            tip: "重新打开用于第一次打开应用快速设置的指引界面"
+                            QButton {
+                                shadowEnabled: false
+                                radius: Style.labelRadius
+                                borderWidth: 2
+                                text: "打开"
+                                fontSize: Style.text
+                                onClicked: {
+                                    Config.isFirst = true;
+                                    Options.warned("将在下一次启动软件显示欢迎界面", 1);
+                                }
+                            }
+                        }
+
+                        SettingItemCard {
                             label: "全局音量"
                             tip: "设置本应用音乐播放单的音量"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 to: 100
                                 stepSize: 1
                                 leftText: true
@@ -1156,8 +1166,7 @@ Item {
                         SettingItemCard {
                             label: "下载目录"
                             tip: "设置音乐文件默认下载的目录"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 shadowEnabled: false
                                 radius: Style.labelRadius
                                 borderWidth: 2
@@ -1170,8 +1179,7 @@ Item {
                         SettingItemCard {
                             label: "最小化托盘"
                             tip: "开启后点击关闭按钮将隐藏窗口（任务栏不再显示），可从托盘图标恢复或退出"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.closeToManage
                                 onToggled: Config.closeToManage = !Config.closeToManage
@@ -1181,8 +1189,7 @@ Item {
                         SettingItemCard {
                             label: "记住窗口"
                             tip: "下次启动将恢复原来的窗口位置和大小"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.rememberWindow
                                 onToggled: Config.rememberWindow = !Config.rememberWindow
@@ -1192,8 +1199,7 @@ Item {
                         SettingItemCard {
                             label: "自动检查更新"
                             tip: "在每次启动应用程序时将检查是否有新版本"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.autoUpdate
                                 onToggled: Config.autoUpdate = !Config.autoUpdate
@@ -1203,8 +1209,7 @@ Item {
                         SettingItemCard {
                             label: "默认缓存位置"
                             tip: "设置封面等图片缓存文件的存放目录"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 shadowEnabled: false
                                 radius: Style.labelRadius
                                 borderWidth: 2
@@ -1229,8 +1234,7 @@ Item {
                         SettingItemCard {
                             label: "自动缓存图片"
                             tip: "加载的图片将自动缓存到内存中，可以提高性能，但会占用更多内存"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.picCache
                                 onToggled: Config.picCache = !Config.picCache
@@ -1240,8 +1244,7 @@ Item {
                         SettingItemCard {
                             label: "清除图片缓存"
                             tip: "清除缓存到磁盘的图片文件"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 shadowEnabled: false
                                 buttonColor: "transparent"
                                 radius: Style.labelRadius
@@ -1300,8 +1303,7 @@ Item {
                         SettingItemCard {
                             label: "左栏沉浸"
                             tip: "左侧的页面切换栏将使用与背景一致的色彩，提高观感"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.sidebarColor
                                 onToggled: {
@@ -1314,8 +1316,7 @@ Item {
                         SettingItemCard {
                             label: "左栏样式"
                             tip: "左侧的页面切换栏样式"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Style.sidebarStyle
                                 model: ["Basic","Fancy"]
                                 onTransformed: (choiced) => {
@@ -1328,8 +1329,7 @@ Item {
                         SettingItemCard {
                             label: "左栏缩小方式"
                             tip: "通过设置左栏如何缩小达到主内容更佳的显示面积"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Style.leftBarMode
                                 model: ["通过窗口宽度","保持展开","保持缩小"]
                                 onTransformed: (choiced) => {
@@ -1341,8 +1341,7 @@ Item {
                         SettingItemCard {
                             label: "不透明底栏"
                             tip: "播放器控制底栏将不再透明"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.noOpacityControl
                                 onToggled: Style.noOpacityControl = !Style.noOpacityControl
@@ -1353,8 +1352,7 @@ Item {
                             label: "封面色底栏"
                             tip: "播放器控制底栏将使用和当前歌曲封面相同的主题色"
                             display: Style.noOpacityControl
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.coverColorControl
                                 onToggled: Style.coverColorControl = !Style.coverColorControl
@@ -1362,10 +1360,41 @@ Item {
                         }
 
                         SettingItemCard {
+                            label: "全局字体"
+                            tip: "设置整个应用程序默认显示的字体样式"
+                            QDrop {
+                                choice: Style.globalFont
+                                model: ["Figtree(en)","系统默认","自定义"]
+                                onTransformed: (choiced) => {
+                                    Style.globalFont = choiced;
+                                }
+                            }
+                        }
+
+                        SettingsItemVisibleCard {
+                            label: "自定义字体"
+                            display: Style.globalFont === 2
+                            tip: "自定义整个应用程序显示的字体样式"
+                            QButton {
+                                shadowEnabled: false
+                                radius: Style.labelRadius
+                                borderWidth: 2
+                                text: Style.fontStyle ? Style.fontStyle : "系统默认"
+                                fontSize: Style.text
+                                onClicked: fontDialog.openFamily(Style.fontStyle)
+                            }
+                            FontFamilyDialog {
+                                id: fontDialog
+                                blurSource: settingsView
+                                currentFamily: Style.fontStyle
+                                onAccepted: Style.fontStyle = fontDialog.selectedFamily
+                            }
+                        }
+
+                        SettingItemCard {
                             label: "卡片圆角大小"
                             tip: "设置全局大型卡片的圆角大小"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 24
                                 stepSize: 2
@@ -1381,8 +1410,7 @@ Item {
                         SettingItemCard {
                             label: "控件圆角大小"
                             tip: "设置全局控件的圆角大小"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 24
                                 stepSize: 2
@@ -1398,8 +1426,7 @@ Item {
                         SettingItemCard {
                             label: "不使用控件大圆角"
                             tip: "(废弃)将部分完全圆角的控件取消完全圆角"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.noControlRadius
                                 onToggled: Style.noControlRadius = !Style.noControlRadius
@@ -1424,8 +1451,7 @@ Item {
                         SettingItemCard {
                             label: "高级材质"
                             tip: "使用更高质量的背景模糊提升观感"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.highQualityBlur
                                 onToggled: Style.highQualityBlur = !Style.highQualityBlur
@@ -1435,8 +1461,7 @@ Item {
                         SettingItemCard {
                             label: "卡片阴影模糊度"
                             tip: "设置全局卡片的阴影模糊程度"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 8
                                 to: 32
                                 stepSize: 2
@@ -1452,8 +1477,7 @@ Item {
                         SettingItemCard {
                             label: "卡片背景模糊度"
                             tip: "设置全局卡片的背景模糊程度"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 16
                                 to: 64
                                 stepSize: 2
@@ -1469,8 +1493,7 @@ Item {
                         SettingItemCard {
                             label: "子页面切入切出动画"
                             tip: "在打开或关闭子页面所使用的动画效果"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Style.animeType
                                 model: ["放大缩小","左右渐入"]
                                 onTransformed: (choiced) => {
@@ -1482,37 +1505,10 @@ Item {
                         SettingItemCard {
                             label: "高级动画效果"
                             tip: "启动更精细的动画效果"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.premiumAnime
                                 onToggled: Style.premiumAnime = !Style.premiumAnime
-                            }
-                            bottomLine: false
-                        }
-                    }
-                }
-
-                QHead { text: "页面布局" }
-
-                Rectangle {
-                    width: settingStack.standWidth
-                    color: settingStack.cardColor
-                    radius: Style.cubeRadius
-                    Column {
-                        width: settingStack.standWidth
-                        padding: 0
-                        Component.onCompleted: {
-                            parent.height = height
-                        }
-                        SettingItemCard {
-                            label: "首页默认布局"
-                            tip: "设置首页面的卡片布局"
-                            controlItem: QDrop {
-                                anchors.fill: parent
-                                choice: Style.homeLayout
-                                model: ["默认","竖向","混合"]
-                                onTransformed: (choiced) => Style.homeLayout = choiced
                             }
                             bottomLine: false
                         }
@@ -1534,8 +1530,7 @@ Item {
                         SettingItemCard {
                             label: "标准歌词大小"
                             tip: "设置歌词显示字体大小(会跟随窗口大小改变)"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 20
                                 stepSize: 2
@@ -1551,8 +1546,7 @@ Item {
                         SettingItemCard {
                             label: "歌词字重"
                             tip: "设置歌词显示的字重"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 300
                                 to: 800
                                 stepSize: 50
@@ -1568,8 +1562,7 @@ Item {
                         SettingItemCard {
                             label: "歌词字体"
                             tip: "设置歌词显示的字体"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 shadowEnabled: false
                                 radius: Style.labelRadius
                                 borderWidth: 2
@@ -1589,8 +1582,7 @@ Item {
                             label: "背景着色器样式"
                             tip: "设置沉浸播放页的流体背景算法，静态渐变最省性能"
                             isBigItem: true
-                            controlItem: QWideDrop {
-                                anchors.fill: parent
+                            QWideDrop {
                                 model: ["Fluid", "Classic", "静态渐变"]
                                 choice: Style.flowStyle
                                 onTransformed: (choiced) => {
@@ -1602,8 +1594,7 @@ Item {
                         SettingItemCard {
                             label: "显示音波效果"
                             tip: "在沉浸播放页显示实时音波频谱"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.waveDisplay
                                 onToggled: Style.waveDisplay = !Style.waveDisplay
@@ -1613,8 +1604,7 @@ Item {
                         SettingItemCard {
                             label: "歌词渐进模糊"
                             tip: "让非当前行歌词渐进模糊，突出正在播放的一句"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.maskBlur
                                 onToggled: Style.maskBlur = !Style.maskBlur
@@ -1624,8 +1614,7 @@ Item {
                         SettingItemCard {
                             label: "弹簧动画过冲度"
                             tip: "歌词逐行切换时弹簧动画弹过位置的弹动效果强度"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 4
                                 stepSize: 1
@@ -1641,8 +1630,7 @@ Item {
                         SettingItemCard {
                             label: "自动进入沉浸模式"
                             tip: "进入沉浸播放页后自动隐藏界面控件"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Style.lyricHideGui
                                 onToggled: Style.lyricHideGui = !Style.lyricHideGui
@@ -1694,8 +1682,7 @@ Item {
                         SettingItemCard {
                             label: "默认音质"
                             tip: "设置在线音乐默认播放的音质等级"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Config.soundQuality
                                 model: ["标准-128k","高清-320k","无损-500+k"]
                                 onTransformed: (choiced) => {
@@ -1707,8 +1694,7 @@ Item {
                         SettingItemCard {
                             label: "默认音乐源"
                             tip: "设置在线音乐默认使用的音源平台"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Math.max(0, MusicApi.sourceIds.indexOf(Config.mainMusicSource))
                                 model: MusicApi.sourceNames
                                 onTransformed: (choiced) => {
@@ -1721,8 +1707,7 @@ Item {
                         SettingItemCard {
                             label: "缓存大小/MB"
                             tip: "设置图片缓存的磁盘占用上限，超出后自动清理"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 200
                                 to: 1000
                                 stepSize: 10
@@ -1754,8 +1739,7 @@ Item {
                         SettingItemCard {
                             label: "使用默认输出设备"
                             tip: "跟随系统当前默认的音频输出设备播放"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Playback.player.followSystemDevice
                                 onToggled: Playback.player.followSystemDevice = !Playback.player.followSystemDevice
@@ -1767,8 +1751,7 @@ Item {
                             tip: "指定播放时使用的音频输出设备"
                             display: !Playback.player.followSystemDevice
                             Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutExpo } }
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Playback.player.deviceIndex
                                 model: Playback.player.audioDevices
                                 onTransformed: (choiced) => {
@@ -1780,8 +1763,7 @@ Item {
                         SettingItemCard {
                             label: "自动播放"
                             tip: "启动应用后自动开始播放"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.autoPlay
                                 onToggled: Config.autoPlay = !Config.autoPlay
@@ -1791,8 +1773,7 @@ Item {
                         SettingItemCard {
                             label: "扫描子目录"
                             tip: "本地文件夹中将显示子目录下的歌曲"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.recursive
                                 onToggled: Config.recursive = !Config.recursive
@@ -1802,8 +1783,7 @@ Item {
                         SettingItemCard {
                             label: "音量步长"
                             tip: "每次滚轮或快捷键调节音量的幅度"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 1
                                 to: 20
                                 stepSize: 1
@@ -1811,8 +1791,8 @@ Item {
                                 valueText: value.toString() + " %"
                                 value: Config.volumeStep
                                 onMoved: {
-                Config.volumeStep = value
-            }
+                                    Config.volumeStep = value
+                                }
                             }
                             bottomLine: false
                         }
@@ -1833,8 +1813,7 @@ Item {
                         SettingItemCard {
                             label: "精确跳转步长"
                             tip: "快捷键快进/快退一次跳转的秒数"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: [3,5,10,15,30].indexOf(Config.seekStep)
                                 model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
                                 onTransformed: (choiced) => Config.seekStep = [3,5,10,15,30][choiced]
@@ -1844,21 +1823,19 @@ Item {
                         SettingItemCard {
                             label: "播放淡入淡出"
                             tip: "切歌或暂停时对音量淡入淡出，避免爆音"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.fadeEnabled
                                 onToggled: {
-                                Config.fadeEnabled = !Config.fadeEnabled
-                            }
+                                    Config.fadeEnabled = !Config.fadeEnabled
+                                }
                             }
                         }
 
                         SettingItemCard {
                             label: "淡变时长"
                             tip: "淡入淡出动画持续的毫秒数"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 500
                                 stepSize: 50
@@ -1866,16 +1843,15 @@ Item {
                                 valueText: value.toString() + " ms"
                                 value: Config.fadeMs
                                 onMoved: {
-                                Config.fadeMs = value
-                            }
+                                    Config.fadeMs = value
+                                }
                             }
                         }
 
                         SettingItemCard {
                             label: "睡眠定时默认"
                             tip: "睡眠定时的默认倒计时分钟数"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 1
                                 to: 120
                                 stepSize: 1
@@ -1889,8 +1865,7 @@ Item {
                         SettingItemCard {
                             label: "随机避免最近"
                             tip: "随机播放时避免重复最近播放的歌曲数量"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 0
                                 to: 5
                                 stepSize: 1
@@ -1904,8 +1879,7 @@ Item {
                         SettingItemCard {
                             label: "恢复上次播放列表"
                             tip: "下次启动时恢复退出前的播放列表"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.autoRestoreQueue
                                 onToggled: Config.autoRestoreQueue = !Config.autoRestoreQueue
@@ -1915,8 +1889,7 @@ Item {
                         SettingItemCard {
                             label: "播放历史上限"
                             tip: "最多保留的播放历史条数"
-                            controlItem: QSlider {
-                                anchors.fill: parent
+                            QSlider {
                                 from: 20
                                 to: 500
                                 stepSize: 20
@@ -1930,8 +1903,7 @@ Item {
                         SettingItemCard {
                             label: "清空播放历史"
                             tip: "清空全部播放历史记录"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 shadowEnabled: false
                                 fontSize: Style.textTip
                                 radius: Style.labelRadius
@@ -2128,8 +2100,7 @@ Item {
                         SettingItemCard {
                             label: "启用全局快捷键"
                             tip: "开启后可在其他窗口用快捷键控制播放"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.openShortCut
                                 onToggled: Config.openShortCut = !Config.openShortCut
@@ -2207,6 +2178,7 @@ Item {
                         id: shortCutColumn
                         width: parent.width
                         padding: 0
+                        property bool displayDefau: width > 720
                         Repeater {
                             model: actionDefs
                             delegate: Rectangle {
@@ -2242,6 +2214,7 @@ Item {
                                     Label {
                                         text: "默认: " + shortCutDel.model.defau
                                         width: 120
+                                        visible: shortCutColumn.displayDefau
                                         font.pixelSize: Style.textmain
                                         color: Qt.rgba(Theme.fontColor.r, Theme.fontColor.g, Theme.fontColor.b, 0.6)
                                         verticalAlignment: Text.AlignVCenter
@@ -2354,17 +2327,14 @@ Item {
                     visible: true
                     width: downloadChildPage.width
                     height: downloadChildPage.height
-                    store: LyricsPlugins
-                    pluginKind: "歌词界面插件"
+                    pluginType: "lyrics"
                 }
                 PluginManager {
                     id: toolMod
                     visible: false
                     width: downloadChildPage.width
                     height: downloadChildPage.height
-                    store: FunctionPlugins
-                    pluginKind: "功能插件"
-                    multi: true
+                    pluginType: "function"
                 }
                 Item {
                     id: musicMod
@@ -2493,7 +2463,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: 96
                         height: 96
-                        source: "qrc:/QueMusic/resources/icon.ico"
+                        source: "qrc:/QueMusic/resources/icon.png"
                         sourceSize: Qt.size(96, 96)
                     }
 
@@ -2503,9 +2473,9 @@ Item {
                         height: 56
                         width: implicitWidth// + 96
                         text: "QueMusic"
-                        font.family: Fonts.text
                         font.pixelSize: 56
                         font.bold: false
+                        font.family: Fonts.text
                         verticalAlignment: Text.AlignVCenter
                         color: Theme.fontColor
                     }
@@ -2539,7 +2509,6 @@ Item {
                             Text {
                                 height: 36
                                 text: Application.version + " (" + Options.versionCode + ")"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2682,7 +2651,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Application.version + " (" + Options.versionCode + ") (Beta)"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2696,7 +2664,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: Options.pluginApi + " (Beta)"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2710,7 +2677,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "Qt-" + "6.10.3" + "(Community)"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2724,7 +2690,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "QRHI/Qt Scene Graph"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2738,7 +2703,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "C++/JS/QtQuick"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2779,7 +2743,6 @@ Item {
                         baseColor: settingStack.cardColor
                     }
                 }
-
                 Rectangle {
                     width: settingStack.standWidth
                     height: fontDescript.implicitHeight + 48
@@ -2814,7 +2777,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "241422517"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2828,7 +2790,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "uihugd@outlook.com"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2842,7 +2803,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "695207057"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2856,7 +2816,6 @@ Item {
                                 anchors.right: parent.right
                                 height: 36
                                 text: "1105114511"
-                                font.family: Fonts.text
                                 color: Theme.textColor
                                 font.pixelSize: 14
                                 verticalAlignment: Text.AlignVCenter
@@ -2965,8 +2924,7 @@ Item {
                         SettingItemCard {
                             label: "使用系统标题栏"
                             tip: "改用系统原生标题栏，关闭无边框窗口效果"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.noWindowKit
                                 onToggled: {
@@ -2979,8 +2937,7 @@ Item {
                         SettingItemCard {
                             label: "渲染引擎"
                             tip: "选择界面渲染使用的图形后端，重启后生效"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: Config.gpuRenderMode
                                 model: ["系统偏好","OpenGL","Vulkan","Software"]
                                 onTransformed: (choiced) => {
@@ -2993,8 +2950,7 @@ Item {
                         SettingItemCard {
                             label: "Timer驱动界面"
                             tip: "用QTimer引擎驱动动画，代替Vsync垂直同步"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.timerAnimator
                                 onToggled: {
@@ -3007,8 +2963,7 @@ Item {
                         SettingItemCard {
                             label: "QML动画引擎"
                             tip: "选择 QML 动画的驱动方式，重启后生效"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 text: switchTrue ? "Vsync" : "默认"
                                 switchTrue: Config.qmlAnimator
@@ -3036,8 +2991,7 @@ Item {
                         SettingItemCard {
                             label: "显示渲染帧率"
                             tip: "在界面右上角显示实时帧率"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.displayFps
                                 onToggled: Config.displayFps = !Config.displayFps
@@ -3047,8 +3001,7 @@ Item {
                         SettingItemCard {
                             label: "调试模式"
                             tip: "打开QueMusic Console调试窗口"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: Config.debug
                                 onToggled: Config.debug = !Config.debug
@@ -3072,8 +3025,7 @@ Item {
                         SettingItemCard {
                             label: "启用日志"
                             tip: "开启后把运行日志写入本地文件"
-                            controlItem: QSwitch {
-                                anchors.fill: parent
+                            QSwitch {
                                 letRight: true
                                 switchTrue: LogManager.enabled
                                 onToggled: LogManager.enabled = !LogManager.enabled
@@ -3083,8 +3035,7 @@ Item {
                         SettingItemCard {
                             label: "记录等级"
                             tip: "设置写入日志的最低等级"
-                            controlItem: QDrop {
-                                anchors.fill: parent
+                            QDrop {
                                 choice: LogManager.minimumLevel
                                 model: ["调试","信息","警告","错误","致命"]
                                 onTransformed: (choiced) => { LogManager.minimumLevel = choiced }
@@ -3094,8 +3045,7 @@ Item {
                         SettingItemCard {
                             label: "打开日志目录"
                             tip: "在文件管理器中打开日志文件所在目录"
-                            controlItem: QButton {
-                                anchors.fill: parent
+                            QButton {
                                 text: "打开"
                                 shadowEnabled: false
                                 buttonColor: "transparent"

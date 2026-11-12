@@ -126,14 +126,15 @@ QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的�
 ## Que Plugins —— 界面里能换的、能加的，都是插件
 
 **一个文件夹就是一个插件**，放进插件目录即被扫描到，不用编译、不用改主程序；设置 → 插件里安装 / 启用 / 删除。
-插件只拿到宿主注入的契约，不需要（也不应该）访问应用内部接口。
+`info.json` 里的 `type` 决定用途：`"lyrics"` 或 `"function"`（缺省按旧目录 lyrics / function 推断，旧插件不用改动目录结构）。
 
 - **歌词界面插件** — 换掉沉浸播放页的歌词界面（内置「默认 / 自由 / 3D」也跑在同一套契约上）：
   宿主按契约注入播放进度、歌词数据与配色，插件只负责呈现；同时只用一个，播放页左上角第二个按钮随时切换，
   选中项跨启动保留
-- **功能插件** — 往界面里加东西：标题栏、底栏、侧栏底部、整窗覆盖层都是开放的扩展点，
-  插件用 `api.mount()` 挂自己的按钮或面板（传 `Component` 或 url 都行），可以同时启用多个；
-  停用/卸载时宿主回收插件挂出来的一切，插件出错会被自动停用
+- **功能插件** — 宿主给每个启用的插件起一个 `Loader`，插件根声明 `property QtObject api` 就能拿到
+  `api.hostWindow` / `api.hostTitleBar` / `api.hostPlayerBar` / `api.hostSidebar` / `api.hostOverlay`；
+  界面用 `api.attach(api.hostSidebar, 组件)` 挂上去（停用自动回收），或直接锚定在整窗层里；可同时启用多个，
+  加载失败自动停用
 - **都写得简单** — `info.json` + 入口 QML 即可；`import QueMusic 1.0` 就能用 `Style` / `Playback` / `SButton`
   这些公开单例与组件（歌词界面插件也支持逐字 `info` 与翻译 `translateModel` 两条数据通道）
 

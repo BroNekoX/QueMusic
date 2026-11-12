@@ -9,6 +9,11 @@
 #include <cmath>
 #include <cstring>
 
+namespace {
+// 预留余量，保证回调内不分配
+constexpr int kMaxPushFrames = 24576;
+} // namespace
+
 void TimeStretch::prepare(int channels, int sampleRate)
 {
     m_channels = qBound(1, channels, 2);
@@ -27,6 +32,7 @@ void TimeStretch::prepare(int channels, int sampleRate)
     m_inBuf.clear();
     m_outBuf.clear();
     setSpeed(m_speed);
+    ensureCapacity();
 }
 
 void TimeStretch::reset()
@@ -42,6 +48,23 @@ void TimeStretch::setSpeed(double speed)
 {
     m_speed = qBound(0.25, speed, 4.0);
     m_hopIn = qMax(16, int(std::lround(m_hopOut * m_speed)));
+    ensureCapacity();
+}
+
+// 按当前速度预留稳态最大驻留量
+void TimeStretch::ensureCapacity()
+{
+    if (m_channels <= 0)
+        return;
+    const size_t inNeed = (size_t(guardFrames()) * 4 + size_t(kMaxPushFrames)) * size_t(m_channels);
+    const size_t outNeed = size_t(guardFrames()) * 6 * size_t(m_channels);
+    const size_t prevNeed = size_t(m_corr) * size_t(m_channels);
+    if (m_inBuf.capacity() < inNeed)
+        m_inBuf.reserve(inNeed);
+    if (m_outBuf.capacity() < outNeed)
+        m_outBuf.reserve(outNeed);
+    if (m_prev.capacity() < prevNeed)
+        m_prev.reserve(prevNeed);
 }
 
 int TimeStretch::guardFrames() const
@@ -157,7 +180,11 @@ void TimeStretch::grind()
         std::memset(m_lap.data() + size_t(remain) * ch, 0,
                     size_t(m_hopOut) * ch * sizeof(float));
 
-        m_prev.assign(seg + size_t(m_hopOut) * ch, seg + size_t(m_hopOut + m_corr) * ch);
+        const size_t corrSamples = size_t(m_corr) * ch;
+        if (m_prev.size() != corrSamples)
+            m_prev.resize(corrSamples);
+        std::memcpy(m_prev.data(), seg + size_t(m_hopOut) * ch,
+                    corrSamples * sizeof(float));
 
         pos += m_hopIn;
     }

@@ -5,8 +5,9 @@
 // （destroyed 在析构过程中发出，挡不住竞争）。
 #pragma once
 
+#include <atomic>
 #include <memory>
-#include <mutex>
+#include <thread>
 
 // 频谱数据接收方：pushSamples 由音频回调线程调用，实现方需保证无阻塞
 class AudioSpectrumSink
@@ -16,8 +17,7 @@ public:
     virtual void pushSamples(const float *interleaved, int frames, int channels, int sampleRate) = 0;
 };
 
-// 跨线程订阅句柄：引擎只持 shared_ptr，不持裸 sink；
-// detach() 返回后保证没有线程还在调用 sink。
+// 音频线程无锁；detach() 返回后保证不再进入 sink
 class AudioSpectrumSinkHandle
 {
 public:
@@ -26,21 +26,23 @@ public:
     // 音频线程调用；pushSamples 必须无阻塞
     void push(const float *interleaved, int frames, int channels, int sampleRate)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_sink)
-            m_sink->pushSamples(interleaved, frames, channels, sampleRate);
+        m_inFlight.fetch_add(1, std::memory_order_acq_rel);
+        if (AudioSpectrumSink *sink = m_sink.load(std::memory_order_acquire))
+            sink->pushSamples(interleaved, frames, channels, sampleRate);
+        m_inFlight.fetch_sub(1, std::memory_order_release);
     }
 
-    // 订阅者析构前调用：等待正在执行的推送结束，之后不再进入 sink
+    // 订阅者析构前调用：返回后不再进入 sink
     void detach()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_sink = nullptr;
+        m_sink.store(nullptr, std::memory_order_release);
+        while (m_inFlight.load(std::memory_order_acquire) != 0)
+            std::this_thread::yield();
     }
 
 private:
-    std::mutex m_mutex;
-    AudioSpectrumSink *m_sink = nullptr;
+    std::atomic<AudioSpectrumSink *> m_sink;
+    std::atomic<int> m_inFlight{0};
 };
 
 // 订阅者向引擎自报句柄的接口：QObject 订阅者（GetWave）实现它，

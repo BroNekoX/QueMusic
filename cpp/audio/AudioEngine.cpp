@@ -114,11 +114,7 @@ AudioEngine::AudioEngine(QObject *parent)
     refreshDeviceList();
     if (!deviceExists(m_deviceId))
         m_deviceId.clear();
-    {
-        QMutexLocker lock(&m_paramMutex);
-        m_eqSnapshot = m_eq;
-        m_paramsPending.store(true, std::memory_order_release);
-    }
+    markParamsPending();
 
     m_outputContext = new QObject;
     m_outputContext->moveToThread(&m_outputThread);
@@ -296,11 +292,7 @@ bool AudioEngine::setupSink()
     m_ringGen.store(0, std::memory_order_relaxed);
     m_ringBaseMs.store(0.0, std::memory_order_relaxed);
 
-    {
-        QMutexLocker lock(&m_paramMutex);
-        m_eqSnapshot = m_eq;
-        m_paramsPending.store(true, std::memory_order_release);
-    }
+    markParamsPending();
 
     invokeOnOutput([&] {
         m_sink = new QAudioSink(device, m_format);
@@ -505,7 +497,6 @@ void AudioEngine::clearNextSource()
 
 void AudioEngine::setTrackAdvancedCallback(std::function<void()> callback)
 {
-    std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_advanceCallback = std::move(callback);
 }
 
@@ -643,7 +634,6 @@ void AudioEngine::setDspEnabled(bool on)
     if (dspEnabled() == on)
         return;
     m_eq.masterEnabled = on;
-    m_dspEnabled.store(on, std::memory_order_relaxed);
     publishParams(false, true, false, false);
     scheduleSave();
 }
@@ -824,6 +814,11 @@ void AudioEngine::pollState()
 {
     reportSinkError();
 
+    if (m_advancePending.exchange(false, std::memory_order_acq_rel)) {
+        if (m_advanceCallback)
+            m_advanceCallback();
+    }
+
     if (m_drained.exchange(false, std::memory_order_relaxed)) {
 
         setPlaybackState(StoppedState);
@@ -845,16 +840,15 @@ void AudioEngine::pollState()
 
 void AudioEngine::applyPendingParams()
 {
-
     if (!m_paramsPending.load(std::memory_order_acquire))
         return;
 
-    EqParams p;
-    {
-        QMutexLocker lock(&m_paramMutex);
-        m_paramsPending.store(false, std::memory_order_release);
-        p = m_eqSnapshot;
-    }
+    // 音频线程不阻塞：抢不到锁就沿用上一组参数
+    if (!m_paramMutex.tryLock())
+        return;
+    m_paramsPending.store(false, std::memory_order_release);
+    const EqParams p = m_eqSnapshot;
+    m_paramMutex.unlock();
 
     const double threshold = qBound(-24.0, p.limiterThresholdDb, 0.0);
     m_dsp.setEqEnabled(p.enabled);
@@ -1026,9 +1020,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
                     m_autoSwitchPending.store(true, std::memory_order_release);
                     m_openRequest.store(true, std::memory_order_relaxed);
                     m_drained.store(false, std::memory_order_relaxed);
-                    std::lock_guard<std::mutex> lock(m_callbackMutex);
-                    if (m_advanceCallback)
-                        m_advanceCallback();
+                    m_advancePending.store(true, std::memory_order_release);
                 }
             } else {
                 m_drained.store(true, std::memory_order_relaxed);
@@ -1384,14 +1376,17 @@ qreal AudioEngine::effectiveGainDb() const
     return m_eq.preampDb + rg - headroom;
 }
 
+void AudioEngine::markParamsPending()
+{
+    QMutexLocker lock(&m_paramMutex);
+    m_eqSnapshot = m_eq;
+    m_paramsPending.store(true, std::memory_order_release);
+}
+
 void AudioEngine::publishParams(bool eqChangedFlag, bool dspChangedFlag, bool rgChangedFlag,
                                 bool limiterChangedFlag)
 {
-    {
-        QMutexLocker lock(&m_paramMutex);
-        m_eqSnapshot = m_eq;
-        m_paramsPending.store(true, std::memory_order_release);
-    }
+    markParamsPending();
     if (eqChangedFlag)
         emit eqChanged();
     if (dspChangedFlag)
@@ -1455,7 +1450,6 @@ void AudioEngine::loadSettings()
     m_pitchMilli.store(int(std::lround(std::pow(2.0, double(m_pitchSemitones) / 12.0) * 1000.0)),
                        std::memory_order_relaxed);
     m_eq.masterEnabled = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("dspEnabled"), true).toBool();
-    m_dspEnabled.store(m_eq.masterEnabled, std::memory_order_relaxed);
     m_requestedRate = qBound(0, AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("outputSampleRate"), 0).toInt(), 384000);
     {
         const int saved = AppSettings::value(QStringLiteral("AudioDsp"), QStringLiteral("outputBufferMs"), 0).toInt();

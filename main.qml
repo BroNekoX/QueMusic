@@ -54,6 +54,15 @@ Window {
         Options.changeUi();
         Options.changeTheme();
 
+        if(Config.isFirst) {
+            // 加载欢迎界面
+            barLeftWidgets.y = -48;
+            mainLayout.visible = false;
+            settingsView.sourceComponent = null;
+            settingsView.source = "qrc:/QueMusic/layout/StartApp.qml"
+            settingsView.active = true;
+        }
+
         Qt.callLater(function() {
             Playback.coverHelper.pruneCache(Config.cacheSize);
 
@@ -135,15 +144,7 @@ Window {
             { k: "back",          a: function() { Playback.previous() } },
             { k: "forward",       a: function() { Playback.next(false) } },
             { k: "playList",      a: function() { playList.visible ? playList.close() : playList.open() } },
-            { k: "musicControl",  a: function() {
-                if (mainLayout.state === "") {
-                    controlMaxLoader.active = true;
-                } else {
-                    window.playermined();
-                    minedAnimation.start();
-                    mainLayout.state = "";
-                }
-            } }
+            { k: "musicControl",  a: function() { musicControlMin.centerChange() } }
         ]
         delegate: Shortcut {
             required property var modelData
@@ -261,9 +262,6 @@ Window {
             y: 10 - musicControlMax.hideHeight
             height: 40
 
-            // 扩展点：标题栏（窗口按钮之前）
-            PluginSlot { slotName: "titlebar"; target: barRightWidgets }
-
             // 全屏开关
             QWKButton {
                 id: fullScreenButton
@@ -376,7 +374,6 @@ Window {
                     window.color = Theme.primaryColor;
                     mainContent.color = Theme.blurOverlayColor;
                     backGround.source = "qrc:/QueMusic/resources/pic/cloudRainbow.png";
-                    backGround.source = "";
                 } else if(Style.backmode === 3) {
                     backGround.visible = true;
                     sidebar.color = Style.sidebarColor ? Theme.blurOverlayColor : Theme.primaryBlurColor;
@@ -421,7 +418,6 @@ Window {
             asynchronous: true
             //sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
-
         }
 
         LeftSideBar {
@@ -584,10 +580,14 @@ Window {
         asynchronous: true
         visible: false
         z: 6
-        sourceComponent: SettingsView {
-            backSource: backGround.source
-            sidebarColor: sidebar.color
-            mainContentColor: mainContent.color
+        sourceComponent: setWidget
+        Component {
+            id: setWidget
+            SettingsView {
+                backSource: backGround.source
+                sidebarColor: sidebar.color
+                mainContentColor: mainContent.color
+            }
         }
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
@@ -595,6 +595,15 @@ Window {
             visible = true;
             settingAnime.running = true;
             barLeftWidgets.y = -48;
+        }
+        function readyStart(): void {
+            mainLayout.visible = true;
+            barLeftWidgets.y = 12;
+            settingsView.visible = false;
+            settingsView.active = false;
+            settingsView.source = "";
+            sourceComponent = setWidget;
+            Config.isFirst = false;
         }
     }
 
@@ -826,17 +835,48 @@ Window {
 
     Loader {
         id: textWatch
-        anchors.fill: parent
         active: false
         asynchronous: true
         visible: status === Loader.Ready
         source: "qrc:/QueMusic/components/QTextWindow.qml"
     }
 
-    // 扩展点：整窗覆盖层（插件自己定位，默认不吃鼠标事件）
-    PluginSlot { slotName: "window.overlay"; target: Overlay.overlay }
-    PluginHost {
-        onPluginLoaded: window.syncTitleBarHitTest()
+    // 功能插件
+    Repeater {
+        model: Plugins.activeFunctions
+
+        delegate: Loader {
+            id: pluginLoader
+            required property var modelData
+            anchors.fill: parent
+            asynchronous: true
+            z: 30
+
+            // 用初始属性注入 api，插件在 Component.onCompleted 里就能用
+            Component.onCompleted: pluginLoader.setSource(modelData.source, { api: pluginCtx })
+
+            onStatusChanged: {
+                if (status !== Loader.Error)
+                    return;
+                mainWarn.tiped("插件「" + pluginLoader.modelData.name + "」加载失败", 0);
+                Qt.callLater(() => Plugins.setEnabled(pluginLoader.modelData.id, false));
+            }
+
+            onLoaded: Qt.callLater(window.syncTitleBarHitTest)
+
+            PluginContext {
+                id: pluginCtx
+                pluginId: pluginLoader.modelData.id
+                pluginName: pluginLoader.modelData.name
+                pluginDir: pluginLoader.modelData.path
+                pluginUrl: pluginLoader.modelData.source
+                hostWindow: window
+                hostTitleBar: barRightWidgets
+                hostPlayerBar: musicControlMin.playerBarSlot
+                hostSidebar: sidebar.sidebarBottom
+                hostOverlay: Overlay.overlay
+            }
+        }
     }
 
     Rectangle {

@@ -30,6 +30,9 @@ public:
     Q_INVOKABLE void showMainWindow();
     Q_INVOKABLE void quit();
 
+    // 字体只影响之后创建的 QML Text，换字体后重建主窗口让界面用上新字体
+    Q_INVOKABLE void reloadUi();
+
 signals:
     void smtcAvailableChanged();
 
@@ -38,6 +41,7 @@ private:
     ~App() override;
 
     void collapseToTray();
+    void onGlobalFontChanged();
     void initTray();
     void finalizeQuit();
     bool trayAvailable() const;
@@ -54,6 +58,7 @@ private:
     SmtcBridge *m_smtc = nullptr;
     QWindow::Visibility m_restoreVisibility = QWindow::Windowed;
     QRect m_normalGeometry;
+    QRect m_pendingGeometry;
     bool m_collapsing = false;
     bool m_quitting = false;
     bool m_showPending = false;

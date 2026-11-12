@@ -103,7 +103,6 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
         return QString();
 
     const QDir dir = fi.absoluteDir();
-    const QStringList entries = dir.entryList(QDir::Files);
 
     // 探测顺序：同名 -> cover/folder/AlbumArt
     const QStringList names = { fi.completeBaseName(), QStringLiteral("cover"),
@@ -111,6 +110,20 @@ QString CoverHelper::findLocalCover(const QString &sourcePath)
     const QStringList extensions = { QStringLiteral("jpg"), QStringLiteral("jpeg"),
                                      QStringLiteral("png"), QStringLiteral("webp"),
                                      QStringLiteral("bmp"), QStringLiteral("gif") };
+
+    // 先直接探测，命中就不枚举目录
+    for (const QString &name : names) {
+        for (const QString &ext : extensions) {
+            const QString candidate = dir.filePath(name + QLatin1Char('.') + ext);
+            if (QFileInfo(candidate).isFile())
+                return QUrl::fromLocalFile(candidate).toString();
+        }
+    }
+
+    // 大小写不敏感匹配
+    const QStringList entries = dir.entryList(QDir::Files);
+    if (entries.isEmpty())
+        return QString();
 
     QHash<QString, QString> byLowerName;
     byLowerName.reserve(entries.size());

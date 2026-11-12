@@ -17,7 +17,7 @@ Popup {
     z: 3
     height: 36
     width: contentRow.implicitWidth + 24
-    Behavior on width { enabled: dialog.visible; NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
+    Behavior on width { enabled: dialog.opacity > 0.5; NumberAnimation { duration: 160; easing.type: Easing.OutExpo } }
     function tiped(title: string, type: int): void {
         delay.running = false;
         dialog.title = title;

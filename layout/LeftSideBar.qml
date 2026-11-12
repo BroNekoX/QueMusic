@@ -10,6 +10,7 @@ Rectangle {
     z: 1
     id: sidebar
     width: Options.barWidth
+    property alias sidebarBottom: sidebarBottomSlot
     property color choiceColor: Theme.hoverColor
     property color choiceTextColor: Theme.fontColor
     property int choiceIndex: 0
@@ -129,8 +130,8 @@ Rectangle {
             x: 15
             width: 24
             height: 24
-            source: "qrc:/QueMusic/resources/icon.ico"
-            sourceSize: Qt.size(24, 24)
+            source: "qrc:/QueMusic/resources/icon.png"
+            sourceSize: Qt.size(48, 48)
         }
         Text {
             id: appText
@@ -269,7 +270,7 @@ Rectangle {
         }
     }
 
-    // 扩展点：侧边栏底部
+    // 插件容器：侧边栏底部
     Column {
         id: sidebarBottomSlot
         x: 15
@@ -277,6 +278,5 @@ Rectangle {
         spacing: 4
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
-        PluginSlot { slotName: "sidebar.bottom"; target: sidebarBottomSlot }
     }
 }

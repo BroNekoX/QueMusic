@@ -32,7 +32,7 @@
 | `cpp/webdav/` | WebDAV 在线曲库（目录浏览 / 加密凭据 / 后台缓存） | 第 2 部分 |
 | `cpp/plugins/` | 插件扫描与注册（歌词界面插件 + 功能插件） | 第 2 部分 |
 | `api/` | 在线媒体层：网易云 / 酷狗 / B站 统一接入 + 调度中枢 `MusicApi` | 第 4 部分 |
-| `components/` | 自研 QML 组件库 + 全局单例（Style/Theme/Options/Config/Playback/ShortCut/PluginSlots/Fonts） | 第 6 部分 |
+| `components/` | 自研 QML 组件库 + 全局单例（Style/Theme/Options/Config/Playback/ShortCut/Fonts） | 第 6 部分 |
 | `layout/` | 外壳布局：侧栏、内容容器、播放控制栏、歌词视图、窗口按钮、SMTC 桥 | 第 5 部分 |
 | `pages/` | 普通模式页面（首页/搜索/歌单/收藏/本地文件/下载/WebDAV） | 第 5 部分 |
 | `lyricsui/` | 可整体替换的歌词界面预设（Free / 3D），同时是插件契约的参考实现 | 第 6 部分 |
@@ -77,7 +77,7 @@
    | `%APPDATA%\BroNekoX\QueMusic\player_data.db` | SQLite 曲库 / 收藏（含 `-wal` / `-shm`） |
    | `%APPDATA%\BroNekoX\QueMusic\cache\` | 封面缓存 `cover-<sha1>.jpg`、`cover-<sha1>-64.jpg` |
    | `%APPDATA%\BroNekoX\QueMusic\logs\QueMusic_YYYYMMDD.log` | 按天日志 |
-   | `%APPDATA%\BroNekoX\QueMusic\plugins\{lyrics,function}\<插件名>\` | 已安装插件 |
+   | `%APPDATA%\BroNekoX\QueMusic\plugins\<插件名>\` | 已安装插件（旧版 `plugins\{lyrics,function}\<插件名>\` 仍可识别） |
 
    > 排查"设置不生效 / 收藏丢失"时优先看 `%LOCALAPPDATA%\...\QueMusic.ini`（配置）与 `%APPDATA%\BroNekoX\QueMusic\player_data.db`（数据）。注意 `DbService` 在 `AppDataLocation` 不可写时会**回退到 `<exe目录>/data` 并整库迁移**，此时配置与数据会分家。
 
@@ -130,12 +130,11 @@ QML 层        main.qml / SettingsView.qml / layout/ / pages/ / components/ / ly
 | `Options` | `components/Options.qml` | `QtObject` | 运行时共享状态 + 跨文件对象注入点 + 信号总线 |
 | `Playback` | `components/Playback.qml` | `QtObject` 单例 | 播放状态机 / 队列 / 切歌 / 淡变 / AB 循环 / 睡眠定时 / 播放历史 |
 | `ShortCut` | `components/ShortCut.qml` | `Settings { category: "ShortCuts" }` | 快捷键定义与"是否全局快捷键"开关 |
-| `PluginSlots` | `components/PluginSlots.qml` | `QtObject` 单例 | 扩展点注册表（`titlebar` / `player` / `sidebar.bottom` / `window.overlay`） |
 | `Fonts` | `components/Fonts.qml` | 单例 | 加载 `resources/fonts/*.ttf` |
 | `LyricsFreeConfig` | `lyricsui/LyricsFreeConfig.qml` | `Settings { category: "LyricsFree" }` | 自由歌词界面的自有设置 |
 | `Lyrics3DConfig` | `lyricsui/Lyrics3DConfig.qml` | `Settings { category: "Lyrics3D" }` | 3D 歌词界面的自有设置 |
 
-C++ 侧单例（详见第 2、3、4 部分）：`MusicApi`、`AccountManager`、`LogManager`、`WebDav`、`WebDavCache`、`LyricsPlugins`、`FunctionPlugins`、`MyFolders`、`LocalFolders`、`Songs`、`FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`。
+C++ 侧单例（详见第 2、3、4 部分）：`MusicApi`、`AccountManager`、`LogManager`、`WebDav`、`WebDavCache`、`Plugins`、`MyFolders`、`LocalFolders`、`Songs`、`FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`。
 
 > `Config` 存"用户设置"，`Style` 存"外观设置"，`Theme` 是**派生只读**结果 —— 不要往 `Theme` 写值。
 > `Options` 同时是**注入容器**：`main.qml` 启动时把 `queue` / `dialog` / `desktop` / `smtc` / `getWave` / `coverHelper` / 各种 Loader 与 Animation 赋给它，其它 QML 通过 `Options.xxx` 反查。**新增全局对象时必须在这里登记**（完整清单见第 5 部分）。

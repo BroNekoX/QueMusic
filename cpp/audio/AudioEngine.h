@@ -24,7 +24,6 @@
 #include <cmath>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -168,7 +167,7 @@ public:
     int bufferMs() const;
     void setBufferMs(int ms);
     QString outputFormatName() const;
-    bool dspEnabled() const { return m_dspEnabled.load(std::memory_order_relaxed); }
+    bool dspEnabled() const { return m_eq.masterEnabled; }
     void setDspEnabled(bool on);
     bool dspActive() const;
     qreal eqQ() const { return m_eq.q; }
@@ -307,6 +306,7 @@ private:
     void postToSelf(std::function<void()> fn);
     void reportSinkError();
     void publishParams(bool eqChanged, bool dspChanged, bool rgChanged, bool limiterChanged);
+    void markParamsPending();
     void setPlaybackState(PlaybackState state);
     void setMediaStatus(MediaStatus status);
     void emitError(int code, const QString &message);
@@ -328,7 +328,7 @@ private:
     std::atomic<bool> m_nextReady{false};
     std::atomic<bool> m_autoSwitchPending{false};
     std::function<void()> m_advanceCallback;
-    std::mutex m_callbackMutex;
+    std::atomic<bool> m_advancePending{false};
     qint64 m_durationMs = 0;
     PlaybackState m_playbackState = StoppedState;
     MediaStatus m_mediaStatus = NoMedia;
@@ -362,7 +362,6 @@ private:
     std::atomic<int> m_outSampleRate{48000};
     std::atomic<int> m_outChannels{2};
     std::atomic<int> m_decodeRate{48000};
-    int m_chunkFrames = 4096;
     int m_requestedRate = 0;
     int m_bufferMs = 0;
 
@@ -375,7 +374,6 @@ private:
 
     std::vector<float> m_scratch;
     std::vector<float> m_stretchIn;
-    std::vector<float> m_stretchOut;
     PitchShifter m_stretch;
 
     AudioDsp m_dsp;
@@ -384,7 +382,6 @@ private:
     QMutex m_paramMutex;
     std::atomic<bool> m_paramsPending{false};
     std::atomic<bool> m_playingFlag{false};
-    std::atomic<bool> m_dspEnabled{true};
     std::atomic<bool> m_sinkErrorFlag{false};
     std::atomic<double> m_volumeAtomic{1.0};
     std::atomic<int> m_fadeTargetMilli{1000};

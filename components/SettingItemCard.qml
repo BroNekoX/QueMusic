@@ -9,9 +9,23 @@ Item {
     property string label: ""
     property string tip: "这是一个提示，快设置你的可爱内容喵"
     property int controlWidth: 160
-    property alias controlItem: controlContent.data
     property bool isBigItem: false
     property bool bottomLine: true
+
+    Component.onCompleted: {
+        if(!children[3]) return;
+        if(isBigItem) {
+            children[3].x = 16;
+            children[3].y = 60;
+            children[3].width = Qt.binding(function(): real { return settingItem.width - 32 });
+            children[3].height = 40;
+        } else {
+            children[3].x = Qt.binding(function(): real { return settingItem.width - children[3].width - 16 });
+            children[3].y = 14;
+            children[3].width = Qt.binding(function(): real { return settingItem.controlWidth });
+            children[3].height = 36;
+        }
+    }
 
     width: settingStack.standWidth
     height: isBigItem ? 116 : 64
@@ -33,14 +47,6 @@ Item {
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: Style.textTip
         color: Theme.textColor
-    }
-
-    Item {
-        id: controlContent
-        y: settingItem.isBigItem ? 60 : 14
-        x: settingItem.isBigItem ? 16 : settingItem.width - width - 16
-        width: settingItem.isBigItem ? settingItem.width - 32 : settingItem.controlWidth
-        height: settingItem.isBigItem ? 40 : 36
     }
 
     // 底分隔线

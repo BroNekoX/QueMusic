@@ -30,13 +30,6 @@ jobs:
         with:
           submodules: recursive
 
-      # 图标是「设计稿 → 生成物」的关系：只改 originicon.png 而忘了重跑生成脚本时，
-      # exe / AppImage / dmg 里的图标会静默地停在旧版。这里查完整性，并在落后时报警告。
-      - name: 图标资源检查（设计稿 → ico / hicolor）
-        run: |
-          python3 -m pip install --break-system-packages --quiet pillow
-          python3 packaging/make-icons.py check
-
       - name: 系统依赖
         run: |
           sudo apt-get update

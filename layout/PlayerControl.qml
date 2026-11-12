@@ -13,6 +13,7 @@ Rectangle {
     color: Style.noOpacityControl ? (Style.coverColorControl ? mainColor : Theme.primaryColor) : Theme.primaryBlurColor
     clip: false
     property int musicInfoX: 100
+    property alias playerBarSlot: playerRow
     signal centerChange()
     property color mainColor: Qt.hsva(Theme.themeColor.hsvHue, Theme.themeColor.hsvSaturation * 0.6, Options.darkis ? Theme.themeColor.hsvValue * 0.5 + 0.1 : Theme.themeColor.hsvValue * 0.5 + 0.2, 1.0);
     property color secondColor: Qt.hsva(mainColor.hsvHue + 0.05, mainColor.hsvSaturation * 0.8, mainColor.hsvValue + 0.08, 1.0);
@@ -433,9 +434,6 @@ Rectangle {
         height: 40
         clip: false
 
-        // 扩展点：底栏（时间之前）
-        PluginSlot { slotName: "player"; target: playerRow }
-
         Text {
             height: 40
             width: 80
@@ -477,19 +475,16 @@ Rectangle {
             shadowEnabled: false
             onHoveredChanged: {
                 if(hovered) {
-                    volumeControl.delay = 360
-                    volumeControl.open();
+                    vcTimer.restart();
                 } else {
-                    if(!volumeControl.visible) {
-                        volumeControl.close();
-                    }
+                    vcTimer.running = false;
                 }
             }
             onClicked: {
                 if(volumeControl.visible) {
                     volumeControl.close();
                 } else {
-                    volumeControl.delay = 0
+                    volumeControl.hoverMode = false;
                     volumeControl.open();
                 }
             }
@@ -564,6 +559,17 @@ Rectangle {
 
     function openPlayerOptions(): void { playerOptions.open() }
 
+    Timer {
+        id: vcTimer
+        interval: 320
+        onTriggered: {
+            if(!volumeControl.visible) {
+                volumeControl.hoverMode = true;
+                volumeControl.open();
+            }
+        }
+    }
+
     ToolTip {
         id: volumeControl
         margins: 0
@@ -573,10 +579,11 @@ Rectangle {
         verticalPadding: 5
         leftPadding: 10
         rightPadding: 40
-        delay: 360
+        delay: 0
         closePolicy: Popup.CloseOnPressOutside
         x: parent.width - 230
         y: parent.height - 110
+        property bool hoverMode: false
         background: QBlurCard {
             anchors.fill: parent
             clip: false
@@ -594,7 +601,12 @@ Rectangle {
             valueText: Math.floor(value)
             value: Playback.volume * 100
             onMoved: {
-                Playback.setVolume(value / 100)
+                Playback.setVolume(value / 100);
+            }
+            onHoveredChanged: {
+                if(!hovered && volumeControl.hoverMode) {
+                    volumeControl.close();
+                }
             }
         }
         enter: Transition {

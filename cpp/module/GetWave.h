@@ -98,6 +98,7 @@ private:
     QVector<Complex>    m_fftData;
     QVector<float>      m_magnitudes;
     QVector<qreal>      m_rawBands;
+    QVector<float>      m_window;
 
     QAtomicInteger<int> m_dataReady = 0;   // 音频线程置位，帧回调消费
     QAtomicInteger<int> m_sampleRate = 48000;

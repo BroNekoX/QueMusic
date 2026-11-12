@@ -117,12 +117,11 @@
 
 | 任务 | 主要文件 |
 |---|---|
-| 插件扫描/安装/启停（宿主侧） | `cpp/plugins/PluginStore.{h,cpp}` |
-| 歌词界面插件（单例 `LyricsPlugins`） | `cpp/plugins/LyricsPluginStore.{h,cpp}` |
-| 功能插件（单例 `FunctionPlugins`） | `cpp/plugins/FunctionPluginStore.{h,cpp}` |
-| 插件挂载 API / 宿主容器 | `components/PluginApi.qml`、`components/PluginHost.qml`、`components/PluginSlot.qml`、`components/PluginSlots.qml` |
-| 插件管理界面 | `components/PluginManager.qml`（设置页内） |
-| 插件目录与实例参考 | `%APPDATA%\BroNekoX\QueMusic\plugins\{lyrics,function}\<名字>\`（`info.json` + 入口 QML） |
+| 插件扫描/安装/启停（宿主侧） | `cpp/plugins/PluginStore.{h,cpp}`（QML 单例 `Plugins`） |
+| 功能插件（单例 `Plugins.activeFunctions`） | `main.qml` 的 `pluginLayer`（`Repeater` + `Loader`）+ `components/PluginContext.qml` |
+| 歌词界面插件（单例 `Plugins.lyrics`） | 同一份 `cpp/plugins/PluginStore.{h,cpp}`，`layout/PlayerMaxCenter.qml` 消费 |
+| 插件管理界面 | `components/PluginManager.qml`（设置页内，按 `pluginType` 切类型） |
+| 插件目录与实例参考 | `%APPDATA%\BroNekoX\QueMusic\plugins\<名字>\`（旧版 `plugins\{lyrics,function}\<名字>\` 仍识别；`info.json` 的 `type` 决定类型） |
 
 ### 0.8 构建 / 发布
 
@@ -188,7 +187,7 @@
 | [`03-audio-shaders.md`](03-audio-shaders.md) | 502 | 46.1 | 第 3 部分 · 音频引擎线程模型与 DSP 严格顺序、`AudioEngine` 44 个属性、解码层、着色器清单与 2 个自定义 Item、坑 |
 | [`04-api-layer.md`](04-api-layer.md) | 622 | 61.6 | 第 4 部分 · `MusicApi` 28 个 Q_INVOKABLE + 30 个属性、action 字典、`ApiCommon` 字段与音质降级、三平台对比、坑 |
 | [`05-qml-shell.md`](05-qml-shell.md) | 723 | 63 | 第 5 部分 · `main.qml` / `SettingsView.qml` / `layout/` / `pages/`：装配、导航模型、布局树、快捷键、QML↔C++ 耦合、坑 |
-| [`06-components.md`](06-components.md) | 476 | 55.5 | 第 6 部分 · `components/` 61 个组件总表、10 个单例、可复用模式、歌词界面插件契约、字体资源、坑 |
+| [`06-components.md`](06-components.md) | 476 | 55.5 | 第 6 部分 · `components/` 组件总表、9 个单例、可复用模式、歌词界面插件契约、字体资源、坑 |
 | [`07-build-settings.md`](07-build-settings.md) | 547 | 56.8 | 第 7 部分 · CMake 选项、第三方依赖、构建命令、打包、CI、测试、设置键总表（约 185 键） |
 | [`08-config-evidence.md`](08-config-evidence.md) | 63 | 6 | 第 8 部分 · 实际落盘 INI 的分组与键（运行时真值）+ 遗留键分析 |
 | [`09-crosscheck.md`](09-crosscheck.md) | 115 | 10.9 | 第 9 部分 · QML→C++ 实例化位置与引用热力表、README 勘误、死代码/未完成项清单、统计口径 |

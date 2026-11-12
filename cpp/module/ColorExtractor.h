@@ -9,7 +9,9 @@
 #include <QFutureWatcher>
 #include <QImage>
 #include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QObject>
+#include <QPointer>
 #include <QUrl>
 #include <QVariant>
 #include <QVector>
@@ -64,6 +66,7 @@ private:
     QUrl m_imageSource;
     QVector<QColor> m_dominantColors;
     QNetworkAccessManager *m_networkManager;
+    QPointer<QNetworkReply> m_pendingReply;
     QCache<QString, ExtractionResult> m_cache;
     int m_generation = 0; // 代次：丢弃切歌后的过期结果
     bool m_busy = false;

@@ -21,6 +21,7 @@ public:
 
 private:
     void grind();
+    void ensureCapacity();
 
     int m_channels = 2;
     double m_speed = 1.0;

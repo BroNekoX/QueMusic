@@ -39,9 +39,7 @@
 | `cpp/webdav/WebDavClient.h` `cpp/webdav/WebDavClient.cpp` | `WebDavClient`（内含 `Entry`） | 未暴露（非 QML 类型） | 极简 WebDAV 客户端：仅 PROPFIND Depth:1 列目录 + MultiStatus 解析。 |
 | `cpp/webdav/WebDavModel.h` `cpp/webdav/WebDavModel.cpp` | `WebDavModel` | `WebDavModel`（`QML_ELEMENT`） | 远端目录列表模型，角色与 `LocalMusicScanner` 对齐并加 `isDir`。 |
 | `cpp/webdav/WebDavCache.h` `cpp/webdav/WebDavCache.cpp` | `WebDavCache`（内含 `Task`） | `WebDavCache`（`QML_ELEMENT` + `QML_SINGLETON`） | 远端「音频 + 同名歌词 + 同目录封面」落地缓存，带 1GB 上限与清理。 |
-| `cpp/plugins/PluginStore.h` `cpp/plugins/PluginStore.cpp` | `PluginStore` | `PluginStore`（`QML_ANONYMOUS`，两个插件单例的基类） | 插件目录通用逻辑：扫描/安装/删除/打开目录。 |
-| `cpp/plugins/LyricsPluginStore.h` `cpp/plugins/LyricsPluginStore.cpp` | `LyricsPluginStore` | `LyricsPlugins`（`QML_NAMED_ELEMENT` + `QML_SINGLETON`） | 歌词界面插件：单选（同时只用一个），暴露 `source` 给 Loader。 |
-| `cpp/plugins/FunctionPluginStore.h` `cpp/plugins/FunctionPluginStore.cpp` | `FunctionPluginStore` | `FunctionPlugins`（`QML_NAMED_ELEMENT` + `QML_SINGLETON`） | 功能插件：可多选启用，暴露 `enabledIds`。 |
+| `cpp/plugins/PluginStore.h` `cpp/plugins/PluginStore.cpp` | `PluginStore` | `Plugins`（`QML_NAMED_ELEMENT` + `QML_SINGLETON`） | 插件子系统：扫描/安装/删除/启停；功能插件与歌词界面插件统一管理，按 `info.json` 的 `type` 分类。 |
 
 补充：QML 侧**没有**用 `setContextProperty` 注入任何后端对象；`main.cpp:155` 只注入了一个字符串 `configDir`。
 （`AppModels.h` 顶部注释明确说明这是刻意选择，理由见第 8 节。）
@@ -323,40 +321,46 @@
 
 | 项 | 值 |
 |---|---|
-| 安装根目录（可写） | `QStandardPaths::AppDataLocation + "/plugins/" + m_folder`；`m_folder` = `lyrics`（歌词界面插件）或 `function`（功能插件） |
-| 第二搜索根 | `QCoreApplication::applicationDirPath() + "/plugins/" + m_folder`（注释：便于开发期直接放插件调试）；用户目录优先，同 `id` 去重 |
+| 安装根目录（可写） | `QStandardPaths::AppDataLocation + "/plugins"` |
+| 兼容的旧目录 | `plugins/lyrics/<id>`、`plugins/function/<id>` 与根目录一起扫，同 `id` 去重 |
+| 第二搜索根 | `QCoreApplication::applicationDirPath() + "/plugins"`（含旧子目录），便于开发期直接放插件调试；用户目录优先 |
 | 清单文件 | `<插件目录>/info.json` |
-| 清单字段 | `apiVersion`（默认 1，与 `apiVersion()` 不符则跳过）、`entry`（默认 `plugin.qml`，文件不存在则跳过）、`preview`（默认 `info.png`）、`name`（默认目录名）、`author`、`version`、`description` |
+| 清单字段 | `apiVersion`（默认 1，不匹配则跳过）、`type`（`lyrics` / `function`，缺省按所在目录推断）、`entry`（默认 `plugin.qml`，文件不存在则跳过）、`preview`（默认 `info.png`）、`name`（默认目录名）、`author`、`version`、`description` |
 | 插件 id | 目录名（`QFileInfo(path).fileName()`） |
-| 暴露给 QML 的字段 | `id`、`name`、`author`、`version`、`description`、`source`（`entry` 的 `file://` URL）、`preview`、`path`、`builtin` |
-| apiVersion | 基类默认 `1`；`LyricsPluginStore`/`FunctionPluginStore` **均未覆盖** |
+| 暴露给 QML 的字段 | `id`、`name`、`author`、`version`、`description`、`type`、`source`（`entry` 的 `file://` URL）、`preview`、`path`、`builtin` |
 
-### 2.6.2 两个派生的 QML 单例
+### 2.6.2 QML 单例 `Plugins`
 
-| 单例 | QML 名 | 专有属性/方法 | 持久化键 | 生命周期差异 |
-|---|---|---|---|---|
-| `LyricsPluginStore`（kind=`歌词界面插件`，folder=`lyrics`） | `LyricsPlugins` | `Q_PROPERTY QString selectedId`（可写）、`Q_PROPERTY QString source`（当前入口，绑给 `Loader.source`）、`Q_INVOKABLE void rescan() override` | `QSettings` 键 `Plugins/lyrics`（默认 `builtin.default`） | 单选：`setSelectedId` 时刷新 `source` 并落盘；`rescan()` 后若 `source` 为空 ⇒ 回落 `builtin.default` |
-| `FunctionPluginStore`（kind=`功能插件`，folder=`function`） | `FunctionPlugins` | `Q_PROPERTY QStringList enabledIds`、`Q_INVOKABLE void setEnabled(id, bool on)`、`Q_INVOKABLE void rescan() override` | `QSettings` 键 `Plugins/function/<id>`（默认 `true`） | 多选：`loadEnabled()` 遍历 `m_plugins`，新插件默认启用；卸载后键保留，重装恢复原选择 |
+| 属性 / 方法 | 说明 |
+|---|---|
+| `functions` | 全部功能插件（插件管理页用） |
+| `activeFunctions` | 已启用的功能插件（宿主 `Repeater` 的 model，C++ 侧预先过滤） |
+| `lyrics` | 内置 3 项 + 已安装歌词界面 |
+| `enabled` / `lyricsId` / `lyricsSource` / `dir` | 启用 id 列表 / 选中的歌词界面 id / 其入口 URL / 插件根目录 |
+| `rescan()` / `setEnabled(id, on)` / `selectLyrics(id)` | 重新扫描 / 功能插件开关 / 歌词界面单选 |
+| `install(folder)` / `remove(id)` / `reveal(id)` | 安装、删除、打开插件目录；返回空串表示成功 |
 
-两个派生的构造函数里都先调 `PluginStore::load()`（会回调 `builtinPlugins()`）。
+内置歌词界面（`builtin.*`，不可卸载）：`builtin.default` → `qrc:/QueMusic/layout/MainLyric.qml`、`builtin.free` → `qrc:/QueMusic/lyricsui/LyricsFree.qml`、`builtin.3d(Beta)` → `qrc:/QueMusic/lyricsui/Lyrics3D.qml`。
 
-### 2.6.3 生命周期动作（均在基类 `PluginStore`）
+持久化：`Plugins/lyrics`（默认 `builtin.default`）、`Plugins/function/<id>`（默认 `true`）。
+
+### 2.6.3 生命周期动作
 
 | 动作 | 行为 |
 |---|---|
-| 扫描 `load()` | 先放内置插件，再扫两个根目录；`readPlugin()` 缺 info.json / 入口不存在 / apiVersion 不匹配都返回空并跳过 |
-| `rescan()` | `load()` + `emit pluginsChanged()`；派生类额外做选中/启用的修正 |
-| `install(folder)` | 必须含 `info.json`；目标 = `<writableRoot>/<源目录名>`；禁止把插件装到它自己的子目录；已存在同名则 `removeRecursively()` 后整体复制；返回空串表示成功，否则中文错误文本 |
+| 扫描 `load()` | 依次扫 `plugins/`、`plugins/lyrics`、`plugins/function` 与 exe 侧同结构；缺 info.json / 入口不存在 / apiVersion 不匹配都跳过，同 id 去重 |
+| `rescan()` | `load()` + `rebuild()` + 发 `changed` / `enabledChanged` / `lyricsChanged` |
+| `install(folder)` | 必须含 `info.json`；目标 = `plugins/<源目录名>`；禁止把插件装到它自己的子目录；已存在同名则 `removeRecursively()` 后整体复制 |
 | `remove(id)` | 找不到 / `builtin == true` 拒绝；否则删目录后 `rescan()` |
 | `reveal(id)` | `id` 为空打开插件根目录（先 `mkpath`），否则打开该插件目录（`QDesktopServices`） |
-| 查找 `find(id, *info)` | 线性遍历（注释：插件十几个量级，线性比维护 id→下标映射更省） |
+| 查找 `find(id, *info)` | 线性遍历（插件十几个量级，线性比维护 id→下标映射更省） |
 
-### 2.6.4 扩展点
+### 2.6.4 功能插件宿主
 
-- **歌词界面插件**：只需提供 QML 入口（默认 `plugin.qml`）。宿主读 `LyricsPlugins.source` 作为 `Loader.source`，因此插件是一个「整屏歌词界面」组件。内置三项（`builtin.*`，不可卸载）：
-  `builtin.default` → `qrc:/QueMusic/layout/MainLyric.qml`、`builtin.free` → `qrc:/QueMusic/lyricsui/LyricsFree.qml`、`builtin.3d(Beta)` → `qrc:/QueMusic/lyricsui/Lyrics3D.qml`。
-- **功能插件**：宿主 `components/PluginHost.qml` 按 `FunctionPlugins.enabledIds` 为每个启用插件起一个加载器；插件可多个同时生效。
-- 两类插件目前**没有**额外的 C++ 扩展接口（无约定函数/无后端回调），扩展点就是 QML 入口文件本身。
+- 宿主 `main.qml` 的 `pluginLayer` 用 `Repeater + Loader` 加载 `Plugins.activeFunctions`：每个启用插件一个 `Loader`（`asynchronous: true`，创建时 `setSource(url, { api })`）。
+- 插件根声明 `property QtObject api` 即拿到 `PluginContext`（`components/PluginContext.qml`）：`pluginId` / `pluginName` / `pluginDir` / `pluginUrl`、`hostWindow` / `hostTitleBar` / `hostPlayerBar` / `hostSidebar` / `hostOverlay`、`settings`、`attach()` / `unmount()` / `toast()` / `warn()`。
+- 没有扩展点注册表：宿主容器以对象引用直接注入，插件自己 `api.attach(parent, source, props)`，`source` 可传 `Component` 或 url（后者建异步 `Loader`）。
+- 加载失败（编译错误 / 建不出根对象）→ 提示并 `Plugins.setEnabled(id, false)` 自动停用。
 
 ---
 
@@ -371,7 +375,7 @@
 - **AccountManager 依赖**：`apihelper.h`（`api/QCloudMusicApi/apihelper.h`）与 `api/platform/KugouApi.h`（均在 `cpp/` 之外）。
 - **GetWave 依赖**：`audio/AudioEngine.h`（`setSpectrumSink`）、`audio/AudioRing.h`、`audio/AudioSpectrumSink.h`；引擎只认句柄，不认识 `GetWave` 类型。
 - **WebDAV 依赖链**：`WebDavModel` →（成员）`WebDavClient` + `WebDavCache` + `CoverHelper` + `MediaTypes` + `DbService`；`WebDavStore` → `WebDavClient::basicAuth`。
-- **单例清单（QML 侧可见）**：`AccountManager`、`LogManager`、`WebDav`、`WebDavCache`、`LyricsPlugins`、`FunctionPlugins`、`MyFolders`、`LocalFolders`、`Songs`、`FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`。
+- **单例清单（QML 侧可见）**：`AccountManager`、`LogManager`、`WebDav`、`WebDavCache`、`Plugins`、`MyFolders`、`LocalFolders`、`Songs`、`FavoriteSongs`、`FavoritePlaylists`、`FavoriteArtists`。
 - **非单例（QML 侧自行实例化）**：`ColorExtractor`、`CoverHelper`、`CustomFlow`、`DownloadManager`、`DownloadedMusicModel`、`GetWave`、`LocalMusicScanner`、`QueueModel`、`SystemTrayManager`、`WindowsSmtcManager`、`WebDavModel`。
 - **QML 外壳注入**：仅 `configDir`（`main.cpp:155` 的 `setContextProperty`）。其余一切经 QML 单例按类型名访问。
   具体 QML 文件里在何处实例化 `QueueModel`/`DownloadManager` 等未确认（不在本次阅读范围）。
@@ -485,7 +489,7 @@
     「若你的库是『歌手 - 歌名』，把两个函数对调即可」。
 54. `WebDavCache`：`prune` 要遍历整个缓存目录，限频到每分钟一次；正在听（最近 5 分钟）的目录不清理。
 55. `PluginStore`：缺 `info.json` / 入口不存在 / `apiVersion` 不匹配都跳过 —— 「避免装坏插件后崩启动」；
-    派生类构造函数里要调一次 `load()`（它会回调 `builtinPlugins()`）；不能把插件装到它自己的子目录里。
+    `type` 缺省时按所在目录（`lyrics` / `function`）推断，旧插件目录不用迁移；不能把插件装到它自己的子目录里。
 56. `PluginStore` 注释：插件数很少（十几个量级），线性查找比额外维护 id → 下标映射更省。
 57. `MediaTypes.h`：可播放后缀的**唯一来源**，本地扫描、WebDAV 列表、已下载列表共用一份，
     「避免三处白名单分叉（同一文件在网盘能播、下载页却不显示）」。

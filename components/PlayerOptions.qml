@@ -50,8 +50,7 @@ QOptionDialog {
                     tip: "快速设置播放的速度倍数"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QDrop {
-                        anchors.fill: parent
+                    QDrop {
                         choice: Config.playerRateIndex
                         model: ["0.5x","0.75x","1x-默认","1.25x","1.5x","2x","自定义"]
                         onTransformed: (choiced) => {
@@ -67,8 +66,7 @@ QOptionDialog {
                     controlWidth: 160
                     width: panel.controlWidth
                     opacity: Config.playerRateIndex === 6 ? 1 : 0.5
-                    controlItem: QSlider {
-                        anchors.fill: parent
+                    QSlider {
                         from: 0.5
                         to: 4.0
                         stepSize: 0.1
@@ -87,8 +85,7 @@ QOptionDialog {
                     tip: "在使用不同播放倍速时保持同种音高"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QSwitch {
-                        anchors.fill: parent
+                    QSwitch {
                         letRight: true
                         switchTrue: Playback.player.pitchCompensation
                         onToggled: Playback.player.pitchCompensation = !Playback.player.pitchCompensation
@@ -100,8 +97,7 @@ QOptionDialog {
                     tip: "设置在线音乐默认播放的音质等级"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QDrop {
-                        anchors.fill: parent
+                    QDrop {
                         choice: Config.soundQuality
                         model: ["标准-128k","高清-320k","无损-500+k"]
                         onTransformed: (choiced) => Config.soundQuality = choiced
@@ -113,8 +109,7 @@ QOptionDialog {
                     tip: "跟随系统当前默认的音频输出设备播放"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QSwitch {
-                        anchors.fill: parent
+                    QSwitch {
                         letRight: true
                         switchTrue: Playback.player.followSystemDevice
                         onToggled: Playback.player.followSystemDevice = !Playback.player.followSystemDevice
@@ -127,8 +122,7 @@ QOptionDialog {
                     controlWidth: 160
                     width: panel.controlWidth
                     opacity: Playback.player.followSystemDevice ? 0.5 : 1
-                    controlItem: QDrop {
-                        anchors.fill: parent
+                    QDrop {
                         choice: Playback.player.deviceIndex
                         model: Playback.player.audioDevices
                         onTransformed: (choiced) => Playback.player.deviceIndex = choiced
@@ -140,33 +134,35 @@ QOptionDialog {
                     tip: "设置起点和终点以在该片段进行播放循环"
                     controlWidth: 180
                     width: panel.controlWidth
-                    controlItem: Row {
-                        spacing: 8
-                        height: 36
-                        anchors.right: parent.right
-                        QButton {
-                            height: 36; radius: 18; shadowEnabled: false
-                            fontSize: Style.text
-                            text: Playback.abA >= 0 ? Playback.fmt(Playback.abA) : "设 A"
-                            tipText: "在当前位置设为起点"
-                            buttonColor: Playback.abA >= 0 ? Theme.themeColor : Theme.secondaryColor
-                            textColor: Playback.abA >= 0 ? Theme.primaryColor : Theme.fontColor
-                            onClicked: Playback.setAbPoint(0)
-                        }
-                        QButton {
-                            height: 36; radius: 18; shadowEnabled: false
-                            fontSize: Style.text
-                            text: Playback.abArmed ? Playback.fmt(Playback.abB) : "设 B"
-                            tipText: "在当前位置设为终点"
-                            buttonColor: Playback.abArmed ? Theme.themeColor : Theme.secondaryColor
-                            textColor: Playback.abArmed ? Theme.primaryColor : Theme.fontColor
-                            onClicked: Playback.setAbPoint(1)
-                        }
-                        QButton {
-                            height: 36; radius: 18; shadowEnabled: false
-                            fontSize: Style.text
-                            text: "清除"
-                            onClicked: Playback.clearAb()
+                    Item {
+                        Row {
+                            spacing: 8
+                            height: 36
+                            anchors.right: parent.right
+                            QButton {
+                                height: 36; radius: 18; shadowEnabled: false
+                                fontSize: Style.text
+                                text: Playback.abA >= 0 ? Playback.fmt(Playback.abA) : "设 A"
+                                tipText: "在当前位置设为起点"
+                                buttonColor: Playback.abA >= 0 ? Theme.themeColor : Theme.secondaryColor
+                                textColor: Playback.abA >= 0 ? Theme.primaryColor : Theme.fontColor
+                                onClicked: Playback.setAbPoint(0)
+                            }
+                            QButton {
+                                height: 36; radius: 18; shadowEnabled: false
+                                fontSize: Style.text
+                                text: Playback.abArmed ? Playback.fmt(Playback.abB) : "设 B"
+                                tipText: "在当前位置设为终点"
+                                buttonColor: Playback.abArmed ? Theme.themeColor : Theme.secondaryColor
+                                textColor: Playback.abArmed ? Theme.primaryColor : Theme.fontColor
+                                onClicked: Playback.setAbPoint(1)
+                            }
+                            QButton {
+                                height: 36; radius: 18; shadowEnabled: false
+                                fontSize: Style.text
+                                text: "清除"
+                                onClicked: Playback.clearAb()
+                            }
                         }
                     }
                 }
@@ -176,8 +172,7 @@ QOptionDialog {
                     tip: "设置播放完自动睡眠的方式"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QDrop {
-                        anchors.fill: parent
+                    QDrop {
                         choice: Playback.sleepMode
                         model: ["关闭","倒计时","播完本首"]
                         onTransformed: (choiced) => Playback.armSleep(choiced, Config.sleepMinutes)
@@ -190,8 +185,7 @@ QOptionDialog {
                     controlWidth: 160
                     width: panel.controlWidth
                     opacity: Playback.sleepMode === 1 ? 1 : 0.5
-                    controlItem: QSlider {
-                        anchors.fill: parent
+                    QSlider {
                         from: 1
                         to: 120
                         stepSize: 1
@@ -207,8 +201,7 @@ QOptionDialog {
                     tip: "切歌或暂停时对音量淡入淡出，避免爆音"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QSwitch {
-                        anchors.fill: parent
+                    QSwitch {
                         letRight: true
                         switchTrue: Config.fadeEnabled
                         onToggled: {
@@ -223,8 +216,7 @@ QOptionDialog {
                     controlWidth: 160
                     width: panel.controlWidth
                     opacity: Config.fadeEnabled ? 1 : 0.5
-                    controlItem: QSlider {
-                        anchors.fill: parent
+                    QSlider {
                         from: 0
                         to: 500
                         stepSize: 50
@@ -242,8 +234,7 @@ QOptionDialog {
                     tip: "设置跳转的时长"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QDrop {
-                        anchors.fill: parent
+                    QDrop {
                         choice: options.seekSteps.indexOf(Config.seekStep)
                         model: ["3 秒","5 秒","10 秒","15 秒","30 秒"]
                         onTransformed: (choiced) => Config.seekStep = options.seekSteps[choiced]
@@ -255,8 +246,7 @@ QOptionDialog {
                     tip: "随机播放时避免重复最近播放的歌曲数量"
                     controlWidth: 160
                     width: panel.controlWidth
-                    controlItem: QSlider {
-                        anchors.fill: parent
+                    QSlider {
                         from: 0
                         to: 5
                         stepSize: 1
@@ -273,8 +263,7 @@ QOptionDialog {
                     controlWidth: 160
                     width: panel.controlWidth
                     bottomLine: false
-                    controlItem: QSwitch {
-                        anchors.fill: parent
+                    QSwitch {
                         letRight: true
                         switchTrue: Config.autoPlay
                         onToggled: Config.autoPlay = !Config.autoPlay

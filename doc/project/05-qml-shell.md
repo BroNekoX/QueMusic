@@ -69,7 +69,7 @@ Window {                 // 不是 ApplicationWindow
 | 弹窗/提示 | `globalDialog`、`mainWarn`、`mainMessage`、`picWatch`、`songInfo`、`searchCard`、`desktopPlayer` |
 | 异步 Loader | `desktopPlayerLoader`、`desktopLyricsLoader`、`textWatch` |
 | 动画 | `openMaxLyric`、`closeMaxLyric`、`settingAnime`、`settingOutAnime`、`autoUpdateTimer` |
-| 扩展点 | `pluginOverlay`（+ 无 id 的 `PluginHost`） |
+| 插件层 | `pluginLayer`（`Repeater` + `Loader`，加载 `Plugins.activeFunctions`） |
 
 ---
 
@@ -87,7 +87,6 @@ Window {                 // 不是 ApplicationWindow
 | `Options` | `components/Options.qml` (75) | `QtObject` | 运行时共享状态 + 跨文件对象注入点 + 信号总线 |
 | `Playback` | `components/Playback.qml` (410) | `QtObject`（同时 `ComponentBehavior: Bound`） | 播放中枢：切歌/淡变/音量/跳转/A-B/睡眠/历史/真随机 |
 | `ShortCut` | `components/ShortCut.qml` (40) | `Settings { category:"ShortCuts" }` | 键位 + 每功能全局开关 |
-| `PluginSlots` | `components/PluginSlots.qml` (24) | `QtObject` | 扩展点注册表 `{名字 → 容器}` |
 | `Fonts` | `components/Fonts.qml` (17) | `QtObject` | `FontLoader` 载入 `feather.ttf`(icon) / `poppins.ttf`(text) |
 | `LyricsFreeConfig` | `lyricsui/LyricsFreeConfig.qml` (24) | `Settings { category:"LyricsFree" }` | 「自由」歌词界面自有设置 |
 | `Lyrics3DConfig` | `lyricsui/Lyrics3DConfig.qml` (29) | `Settings { category:"Lyrics3D" }` | 「3D」歌词界面自有设置 |
@@ -101,8 +100,7 @@ Window {                 // 不是 ApplicationWindow
 | `MusicApi` | `MusicApiService` | `api/MusicApiService.h:31` | `QML_NAMED_ELEMENT(MusicApi)` + `QML_SINGLETON`，工厂里取 `setSharedAccountManager` 注入的账号单例 |
 | `AccountManager` | `AccountManager` | `cpp/AccountManager.h:31` | `create(QQmlEngine*, QJSEngine*)` |
 | `LogManager` | `LogManager` | `cpp/LogManager.h:29` | 同上 |
-| `LyricsPlugins` | `LyricsPluginStore` | `cpp/plugins/LyricsPluginStore.h:14` | `QML_NAMED_ELEMENT(LyricsPlugins)` |
-| `FunctionPlugins` | `FunctionPluginStore` | `cpp/plugins/FunctionPluginStore.h:16` | `QML_NAMED_ELEMENT(FunctionPlugins)` |
+| `Plugins` | `PluginStore` | `cpp/plugins/PluginStore.h:12` | `QML_NAMED_ELEMENT(Plugins)` + `QML_SINGLETON`，按 `info.json` 的 `type` 分出功能插件与歌词界面插件 |
 | `WebDav` | `WebDavStore` | `cpp/webdav/WebDavStore.h:17` | `QML_NAMED_ELEMENT(WebDav)` |
 | `WebDavCache` | `WebDavCache` | `cpp/webdav/WebDavCache.h:19` | 单例 |
 | `MyFolders` / `LocalFolders` | `FolderModel` 子类 | `cpp/AppModels.h:38-39` | 宏 `QUEMUSIC_DECLARE_MODEL_SINGLETON`，过滤类型 `"my"` / `"local"` |
@@ -112,7 +110,7 @@ Window {                 // 不是 ApplicationWindow
 **非单例、按需实例化的 C++ 类型**（`QML_ELEMENT`，QML 里直接 `Xxx { }`）：
 `AudioEngine`、`QueueModel`、`GetWave`、`CoverHelper`、`ColorExtractor`、`CustomFlow`、`LocalMusicScanner`、`DownloadedMusicModel`、`DownloadManager`、`SystemTrayManager`、`WindowsSmtcManager`、`WebDavModel`、`MeshGradientItem`、`LyricsStage`。
 
-**QML 不可见（纯 C++）**：`DbService`、`FfmpegDecoder`、`AudioDsp`、`WebDavClient`、`PluginStore`（基类）、`SearchResultModel`、`FavoritesModel`/`FolderModel`/`SongModel`（抽象基类，实际只用上面的单例子类）。
+**QML 不可见（纯 C++）**：`DbService`、`FfmpegDecoder`、`AudioDsp`、`WebDavClient`、`SearchResultModel`、`FavoritesModel`/`FolderModel`/`SongModel`（抽象基类，实际只用上面的单例子类）。
 
 ### 5.2.3 `main.qml` → `Options` 注入清单（**全部 15 条，无遗漏**）
 
@@ -226,28 +224,28 @@ Window { id: window }
 │   ├─ Row barLeftWidgets    (anchors.left = sidebar.width+16)
 │   │    QWKButton returnButton → Options.exit + exitIndex-- · TextField mainSearchInput · SButton searchButton
 │   └─ Row barRightWidgets   (anchors.right; y = 10 - musicControlMax.hideHeight)
-│        PluginSlot "titlebar" · QWKButton fullScreenButton / settingButton / minButton / maxButton / closeButton
+│        QWKButton fullScreenButton / settingButton / minButton / maxButton / closeButton
 │        （min/max/close：macOS 隐藏，否则 windowAgent.setSystemButton(WindowAgent.*, btn)）
 ├─ Item mainLayout           (anchors.fill, z=5; property int maxLyricType:0)
 │   ├─ Connections Options.onChangeTheme  (按 Style.backmode 0/1/2/3/4 切背景与配色 + dwm-blur)
 │   ├─ Image backGround                   (z=0, 全屏, asynchronous, PreserveAspectCrop)
 │   ├─ LeftSideBar sidebar                (z=2, 0,0, 210×(h-78); required property MainContent mainCont)
 │   │    choicebar + downBar/upBar · Logo+"Beta" · ListModel navModel(5 项) · Repeater navDelegate(42px)
-│   │    Column sidebarBottomSlot → PluginSlot "sidebar.bottom"
+│   │    Column sidebarBottomSlot（插件容器 api.hostSidebar）
 │   ├─ MainContent mainContent            (z=1, x=sidebar.width, w=parent.width-x, h-78)
 │   │    ParallelAnimation pageAnine (opacity + shiftY)
 │   │    Loader ×6  y=60, w=mainContent.width, h=pageHeight, transform: Translate{y: shiftY}
 │   │      homePage(0,active) playlistPage(1) favouritePage(2) filePage(3) downloadPage(4) searchPage(5,async)
 │   ├─ PlayerControl musicControlMin      (z=4, y=h-78+musicControlMax.hideHeight, w=100%, 78px)
-│   │    progressSlider · musicinfo(封面 MultiEffect + 标题/歌手 + 收藏/下载) · 中间控制 Row · playerRow→PluginSlot "player"
+│   │    progressSlider · musicinfo(封面 MultiEffect + 标题/歌手 + 收藏/下载) · 中间控制 Row · playerRow（插件容器 api.hostPlayerBar）
 │   │    ToolTip volumeControl(QBlurCard+QSlider→Config.musicVolume) · MouseArea→centerChange
 │   │    PlayList playList · PlayerOptions · MusicInfo · QOptionDialog optionsEQ(EqualizerPanel)
 │   ├─ PlayerMaxCenter musicControlMax    (z=3, y=100, 100%×100%, visible=false)
 │   │    MouseArea(悬浮→hideDelay 3s→hideHeight=76) · ParallelAnimation rectcolorAnime(三色)
-│   │    Loader lyricLoader(source = LyricsPlugins.source; onLoaded → inject(item))
+│   │    Loader lyricLoader(source = Plugins.lyricsSource; onLoaded → inject(item))
 │   │    Binding ×3 → MusicApi.lyricFollowActive/lyricPositionMs/lyricOffsetMs · Timer 320ms → funConnect()
 │   │    SButton playerminedButton/centerThemeButton/centerStyleButton/翻译
-│   │    QOptionDialog maxLyricsThemeDialog(LyricsPlugins.plugins) · maxLyricsDialog(常驻 3 项 + item.styleOptions)
+│   │    QOptionDialog maxLyricsThemeDialog(Plugins.lyrics) · maxLyricsDialog(常驻 3 项 + item.styleOptions)
 │   ├─ NumberAnimation openMaxLyric / closeMaxLyric  (z 位移 420ms BezierSpline; 控制 barLeftWidgets 与 hideHeight)
 │   └─ ColorExtractor colorExtractor      (onColorsExtracted → musicControlMax.changeColor)
 ├─ Loader settingsView       (anchors.fill, active:false, asynchronous, z=6, opacity Behavior)
@@ -263,8 +261,9 @@ Window { id: window }
 ├─ SearchCard searchCard · DesktopPlayer desktopPlayer(Popup) · Loader desktopPlayerLoader · Loader desktopLyricsLoader
 ├─ QAlertDialog globalDialog · QWarn mainWarn · QMessage mainMessage · QOptionDialog picWatch · SongInfoDialog songInfo
 ├─ Loader textWatch (source QTextWindow.qml)
-├─ Item pluginOverlay (anchors.fill, z=20) → PluginSlot "window.overlay"
-└─ PluginHost (onPluginLoaded → window.syncTitleBarHitTest())
+├─ Item pluginLayer (anchors.fill, z=30)
+│    └─ Repeater(Plugins.activeFunctions) → Loader(asynchronous, setSource(url,{api})) + PluginContext
+└─ （插件根声明 property QtObject api，经 api.attach 挂到 hostTitleBar / hostPlayerBar / hostSidebar / hostOverlay）
 ```
 
 ### 响应式 / 最大化行为
@@ -326,8 +325,7 @@ Window { id: window }
 | `win` | `WindowControls` | `closeToTray/toClosing/hideToTray/restoreWindow/quitApp`；`sessionClosing` 信号 |
 | `smtc` | `SmtcBridge` | `QtObject`；内嵌 `WindowsSmtcManager`（`initialize(targetWindow)`）+ 3 组 `Connections`（player / Playback / queue）；`push()`/`pushInfo()` 全部经 `Qt.callLater` 防重入 |
 | `windowAgent` | `WindowAgent` | QWindowKit；`setup/setTitleBar/setHitTestVisible/setSystemButton/setWindowAttribute` |
-| `pluginOverlay` | `Item` | `PluginSlot { slotName:"window.overlay" }` |
-| （无 id） | `PluginHost` | 功能插件宿主，`onPluginLoaded → syncTitleBarHitTest()` |
+| `pluginLayer` | `Item` | `Repeater(Plugins.activeFunctions) → Loader`，每个 Loader 内嵌一个 `PluginContext`（`api`） |
 
 ### 键盘 / 快捷键入口
 
@@ -520,8 +518,8 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 
 | 子页 | 内容 |
 |---|---|
-| `uiMod` | `PluginManager { store: LyricsPlugins; pluginKind: "歌词界面插件" }` |
-| `toolMod` | `PluginManager { store: FunctionPlugins; pluginKind: "功能插件"; multi: true }` |
+| `uiMod` | `PluginManager { pluginType: "lyrics" }` |
+| `toolMod` | `PluginManager { pluginType: "function" }` |
 | `musicMod` | 占位提示「音乐源插件还未开发完成，等待开发者更新喵」 |
 
 **页面 6「关于」`aboutset`**
@@ -557,8 +555,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 |---|---|---|
 | `AccountManager` | 45,47,53,74,78,81,82,100,105,114,123,126,135,225,237,244,253,262,297,310,311,312,330,335,343,352,891-930 | 网易云/酷狗扫码、手机号、Cookie 登录；登录态、头像、昵称、登出 |
 | `LogManager` | 2805,2806,2815,2817,2831,2864 | 日志开关/等级/打开目录/预览 |
-| `LyricsPlugins` | 2162 | 歌词界面插件管理器数据源 |
-| `FunctionPlugins` | 2174 | 功能插件管理器数据源 |
+| `Plugins` | 2162 | 插件管理器数据源（歌词界面 / 功能共用一个单例） |
 | `Songs` | 1073 | `Songs.reload()`（清图片缓存后重载本地列表） |
 | `MusicApi` | 894,919,943 | `MusicApi.songSource = 0/1/2`（三个 PlatformCard） |
 | `AudioEngine` | 15,1753 | `readonly property AudioEngine player: Playback.player` → 传给 `EqualizerPanel.engine` |
@@ -591,7 +588,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 |---|---|
 | `main.qml` | `MusicApi`(MusicApiService)、`CoverHelper`、`ColorExtractor`、`GetWave`、`AudioEngine`(+枚举 `LoadedMedia/EndOfMedia/PlayingState`)、`SystemTrayManager`(+`Trigger/DoubleClick/Information`)、`QueueModel`、`WebDavCache`、`MediaDevices`(QtMultimedia) |
 | `layout/PlayerControl.qml` | `AudioEngine`、`FavoriteSongs`、`MusicApi`（`searchSongsResults/nowIndex/searchSongs/getMusicInfo`）；经 `Options.queue` 用 `QueueModel` |
-| `layout/PlayerMaxCenter.qml` | `AudioEngine`、`MusicApi`（`lyricsData/lyricsTranslate/lyricIndex/lyricFollowActive/lyricPositionMs/lyricOffsetMs`）、`LyricsPlugins`（`source/plugins/selectedId`） |
+| `layout/PlayerMaxCenter.qml` | `AudioEngine`、`MusicApi`（`lyricsData/lyricsTranslate/lyricIndex/lyricFollowActive/lyricPositionMs/lyricOffsetMs`）、`Plugins`（`lyricsSource/lyrics/lyricsId`） |
 | `layout/MainLyric.qml` | `MeshGradientItem`、`CustomFlow`(+`AlignLeft/AlignRight`)、`GetWave`（经 `Options.getWave.wavePath`）；import `Qt5Compat.GraphicalEffects`（仅逐字染色用 `LinearGradient`）；片元着色器 `qrc:/shaders/shaders/lyricfade.frag.qsb`。结构：`Shape waveItem`+`MultiEffect`+`MeshGradientItem`+静态渐变 · `Item musicpic`(封面/MultiEffect/阴影) · `titleMax`/`artistMax` · `Loader`(CdAlbum，`active: basicCd`) · `Item lyricContent`(ShaderEffect 渐进模糊；`lyricRep`→`lyricItem`→`lyricAnime`/`lyricsText`/`lyricTransText`/`lyricFlow`) · `waitAnimeSection`/`waitOpenAnime`/`waitOutAnime`/`scrollAnime` · `property Component styleOptions`(660) |
 | `layout/SmtcBridge.qml` | `WindowsSmtcManager`(+`Playing/Paused/Stopped/Closed`)、`AudioEngine`、`QueueModel`、`Playback` |
 | `layout/WindowControls.qml` | `SystemTrayManager`(+`Information`)、`Config`、`Playback`、`Options` |
@@ -604,15 +601,15 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | `pages/FilePage.qml` | `Songs`(+`searchResults`)、`MyFolders`、`LocalFolders`、`LocalMusicScanner`、`MusicApi`（`readLocalMetadataAsync/readLocalAudioInfo/readLocalLyricsText/readLocalCoverHint/writeLocalMetadata`）、`AudioEngine`；`FolderListModel`(Qt.labs.folderlistmodel)、`QtQuick.Dialogs` |
 | `pages/DownloadPage.qml` | `DownloadedMusicModel`、`MusicApi.downloader` → `DownloadManager`（`taskCount/hasActiveTasks/effectiveDownloadDir/removeTask/retryTask`） |
 | `pages/WebDavPage.qml` | `WebDavModel`、`WebDav`(WebDavStore)、`AudioEngine`、`Playback.kSourceWebDav` |
-| `SettingsView.qml` | `AccountManager`、`LogManager`、`LyricsPlugins`、`FunctionPlugins`、`Songs`、`MusicApi`、`AudioEngine`（详见 §5.7.3） |
+| `SettingsView.qml` | `AccountManager`、`LogManager`、`Plugins`、`Songs`、`MusicApi`、`AudioEngine`（详见 §5.7.3） |
 | `components/Playback.qml` | `AudioEngine`、`QueueModel`、`MusicApi`、`WebDav`、`WebDavCache` |
 | `components/PlayListWindow.qml` | `MusicApi`（`songSource/playlistSong/getMusicInfo`）、`FavoritePlaylists` |
 | `components/QListView.qml` | `FavoriteSongs`、`FavoritePlaylists`、`MusicApi`（`songSource/getMusicInfo/loadState`）；注释提及 `FavoritesModel.favoriteRevision/favoriteStateChanged/errorOccurred` |
 | `components/MusicInfo.qml` | `MusicApi`（`getComments/comments/loadState`）、`Playback.musicHash/musicSource` |
 | `components/DesktopLyrics.qml` · `components/DesktopPlayerWindow.qml` · `components/PlayerOptions.qml` | `AudioEngine`（经 `Playback.player`）；`DesktopLyrics` 另读 `MusicApi.lyricsData` |
 | `components/EqualizerPanel.qml` | `AudioEngine`（`property AudioEngine engine`，由宿主传给 `AudioDsp` 接口） |
-| `components/PluginHost.qml` | `FunctionPlugins`（`plugins/enabledIds/setEnabled`） |
-| `components/PluginManager.qml` | 经 `store` 属性接收 `LyricsPlugins` / `FunctionPlugins` |
+| `components/PluginContext.qml` | 无（纯数据 + `attach/unmount/toast`） |
+| `components/PluginManager.qml` | `Plugins`（按 `pluginType` 选 `functions` / `lyrics`） |
 | `components/Options.qml` | 声明 `QueueModel`、`QAlertDialog`、`DesktopPlayer`、`SmtcBridge`、`GetWave`、`QOptionDialog`、`SongInfoDialog`、`CoverHelper` 类型的属性 |
 | `components/PlayList.qml` | `FavoriteSongs` |
 | `lyricsui/LyricsFree.qml` | `MeshGradientItem`、`CustomFlow` |
@@ -647,8 +644,7 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 | `AudioEngine` | `cpp/audio/AudioEngine.h` | ✅ 普通类型 | `main.qml` id `mainMedia`；被 7 个 QML 文件用 `Playback.player` 声明为 `readonly property AudioEngine player` |
 | `WebDav` | `cpp/webdav/WebDavStore.h` | ✅ 单例（`QML_NAMED_ELEMENT`） | `pages/WebDavPage.qml`、`components/Playback.qml` |
 | `WebDavCache` | `cpp/webdav/WebDavCache.h` | ✅ 单例 | `main.qml:709`（`Connections`）、`components/Playback.qml:97,112` |
-| `LyricsPlugins` | `cpp/plugins/LyricsPluginStore.h` | ✅ 单例 | `layout/PlayerMaxCenter.qml`、`SettingsView.qml:2162` |
-| `FunctionPlugins` | `cpp/plugins/FunctionPluginStore.h` | ✅ 单例 | `components/PluginHost.qml`、`SettingsView.qml:2174` |
+| `Plugins` | `cpp/plugins/PluginStore.h` | ✅ 单例 | `main.qml`（pluginLayer）、`layout/PlayerMaxCenter.qml`、`SettingsView.qml:2162` |
 | `MeshGradientItem` | `shaders/MeshGradientItem.h` | ✅ 普通类型 | `layout/MainLyric.qml:94`、`lyricsui/LyricsFree.qml:100` |
 | `LyricsStage` | `shaders/LyricsStage.h` | ✅ 普通类型 | `lyricsui/Lyrics3D.qml:153` |
 | `DbService` | `cpp/DbService.h` | ❌ 非 `QObject`（无 QML 暴露） | **QML 层不可见** |

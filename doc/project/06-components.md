@@ -28,11 +28,8 @@
 | PlayerOptions.qml | QOptionDialog | — | 播放器选项：倍速/音质/输出设备/AB/睡眠/淡变/跳转步长 | 只读：`player`, `rates`, `seekSteps`；`onCancel` 打开 `optionsEQ`（EqualizerPanel） |
 | PlayList.qml | Popup | — | 播放列表面板（定位当前行/清空/逐行菜单） | `model`(alias), `filter`, `scrollToY`, `scrollMultiplier`；方法：`locateCurrent()`；`delegate: required index, name, songer, path, source` |
 | PlayListWindow.qml | Item | — | 歌单详情子窗口（封面信息 + 曲目列表 + 收藏） | `id`, `cover`, `title`, `artist`, `descript`, `duration`, `playcount`, `standTopMargin`, `transX`, `originX`, `animeOnList`, `animeOutList`, `animeType`, `winIndex`, `mainTarget`, `songSource`；`default property alias content`；方法：`opened(info)`, `closed()`, `onExit()` |
-| PluginApi.qml | QtObject | — | 功能插件接口对象（宿主为每个插件创建，注入插件根的 `api`） | `pluginId`, `pluginName`, `pluginDir`, `pluginUrl`, `window`, `owned`；只读：`apiVersion`, `settings`, `loaderTemplate`；方法：`slot(name)`, `mount(slotName,source,props)`, `unmount(obj)`, `destroyAll()`, `toast(text,type)`, `warn(text)` |
-| PluginHost.qml | Item | — | 功能插件宿主：按 `FunctionPlugins.enabledIds` 起加载器、失败自动停用 | 信号：`pluginLoaded()`；`api`, `instance`, `loading`, `wanted`；方法：`load()`, `finish(component)`, `unload()`, `fail(text)`；`delegate: required id, name, source, path` |
-| PluginManager.qml | Item | — | 插件管理页（歌词界面单选 / 功能插件多选共用） | `store`, `multi`, `pluginKind`；只读：`plugins`, `compact`；`delegate: required id, name, builtin, preview, description, author, version`，只读 `isOn` |
-| PluginSlot.qml | QtObject | — | 声明一个扩展点：完成时注册 / 销毁时注销 | `slotName`, `target` |
-| PluginSlots.qml | QtObject | ✅ | 扩展点注册表（名字 → 容器） | 只读：`items`；方法：`register(name,target)`, `unregister(name)`, `item(name)` |
+| PluginContext.qml | QtObject | — | 功能插件接口对象：宿主为每个插件创建一个，作为初始属性注入插件根的 `api` | `pluginId`, `pluginName`, `pluginDir`, `pluginUrl`, `hostWindow`, `hostTitleBar`, `hostPlayerBar`, `hostSidebar`, `hostOverlay`, `owned`；只读：`settings`, `loaderTemplate`；方法：`attach(parent,source,props)`, `unmount(obj)`, `toast(text,type)`, `warn(text)` |
+| PluginManager.qml | Item | — | 插件管理页（歌词界面单选 / 功能插件多选共用） | `pluginType`（`"lyrics"` / `"function"`）；只读：`plugins`, `multi`, `pluginKind`, `compact`；`delegate: required id, name, builtin, preview, description, author, version`，只读 `isOn` |
 | QAlertDialog.qml | Popup | — | 模糊底提示框，可带输入框 | `blurSource`, `rectXy`, `title`(alias), `message`(alias), `input`(alias), `cancelText`, `confirmText`, `isInput`, `dismissOnOverlay`；信号：`confirm()`, `cancel()`；方法：`onExit()` |
 | QBigDrop.qml | Rectangle | — | 大图卡片单选（图 + 文案） | `model`, `picModel`, `singleWidth`, `choice`；信号：`transformed(int)`；`delegate: required modelData, index` |
 | QBlurCard.qml | Item | — | 实时背景模糊卡片（抓区域 → 模糊+饱和+圆角 单 frag） | `blurSource`, `blur`, `blurMax`, `saturation`, `highQuality`, `borderRadius`, `cardColor`, `borderColor`, `borderWidth`, `fillColor`, `shadowEffect`, `masked`, `rectXy`, `src`；`default property alias content` |
@@ -86,12 +83,12 @@
 - **QWarn**：`tiped()` 重置 1.5s 定时器；语义色由 `type` 决定（0 橙 / 1 绿 / 2 红）。
 - **Options**：`darkis` = `Style.theme` 0 亮 / 1 暗 / 其它跟随系统；主题色变更只经 `Options.changeTheme()`。
 - **Playback**：`muted` 与 `Config.musicVolume` 解耦（`outVolume` 取二者合值）；淡变用 `swap(action, fadeBack)` + 三个 Timer（`swapTimer/fadeTimer/guardTimer`）；`kSourceWebDav = 3`。
-- **PluginHost / PluginApi / PluginManager**：见第 5、7 节。
+- **PluginContext / PluginManager**：见第 5、7 节。
 - **EqualizerPanel**：`display` 为分区序号（0 概览 / 1 状态 / 2 后续分区），`engine` 为 `AudioEngine`，`eqGains[index]` 为只读绑定。
 
 ## 6.2 单例清单
 
-`import QueMusic 1.0` 后按类型名直接引用。共 10 个单例：components/ 8 个 + lyricsui/ 2 个。
+`import QueMusic 1.0` 后按类型名直接引用。共 9 个单例：components/ 7 个 + lyricsui/ 2 个。
 
 | 单例 | 根类型 | 文件 | 持有内容 | 类别 |
 |---|---|---|---|---|
@@ -99,7 +96,6 @@
 | Fonts | QtObject | components/Fonts.qml | 两个 `FontLoader` + 家族名 `icon`/`text` | 运行时 |
 | Options | QtObject | components/Options.qml | 宿主对象注入槽 + main 状态 + 主题驱动 + 全局信号总线 | 运行时 |
 | Playback | QtObject | components/Playback.qml | 播放状态、队列操作、淡变/AB/睡眠/历史 | 运行时 |
-| PluginSlots | QtObject | components/PluginSlots.qml | 扩展点注册表 `{名字 → 容器}` | 运行时 |
 | ShortCut | Settings | components/ShortCut.qml | 快捷键序列 + 全局快捷键开关，category `ShortCuts`（带 s） | 持久化 |
 | Style | Settings | components/Style.qml | UI 度量/字号/圆角/动画/歌词界面开关，category `Style` | 持久化 |
 | Theme | QtObject | components/Theme.qml | 18 个颜色属性（运行时被覆写） | 运行时 |
@@ -294,11 +290,11 @@ QOptionDialog {                            // 继承而非重写：自带模糊�
 
 ### 6.5.1 加载与替换机制（宿主侧）
 
-1. 商店单例是 C++ 的 `LyricsPlugins`（`cpp/plugins/LyricsPluginStore.h`，`QML_NAMED_ELEMENT(LyricsPlugins)`，单选）：`plugins`（内置+已安装）、`dir`、`selectedId`、`source`（当前入口，直接绑 Loader.source）、`rescan()`、`install(folder)`、`remove(id)`、`reveal(id)`。
-2. `layout/PlayerMaxCenter.qml:127` 的 `Loader { active: visible; asynchronous: true; source: LyricsPlugins.source; onLoaded: inject(item) }` 负责实例化；换界面 = 换 `source`。
+1. 商店单例是 C++ 的 `Plugins`（`cpp/plugins/PluginStore.h`，`QML_NAMED_ELEMENT(Plugins)`，歌词界面与功能插件共用）：`lyrics`（内置+已安装）、`lyricsId`、`lyricsSource`（当前入口，直接绑 Loader.source）、`dir`、`rescan()`、`selectLyrics(id)`、`install(folder)`、`remove(id)`、`reveal(id)`。
+2. `layout/PlayerMaxCenter.qml:127` 的 `Loader { active: visible; asynchronous: true; source: Plugins.lyricsSource; onLoaded: inject(item) }` 负责实例化；换界面 = 换 `source`。
 3. `inject(item)` 只对**已声明**的属性赋 `Qt.binding`（`if (k in it)`），因此契约是「按需实现」而非强制全量。
 4. 心跳：宿主每 320ms 调 `item.timerFunction()`（`Timer` 在 `PlayerMaxCenter`，仅在最大播放页可见且媒体播放中运行）；索引由宿主的 `MusicApi.lyricIndex` 算好注入。
-5. 主题选择 UI：`PlayerMaxCenter` 的「歌词界面」`QOptionDialog` 列 `LyricsPlugins.plugins`，点选写 `LyricsPlugins.selectedId`；`SettingsView` 用 `PluginManager { store: LyricsPlugins; pluginKind: "歌词界面插件" }`。
+5. 主题选择 UI：`PlayerMaxCenter` 的「歌词界面」`QOptionDialog` 列 `Plugins.lyrics`，点选调 `Plugins.selectLyrics(id)`；`SettingsView` 用 `PluginManager { pluginType: "lyrics" }`。
 6. 内置「默认」界面不在 lyricsui/，而是 `layout/MainLyric.qml`（与 LyricsFree 同一套契约与代码的近亲）；`lyricsui/` 两个文件是「自由」与「3D」两个可选界面。
 7. 官方文件契约（新歌词界面必须照此实现；`layout/MainLyric.qml` 与 `lyricsui/LyricsFree.qml` 头部注释即为权威副本）：
 
@@ -367,7 +363,7 @@ QOptionDialog {                            // 继承而非重写：自带模糊�
 4. 实现 `function request(key: string, value: var): void` 且声明 `property var requestStyle: null`，只在需要改宿主状态（`basicCd`/`lyricType`/`premiumLyricAnime`/`waveDisplay`）时使用。
 5. 主题自有设置放 `lyricsui/<Name>Config.qml`（`pragma Singleton` + `Settings`），并把它加入 `CMakeLists.txt` 的单例列表。
 6. 需要「播放器样式」弹窗内容时提供 `property Component styleOptions`。
-7. 若做成插件：目录内需要入口 `qm` 文件 + 与 `LyricsPlugins.plugins` 一致的信息字段（`id`/`name`/`version`/`author`/`preview`/`description`/`builtin`），入口文件路径进 `LyricsPlugins.source`；安装走 `LyricsPlugins.install(folder)` / 删除走 `remove(id)`，`builtin: true` 的内置项不可卸载。
+7. 若做成插件：目录内需要入口 QML 文件 + `info.json`（`type: "lyrics"`、`id`/`name`/`version`/`author`/`preview`/`description`），入口文件路径进 `Plugins.lyricsSource`；安装走 `Plugins.install(folder)` / 删除走 `remove(id)`，`builtin: true` 的内置项不可卸载。
 8. 验证：切 `selectedId` 后 Loader 重载、逐行/逐字都对、暗亮主题 + 4 个主题色都正常、最大播放页关闭再打开（`active:false` 卸载）无残留。
 
 ## 6.6 资源与字体
@@ -399,9 +395,9 @@ QOptionDialog {                            // 继承而非重写：自带模糊�
 2. **`QButton.tipText` 是死属性**：仅在 `QButton.qml:16` 声明，内部没有 `QTip`，设置它不会有任何效果；需要 hover 提示请用 `SButton`。
 3. **`QOptionDialog.cancelCloses`**（`QOptionDialog.qml:21`）为 `false` 时左下按钮只发 `cancel()` 不关窗；改按钮行为时不要顺手删这个开关。
 4. **Loader 规则**：`AnimatorWindow`/`PlayListWindow` 用 `default property alias content: loadWidget.sourceComponent` + `Loader{active:false; asynchronous:true}` 承载整页内容，`onLoaded` 里才 `visible = true` 并起动画——不要在外层提前设 `visible`/`active`。`PlayListWindow.opened(info)` 会先写属性再 `active = true`，顺序不能反。
-5. **`PluginApi.mount()` 的 url 分支**：传字符串时建出的是 `Loader`，属性必须走 `obj.setSource(source, props)`；直接设到 Loader 上会报 `Loader does not have a property called …` 并静默丢属性。
-6. **delegate 里的 `required property` 必须逐个声明**：`PluginHost.qml:30` 注释说明——在 `createObject` 的 JS 里读 delegate 的隐式上下文变量（`modelData`）在 AOT 下会抛 `ReferenceError`。新增 Repeater/delegate 时也要显式声明 `index`/`modelData`。
-7. **`pragma ComponentBehavior: Bound`**：components/ 里 18 个文件加了它（`QListView`/`QLocalView`/`QMenu`/`QMessage`/`QDrop`/`QBigDrop`/`QWideDrop`/`QTapBar`/`QBlurTapBar`/`SearchCard`/`SongInfoDialog`/`FontFamilyDialog`/`MusicInfo`/`EqualizerPanel`/`PluginHost`/`PluginManager`/`DesktopPlayer`/`Playback`），lyricsui/ 两个歌词界面也各有一处，layout/ 与 pages/ 另有多个。需要 delegate 顶层 `required` 属性绑定（`index`/`modelData`）的文件必须加，去掉会导致解析失败。
+5. **`PluginContext.attach()` 的 url 分支**：传字符串时建出的是 `Loader`，属性必须走 `loader.setSource(source, props)`；直接设到 Loader 上会报 `Loader does not have a property called …` 并静默丢属性。`source` 传 `Component` 时走同步 `createObject`。
+6. **delegate 里的 `required property` 必须逐个声明**：插件宿主 `main.qml` 的 `Loader` delegate 里也靠 `required property var modelData`；在 `createObject` 的 JS 里读隐式上下文变量在 AOT 下会抛 `ReferenceError`。新增 Repeater/delegate 时也要显式声明 `index`/`modelData`。
+7. **`pragma ComponentBehavior: Bound`**：components/ 里 17 个文件加了它（`QListView`/`QLocalView`/`QMenu`/`QMessage`/`QDrop`/`QBigDrop`/`QWideDrop`/`QTapBar`/`QBlurTapBar`/`SearchCard`/`SongInfoDialog`/`FontFamilyDialog`/`MusicInfo`/`EqualizerPanel`/`PluginManager`/`DesktopPlayer`/`Playback`），lyricsui/ 两个歌词界面也各有一处，layout/ 与 pages/ 另有多个。需要 delegate 顶层 `required` 属性绑定（`index`/`modelData`）的文件必须加，去掉会导致解析失败。
 8. **单例三处一致**（见 2.3）：只写 `pragma Singleton` 而不改 `CMakeLists.txt` 的 `QT_QML_SINGLETON_TYPE` 列表 → 类型不可用。
 9. **`Theme` 是运行时对象，别加持久化字段**：它没有 `Settings` 基类；颜色只在 `Options.onChangeTheme` 里写。往里加属性请在 `changeTheme` 里一并赋值，否则暗色模式下不会更新。
 10. **`Style` 字段改名 = 用户配置丢失**：`Settings { category: "Style" }` 按属性名落盘；`Config`（`Options`）、`ShortCut`（`ShortCuts`）、`OptionsLastSongs`（`LastMedia`）、`Lyrics3DConfig`（`Lyrics3D`）、`LyricsFreeConfig`（`LyricsFree`）同理，改名前需迁移。

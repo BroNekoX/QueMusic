@@ -13,6 +13,7 @@ void PitchShifter::prepare(int channels, int sampleRate)
     m_channels = qBound(1, channels, 2);
     m_stretch.prepare(m_channels, sampleRate);
     m_buf.clear();
+    m_buf.reserve(size_t(16384) * size_t(m_channels));
     m_offset = 0;
     m_pos = 0.0;
     setRatios(m_speed, m_pitch);

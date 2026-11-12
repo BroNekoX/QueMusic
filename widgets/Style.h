@@ -23,6 +23,9 @@ public:
 
     static QList<QColor> defaultColorList();
 
+    // 把 globalFont / fontStyle 应用到 QGuiApplication（已有 Text 由 App 刷新）
+    void applyGlobalFont();
+
 // 预处理设置项，让他编译生成设置项内容
 #define QUE_MUSIC_STYLE(set) \
     set(int, theme, 0) \
@@ -52,7 +55,6 @@ public:
     set(bool, layerEnabled, true) \
     set(bool, premiumAnime, false) \
     set(int, animeSpeed, 1) \
-    set(int, homeLayout, 0) \
     set(bool, noOpacityControl, false) \
     set(bool, coverColorControl, false) \
     set(int, leftBarMode, 0) \
@@ -71,6 +73,8 @@ public:
     set(bool, lyricHideGui, true) \
     set(int, springValue, 2) \
     set(bool, lyricBasicCd, false) \
+    set(int, globalFont, 1) \
+    set(QString, fontStyle, QString()) \
     set(QString, fontFamily, QString()) \
     set(QString, backgroundImage, QStringLiteral("qrc:/QueMusic/resources/pic/back2.jpg"))
 

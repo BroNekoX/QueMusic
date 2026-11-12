@@ -42,14 +42,12 @@
 | `LogManager` | 仅 `SettingsView(6)` |
 | `WebDav`（`WebDavStore`） | `WebDavPage(14)`、`Playback(5)`、`FilePage(4)`、`main.qml(1)`、`PlayList(1)` |
 | `WebDavCache` | `Playback(2)`、`main.qml(1)` |
-| `LyricsPlugins` | `PlayerMaxCenter(5)`、`SettingsView(1)` |
-| `FunctionPlugins` | `PluginHost(3)`、`SettingsView(1)` |
+| `Plugins` | `main.qml`（pluginLayer）、`PlayerMaxCenter(5)`、`SettingsView(1)`、`PluginManager` |
 | `Songs` | `FilePage(22)`、`FavouritePage(2)`、`SettingsView(1)` |
 | `MyFolders` / `LocalFolders` | 各仅 `FilePage(5)` |
 | `FavoriteSongs` | `PlayerControl(7)`、`FavouritePage(7)`、`PlayList(3)`、`QListView(3)` |
 | `FavoritePlaylists` | `FavouritePage(5)`、`PlayListWindow(4)`、`HomePage(1)`、`QListView(1)` |
 | `FavoriteArtists` | **无任何 QML 引用**（已注册但未接线，属未完成/预留） |
-| `PluginSlots` | `PluginApi(2)`、`PluginSlot(2)` |
 | `SearchResultModel` | 仅 `QSortModel(1)`（作为注释/类型判断出现） |
 
 ## 9.3 勘误：README / 旧文档与代码树不一致的地方
@@ -63,6 +61,7 @@
 | README 未提及 `cpp/webdav/`、`cpp/plugins/`、`pages/WebDavPage.qml`、`lyricsui/` 与插件系统 | 这些是新功能，README 的目录树尚未更新；**以第 2、5、6 部分为准** |
 | `CMakeLists.txt` 的 `project(QueMusic VERSION 0.1)` | QML 侧实际版本是 `0.6.0`；不要据 CMake 版本号判断应用版本 |
 | 插件 `info.json` 的 `apiVersion: 1` | 与宿主 `Options.pluginApi = 10` 不是同一套编号；判断宿主 API 版本要看 `Options.pluginApi` |
+| 旧功能插件用 `api.mount("扩展点名", …)` | 新版宿主已移除扩展点注册表；改用 `api.attach(api.hostSidebar, …)` 这类宿主容器（`titlebar→hostTitleBar`、`player→hostPlayerBar`、`sidebar.bottom→hostSidebar`、`window.overlay→hostOverlay`） |
 | README 说"`build/<preset>`" | 本机实际构建目录是 `build/Desktop_Qt_6_10_3_llvm_mingw_64_bit_Release`（Qt Creator 生成）；preset 构建会用 `build/<presetName>` |
 
 ## 9.4 死代码 / 未完成项 / 文档与实现不一致清单（节省后续排查时间）

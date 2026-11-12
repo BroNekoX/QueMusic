@@ -433,6 +433,11 @@ void DownloadManager::onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal
         return;
 
     task.progress = progress;
+
+    if (progress < 1.0 && m_progressClock.isValid() && m_progressClock.elapsed() < 100)
+        return;
+    m_progressClock.restart();
+
     QModelIndex mi = index(idx);
     emit dataChanged(mi, mi, { ProgressRole });
 }

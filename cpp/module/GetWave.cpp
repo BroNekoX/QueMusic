@@ -203,13 +203,20 @@ void GetWave::computeSpectrumFromFFT(const float *samples, int n, float sampleRa
 
     const int fftN = m_fftSize;
 
-    std::fill(m_fftData.begin(), m_fftData.end(), Complex(0.0f, 0.0f));
-
-        // 汉宁窗铺满实际样本；分母用 copyLen，否则每帧窗形不同、频谱跟着抖
+    // 窗缓存：长度不变时不重算 cos
     const int copyLen = std::min(n, fftN);
+    if (m_window.size() != copyLen) {
+        m_window.resize(copyLen);
+        for (int i = 0; i < copyLen; ++i)
+            m_window[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / float(copyLen - 1)));
+    }
+
+    if (copyLen < fftN)
+        std::fill(m_fftData.begin() + copyLen, m_fftData.end(), Complex(0.0f, 0.0f));
+
     float windowSum = 0.0f;
     for (int i = 0; i < copyLen; ++i) {
-        const float window = 0.5f * (1.0f - cosf(2.0f * M_PI * i / float(copyLen - 1)));
+        const float window = m_window.at(i);
         m_fftData[i] = Complex(samples[i] * window, 0.0f);
         windowSum += window;
     }

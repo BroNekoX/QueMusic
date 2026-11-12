@@ -13,6 +13,7 @@
 #include <QList>
 #include <QString>
 #include <QVariant>
+#include <QElapsedTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 struct DownloadTask {
@@ -110,6 +111,7 @@ private:
     int m_currentTaskId = -1;
     int m_nextId = 1;
     QString m_downloadPath;
+    QElapsedTimer m_progressClock; // 进度信号 10Hz 合并
 };
 
 #endif // DOWNLOADMANAGER_H

@@ -87,8 +87,7 @@ Column {
                 label: "音频处理总开关"
                 tip: "关闭后全链直通，不做均衡/限幅/声道处理"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.dspEnabled : true
                     onToggled: {
@@ -102,8 +101,7 @@ Column {
                 label: "输出采样率"
                 tip: "设备默认时不重采样；改此项会重开输出并保留播放位置"
                 width: panel.controlWidth
-                controlItem: QDrop {
-                    anchors.fill: parent
+                QDrop {
                     choice: panel.engine
                             ? Math.max(0, panel.sampleRates.indexOf(panel.engine.outputSampleRate))
                             : 0
@@ -119,8 +117,7 @@ Column {
                 label: "输出缓冲"
                 tip: "范围 10-100 ms，越小延迟越低；默认 30 ms"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     live: false
                     from: 10
                     to: 100
@@ -139,8 +136,7 @@ Column {
                 label: "音高"
                 tip: "半音为单位，±12 半音（一个八度）；不影响播放速度"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -12
                     to: 12
                     stepSize: 1
@@ -158,8 +154,7 @@ Column {
                 label: "启用均衡器"
                 tip: "10 段参数均衡，增益范围 ±24 dB"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.eqEnabled : false
                     onToggled: {
@@ -173,8 +168,7 @@ Column {
                 label: "预设"
                 tip: "套用后可直接微调各频段"
                 width: panel.controlWidth
-                controlItem: QDrop {
-                    anchors.fill: parent
+                QDrop {
                     choice: 0
                     model: panel.engine ? panel.engine.eqPresetNames() : []
                     onTransformed: (choiced) => {
@@ -188,8 +182,7 @@ Column {
                 label: "前级增益"
                 tip: "整体电平补偿，避免 EQ 抬升后削波"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -24
                     to: 24
                     stepSize: 0.5
@@ -207,8 +200,7 @@ Column {
                 label: "频段 Q 值"
                 tip: "越小过渡越平缓，越大越窄；影响全部频段"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: 0.3
                     to: 4
                     stepSize: 0.05
@@ -226,8 +218,7 @@ Column {
                 label: "自动余量"
                 tip: "按 EQ 最大抬升量自动回退增益，降低削波风险"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.autoHeadroom : true
                     onToggled: {
@@ -356,8 +347,7 @@ Column {
                 tip: "所有频段归零并关闭均衡"
                 width: panel.controlWidth
                 bottomLine: false
-                controlItem: SButton {
-                    anchors.fill: parent
+                SButton {
                     iconCharacter: "\uf01e"
                     radius: Style.labelRadius
                     buttonColor: Theme.secondaryColor
@@ -391,8 +381,7 @@ Column {
                 label: "声道平衡"
                 tip: "左负右正，0 为居中"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -1
                     to: 1
                     stepSize: 0.05
@@ -410,8 +399,7 @@ Column {
                 label: "立体声宽度"
                 tip: "0 为单声道叠加，1 为原始，2 为超宽"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: 0
                     to: 2
                     stepSize: 0.05
@@ -429,8 +417,7 @@ Column {
                 label: "左声道增益"
                 tip: "仅作用于左声道"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -12
                     to: 12
                     stepSize: 0.5
@@ -448,8 +435,7 @@ Column {
                 label: "右声道增益"
                 tip: "仅作用于右声道"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -12
                     to: 12
                     stepSize: 0.5
@@ -467,8 +453,7 @@ Column {
                 label: "单声道"
                 tip: "左右声道叠加后同时输出"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.mono : false
                     onToggled: {
@@ -483,8 +468,7 @@ Column {
                 tip: "左右对调，用于修正接反的音箱"
                 width: panel.controlWidth
                 bottomLine: false
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.swapChannels : false
                     onToggled: {
@@ -513,8 +497,7 @@ Column {
                 label: "ReplayGain"
                 tip: "按标签增益归一化音量：关闭 / 单曲 / 专辑"
                 width: panel.controlWidth
-                controlItem: QDrop {
-                    anchors.fill: parent
+                QDrop {
                     choice: panel.engine ? panel.engine.replayGainMode : 0
                     model: ["关闭", "单曲", "专辑"]
                     onTransformed: (choiced) => {
@@ -528,8 +511,7 @@ Column {
                 label: "ReplayGain 前级"
                 tip: "在标签增益基础上再整体增减"
                 width: panel.controlWidth
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -12
                     to: 12
                     stepSize: 0.5
@@ -547,8 +529,7 @@ Column {
                 label: "削波保护"
                 tip: "按曲目峰值限制增益上限"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.replayGainPreventClip : true
                     onToggled: {
@@ -562,8 +543,7 @@ Column {
                 label: "限幅器"
                 tip: "输出前的峰值保护，防止数字削波"
                 width: panel.controlWidth
-                controlItem: QSwitch {
-                    anchors.fill: parent
+                QSwitch {
                     letRight: true
                     switchTrue: panel.engine ? panel.engine.limiterEnabled : false
                     onToggled: {
@@ -578,8 +558,7 @@ Column {
                 tip: "低于 0 dB 更安全，代价是整体响度略降"
                 width: panel.controlWidth
                 bottomLine: false
-                controlItem: QSlider {
-                    anchors.fill: parent
+                QSlider {
                     from: -12
                     to: 0
                     stepSize: 0.5

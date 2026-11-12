@@ -81,7 +81,8 @@ public:
     set(bool, muted, false) \
     set(int, cycleIndex, 0) \
     set(bool, logEnabled, true) \
-    set(int, logLevel, 1)
+    set(int, logLevel, 1) \
+    set(bool, isFirst, true)
 
 #define QUE_MUSIC_OPTION(TYPE, NAME, DEFAULT) \
     Q_PROPERTY(TYPE NAME READ NAME WRITE set_##NAME NOTIFY NAME##Changed FINAL) \

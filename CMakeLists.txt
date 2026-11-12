@@ -108,7 +108,6 @@ set_source_files_properties(
     components/ShortCut.qml
     components/Options.qml
     components/Desktop.qml
-    components/PluginSlots.qml
     components/Fonts.qml
     lyricsui/LyricsFreeConfig.qml
     lyricsui/Lyrics3DConfig.qml
@@ -198,6 +197,8 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         widgets/AppSettings.h
         widgets/Config.cpp
         widgets/Config.h
+        widgets/AppFont.cpp
+        widgets/AppFont.h
         widgets/Style.cpp
         widgets/Style.h
         cpp/LocalLyricsReader.cpp
@@ -225,10 +226,6 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/webdav/WebDavStore.h
         cpp/plugins/PluginStore.cpp
         cpp/plugins/PluginStore.h
-        cpp/plugins/LyricsPluginStore.cpp
-        cpp/plugins/LyricsPluginStore.h
-        cpp/plugins/FunctionPluginStore.cpp
-        cpp/plugins/FunctionPluginStore.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
         widgets/WindowsSmtcManager.cpp
