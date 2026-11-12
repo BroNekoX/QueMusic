@@ -32,7 +32,7 @@ import struct
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCES = ROOT / "resources"
@@ -84,11 +84,9 @@ def _flatten(im: Image.Image, bg: tuple[int, int, int] = (128, 128, 128)) -> Ima
 
 
 def _mean_diff(a: Image.Image, b: Image.Image) -> float:
-    import numpy as np
-
-    x = np.asarray(_flatten(a), dtype=np.int16)
-    y = np.asarray(_flatten(b), dtype=np.int16)
-    return float(np.abs(x - y).mean())
+    diff = ImageChops.difference(_flatten(a), _flatten(b))
+    means = ImageStat.Stat(diff).mean
+    return float(sum(means) / len(means))
 
 
 # --------------------------------------------------------------------------
