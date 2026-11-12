@@ -4,7 +4,10 @@
 #include "WindowsSmtcManager.h"
 
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 #include <QMetaObject>
+#include <QUrl>
 #include <QWindow>
 
 // SMTC 互操作走直连 WinRT ABI（不使用 WRL），因此 MSVC 与 MinGW-w64 都可编译。
@@ -112,7 +115,9 @@ struct IRandomAccessStreamWithContentType;
 struct IWwwFormUrlDecoderRuntimeClass;
 struct IVideoDisplayProperties;
 struct IImageDisplayProperties;
-struct IStorageFile;
+struct IStorageFile : IInspectable {};
+struct IStorageFileAsyncOperation;
+struct IAsyncInfo;
 
 // 事件处理器模板：WinRT 委托只有 IUnknown + Invoke
 template <typename TSender, typename TArgs>
@@ -142,6 +147,10 @@ static const GUID IID_ITypedEventHandler_PlaybackPosition = { 0x44e34f15, 0xbdc0
 static const GUID IID_IRandomAccessStreamReference = { 0x33ee3134, 0x1dd6, 0x4e3a, { 0x80, 0x67, 0xd1, 0xc1, 0x62, 0xe8, 0x64, 0x2b } };
 // Windows.Storage.Streams.IRandomAccessStreamReferenceStatics
 static const GUID IID_IRandomAccessStreamReferenceStatics = { 0x857309dc, 0x3fbf, 0x4e7d, { 0x98, 0x6f, 0xef, 0x3b, 0x1a, 0x07, 0xa9, 0x64 } };
+// Windows.Foundation.IAsyncInfo
+static const GUID IID_IAsyncInfo = { 0x00000036, 0x0000, 0x0000, { 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46 } };
+// Windows.Storage.IStorageFileStatics
+static const GUID IID_IStorageFileStatics = { 0x5984c710, 0xdaf2, 0x43c8, { 0x8b, 0xb4, 0xa4, 0xd3, 0xea, 0xcf, 0xd0, 0x3f } };
 // Windows.Foundation.IUriRuntimeClass
 static const GUID IID_IUriRuntimeClass = { 0x9e365e57, 0x48b2, 0x4160, { 0x95, 0x6f, 0xc7, 0x38, 0x51, 0x20, 0xbb, 0xfc } };
 // Windows.Foundation.IUriRuntimeClassFactory
@@ -359,6 +368,35 @@ struct IRandomAccessStreamReferenceStatics : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE CreateFromStream(IRandomAccessStream *stream, IRandomAccessStreamReference **value) = 0;
 };
 
+enum AsyncStatus {
+    AsyncStatus_Started = 0,
+    AsyncStatus_Completed = 1,
+    AsyncStatus_Canceled = 2,
+    AsyncStatus_Error = 3
+};
+
+// Windows.Foundation.IAsyncOperation<Windows.Storage.StorageFile>
+struct IStorageFileAsyncOperation : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE put_Completed(IUnknown *handler) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Completed(IUnknown **handler) = 0;
+    virtual HRESULT STDMETHODCALLTYPE GetResults(IStorageFile **results) = 0;
+};
+
+// Windows.Foundation.IAsyncInfo，用于轮询异步操作状态
+struct IAsyncInfo : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE get_Id(UINT32 *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Status(AsyncStatus *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_ErrorCode(HRESULT *value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE Cancel() = 0;
+    virtual HRESULT STDMETHODCALLTYPE Close() = 0;
+};
+
+// Windows.Storage.IStorageFileStatics，只用到 GetFileFromPathAsync
+struct IStorageFileStatics : IInspectable {
+    virtual HRESULT STDMETHODCALLTYPE GetFileFromPathAsync(
+        HSTRING path, IStorageFileAsyncOperation **operation) = 0;
+};
+
 struct IMusicDisplayProperties : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE get_Title(HSTRING *value) = 0;
     virtual HRESULT STDMETHODCALLTYPE put_Title(HSTRING value) = 0;
@@ -476,6 +514,79 @@ public:
 };
 
 // 把封面 URL（http/https/file）转成 RandomAccessStreamReference，供 DisplayUpdater.Thumbnail 使用
+static ComPtr<IRandomAccessStreamReference> createThumbnailFromFile(
+    const QString &path, IRandomAccessStreamReferenceStatics *streamStatics)
+{
+    ComPtr<IRandomAccessStreamReference> result;
+    if (path.isEmpty() || !streamStatics)
+        return result;
+
+    HStringReference fileClassId(L"Windows.Storage.StorageFile");
+    if (!fileClassId.isValid())
+        return result;
+
+    ComPtr<IStorageFileStatics> fileStatics;
+    HRESULT hr = RoGetActivationFactory(fileClassId.get(), IID_IStorageFileStatics,
+                                        reinterpret_cast<void **>(fileStatics.put()));
+    if (FAILED(hr) || !fileStatics) {
+        qWarning() << "[SMTC] 获取 StorageFile 工厂失败:" << Qt::hex << hr;
+        return result;
+    }
+
+    HString hPath = HString::make(reinterpret_cast<PCWSTR>(path.utf16()),
+                                  UINT32(path.size()));
+    if (!hPath.isValid())
+        return result;
+
+    ComPtr<IStorageFileAsyncOperation> operation;
+    hr = fileStatics->GetFileFromPathAsync(hPath.get(), operation.put());
+    if (FAILED(hr) || !operation) {
+        qWarning() << "[SMTC] 打开本地封面失败:" << Qt::hex << hr;
+        return result;
+    }
+
+    ComPtr<IAsyncInfo> asyncInfo;
+    hr = operation->QueryInterface(IID_IAsyncInfo,
+                                   reinterpret_cast<void **>(asyncInfo.put()));
+    if (FAILED(hr) || !asyncInfo) {
+        qWarning() << "[SMTC] 获取 IAsyncInfo 失败:" << Qt::hex << hr;
+        return result;
+    }
+
+    AsyncStatus status = AsyncStatus_Started;
+    const ULONGLONG deadline = GetTickCount64() + 2000;
+    while (GetTickCount64() < deadline) {
+        hr = asyncInfo->get_Status(&status);
+        if (FAILED(hr) || status != AsyncStatus_Started)
+            break;
+        Sleep(1);
+    }
+
+    if (status != AsyncStatus_Completed) {
+        asyncInfo->Cancel();
+        HRESULT error = S_OK;
+        asyncInfo->get_ErrorCode(&error);
+        qWarning() << "[SMTC] 本地封面读取未完成，status:" << int(status)
+                   << "error:" << Qt::hex << error;
+        return result;
+    }
+
+    ComPtr<IStorageFile> file;
+    hr = operation->GetResults(file.put());
+    asyncInfo->Close();
+    if (FAILED(hr) || !file) {
+        qWarning() << "[SMTC] 获取 StorageFile 失败:" << Qt::hex << hr;
+        return result;
+    }
+
+    hr = streamStatics->CreateFromFile(file.get(), result.put());
+    if (FAILED(hr) || !result) {
+        qWarning() << "[SMTC] 从本地文件创建缩略图失败:" << Qt::hex << hr;
+        result.reset();
+    }
+    return result;
+}
+
 static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString &url)
 {
     ComPtr<IRandomAccessStreamReference> result;
@@ -487,10 +598,30 @@ static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString
         return result;
 
     // 只处理 SMTC 能读取的 scheme；qrc:/ 等 Qt 内部 scheme 会导致失败
-    const QString scheme = trimmed.section(QStringLiteral("://"), 0, 0).toLower();
+    const QUrl uriValue(trimmed);
+    const QString scheme = uriValue.scheme().toLower();
     if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")
         && scheme != QStringLiteral("file")) {
         return result;
+    }
+
+    HStringReference streamRefClassId(L"Windows.Storage.Streams.RandomAccessStreamReference");
+    if (!streamRefClassId.isValid())
+        return result;
+
+    ComPtr<IRandomAccessStreamReferenceStatics> statics;
+    HRESULT hr = RoGetActivationFactory(streamRefClassId.get(),
+                                        IID_IRandomAccessStreamReferenceStatics,
+                                        reinterpret_cast<void **>(statics.put()));
+    if (FAILED(hr) || !statics)
+        return result;
+
+    if (scheme == QStringLiteral("file")) {
+        const QString localPath = uriValue.toLocalFile();
+        if (localPath.isEmpty() || !QFileInfo(localPath).isFile())
+            return result;
+        // GetFileFromPathAsync 在 Windows 上拒绝正斜杠路径。
+        return createThumbnailFromFile(QDir::toNativeSeparators(localPath), statics.get());
     }
 
     HStringReference uriClassId(L"Windows.Foundation.Uri");
@@ -498,8 +629,8 @@ static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString
         return result;
 
     ComPtr<IUriRuntimeClassFactory> uriFactory;
-    HRESULT hr = RoGetActivationFactory(uriClassId.get(), IID_IUriRuntimeClassFactory,
-                                        reinterpret_cast<void **>(uriFactory.put()));
+    hr = RoGetActivationFactory(uriClassId.get(), IID_IUriRuntimeClassFactory,
+                                reinterpret_cast<void **>(uriFactory.put()));
     if (FAILED(hr) || !uriFactory)
         return result;
 
@@ -511,16 +642,6 @@ static ComPtr<IRandomAccessStreamReference> createThumbnailFromUrl(const QString
     ComPtr<IUriRuntimeClass> uri;
     hr = uriFactory->CreateUri(hUri.get(), uri.put());
     if (FAILED(hr) || !uri)
-        return result;
-
-    HStringReference streamRefClassId(L"Windows.Storage.Streams.RandomAccessStreamReference");
-    if (!streamRefClassId.isValid())
-        return result;
-
-    ComPtr<IRandomAccessStreamReferenceStatics> statics;
-    hr = RoGetActivationFactory(streamRefClassId.get(), IID_IRandomAccessStreamReferenceStatics,
-                                reinterpret_cast<void **>(statics.put()));
-    if (FAILED(hr) || !statics)
         return result;
 
     hr = statics->CreateFromUri(uri.get(), result.put());
@@ -748,12 +869,13 @@ void WindowsSmtcManager::Private::updateMediaInfo(const QString &title,
         }
     }
 
-    // 无封面时传空引用，清除上一首残留的缩略图
+    // 封面不可用时也必须传空引用，否则 SMTC 会保留上一首的缩略图。
+    SmtcAbi::ComPtr<SmtcAbi::IRandomAccessStreamReference> thumbnail;
     if (!cover.isEmpty()) {
-        SmtcAbi::ComPtr<SmtcAbi::IRandomAccessStreamReference> thumb =
-            SmtcAbi::createThumbnailFromUrl(cover);
-        if (thumb)
-            displayUpdater->put_Thumbnail(thumb.get());
+        thumbnail = SmtcAbi::createThumbnailFromUrl(cover);
+    }
+    if (thumbnail) {
+        displayUpdater->put_Thumbnail(thumbnail.get());
     } else {
         displayUpdater->put_Thumbnail(nullptr);
     }
