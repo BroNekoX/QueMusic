@@ -5,7 +5,32 @@
 #include "audio/AudioEngine.h"
 #include "playback/Playback.h"
 
+#include <QFileInfo>
 #include <QTimer>
+#include <QUrl>
+
+namespace {
+
+QString normalizedSmtcCover(const QString &cover)
+{
+    const QString trimmed = cover.trimmed();
+    if (trimmed.isEmpty())
+        return {};
+
+    const QUrl url(trimmed);
+    const QString scheme = url.scheme().toLower();
+    if (scheme == QStringLiteral("file") || scheme == QStringLiteral("http")
+            || scheme == QStringLiteral("https")) {
+        return trimmed;
+    }
+
+    // JSON 边车也可能直接保存本地路径。
+    const QFileInfo localFile(trimmed);
+    return localFile.isFile() ? QUrl::fromLocalFile(localFile.absoluteFilePath()).toString()
+                              : QString();
+}
+
+} // namespace
 
 SmtcBridge::SmtcBridge(QObject *parent)
     : QObject(parent)
@@ -44,6 +69,7 @@ SmtcBridge::SmtcBridge(QObject *parent)
     });
     connect(player, &AudioEngine::durationChanged, this, &SmtcBridge::push);
     connect(player, &AudioEngine::metaDataChanged, this, &SmtcBridge::pushInfo);
+    connect(player, &AudioEngine::urlStrChanged, this, &SmtcBridge::pushInfo);
     connect(player, &AudioEngine::playbackStateChanged, this, &SmtcBridge::push);
     connect(player, &AudioEngine::positionChanged, this, &SmtcBridge::pushTimeline);
 
@@ -122,7 +148,8 @@ void SmtcBridge::pushInfo()
             mediaId = item.value(QStringLiteral("path")).toString();
         }
         m_manager->updateMediaInfo(playback->musicTitle(), playback->musicArtist(),
-                                   player->albumTitle(), player->urlStr(), mediaId);
+                                   player->albumTitle(),
+                                   normalizedSmtcCover(player->urlStr()), mediaId);
     });
 }
 
