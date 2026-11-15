@@ -3,8 +3,8 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QueMusic 1.0
 import QtQuick.Effects
+import QueMusic 1.0
 
 Item {
     id: root
@@ -27,9 +27,10 @@ Item {
 
     width: 244
     height: 40
+    property real grabScale: 0.5
 
-    readonly property int _texW: Math.max(2, Math.round(root.width  * Screen.devicePixelRatio))
-    readonly property int _texH: Math.max(2, Math.round(root.height * Screen.devicePixelRatio))
+    readonly property int _texW: Math.max(2, Math.round(root.width  * Screen.devicePixelRatio * root.grabScale))
+    readonly property int _texH: Math.max(2, Math.round(root.height * Screen.devicePixelRatio * root.grabScale))
 
     ShaderEffectSource {
         id: effectSource
@@ -60,7 +61,7 @@ Item {
 
         property var src: effectSource
         property real blur: root.blurAmount
-        property real blurMax: root.blurMax
+        property real blurMax: root.blurMax * root.grabScale
         property real saturation: 1.2
         property real corner: root.borderRadius
         property vector2d cardSize: Qt.vector2d(root.width, root.height)

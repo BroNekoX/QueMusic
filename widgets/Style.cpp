@@ -4,6 +4,9 @@
 
 #include <QQmlEngine>
 #include <QMetaType>
+#include <QCursor>
+#include <QQuickItem>
+#include <QQuickWindow>
 
 Style *Style::instance()
 {
@@ -18,6 +21,18 @@ Style *Style::instance()
 Style *Style::create(QQmlEngine *, QJSEngine *)
 {
     return instance();
+}
+
+QPointF Style::cursorPos(QObject *item) const
+{
+    const QPoint global = QCursor::pos();
+    if (auto *quickItem = qobject_cast<QQuickItem *>(item)) {
+        if (QQuickWindow *window = quickItem->window())
+            return quickItem->mapFromScene(window->mapFromGlobal(global));
+    }
+    if (auto *window = qobject_cast<QQuickWindow *>(item))
+        return window->mapFromGlobal(global);
+    return QPointF(global);
 }
 
 QList<QColor> Style::defaultColorList()

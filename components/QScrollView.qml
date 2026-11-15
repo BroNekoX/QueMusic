@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
+import QueMusic 1.0
 
 Flickable {
     id: view
@@ -15,7 +15,7 @@ Flickable {
 
     clip: true
 
-    ScrollBar.vertical: ScrollBar {
+    QScrollBar.vertical: QScrollBar {
         id: viewBar
         anchors.right: view.right
         anchors.rightMargin: 10
@@ -28,7 +28,7 @@ Flickable {
 
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Theme.wheelStep
         onWheel: (event) => {
             viewAnime.running = false;
             view.scrollToY = Math.max(0, Math.min( view.scrollToY - (event.angleDelta.y * wheelHeightCount), view.contentHeight - view.height));

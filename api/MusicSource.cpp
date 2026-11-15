@@ -33,6 +33,8 @@ void MusicSource::request(int sourceId, const QString &action, const QVariantMap
         onHotPlaylistMenu(argInt(ApiArg::Type));
     else if (action == ApiAction::HotPlaylists)
         onHotPlaylists(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
+    else if (action == ApiAction::RecommendPlaylists)
+        onRecommendPlaylists(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
     else if (action == ApiAction::NewSongs)
         onNewSongs(argInt(ApiArg::Type), argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
     else if (action == ApiAction::AllToplist)
@@ -55,6 +57,12 @@ void MusicSource::request(int sourceId, const QString &action, const QVariantMap
         onPersonalFm(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
     else if (action == ApiAction::PersonalRadar)
         onPersonalRadar(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
+    else if (action == ApiAction::UserPlaylists)
+        onUserPlaylists(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
+    else if (action == ApiAction::UserFavoriteSongs)
+        onUserFavoriteSongs(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
+    else if (action == ApiAction::FollowedArtists)
+        onFollowedArtists(argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
     else
         deliverError(action, m_sourceId, -1, "unsupported action");
 }

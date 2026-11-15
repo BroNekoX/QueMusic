@@ -2,22 +2,83 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 pragma ComponentBehavior: Bound
+// 自绘菜单：基于 Templates 的 Popup，条目用 Column+Repeater 自己排。
 import QtQuick
-import QueMusic 1.0
 import QtQuick.Effects
-import QtQuick.Controls.Basic
-Menu {
+import QueMusic 1.0
+import QtQuick.Templates
+
+Popup {
     id: dialog
     property int current: -1
-    title: "Menu"
-    parent: Overlay.overlay
     property list<string> model: []
+    property int index: -1                                  // 触发它的行号（调用方设置）
+    readonly property int displayIndex: visible ? index : -1
     signal clicked(int index)
 
+    // 弹到鼠标位置；popup(x, y) 则用给定坐标，越界时贴边。
+    function popup(x, y: int): void {
+        let px = x
+        let py = y
+        if (arguments.length < 2) {
+            const p = Style.cursorPos(Overlay.overlay)
+            px = p.x
+            py = p.y
+        }
+        if (Overlay.overlay) {
+            px = Math.max(0, Math.min(px, Overlay.overlay.width - dialog.width))
+            py = Math.max(0, Math.min(py, Overlay.overlay.height - dialog.height))
+        }
+        dialog.x = px
+        dialog.y = py
+        dialog.open()
+    }
+
+    padding: 2
+
+    parent: Overlay.overlay
+
+    implicitWidth: 160
+    height: menuColumn.height + 4
+
+    contentItem: Column {
+        id: menuColumn
+        height: implicitHeight
+        Repeater {
+            model: dialog.model
+            delegate: Rectangle {
+                id: menuItem
+                implicitWidth: dialog.width - 4
+                implicitHeight: 36
+                radius: Style.labelRadius - 2
+                color: menuItem.index === dialog.current ? Theme.containColor : hoverHandler.hovered ? Theme.hoverColor : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                required property string modelData
+                required property int index
+                HoverHandler {
+                    id: hoverHandler
+                }
+                TapHandler {
+                    onTapped: {
+                        dialog.clicked(menuItem.index);
+                        dialog.close();
+                    }
+                }
+                Text {
+                    text: menuItem.modelData
+                    color: menuItem.index === dialog.current ? Theme.themeColor : Theme.fontColor
+                    font.pixelSize: Style.textmain
+                    anchors.verticalCenter: parent.verticalCenter
+                    leftPadding: 12
+                    elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
+                }
+            }
+        }
+    }
 
     background: Rectangle {
-        implicitWidth: 160
-        implicitHeight: 40
+        implicitWidth: 148
+        height: dialog.height
         color: Theme.primaryColor
         radius: Style.labelRadius
         RectangularShadow {
@@ -31,40 +92,6 @@ Menu {
             color: Theme.shadowColor
         }
     }
-
-    Instantiator {
-        model: dialog.model
-        delegate: MenuItem {
-            id: menuItem
-            required property string modelData
-            required property int index
-            background: Rectangle {
-                implicitWidth: 146
-                implicitHeight: 36
-                x: 2
-                y: 2
-                radius: Style.labelRadius - 2
-                width: menuItem.width - 4
-                height: menuItem.height - 4
-                color: menuItem.index === dialog.current ? Theme.containColor : menuItem.hovered ? Theme.hoverColor : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
-            }
-            text: modelData
-            //显式指定contentItem，
-            contentItem: Text {
-                text: menuItem.text
-                color: menuItem.index === dialog.current ? Theme.themeColor : Theme.fontColor
-                font.pixelSize: Style.textmain
-                verticalAlignment: Text.AlignVCenter
-                leftPadding: 12
-                elide: Text.ElideRight//保证超长歌手名不会撑破菜单项
-            }
-            onTriggered: dialog.clicked(menuItem.index)
-        }
-        onObjectAdded: (i, obj) => dialog.insertItem(i, obj)
-        onObjectRemoved: (i, obj) => dialog.removeItem(obj)
-    }
-
 
     enter: Transition {
         NumberAnimation { property: "opacity"; duration: 160; from: 0; to: 1 }

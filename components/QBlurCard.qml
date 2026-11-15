@@ -3,8 +3,8 @@
 //
 // 卡片实时背景模糊：抓取指定区域，单 frag 完成模糊 + 饱和度 + 圆角喵~
 import QtQuick
-import QueMusic 1.0
 import QtQuick.Effects
+import QueMusic 1.0
 
 Item {
     id: root

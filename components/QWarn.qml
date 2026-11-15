@@ -2,15 +2,16 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
-import QueMusic 1.0
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 import QtQuick.Effects
+import QueMusic 1.0
+
     // 毛玻璃对话框主体
 Popup {
     id: dialog
+    parent: Overlay.overlay
     property alias title: title.text
     property int type: 0  // 0.warn 1.success 2.error
-    parent: Overlay.overlay
     x: parent.width / 2 - width / 2
     horizontalPadding: 12
     verticalPadding: 8

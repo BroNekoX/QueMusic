@@ -3,7 +3,7 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+
 import QueMusic 1.0
 
 Item {
@@ -176,7 +176,7 @@ Item {
                 clip: true
                 spacing: 4
                 reuseItems: true
-                ScrollBar.vertical: ScrollBar {
+                QScrollBar.vertical: QScrollBar {
                     parent: activeList
                     anchors.top: activeList.top
                     anchors.right: activeList.right

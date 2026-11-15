@@ -5,6 +5,7 @@
 
 #include "ApiCommon.h"
 #include "ApiHttp.h"
+#include "LyricsFallback.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -285,6 +286,17 @@ void SpotifyApi::onHotPlaylists(int page, int pageSize)
     search("Top 50", 1, page, pageSize, ApiAction::HotPlaylists);
 }
 
+void SpotifyApi::onRecommendPlaylists(int page, int pageSize)
+{
+    static const QStringList kKeywords{
+        QStringLiteral("华语"), QStringLiteral("欧美"), QStringLiteral("流行"),
+        QStringLiteral("民谣"), QStringLiteral("摇滚"), QStringLiteral("电音"),
+        QStringLiteral("古风"), QStringLiteral("爵士")};
+    if (page <= 1)
+        m_recommendKeyword = kKeywords.at(QRandomGenerator::global()->bounded(int(kKeywords.size())));
+    search(m_recommendKeyword, 1, page, pageSize, ApiAction::RecommendPlaylists);
+}
+
 void SpotifyApi::onNewSongs(int, int page, int pageSize)
 {
     search(QString("year:%1").arg(QDate::currentDate().year()), 0, page, pageSize, ApiAction::NewSongs);
@@ -378,11 +390,80 @@ void SpotifyApi::onMusicInfo(const QString &hash, int type)
     });
 }
 
-void SpotifyApi::onLyricInfo(const QString &hash, int)
+void SpotifyApi::onLyricInfo(const QString &hash, int duration)
 {
-    emit resultReady(ApiAction::LyricInfo,
-                     QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", hash}},
-                     Source);
+    const QString id = hash.trimmed();
+    if (id.isEmpty()) {
+        emit resultReady(ApiAction::LyricInfo,
+                         QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", hash}},
+                         Source);
+        return;
+    }
+
+    get(QStringLiteral("/v1/tracks/") + id, {},
+        [this, id, duration](const QJsonObject &json) {
+            const QString title = json.value("name").toString();
+            const QJsonArray artists = json.value("artists").toArray();
+            const QString artist = artists.isEmpty() ? QString()
+                                                     : artists.first().toObject().value("name").toString();
+            const int seconds = json.value("duration_ms").toInt() / 1000;
+            if (title.isEmpty()) {
+                emit resultReady(ApiAction::LyricInfo,
+                                 QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", id}},
+                                 Source);
+                return;
+            }
+            LyricsFallback::fetch(m_nam, this, artist, title, seconds > 0 ? seconds : duration,
+                                  [this, id](const QVariantList &lyrics) {
+                                      emit resultReady(ApiAction::LyricInfo,
+                                                       QVariantMap{{"info", lyrics}, {"translate", QVariantList{}}, {"hash", id}},
+                                                       Source);
+                                  });
+        });
+}
+
+void SpotifyApi::onUserPlaylists(int page, int pageSize)
+{
+    get("/me/playlists", pageQuery(page, pageSize), [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &value : json.value("items").toArray()) {
+            const QJsonObject playlist = value.toObject();
+            info << ApiCommon::song(playlist.value("name").toString(),
+                                    playlist.value("owner").toObject().value("display_name").toString(),
+                                    imageOf(playlist), playlist.value("id").toString(),
+                                    playlist.value("tracks").toObject().value("total").toInt());
+        }
+        emit resultReady(ApiAction::UserPlaylists, ApiCommon::listResult(info, json), Source);
+    });
+}
+
+void SpotifyApi::onUserFavoriteSongs(int page, int pageSize)
+{
+    get("/me/tracks", pageQuery(page, pageSize), [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &value : json.value("items").toArray()) {
+            const QVariantMap item = track(value.toObject().value("track").toObject());
+            if (!item.isEmpty())
+                info << item;
+        }
+        emit resultReady(ApiAction::UserFavoriteSongs, ApiCommon::listResult(info, json), Source);
+    });
+}
+
+void SpotifyApi::onFollowedArtists(int page, int pageSize)
+{
+    QUrlQuery query = pageQuery(page, pageSize);
+    query.addQueryItem("type", "artist");
+    get("/me/following", query, [this](const QJsonObject &json) {
+        QVariantList info;
+        const QJsonArray artists = json.value("artists").toObject().value("items").toArray();
+        for (const QJsonValue &value : artists) {
+            const QJsonObject artist = value.toObject();
+            info << ApiCommon::song(artist.value("name").toString(), QString(),
+                                    imageOf(artist), artist.value("id").toString());
+        }
+        emit resultReady(ApiAction::FollowedArtists, ApiCommon::listResult(info, json), Source);
+    });
 }
 
 void SpotifyApi::onComments(const QString &, int, int)

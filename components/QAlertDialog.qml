@@ -2,11 +2,16 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
+
     // 毛玻璃对话框主体
 Popup {
     id: dialog
+    parent: Overlay.overlay
+    Overlay.modal: Rectangle {
+        color: "#50000000"
+    }
     property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
     property alias title: titleText.text
@@ -15,10 +20,8 @@ Popup {
     property string cancelText: "取消"
     property string confirmText: "确定"
     property bool isInput: false
-    property bool dismissOnOverlay: true
     signal confirm()
     signal cancel()
-    parent: Overlay.overlay
     anchors.centerIn: parent
     modal: true
     focus: true

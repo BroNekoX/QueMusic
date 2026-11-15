@@ -2,8 +2,9 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
+
 Popup {
     id: dialog
     property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
@@ -16,7 +17,6 @@ Popup {
     property string cancelIcon: "\uf10f"
     property string confirmText: "完成"
     property bool isInput: false
-    property bool dismissOnOverlay: true
     property color cardColor: Theme.primaryBlurColor
     // false 时 cancel 只发信号、不关闭：调用方把左下按钮当确认按钮用时
     // （例如网易云手机号登录，失败提示要留在弹窗里）
@@ -24,14 +24,17 @@ Popup {
     property int headerHeight: 20
     signal confirm()
     signal cancel()
-    parent: Overlay.overlay
     anchors.centerIn: parent
+    parent: Overlay.overlay
     modal: true
     focus: true
     width: 480
     height: contentCol.implicitHeight + 40
     function goTop(): void {
         dialogContent.contentY = 0;
+    }
+    Overlay.modal: Rectangle {
+        color: "#50000000"
     }
 
     Connections {
@@ -77,7 +80,7 @@ Popup {
             boundsBehavior: Flickable.StopAtBounds
             clip: true
             synchronousDrag: true
-            ScrollBar.vertical: ScrollBar {
+            QScrollBar.vertical: QScrollBar {
                 anchors.right: dialogContent.right
                 anchors.top: dialogContent.top
                 anchors.bottom: dialogContent.bottom

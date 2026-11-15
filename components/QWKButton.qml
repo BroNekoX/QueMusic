@@ -3,7 +3,7 @@
 
 import QtQuick
 import QueMusic 1.0
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 
 Button {
     id: root

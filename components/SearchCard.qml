@@ -3,14 +3,15 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
+
     // 毛玻璃对话框主体
 Popup {
     id: dialog
+    parent: Overlay.overlay
     property Item blurSource: Options.mainLayout // 使用父内容作为模糊源
     property rect rectXy: Qt.rect(dialog.x, dialog.y, dialog.width, dialog.height)
-    parent: Overlay.overlay
     x: 226
     y: 64
     z: 3

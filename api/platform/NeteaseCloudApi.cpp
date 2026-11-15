@@ -187,6 +187,19 @@ QVariantList parsePlaylists(const QVariantList &playlists)
     return info;
 }
 
+QVariantList parseArtists(const QVariantList &artists)
+{
+    QVariantList info;
+    info.reserve(artists.size());
+    for (const QVariant &value : artists) {
+        const QVariantMap artist = value.toMap();
+        info.append(ApiCommon::song(artist.value("name").toString(), QString(),
+                                    artist.value("picUrl").toString(),
+                                    songId(artist.value("id"))));
+    }
+    return info;
+}
+
 }
 
 class CloudWorker : public QObject
@@ -209,11 +222,39 @@ public slots:
             return result;
         };
 
-        const QVariantMap raw = invoke(member, arg);
+        QVariantMap callArg = arg;
+        if (action == QLatin1String("getUserPlaylists") || action == QLatin1String("getUserFavorites")) {
+            if (callArg.value("uid").toString().isEmpty()) {
+                if (m_uid <= 0) {
+                    const QVariantMap status = invoke("login_status", {});
+                    m_uid = status.value("body").toMap().value("profile").toMap()
+                                .value("userId").toLongLong();
+                }
+                callArg.insert("uid", QString::number(m_uid));
+            }
+        }
+
+        const QVariantMap raw = invoke(member, callArg);
         const bool transportFailed = raw.value("status").toInt() >= 500;
         QVariantMap effective = raw;
         if (transportFailed)
             effective.insert("error", raw.value("status"));
+
+        if (action == QLatin1String("getUserFavorites") && !transportFailed) {
+            const QVariantList ids = raw.value("body").toMap().value("ids").toList();
+            const int offset = qMax(0, callArg.value("offset").toInt());
+            const int limit = qMax(1, callArg.value("limit").toInt());
+            QStringList wanted;
+            for (int i = offset; i < ids.size() && wanted.size() < limit; ++i)
+                wanted << QString::number(ids.at(i).toLongLong());
+            QVariantList songs;
+            if (!wanted.isEmpty())
+                songs = invoke("song_detail", {{"ids", wanted.join(QLatin1Char(','))}})
+                            .value("body").toMap().value("songs").toList();
+            QVariantMap body = effective.value("body").toMap();
+            body.insert("songs", songs);
+            effective.insert("body", body);
+        }
 
         if (action == QLatin1String("getMusicInfo")) {
             static const char *kLevels[] = {"standard", "exhigh", "lossless", "hires"};
@@ -251,7 +292,7 @@ public slots:
         emit result(action, mapResult(action, effective, call), kSource);
     }
 
-    void setCookie(const QString &cookie) { helper()->set_cookie(cookie); }
+    void setCookie(const QString &cookie) { helper()->set_cookie(cookie); m_uid = 0; }
 
 signals:
     void result(const QString &action, const QVariant &data, int source);
@@ -319,7 +360,8 @@ private:
                                         {"category", categories.value(sub.value("category").toString()).toString()}});
             }
         } else if (action == QLatin1String("getMusicPlaylists")
-                   || action == QLatin1String("getHotPlaylists")) {
+                   || action == QLatin1String("getHotPlaylists")
+                   || action == QLatin1String("getRecommendPlaylists")) {
             info = parsePlaylists(data.value("playlists").toList());
         } else if (action == QLatin1String("getPlaylistSongs")
                    || action == QLatin1String("getMusicToplist")
@@ -429,6 +471,12 @@ private:
             QVariantMap detail{{"info", lyrics}, {"translate", translate}, {"hash", call.value("arg").toMap().value("id").toString()}};
             if (transportFailed) detail.insert("error", transportError);
             return detail;
+        } else if (action == QLatin1String("getUserPlaylists")) {
+            info = parsePlaylists(data.value("playlist").toList());
+        } else if (action == QLatin1String("getUserFavorites")) {
+            info = parseSongList(data.value("songs").toList());
+        } else if (action == QLatin1String("getFollowedArtists")) {
+            info = parseArtists(data.value("data").toList());
         } else {
             qWarning() << "[NeteaseCloudApi] 未知 action:" << action;
         }
@@ -440,6 +488,7 @@ private:
     }
 
     ApiHelper *m_api = nullptr;
+    qint64 m_uid = 0;
 };
 
 NeteaseCloudApi::NeteaseCloudApi(QObject *parent)
@@ -557,6 +606,24 @@ void NeteaseCloudApi::onMusicPlaylists(const QString &tagid, int page, int pageS
              {"limit", pageSize}});
 }
 
+void NeteaseCloudApi::onUserPlaylists(int page, int pageSize)
+{
+    enqueue(ApiAction::UserPlaylists, "user_playlist",
+            {{"limit", pageSize}, {"offset", (page - 1) * pageSize}});
+}
+
+void NeteaseCloudApi::onUserFavoriteSongs(int page, int pageSize)
+{
+    enqueue(ApiAction::UserFavoriteSongs, "likelist",
+            {{"limit", pageSize}, {"offset", (page - 1) * pageSize}});
+}
+
+void NeteaseCloudApi::onFollowedArtists(int page, int pageSize)
+{
+    enqueue(ApiAction::FollowedArtists, "artist_sublist",
+            {{"limit", pageSize}, {"offset", (page - 1) * pageSize}});
+}
+
 void NeteaseCloudApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
     enqueue("getPlaylistSongs", "playlist_track_all",
@@ -584,6 +651,17 @@ void NeteaseCloudApi::onHotPlaylists(int page, int pageSize)
             {{"cat", QStringLiteral("全部")},
              {"order", "hot"},
              {"offset", (page - 1) * pageSize},
+             {"limit", pageSize}});
+}
+
+void NeteaseCloudApi::onRecommendPlaylists(int page, int pageSize)
+{
+    if (page <= 1)
+        m_recommendOffset = QRandomGenerator::global()->bounded(0, 24) * qMax(pageSize, 1);
+    enqueue("getRecommendPlaylists", "top_playlist",
+            {{"cat", QStringLiteral("全部")},
+             {"order", "hot"},
+             {"offset", m_recommendOffset + (qMax(page, 1) - 1) * pageSize},
              {"limit", pageSize}});
 }
 

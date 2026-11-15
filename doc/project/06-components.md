@@ -28,6 +28,8 @@
 | PlayerOptions.qml | QOptionDialog | — | 播放器选项：倍速/音质/输出设备/AB/睡眠/淡变/跳转步长 | 只读：`player`, `rates`, `seekSteps`；`onCancel` 打开 `optionsEQ`（EqualizerPanel） |
 | PlayList.qml | Popup | — | 播放列表面板（定位当前行/清空/逐行菜单） | `model`(alias), `filter`, `scrollToY`, `scrollMultiplier`；方法：`locateCurrent()`；`delegate: required index, name, songer, path, source` |
 | PlayListWindow.qml | Item | — | 歌单详情子窗口（封面信息 + 曲目列表 + 收藏） | `id`, `cover`, `title`, `artist`, `descript`, `duration`, `playcount`, `standTopMargin`, `transX`, `originX`, `animeOnList`, `animeOutList`, `animeType`, `winIndex`, `mainTarget`, `songSource`；`default property alias content`；方法：`opened(info)`, `closed()`, `onExit()` |
+| MarketItem.qml | Rectangle | — | 插件市场列表项：预览图 / 名称 / 作者版本类型 / 描述 / 安装按钮 | `info`(模型行)；只读：`installed`, `updatable`, `meta`, `action` |
+| MarketPage.qml | Item | — | 插件市场页：5 个分类（推荐/最新/歌词界面/功能/音乐源）+ `MarketItem` 列表 + 市场设置弹窗 | 只读：`chips`, `compact`, `message` |
 | PluginContext.qml | QtObject | — | 功能插件接口对象：宿主为每个插件创建一个，作为初始属性注入插件根的 `api` | `pluginId`, `pluginName`, `pluginDir`, `pluginUrl`, `hostWindow`, `hostTitleBar`, `hostPlayerBar`, `hostSidebar`, `hostOverlay`, `owned`；只读：`settings`, `loaderTemplate`；方法：`attach(parent,source,props)`, `unmount(obj)`, `toast(text,type)`, `warn(text)` |
 | PluginManager.qml | Item | — | 插件管理页（歌词界面单选 / 功能插件多选共用） | `pluginType`（`"lyrics"` / `"function"`）；只读：`plugins`, `multi`, `pluginKind`, `compact`；`delegate: required id, name, builtin, preview, description, author, version`，只读 `isOn` |
 | QAlertDialog.qml | Popup | — | 模糊底提示框，可带输入框 | `blurSource`, `rectXy`, `title`(alias), `message`(alias), `input`(alias), `cancelText`, `confirmText`, `isInput`, `dismissOnOverlay`；信号：`confirm()`, `cancel()`；方法：`onExit()` |
@@ -290,7 +292,7 @@ QOptionDialog {                            // 继承而非重写：自带模糊�
 
 ### 6.5.1 加载与替换机制（宿主侧）
 
-1. 商店单例是 C++ 的 `Plugins`（`cpp/plugins/PluginStore.h`，`QML_NAMED_ELEMENT(Plugins)`，歌词界面与功能插件共用）：`lyrics`（内置+已安装）、`lyricsId`、`lyricsSource`（当前入口，直接绑 Loader.source）、`dir`、`rescan()`、`selectLyrics(id)`、`install(folder)`、`remove(id)`、`reveal(id)`。
+1. 商店单例是 C++ 的 `Plugins`（`cpp/plugins/PluginStore.h`，`QML_NAMED_ELEMENT(Plugins)`，歌词界面与功能插件共用）：`lyrics`（内置+已安装）、`lyricsId`、`lyricsSource`（当前入口，直接绑 Loader.source）、`dir`、`rescan()`、`selectLyrics(id)`、`installZip(path)`、`remove(id)`、`reveal(id)`。
 2. `layout/PlayerMaxCenter.qml:127` 的 `Loader { active: visible; asynchronous: true; source: Plugins.lyricsSource; onLoaded: inject(item) }` 负责实例化；换界面 = 换 `source`。
 3. `inject(item)` 只对**已声明**的属性赋 `Qt.binding`（`if (k in it)`），因此契约是「按需实现」而非强制全量。
 4. 心跳：宿主每 320ms 调 `item.timerFunction()`（`Timer` 在 `PlayerMaxCenter`，仅在最大播放页可见且媒体播放中运行）；索引由宿主的 `MusicApi.lyricIndex` 算好注入。
@@ -363,7 +365,7 @@ QOptionDialog {                            // 继承而非重写：自带模糊�
 4. 实现 `function request(key: string, value: var): void` 且声明 `property var requestStyle: null`，只在需要改宿主状态（`basicCd`/`lyricType`/`premiumLyricAnime`/`waveDisplay`）时使用。
 5. 主题自有设置放 `lyricsui/<Name>Config.qml`（`pragma Singleton` + `Settings`），并把它加入 `CMakeLists.txt` 的单例列表。
 6. 需要「播放器样式」弹窗内容时提供 `property Component styleOptions`。
-7. 若做成插件：目录内需要入口 QML 文件 + `info.json`（`type: "lyrics"`、`id`/`name`/`version`/`author`/`preview`/`description`），入口文件路径进 `Plugins.lyricsSource`；安装走 `Plugins.install(folder)` / 删除走 `remove(id)`，`builtin: true` 的内置项不可卸载。
+7. 若做成插件：目录内需要入口 QML 文件 + `info.json`（`type: "lyrics"`、`id`/`name`/`version`/`author`/`preview`/`description`），入口文件路径进 `Plugins.lyricsSource`；安装走 `Plugins.installZip(path)`（ZIP）或设置页导入 / 删除走 `remove(id)`，`builtin: true` 的内置项不可卸载。
 8. 验证：切 `selectedId` 后 Loader 重载、逐行/逐字都对、暗亮主题 + 4 个主题色都正常、最大播放页关闭再打开（`active:false` 卸载）无残留。
 
 ## 6.6 资源与字体

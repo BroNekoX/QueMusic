@@ -71,6 +71,8 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
         m_models.hotlistMenu->append(ApiCommon::normalizeList(info));
     } else if (action == ApiAction::HotPlaylists) {
         m_models.hotPlaylists->append(ApiCommon::normalizeList(info));
+    } else if (action == ApiAction::RecommendPlaylists) {
+        m_models.recommendPlaylists->append(ApiCommon::normalizeList(info));
     } else if (action == ApiAction::NewSongs) {
         m_models.newSongs->append(songList(info));
     } else if (action == ApiAction::AllToplist) {
@@ -107,6 +109,12 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
     } else if (action == ApiAction::Comments) {
         m_models.comments->append(failed ? QVariantList() : info.toList());
         emit commentsHasMoreChanged(!failed && message.value("hasMore").toBool());
+    } else if (action == ApiAction::UserPlaylists) {
+        m_models.userPlaylists->append(failed ? QVariantList() : ApiCommon::normalizeList(info));
+    } else if (action == ApiAction::UserFavoriteSongs) {
+        m_models.userFavoriteSongs->append(failed ? QVariantList() : songList(info));
+    } else if (action == ApiAction::FollowedArtists) {
+        m_models.followedArtists->append(failed ? QVariantList() : ApiCommon::normalizeList(info));
     } else {
         return false;
     }

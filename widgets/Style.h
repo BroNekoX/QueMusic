@@ -3,6 +3,7 @@
 #include "AppSettings.h"
 
 #include <QColor>
+#include <QPointF>
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -25,6 +26,11 @@ public:
 
     // 把 globalFont / fontStyle 应用到 QGuiApplication（已有 Text 由 App 刷新）
     void applyGlobalFont();
+
+    // 当前鼠标位置，映射到 item 的坐标系（不传 item 则返回屏幕坐标）。
+    // 给 QML 弹层定位用：QMenu.popup() 靠它把菜单弹到光标处，
+    // 比在窗口里常驻一个 HoverHandler 追踪光标省开销。
+    Q_INVOKABLE QPointF cursorPos(QObject *item = nullptr) const;
 
 // 预处理设置项，让他编译生成设置项内容
 #define QUE_MUSIC_STYLE(set) \

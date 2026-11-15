@@ -117,6 +117,7 @@ set_source_files_properties(
 file(GLOB_RECURSE QML_COMPONENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "components/*.qml")
 file(GLOB_RECURSE LAYOUT_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "layout/*.qml")
 file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/*.qml")
+#file(GLOB_RECURSE PAGE_SET_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "pages/settings/*.qml")
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
 
@@ -224,8 +225,12 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/webdav/WebDavModel.h
         cpp/webdav/WebDavStore.cpp
         cpp/webdav/WebDavStore.h
+        cpp/plugins/PluginMarket.cpp
+        cpp/plugins/PluginMarket.h
         cpp/plugins/PluginStore.cpp
         cpp/plugins/PluginStore.h
+        cpp/plugins/ZipReader.cpp
+        cpp/plugins/ZipReader.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
         widgets/WindowsSmtcManager.cpp

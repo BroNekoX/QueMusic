@@ -63,6 +63,7 @@ protected:
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
+    void onRecommendPlaylists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -74,6 +75,7 @@ protected:
     void onComments(const QString &hash, int page, int pageSize) override;
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
+    void onUserPlaylists(int page, int pageSize) override;
 
 private:
     using Callback = std::function<void(const QJsonObject &)>;
@@ -88,6 +90,7 @@ private:
     QVariantMap liteBaseParams() const;
 
     // 列表接口的公共解析 / 请求（合并了原先各写一遍的重复实现）。
+    void searchSpecial(const QString &keyword, int page, int pageSize, const QString &action);
     void performSearch(const QString &keyword, int type, int page, int pageSize,
                        const QString &resultAction);
     void requestRankSongs(int rankid, int page, int pageSize, const QString &action);
@@ -143,6 +146,8 @@ private:
     QString m_cookie;
     QString m_mid;
     QString m_dfid;
+    QString m_recommendKeyword;
+    int m_recommendPage = 1;
     int m_quality = 1;
     QString m_liteUserAuth;
     QHash<QString, QString> m_mixIdCache;

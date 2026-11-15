@@ -3,7 +3,7 @@
 //
 pragma Singleton
 import QtQuick
-import QtQuick.Controls.Basic
+
 import QueMusic 1.0
 
 QtObject {
@@ -22,7 +22,7 @@ QtObject {
     property CoverHelper coverHelper
     property NumberAnimation openMaxLyric
     property NumberAnimation settingOutAnime
-    property TextField mainSearchInput
+    property QTextField mainSearchInput
 
     // main状态
     property int exitIndex: 0          // 要求主界面切到的页
@@ -42,7 +42,7 @@ QtObject {
     signal warned(string text, int type)
     signal reSearch()
 
-    readonly property bool darkis: Style.theme === 0 ? false : Style.theme === 1 ? true : Application.styleHints.colorScheme === Qt.ColorScheme.Dark
+    readonly property bool darkis: Style.theme === 0 ? false : Style.theme === 1 ? true : Qt.styleHints.colorScheme === Qt.ColorScheme.Dark
     onDarkisChanged: Options.changeTheme()
 
     onChangeTheme: {

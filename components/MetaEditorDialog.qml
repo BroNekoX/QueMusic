@@ -3,7 +3,6 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 import QueMusic 1.0
 
@@ -127,7 +126,7 @@ QOptionDialog {
             font.pixelSize: Style.textmain
             opacity: 0.65
         }
-        TextArea {
+        QTextArea {
             id: lyricsArea
             width: parent.width
             color: Theme.fontColor

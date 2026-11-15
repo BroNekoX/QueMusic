@@ -85,8 +85,10 @@
 | `components\PlayerOptions.qml` | 272 | 8864 |
 | `components\PlayList.qml` | 341 | 13341 |
 | `components\PlayListWindow.qml` | 410 | 11945 |
+| `components\MarketItem.qml` | 83 | 2469 |
+| `components\MarketPage.qml` | 177 | 5266 |
 | `components\PluginContext.qml` | 70 | 1946 |
-| `components\PluginManager.qml` | 203 | 7063 |
+| `components\PluginManager.qml` | 204 | 7110 |
 | `components\QAlertDialog.qml` | 127 | 3907 |
 | `components\QBigDrop.qml` | 82 | 2756 |
 | `components\QBlurCard.qml` | 87 | 2917 |
@@ -164,8 +166,12 @@
 | `cpp\LogManager.cpp` | 316 | 9722 |
 | `cpp\LogManager.h` | 112 | 3952 |
 | `cpp\MediaTypes.h` | 39 | 1373 |
-| `cpp\plugins\PluginStore.cpp` | 288 | 10143 |
+| `cpp\plugins\PluginMarket.cpp` | 362 | 11753 |
+| `cpp\plugins\PluginMarket.h` | 74 | 2409 |
+| `cpp\plugins\PluginStore.cpp` | 377 | 13052 |
 | `cpp\plugins\PluginStore.h` | 63 | 2229 |
+| `cpp\plugins\ZipReader.cpp` | 141 | 4781 |
+| `cpp\plugins\ZipReader.h` | 12 | 337 |
 | `cpp\QueueModel.cpp` | 207 | 6276 |
 | `cpp\QueueModel.h` | 73 | 2162 |
 | `cpp\SearchResultModel.cpp` | 119 | 3910 |

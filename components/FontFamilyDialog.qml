@@ -6,7 +6,7 @@
 // 注意：QOptionDialog 的 blurSource 默认指向 main.qml 的 Options.mainLayout，跨文件使用需调用方显式设置。
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+
 import QueMusic 1.0
 
 QOptionDialog {
@@ -59,7 +59,7 @@ QOptionDialog {
             property int scrollToY: familyList.contentY
             onDraggingChanged: familyList.scrollToY = familyList.contentY
 
-            ScrollBar.vertical: ScrollBar {
+            QScrollBar.vertical: QScrollBar {
                 id: viewBar
                 parent: familyList
                 anchors.top: familyList.top
@@ -71,7 +71,7 @@ QOptionDialog {
             }
             WheelHandler {
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
+                readonly property real wheelHeightCount: Theme.wheelStep
                 onWheel: (event) => {
                     listViewAnime.running = false;
                     familyList.scrollToY = Math.max(0, Math.min( familyList.scrollToY - (event.angleDelta.y * wheelHeightCount), familyList.contentHeight - familyList.height));

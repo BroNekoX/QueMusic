@@ -3,9 +3,9 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QueMusic 1.0
-import QtQuick.Controls.Basic
 import QtQuick.Effects
+import QueMusic 1.0
+import QtQuick.Templates
 
 Rectangle {
     id: root

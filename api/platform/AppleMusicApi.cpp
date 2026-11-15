@@ -5,6 +5,7 @@
 
 #include "ApiCommon.h"
 #include "ApiHttp.h"
+#include "LyricsFallback.h"
 
 #include <QJsonArray>
 #include <QSet>
@@ -37,6 +38,62 @@ AppleMusicApi::AppleMusicApi(QObject *parent)
 void AppleMusicApi::get(const QUrl &url, const JsonCallback &done)
 {
     ApiHttp::getJson(m_nam, this, url, kUa, kReferer, {}, done);
+}
+
+void AppleMusicApi::applyCredentials(const SourceCredentials &credentials)
+{
+    m_userToken = credentials.cookie;
+    m_developerToken = credentials.accessToken;
+}
+
+void AppleMusicApi::getUser(const QString &path, const QUrlQuery &query, const JsonCallback &done)
+{
+    if (m_userToken.isEmpty() || m_developerToken.isEmpty()) {
+        done(QJsonObject{{"error", -1}});
+        return;
+    }
+    QUrl url(QStringLiteral("https://amp-api.music.apple.com") + path);
+    if (!query.isEmpty())
+        url.setQuery(query);
+    ApiHttp::getJson(m_nam, this, url, kUa, kReferer, {}, done,
+                     {{"Authorization", "Bearer " + m_developerToken.toUtf8()},
+                      {"Media-User-Token", m_userToken.toUtf8()},
+                      {"Origin", "https://music.apple.com"}});
+}
+
+void AppleMusicApi::onUserPlaylists(int page, int pageSize)
+{
+    getUser(QStringLiteral("/v1/me/library/playlists"), pageQuery(page, pageSize),
+            [this](const QJsonObject &json) {
+                QVariantList info;
+                for (const QJsonValue &value : json.value("data").toArray()) {
+                    const QJsonObject playlist = value.toObject();
+                    const QJsonObject attrs = playlist.value("attributes").toObject();
+                    info << ApiCommon::song(attrs.value("name").toString(),
+                            attrs.value("curatorName").toString(),
+                            artwork(attrs.value("artwork").toObject().value("url").toString()),
+                            playlist.value("id").toString(),
+                            attrs.value("trackCount").toInt());
+                }
+                emit resultReady(ApiAction::UserPlaylists, ApiCommon::listResult(info, json), Source);
+            });
+}
+
+void AppleMusicApi::onFollowedArtists(int page, int pageSize)
+{
+    QUrlQuery query = pageQuery(page, pageSize);
+    query.addQueryItem("type", "artists");
+    getUser(QStringLiteral("/v1/me/following"), query, [this](const QJsonObject &json) {
+        QVariantList info;
+        for (const QJsonValue &value : json.value("data").toArray()) {
+            const QJsonObject artist = value.toObject();
+            const QJsonObject attrs = artist.value("attributes").toObject();
+            info << ApiCommon::song(attrs.value("name").toString(), QString(),
+                            artwork(attrs.value("artwork").toObject().value("url").toString()),
+                            artist.value("id").toString());
+        }
+        emit resultReady(ApiAction::FollowedArtists, ApiCommon::listResult(info, json), Source);
+    });
 }
 
 QString AppleMusicApi::idOf(const QJsonObject &object, const char *key)
@@ -220,6 +277,17 @@ void AppleMusicApi::onHotPlaylists(int page, int pageSize)
     rss(ApiAction::HotPlaylists, true, page, pageSize);
 }
 
+void AppleMusicApi::onRecommendPlaylists(int page, int pageSize)
+{
+    static const QStringList kKeywords{
+        QStringLiteral("华语"), QStringLiteral("欧美"), QStringLiteral("流行"),
+        QStringLiteral("民谣"), QStringLiteral("摇滚"), QStringLiteral("电音"),
+        QStringLiteral("古风"), QStringLiteral("爵士")};
+    if (page <= 1)
+        m_recommendKeyword = kKeywords.at(QRandomGenerator::global()->bounded(int(kKeywords.size())));
+    search(m_recommendKeyword, "album", page, pageSize, ApiAction::RecommendPlaylists);
+}
+
 void AppleMusicApi::onNewSongs(int, int page, int pageSize)
 {
     rss(ApiAction::NewSongs, false, page, pageSize);
@@ -311,11 +379,41 @@ void AppleMusicApi::onMusicInfo(const QString &hash, int type)
     });
 }
 
-void AppleMusicApi::onLyricInfo(const QString &hash, int)
+void AppleMusicApi::onLyricInfo(const QString &hash, int duration)
 {
-    emit resultReady(ApiAction::LyricInfo,
-                     QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", hash}},
-                     Source);
+    const QString id = hash.trimmed();
+    if (id.isEmpty()) {
+        emit resultReady(ApiAction::LyricInfo,
+                         QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", hash}},
+                         Source);
+        return;
+    }
+
+    QUrl url(QStringLiteral("https://itunes.apple.com/lookup"));
+    QUrlQuery query;
+    query.addQueryItem("id", id);
+    query.addQueryItem("country", kCountry);
+    url.setQuery(query);
+
+    get(url, [this, id, duration](const QJsonObject &json) {
+        const QJsonArray results = json.value("results").toArray();
+        const QJsonObject track = results.isEmpty() ? QJsonObject() : results.first().toObject();
+        const QString title = track.value("trackName").toString();
+        const QString artist = track.value("artistName").toString();
+        const int seconds = track.value("trackTimeMillis").toInt() / 1000;
+        if (title.isEmpty()) {
+            emit resultReady(ApiAction::LyricInfo,
+                             QVariantMap{{"info", QVariantList{}}, {"translate", QVariantList{}}, {"hash", id}},
+                             Source);
+            return;
+        }
+        LyricsFallback::fetch(m_nam, this, artist, title, seconds > 0 ? seconds : duration,
+                              [this, id](const QVariantList &lyrics) {
+                                  emit resultReady(ApiAction::LyricInfo,
+                                                   QVariantMap{{"info", lyrics}, {"translate", QVariantList{}}, {"hash", id}},
+                                                   Source);
+                              });
+    });
 }
 
 void AppleMusicApi::onComments(const QString &, int, int)

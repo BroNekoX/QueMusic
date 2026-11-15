@@ -2,6 +2,8 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 #include "plugins/PluginStore.h"
 
+#include "plugins/ZipReader.h"
+
 #include "AppSettings.h"
 
 #include <QCoreApplication>
@@ -12,7 +14,9 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QUrl>
 
 #include <utility>
@@ -21,6 +25,11 @@ namespace {
 
 constexpr int kApiVersion = 1;
 const QString kDefaultLyrics = QStringLiteral("builtin.default");
+
+QString pluginDataRoot()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+}
 
 QVariantMap makeBuiltin(const QString &id, const QString &name, const QString &source)
 {
@@ -63,7 +72,10 @@ QVariantMap readPlugin(const QString &path, const QString &fallbackType)
         return {};
 
     QString type = info.value(QStringLiteral("type")).toString().toLower();
-    if (type != QStringLiteral("lyrics") && type != QStringLiteral("function"))
+    if (type == QStringLiteral("music") || type == QStringLiteral("sources"))
+        type = QStringLiteral("source");
+    if (type != QStringLiteral("lyrics") && type != QStringLiteral("function")
+        && type != QStringLiteral("source"))
         type = fallbackType;
 
     const QString preview = QDir(path).absoluteFilePath(
@@ -116,17 +128,28 @@ PluginStore::PluginStore(QObject *parent)
     rebuild();
 }
 
+PluginStore *PluginStore::create(QQmlEngine *, QJSEngine *)
+{
+    return instance();
+}
+
+PluginStore *PluginStore::instance()
+{
+    static PluginStore *const store = new PluginStore();
+    return store;
+}
+
 QString PluginStore::dir() const
 {
     return QDir::toNativeSeparators(
-        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/plugins"));
+        pluginDataRoot() + QStringLiteral("/plugins"));
 }
 
 void PluginStore::load()
 {
     m_all.clear();
 
-    const QString userRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+    const QString userRoot = pluginDataRoot()
                              + QStringLiteral("/plugins");
     const QString exeRoot = QCoreApplication::applicationDirPath() + QStringLiteral("/plugins");
 
@@ -163,12 +186,15 @@ void PluginStore::load()
 void PluginStore::rebuild()
 {
     m_functions.clear();
+    m_sources.clear();
     m_lyrics = builtinLyrics();
 
     for (const QVariant &item : std::as_const(m_all)) {
-        const QVariantMap plugin = item.toMap();
-        if (plugin.value(QStringLiteral("type")).toString() == QStringLiteral("lyrics"))
+        const QString type = item.toMap().value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("lyrics"))
             m_lyrics << item;
+        else if (type == QStringLiteral("source"))
+            m_sources << item;
         else
             m_functions << item;
     }
@@ -248,7 +274,7 @@ QString PluginStore::install(const QString &folder)
     if (!QFileInfo::exists(from + QStringLiteral("/info.json")))
         return QStringLiteral("文件夹里没有 info.json，不是插件");
 
-    const QString to = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+    const QString to = pluginDataRoot()
                        + QStringLiteral("/plugins/") + QFileInfo(from).fileName();
     if (QDir::cleanPath(from) != QDir::cleanPath(to)) {
         if (to.startsWith(QDir::cleanPath(from) + QLatin1Char('/')))
@@ -260,6 +286,69 @@ QString PluginStore::install(const QString &folder)
     }
     rescan();
     return {};
+}
+
+QString PluginStore::installZip(const QString &path)
+{
+    QString local = path;
+    const QUrl url(path);
+    if (url.isLocalFile())
+        local = url.toLocalFile();
+    QFile file(local);
+    if (!file.open(QIODevice::ReadOnly))
+        return QStringLiteral("无法打开插件包");
+    return installArchive(file.readAll(), QFileInfo(local).completeBaseName());
+}
+
+QString PluginStore::installArchive(const QByteArray &archive, const QString &idHint)
+{
+    if (archive.isEmpty())
+        return QStringLiteral("插件包为空");
+
+    const QString scratchRoot = pluginDataRoot() + QStringLiteral("/cache/import");
+    QDir().mkpath(scratchRoot);
+    QTemporaryDir temp(scratchRoot + QStringLiteral("/run-XXXXXX"));
+    if (!temp.isValid())
+        return QStringLiteral("无法创建临时目录");
+
+    const QString raw = temp.filePath(QStringLiteral("raw"));
+    QDir().mkpath(raw);
+    QString error;
+    if (!ZipReader::extract(archive, raw, &error))
+        return QStringLiteral("解压失败：%1").arg(error);
+
+    QString source = raw;
+    if (!QFileInfo::exists(raw + QStringLiteral("/info.json"))) {
+        source.clear();
+        const QStringList dirs = QDir(raw).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &dir : dirs) {
+            if (QFileInfo::exists(raw + QLatin1Char('/') + dir + QStringLiteral("/info.json"))) {
+                source = raw + QLatin1Char('/') + dir;
+                break;
+            }
+        }
+    }
+    if (source.isEmpty() || !QFileInfo::exists(source + QStringLiteral("/info.json")))
+        return QStringLiteral("插件包里没有 info.json");
+
+    QString id = idHint;
+    id.remove(QRegularExpression(QStringLiteral("[^A-Za-z0-9._-]")));
+    if (id.isEmpty() && source != raw)
+        id = QFileInfo(source).fileName();
+    if (id.isEmpty())
+        return QStringLiteral("插件 id 无效");
+
+    const QString staged = temp.filePath(QStringLiteral("pkg/") + id);
+    QDir().mkpath(staged);
+    const QDir from(source);
+    const QStringList entries = from.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
+        const QString src = from.filePath(entry);
+        const QString dst = staged + QLatin1Char('/') + entry;
+        if (!QDir().rename(src, dst) && !QFile::rename(src, dst))
+            return QStringLiteral("移动插件文件失败：%1").arg(entry);
+    }
+    return install(staged);
 }
 
 QString PluginStore::remove(const QString &id)
@@ -282,7 +371,7 @@ void PluginStore::reveal(const QString &id)
         QDesktopServices::openUrl(QUrl::fromLocalFile(plugin.value(QStringLiteral("path")).toString()));
         return;
     }
-    const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+    const QString root = pluginDataRoot()
                          + QStringLiteral("/plugins");
     QDir().mkpath(root);
     QDesktopServices::openUrl(QUrl::fromLocalFile(root));

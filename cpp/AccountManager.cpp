@@ -3,6 +3,7 @@
 //
 #include "AccountManager.h"
 #include "platform/KugouApi.h"
+#include "platform/QQMusicApi.h"
 #include "apihelper.h"
 #include "AppSettings.h"
 
@@ -14,6 +15,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QRegularExpression>
 #include <QNetworkAccessManager>
 #include <QNetworkCookie>
@@ -44,6 +46,10 @@ AccountManager::AccountManager(QObject *parent)
     m_kugouPollTimer = new QTimer(this);
     m_kugouPollTimer->setInterval(3000);
     connect(m_kugouPollTimer, &QTimer::timeout, this, &AccountManager::pollKugou);
+
+    m_bilibiliPollTimer = new QTimer(this);
+    m_bilibiliPollTimer->setInterval(2500);
+    connect(m_bilibiliPollTimer, &QTimer::timeout, this, &AccountManager::pollBilibili);
 
     m_configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/Account.ini");
 
@@ -1068,12 +1074,289 @@ void AccountManager::loadApple()
     if (m_appleLoggedIn && m_appleNickname.isEmpty()) m_appleNickname = "Apple Music 用户";
 }
 
+void AccountManager::setBilibiliQr(int state, const QString &msg, const QString &qrText)
+{
+    m_bilibiliQrState = state;
+    m_bilibiliQrMessage = msg;
+    if (!qrText.isNull())
+        m_bilibiliQrText = qrText;
+    emit bilibiliQrChanged();
+}
+
+void AccountManager::startBilibiliQrLogin()
+{
+    m_bilibiliPollTimer->stop();
+    m_bilibiliKey.clear();
+    m_bilibiliQrText.clear();
+    setBilibiliQr(QrWaiting, QStringLiteral("正在获取二维码…"));
+    browserGet(QUrl("https://passport.bilibili.com/x/passport-login/web/qrcode/generate"),
+               {}, {{"Referer", "https://www.bilibili.com/"}},
+               [this](int, const QByteArray &body) {
+                   const QJsonObject data = QJsonDocument::fromJson(body).object().value("data").toObject();
+                   const QString key = data.value("qrcode_key").toString();
+                   const QString url = data.value("url").toString();
+                   if (key.isEmpty() || url.isEmpty()) {
+                       setBilibiliQr(QrError, QStringLiteral("获取二维码失败"));
+                       return;
+                   }
+                   m_bilibiliKey = key;
+                   setBilibiliQr(QrWaiting, QStringLiteral("请使用哔哩哔哩 App 扫码"), url);
+                   m_bilibiliPollTimer->start();
+               });
+}
+
+void AccountManager::cancelBilibiliQrLogin()
+{
+    m_bilibiliPollTimer->stop();
+    m_bilibiliKey.clear();
+}
+
+void AccountManager::pollBilibili()
+{
+    if (m_bilibiliKey.isEmpty())
+        return;
+    QNetworkRequest request(QUrl(QStringLiteral(
+        "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=%1&source=main-fe-header")
+        .arg(m_bilibiliKey)));
+    request.setRawHeader("User-Agent", kUa);
+    request.setRawHeader("Referer", "https://www.bilibili.com/");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(15000);
+    QNetworkReply *reply = m_nam->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply] { onBilibiliPoll(reply); });
+}
+
+void AccountManager::onBilibiliPoll(QNetworkReply *reply)
+{
+    reply->deleteLater();
+    if (reply->error() != QNetworkReply::NoError) {
+        m_bilibiliPollTimer->stop();
+        setBilibiliQr(QrError, QStringLiteral("网络错误：%1").arg(reply->errorString()));
+        return;
+    }
+    const QJsonObject data = QJsonDocument::fromJson(reply->readAll()).object().value("data").toObject();
+    const int code = data.value("code").toInt();
+    if (code == 0) {
+        m_bilibiliPollTimer->stop();
+        m_bilibiliKey.clear();
+        QMap<QString, QString> cookies;
+        const auto headers = reply->rawHeaderPairs();
+        for (const auto &header : headers) {
+            if (header.first.compare("Set-Cookie", Qt::CaseInsensitive) != 0)
+                continue;
+            const QByteArray line = header.second;
+            const QByteArray pair = line.left(line.indexOf(';') < 0 ? line.size() : line.indexOf(';'));
+            const QByteArray name = pair.left(pair.indexOf('='));
+            if (name == "SESSDATA" || name == "bili_jct" || name == "DedeUserID"
+                || name == "DedeUserID__ckMd5" || name == "sid")
+                cookies.insert(QString::fromUtf8(name), QString::fromUtf8(pair));
+        }
+        // 部分端只在回调 url 里带回 DedeUserID / bili_jct
+        const QUrlQuery query(QUrl(data.value("url").toString()).query());
+        for (const char *key : {"SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5"}) {
+            const QString name = QLatin1String(key);
+            if (!cookies.contains(name) && query.hasQueryItem(name))
+                cookies.insert(name, QStringLiteral("%1=%2").arg(name, query.queryItemValue(name)));
+        }
+        if (cookies.isEmpty()) {
+            setBilibiliQr(QrError, QStringLiteral("登录成功但未取到 Cookie"));
+            return;
+        }
+        setBilibiliQr(QrSuccess, QStringLiteral("登录成功"));
+        validateBilibiliCookie(QStringList(cookies.values()).join(QStringLiteral("; ")));
+        return;
+    }
+    switch (code) {
+    case 86101: setBilibiliQr(QrWaiting, QStringLiteral("等待扫码…")); break;
+    case 86090: setBilibiliQr(QrScanned, QStringLiteral("已扫码，请在手机上确认")); break;
+    case 86038:
+        m_bilibiliPollTimer->stop();
+        m_bilibiliKey.clear();
+        setBilibiliQr(QrExpired, QStringLiteral("二维码已过期，请重新获取"));
+        break;
+    default:
+        m_bilibiliPollTimer->stop();
+        setBilibiliQr(QrError, QStringLiteral("登录失败（%1）").arg(code));
+        break;
+    }
+}
+
+void AccountManager::validateBilibiliCookie(const QString &cookie)
+{
+    const QString text = cookie.trimmed();
+    if (text.isEmpty())
+        return;
+    browserGet(QUrl("https://api.bilibili.com/x/web-interface/nav"), text.toUtf8(),
+               {{"Referer", "https://www.bilibili.com/"}},
+               [this, text](int, const QByteArray &body) {
+                   const QJsonObject data = QJsonDocument::fromJson(body).object().value("data").toObject();
+                   if (!data.value("isLogin").toBool()) {
+                       m_bilibiliLoggedIn = false;
+                       m_bilibiliNickname.clear();
+                       m_bilibiliAvatar.clear();
+                       setBilibiliQr(QrError, QStringLiteral("Cookie 无效或已过期"));
+                       emit bilibiliLoginChanged();
+                       return;
+                   }
+                   m_bilibiliCookie = text;
+                   m_bilibiliLoggedIn = true;
+                   m_bilibiliNickname = data.value("uname").toString();
+                   m_bilibiliAvatar = data.value("face").toString();
+                   persistBilibili();
+                   setBilibiliQr(QrSuccess, QStringLiteral("登录成功"));
+                   emit bilibiliLoginChanged();
+               });
+}
+
+void AccountManager::loginBilibiliWithCookie(const QString &cookie)
+{
+    m_bilibiliPollTimer->stop();
+    m_bilibiliKey.clear();
+    if (cookie.trimmed().isEmpty()) {
+        setBilibiliQr(QrError, QStringLiteral("请先粘贴 Cookie"));
+        return;
+    }
+    setBilibiliQr(QrWaiting, QStringLiteral("正在验证 Cookie…"));
+    validateBilibiliCookie(cookie);
+}
+
+void AccountManager::logoutBilibili()
+{
+    m_bilibiliPollTimer->stop();
+    m_bilibiliKey.clear();
+    m_bilibiliLoggedIn = false;
+    m_bilibiliCookie.clear();
+    m_bilibiliNickname.clear();
+    m_bilibiliAvatar.clear();
+    clearLoginSettings(QStringLiteral("Bilibili"));
+    setBilibiliQr(QrWaiting, QStringLiteral("已退出登录"));
+    emit bilibiliLoginChanged();
+}
+
+void AccountManager::persistBilibili()
+{
+    SettingsFile s(m_configPath);
+    s.setValue("Bilibili", "cookie", m_bilibiliCookie);
+    s.setValue("Bilibili", "nickname", m_bilibiliNickname);
+    s.setValue("Bilibili", "avatar", m_bilibiliAvatar);
+    s.sync();
+}
+
+void AccountManager::loadBilibili()
+{
+    SettingsFile s(m_configPath);
+    m_bilibiliCookie = s.value("Bilibili", "cookie").toString();
+    m_bilibiliNickname = s.value("Bilibili", "nickname").toString();
+    m_bilibiliAvatar = s.value("Bilibili", "avatar").toString();
+    m_bilibiliLoggedIn = !m_bilibiliCookie.isEmpty();
+    if (m_bilibiliLoggedIn && m_bilibiliNickname.isEmpty())
+        m_bilibiliNickname = QStringLiteral("哔哩哔哩用户");
+}
+
+void AccountManager::loginQQWithCookie(const QString &cookie)
+{
+    const QString text = cookie.trimmed();
+    const QString uin = QQMusicApi::uinOf(text);
+    if (text.isEmpty() || uin.isEmpty()
+        || (!text.contains("qqmusic_key") && !text.contains("qm_keyst"))) {
+        m_qqLoginMessage = QStringLiteral("Cookie 需要包含 uin 和 qqmusic_key");
+        emit qqLoginChanged();
+        return;
+    }
+    m_qqCookie = text;
+    m_qqUin = uin;
+    m_qqLoggedIn = true;
+    if (m_qqNickname.isEmpty())
+        m_qqNickname = QStringLiteral("QQ 音乐用户");
+    m_qqLoginMessage = QStringLiteral("已保存 QQ 音乐登录态");
+    persistQQ();
+    emit qqLoginChanged();
+    validateQQCookie(text);
+}
+
+void AccountManager::validateQQCookie(const QString &cookie)
+{
+    if (m_qqUin.isEmpty())
+        return;
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"uin", m_qqUin}}},
+        {"req", QJsonObject{{"module", "music.UserInfo.userInfo"},
+                            {"method", "GetUserInfo"},
+                            {"param", QJsonObject{{"uin", m_qqUin}}}}}};
+    QNetworkRequest request(QUrl("https://u.y.qq.com/cgi-bin/musicu.fcg"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json;charset=UTF-8");
+    request.setRawHeader("User-Agent", kUa);
+    request.setRawHeader("Referer", "https://y.qq.com/");
+    request.setRawHeader("Cookie", cookie.toUtf8());
+    request.setTransferTimeout(15000);
+    QNetworkReply *reply = m_nam->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;
+        const QJsonObject json = QJsonDocument::fromJson(reply->readAll()).object();
+        const QJsonObject req = json.value("req").toObject();
+        if (json.value("code").toInt() != 0 || req.value("code").toInt() != 0)
+            return;
+        const QJsonObject data = req.value("data").toObject();
+        const QString nick = data.value("nick").toString(data.value("nickname").toString());
+        const QString avatar = data.value("headpic").toString(data.value("avatar").toString());
+        if (!nick.isEmpty())
+            m_qqNickname = nick;
+        if (!avatar.isEmpty())
+            m_qqAvatar = avatar;
+        if (m_qqLoggedIn) {
+            m_qqLoginMessage = QStringLiteral("QQ 音乐已登录");
+            persistQQ();
+            emit qqLoginChanged();
+        }
+    });
+}
+
+void AccountManager::logoutQQ()
+{
+    m_qqLoggedIn = false;
+    m_qqCookie.clear();
+    m_qqNickname.clear();
+    m_qqAvatar.clear();
+    m_qqUin.clear();
+    m_qqLoginMessage = QStringLiteral("已退出登录");
+    clearLoginSettings(QStringLiteral("QQMusic"));
+    emit qqLoginChanged();
+}
+
+void AccountManager::persistQQ()
+{
+    SettingsFile s(m_configPath);
+    s.setValue("QQMusic", "cookie", m_qqCookie);
+    s.setValue("QQMusic", "nickname", m_qqNickname);
+    s.setValue("QQMusic", "avatar", m_qqAvatar);
+    s.setValue("QQMusic", "uin", m_qqUin);
+    s.sync();
+}
+
+void AccountManager::loadQQ()
+{
+    SettingsFile s(m_configPath);
+    m_qqCookie = s.value("QQMusic", "cookie").toString();
+    m_qqNickname = s.value("QQMusic", "nickname").toString();
+    m_qqAvatar = s.value("QQMusic", "avatar").toString();
+    m_qqUin = s.value("QQMusic", "uin").toString();
+    if (m_qqUin.isEmpty())
+        m_qqUin = QQMusicApi::uinOf(m_qqCookie);
+    m_qqLoggedIn = !m_qqCookie.isEmpty() && !m_qqUin.isEmpty();
+    if (m_qqLoggedIn && m_qqNickname.isEmpty())
+        m_qqNickname = QStringLiteral("QQ 音乐用户");
+}
+
 void AccountManager::loadPersisted()
 {
     loadNetease();
     loadKugou();
     loadSpotify();
     loadApple();
+    loadBilibili();
+    loadQQ();
 }
 
 // 浏览器登录 Cookie 回填（内嵌 WebView 登录完成后调用）

@@ -85,3 +85,6 @@ __pycache__/
 # 例外必须排在上面 "*.a" 规则之后（git 忽略规则顺序敏感）。
 !ffmpeg/lib/*.dll.a
 
+
+# 插件市场构建产物
+tools/market/out/

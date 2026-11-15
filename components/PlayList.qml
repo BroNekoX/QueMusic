@@ -3,12 +3,13 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 
 // 播放列表
 Popup {
     id: playList
+    parent: Overlay.overlay
     // 列表中： source：-1：本地 0.酷狗 1.网易云 2.哔哩哔哩 3.qq音乐
     property alias model: playListView.model
     property bool edit: false
@@ -18,7 +19,6 @@ Popup {
 
     padding: 0
     margins: -1
-    parent: Overlay.overlay
     width: 360
     height: parent.height - 180
     x: parent.width - 380
@@ -168,7 +168,7 @@ Popup {
                 boundsBehavior: Flickable.StopAtBounds
                 reuseItems: true
                 model: Options.queue ? Options.queue.savedPlaylists : null
-                ScrollBar.vertical: ScrollBar {
+                QScrollBar.vertical: QScrollBar {
                     parent: listSaveView
                     anchors.top: listSaveView.top
                     anchors.right: listSaveView.right
@@ -465,7 +465,7 @@ Popup {
             moveDisplaced: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
 
             WheelHandler {
-                property real scrollMultiplier: Application.styleHints.wheelScrollLines / 4
+                property real scrollMultiplier: Theme.wheelStep
                 onWheel: (event) => {
                     playListView.scrollToY = Math.max(-4, Math.min(playListView.scrollToY - (event.angleDelta.y * scrollMultiplier), playListView.contentHeight - playListView.height + 12))
                     listViewAnime.running = false

@@ -84,12 +84,20 @@ bool FfmpegDecoder::open(const QString &pathOrUrl, QString *error, const QByteAr
     // B 站 CDN 校验 Referer/UA，非浏览器 UA 会被拒
     const bool bili = pathOrUrl.contains(QLatin1String("bilivideo"), Qt::CaseInsensitive)
                       || pathOrUrl.contains(QLatin1String("bilibili"), Qt::CaseInsensitive);
+    const bool qqMusic = pathOrUrl.contains(QLatin1String("qqmusic"), Qt::CaseInsensitive)
+                         || pathOrUrl.contains(QLatin1String("tc.qq.com"), Qt::CaseInsensitive);
     if (bili) {
         av_dict_set(&opts, "user_agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     0);
         av_dict_set(&opts, "referer", "https://www.bilibili.com", 0);
+    } else if (qqMusic) {
+        av_dict_set(&opts, "user_agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    0);
+        av_dict_set(&opts, "referer", "https://y.qq.com/", 0);
     } else {
         av_dict_set(&opts, "user_agent", "QueMusic", 0);
     }

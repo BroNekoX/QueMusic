@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QUrl>
+#include <QUrlQuery>
 
 #include <functional>
 
@@ -21,6 +22,7 @@ public:
     ~AppleMusicApi() override = default;
 
     QString sourceName() const override { return "Apple Music"; }
+    void applyCredentials(const SourceCredentials &credentials) override;
 
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
@@ -32,6 +34,7 @@ protected:
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
+    void onRecommendPlaylists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -43,11 +46,14 @@ protected:
     void onComments(const QString &hash, int page, int pageSize) override;
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
+    void onUserPlaylists(int page, int pageSize) override;
+    void onFollowedArtists(int page, int pageSize) override;
 
 private:
     using JsonCallback = std::function<void(const QJsonObject &)>;
 
     void get(const QUrl &url, const JsonCallback &done);
+    void getUser(const QString &path, const QUrlQuery &query, const JsonCallback &done);
     void search(const QString &term, const QString &entity, int page, int pageSize, const QString &action);
     void lookupTracks(const QString &id, int page, int pageSize, const QString &action);
     void rss(const QString &action, bool albums, int page, int pageSize);
@@ -59,4 +65,7 @@ private:
     static QString idOf(const QJsonObject &object, const char *key);
 
     QNetworkAccessManager *m_nam = nullptr;
+    QString m_userToken;
+    QString m_developerToken;
+    QString m_recommendKeyword;
 };

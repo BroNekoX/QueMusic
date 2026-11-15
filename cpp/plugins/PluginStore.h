@@ -17,6 +17,7 @@ class PluginStore : public QObject
     Q_PROPERTY(QVariantList functions READ functions NOTIFY changed FINAL)
     Q_PROPERTY(QVariantList activeFunctions READ activeFunctions NOTIFY enabledChanged FINAL)
     Q_PROPERTY(QVariantList lyrics READ lyrics NOTIFY changed FINAL)
+    Q_PROPERTY(QVariantList sources READ sources NOTIFY changed FINAL)
     Q_PROPERTY(QStringList enabled READ enabled NOTIFY enabledChanged FINAL)
     Q_PROPERTY(QString lyricsId READ lyricsId NOTIFY lyricsChanged FINAL)
     Q_PROPERTY(QString lyricsSource READ lyricsSource NOTIFY lyricsChanged FINAL)
@@ -24,11 +25,13 @@ class PluginStore : public QObject
 
 public:
     explicit PluginStore(QObject *parent = nullptr);
-    static PluginStore *create(QQmlEngine *, QJSEngine *) { return new PluginStore(); }
+    static PluginStore *create(QQmlEngine *, QJSEngine *);
+    static PluginStore *instance();
 
     QVariantList functions() const { return m_functions; }
     QVariantList activeFunctions() const { return m_active; }
     QVariantList lyrics() const { return m_lyrics; }
+    QVariantList sources() const { return m_sources; }
     QStringList enabled() const { return m_enabled; }
     QString lyricsId() const { return m_lyricsId; }
     QString lyricsSource() const { return m_lyricsSource; }
@@ -37,7 +40,8 @@ public:
     Q_INVOKABLE void rescan();
     Q_INVOKABLE void setEnabled(const QString &id, bool on);
     Q_INVOKABLE void selectLyrics(const QString &id);
-    Q_INVOKABLE QString install(const QString &folder);
+    Q_INVOKABLE QString installZip(const QString &path);
+    QString installArchive(const QByteArray &archive, const QString &idHint = QString());
     Q_INVOKABLE QString remove(const QString &id);
     Q_INVOKABLE void reveal(const QString &id);
 
@@ -51,11 +55,13 @@ private:
     void rebuild();
     void refreshLyrics();
     bool find(const QString &id, QVariantMap *info) const;
+    QString install(const QString &folder);
 
     QVariantList m_all;
     QVariantList m_functions;
     QVariantList m_active;
     QVariantList m_lyrics;
+    QVariantList m_sources;
     QStringList m_enabled;
     QString m_lyricsId;
     QString m_lyricsSource;

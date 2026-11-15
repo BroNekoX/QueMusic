@@ -77,21 +77,14 @@ Item {
         Options.exitIndex = 1
     }
 
-    function openHotList(row: var): void {
-        hotlistsWindow.mainTarget = homeMain
-        MusicApi.playlistSong.clear()
-        MusicApi.globalid = row.hash
-        MusicApi.getPlaylistSongs(row.hash, 1, 20)
-        hotlistsWindow.opened(row.model)
-        Options.exitIndex = 1
-    }
-
     function reloadSource(): void {
         homeView.scrollTop()
         MusicApi.hotPlayLists.clear()
+        MusicApi.recommendPlaylists.clear()
         MusicApi.getHotlistMenu.clear()
         MusicApi.getHotPlaylistMenu(3)
         MusicApi.getHotPlaylists(1)
+        MusicApi.getRecommendPlaylists(1, 20)
         roamTitles = []
         roamIndex = 0
     }
@@ -109,6 +102,7 @@ Item {
         MusicApi.getHotlistMenu.clear()
         MusicApi.getHotPlaylistMenu(3)
         MusicApi.getHotPlaylists(1)
+        MusicApi.getRecommendPlaylists(1, 20)
         Options.homeLoaded = true
     }
 
@@ -161,7 +155,7 @@ Item {
             readonly property int cardGutter: 20
             readonly property int columnCount: Math.max(2, Math.floor((standWidth + cardGutter) / (168 + cardGutter)))
             readonly property real cardWidth: (standWidth + cardGutter) / columnCount - cardGutter
-            model: MusicApi.hotPlayLists
+            model: MusicApi.recommendPlaylists
             cellWidth: (standWidth + cardGutter) / columnCount
             cellHeight: cardWidth + 122
             leftMargin: homePage.pagePadding
@@ -170,8 +164,8 @@ Item {
 
             onAtYEndChanged: {
                 if (atYEnd && !MusicApi.loadState && homeView.count !== 0) {
-                    if (MusicApi.hotPlayLists.count % 20 === 0) {
-                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                    if (MusicApi.recommendPlaylists.count % 20 === 0) {
+                        MusicApi.getRecommendPlaylists(MusicApi.recommendPlaylists.count / 20 + 1);
                     } else {
                         Options.warned("没有更多了",0);
                     }
@@ -322,47 +316,41 @@ Item {
                         }
                     }
 
+                    // 热门歌单
                     QFloatCard {
-                        id: lastPlayedCard
+                        id: hotlistCard
                         x: headerMain.heroWidth + 16
                         y: 0
                         width: headerMain.sideWidth
                         height: headerMain.sideCardHeight
-                        onClicked: homePage.playLastSong()
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: Config.lastSongHash === ""
-                            text: "还没有播放记录"
-                            color: Theme.textColor
-                            font.pixelSize: Style.text
+                        onClicked: {
+                            MusicApi.hotPlayLists.clear();
+                            MusicApi.getHotPlaylists(1);
+                            hotPlayWindow.opened("热门歌单", "");
                         }
 
-                        QPicture {
-                            id: lastCover
+                        Rectangle {
+                            id: hotlistBadge
                             x: 14
                             y: 14
                             width: 48
                             height: 48
                             radius: Style.labelRadius
-                            sourceSize: Qt.size(64, 64)
-                            image: Config.lastSongCover
-                        }
-
-                        Text {
-                            text: "继续播放"
-                            x: 76
-                            y: 14
-                            color: Theme.themeColor
-                            font.pixelSize: Style.textTip
-                            font.bold: true
-                            verticalAlignment: Text.AlignVCenter
+                            color: Qt.rgba(Theme.themeColor.r, Theme.themeColor.g, Theme.themeColor.b, 0.12)
+                            Text {
+                                anchors.centerIn: parent
+                                text: "\uf0d5"
+                                font.family: Fonts.icon
+                                font.pixelSize: Style.texticonH
+                                color: Theme.themeColor
+                            }
                         }
                         Text {
-                            width: parent.width - 160
                             x: 76
-                            y: 29
-                            text: Config.lastSongName
+                            y: 15
+                            height: 24
+                            width: parent.width - 100
+                            text: "热门歌单"
                             color: Theme.fontColor
                             font.pixelSize: Style.textmain
                             font.bold: true
@@ -370,46 +358,24 @@ Item {
                             elide: Text.ElideRight
                         }
                         Text {
-                            width: parent.width - 160
                             x: 76
-                            y: 48
-                            text: Config.lastSongArtist
+                            y: 39
+                            height: 21
+                            width: parent.width - 100
+                            text: "全网热门歌单集合"
                             color: Theme.textColor
                             verticalAlignment: Text.AlignVCenter
-                            font.pixelSize: Style.textTip
+                            font.pixelSize: Style.text
                             elide: Text.ElideRight
                         }
-
-                        SButton {
-                            id: lastPlayButton
-                            x: lastPlayedCard.width - 88
+                        Text {
+                            id: hotlistArrow
+                            x: hotlistCard.width - 32
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 32
-                            radius: 16
-                            iconCharacter: "\uf00e"
-                            iconSize: Style.textmain
-                            iconColor: Theme.fullColor
-                            buttonColor: Theme.themeColor
-                            hoverColor: Qt.rgba(Theme.themeColor.r, Theme.themeColor.g, Theme.themeColor.b, 0.82)
-                            shadowEnabled: false
-                            tipText: "继续播放"
-                            onClicked: homePage.playLastSong()
-                        }
-                        SButton {
-                            id: lastQueueButton
-                            x: lastPlayedCard.width - 46
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 32
-                            radius: 16
-                            iconCharacter: "\uf095"
-                            iconSize: Style.textmain
-                            buttonColor: Theme.sideColor
-                            hoverColor: Theme.hoverColor
-                            shadowEnabled: false
-                            tipText: "加入播放列表"
-                            onClicked: homePage.queueLastSong()
+                            text: "\uf0e7"
+                            font.family: Fonts.icon
+                            font.pixelSize: Style.textmain
+                            color: Theme.textColor
                         }
                     }
 
@@ -455,7 +421,7 @@ Item {
                             y: 39
                             height: 21
                             width: parent.width - 100
-                            text: "全网热门歌单分类快速预览"
+                            text: "各大热门分类歌单快速查看"
                             color: Theme.textColor
                             verticalAlignment: Text.AlignVCenter
                             font.pixelSize: Style.text
@@ -474,12 +440,12 @@ Item {
                 }
 
 
-                QHead { text: "热门歌单" }
+                QHead { text: "推荐歌单" }
 
             }
 
             Rectangle {
-                id: hotplayMask
+                id: recomplayMask
                 width: homeView.cardWidth
                 height: homeView.cardWidth
                 radius: Style.labelRadius
@@ -491,7 +457,7 @@ Item {
             }
 
             delegate: Rectangle {
-                id: hotPlayRow
+                id: recomPlayRow
                 required property string hash
                 required property string cover
                 required property string title
@@ -500,9 +466,9 @@ Item {
                 required property real duration
                 required property var model
 
-                readonly property bool hovered: hotPlayListsArea.containsMouse
-                readonly property string playcountText: hotPlayRow.playcount >= 10000 ? (hotPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(hotPlayRow.playcount).toString()
-                readonly property string durationText: hotPlayRow.duration > 0 ? Math.round(hotPlayRow.duration) + " 首" : ""
+                readonly property bool hovered: recomPlayListsArea.containsMouse
+                readonly property string playcountText: recomPlayRow.playcount >= 10000 ? (recomPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(recomPlayRow.playcount).toString()
+                readonly property string durationText: recomPlayRow.duration > 0 ? Math.round(recomPlayRow.duration) + " 首" : ""
 
                 // 封面为正方形，高度随列宽自适应；106 = 标题 10+38 + 歌手 + 间距 + 底栏 30
                 width: homeView.cardWidth
@@ -510,12 +476,12 @@ Item {
                 radius: Style.labelRadius
                 color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
                 Accessible.role: Accessible.ListItem
-                Accessible.name: hotPlayRow.title
-                Accessible.description: hotPlayRow.album
+                Accessible.name: recomPlayRow.title
+                Accessible.description: recomPlayRow.album
 
                 // 悬停只做位移，不改 scale/blur，避免整块卡片重绘
                 transform: Translate {
-                    y: hotPlayRow.hovered ? -4 : 0
+                    y: recomPlayRow.hovered ? -4 : 0
                     Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                 }
                 RectangularShadow {
@@ -529,48 +495,55 @@ Item {
                     color: Theme.shadowColor
                 }
                 MouseArea {
-                    id: hotPlayListsArea
+                    id: recomPlayListsArea
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: homePage.openHotList(hotPlayRow)
+                    onClicked: {
+                        hotlistsWindow.mainTarget = homeMain
+                        MusicApi.playlistSong.clear()
+                        MusicApi.globalid = recomPlayRow.hash
+                        MusicApi.getPlaylistSongs(recomPlayRow.hash, 1, 20)
+                        hotlistsWindow.opened(recomPlayRow.model)
+                        Options.exitIndex = 1
+                    }
                 }
                 MultiEffect {
-                    id: hotPlayCover
+                    id: recomPlayCover
                     source: Image {
-                        source: (hotPlayRow.cover || "").replace("{size}", "256")
-                        width: hotPlayRow.width
+                        source: (recomPlayRow.cover || "").replace("{size}", "256")
+                        width: recomPlayRow.width
                         height: width
                         sourceSize: Qt.size(256,256)
                         cache: Config.picCache
                         fillMode: Image.PreserveAspectCrop
                         visible: false
                     }
-                    width: hotPlayRow.width
+                    width: recomPlayRow.width
                     height: width
                     maskEnabled: true
-                    maskSource: hotplayMask
+                    maskSource: recomplayMask
                     // 边缘抗锯齿
                     maskThresholdMin: 0.5
                     maskSpreadAtMin: 1.0
                 }
                 // 悬停遮罩：淡入 + 播放图标轻微放大
                 Rectangle {
-                    anchors.fill: hotPlayCover
+                    anchors.fill: recomPlayCover
                     topLeftRadius: Style.labelRadius
                     topRightRadius: Style.labelRadius
                     color: "#30000000"
-                    opacity: hotPlayRow.hovered ? 1 : 0
+                    opacity: recomPlayRow.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
                 // 标题固定占两行，同一行卡片的信息区始终对齐
                 Text {
-                    id: hotPlayTitle
-                    width: hotPlayRow.width - 24
+                    id: recomPlayTitle
+                    width: recomPlayRow.width - 24
                     x: 12
-                    y: hotPlayCover.height + 10
+                    y: recomPlayCover.height + 10
                     height: 38
-                    text: hotPlayRow.title
+                    text: recomPlayRow.title
                     font.bold: true
                     color: Theme.fontColor
                     font.pixelSize: Style.textmain
@@ -580,10 +553,10 @@ Item {
                     verticalAlignment: Text.AlignTop
                 }
                 Text {
-                    width: hotPlayRow.width - 24
+                    width: recomPlayRow.width - 24
                     x: 12
-                    anchors.top: hotPlayTitle.bottom
-                    text: hotPlayRow.album
+                    anchors.top: recomPlayTitle.bottom
+                    text: recomPlayRow.album
                     color: Theme.textColor
                     font.pixelSize: Style.text
                     elide: Text.ElideRight
@@ -591,7 +564,7 @@ Item {
                 }
                 // 底栏：播放量 + 曲目数
                 Rectangle {
-                    width: hotPlayRow.width
+                    width: recomPlayRow.width
                     anchors.bottom: parent.bottom
                     height: 30
                     color: Theme.secondaryColor
@@ -608,7 +581,7 @@ Item {
                     Text {
                         x: 32
                         anchors.verticalCenter: parent.verticalCenter
-                        text: hotPlayRow.playcountText
+                        text: recomPlayRow.playcountText
                         font.pixelSize: Style.textTip
                         color: Theme.textColor
                     }
@@ -624,7 +597,7 @@ Item {
                         id: dtText
                         x: parent.width - width - 12
                         anchors.verticalCenter: parent.verticalCenter
-                        text: hotPlayRow.durationText
+                        text: recomPlayRow.durationText
                         font.pixelSize: Style.textTip
                         color: Theme.textColor
                     }
@@ -636,7 +609,7 @@ Item {
                     color: "transparent"
                     border.width: 2
                     border.color: Theme.themeColor
-                    opacity: hotPlayRow.hovered ? 1 : 0
+                    opacity: recomPlayRow.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
             }
@@ -715,6 +688,198 @@ Item {
                 MusicApi.getPlaylistSongs(model.get(index).hash,1,20);
                 hotlistsWindow.opened(model.get(index));
                 Options.exitIndex = 2;
+            }
+        }
+    }
+    AnimatorWindow {
+        id: hotPlayWindow
+        mainTarget: homeMain
+        haveControl: false
+        mainHeadMode: true
+
+        content: QGridView {
+            id: hotPlayView
+            x: 0
+            y: 68
+            width: hotPlayWindow.width - 10
+            height: hotPlayWindow.height - 68
+            readonly property int standWidth: hotPlayWindow.width - 52
+            // 列数与卡片宽度按页面留白均分：卡片首尾与 header 左右边界严格对齐，右侧不再留空
+            readonly property int cardGutter: 20
+            readonly property int columnCount: Math.max(2, Math.floor((standWidth + cardGutter) / (168 + cardGutter)))
+            readonly property real cardWidth: (standWidth + cardGutter) / columnCount - cardGutter
+            model: MusicApi.hotPlayLists
+            cellWidth: (standWidth + cardGutter) / columnCount
+            cellHeight: cardWidth + 122
+            leftMargin: homePage.pagePadding
+            // 末尾 0.5 是取整补偿：可用宽度略大于整列宽度，避免浮点误差少算一列
+            rightMargin: homePage.pagePaddingRight - cardGutter - 10.5
+
+            onAtYEndChanged: {
+                if (atYEnd && !MusicApi.loadState && hotPlayView.count !== 0) {
+                    if (MusicApi.hotPlayLists.count % 20 === 0) {
+                        MusicApi.getHotPlaylists(MusicApi.hotPlayLists.count / 20 + 1);
+                    } else {
+                        Options.warned("没有更多了",0);
+                    }
+                }
+            }
+            delegate: Rectangle {
+                id: hotPlayRow
+                required property string hash
+                required property string cover
+                required property string title
+                required property string album
+                required property real playcount
+                required property real duration
+                required property var model
+
+                readonly property bool hovered: hotPlayListsArea.containsMouse
+                readonly property string playcountText: hotPlayRow.playcount >= 10000 ? (hotPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(hotPlayRow.playcount).toString()
+                readonly property string durationText: hotPlayRow.duration > 0 ? Math.round(hotPlayRow.duration) + " 首" : ""
+
+                // 封面为正方形，高度随列宽自适应；106 = 标题 10+38 + 歌手 + 间距 + 底栏 30
+                width: homeView.cardWidth
+                height: width + 106
+                radius: Style.labelRadius
+                color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
+                Accessible.role: Accessible.ListItem
+                Accessible.name: hotPlayRow.title
+                Accessible.description: hotPlayRow.album
+
+                // 悬停只做位移，不改 scale/blur，避免整块卡片重绘
+                transform: Translate {
+                    y: hotPlayRow.hovered ? -4 : 0
+                    Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                }
+                RectangularShadow {
+                    anchors.fill: parent
+                    z: -1
+                    offset.x: 0
+                    offset.y: 6
+                    radius: Style.labelRadius
+                    blur: 18
+                    spread: 0
+                    color: Theme.shadowColor
+                }
+                MouseArea {
+                    id: hotPlayListsArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        hotlistsWindow.mainTarget = hotPlayWindow
+                        MusicApi.playlistSong.clear()
+                        MusicApi.globalid = hotPlayRow.hash
+                        MusicApi.getPlaylistSongs(hotPlayRow.hash, 1, 20)
+                        hotlistsWindow.opened(hotPlayRow.model)
+                        Options.exitIndex = 2
+                    }
+                }
+                MultiEffect {
+                    id: hotPlayCover
+                    source: Image {
+                        source: (hotPlayRow.cover || "").replace("{size}", "256")
+                        width: hotPlayRow.width
+                        height: width
+                        sourceSize: Qt.size(256,256)
+                        cache: Config.picCache
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                    }
+                    width: hotPlayRow.width
+                    height: width
+                    maskEnabled: true
+                    maskSource: recomplayMask
+                    // 边缘抗锯齿
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1.0
+                }
+                // 悬停遮罩：淡入 + 播放图标轻微放大
+                Rectangle {
+                    anchors.fill: hotPlayCover
+                    topLeftRadius: Style.labelRadius
+                    topRightRadius: Style.labelRadius
+                    color: "#30000000"
+                    opacity: hotPlayRow.hovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                }
+                // 标题固定占两行，同一行卡片的信息区始终对齐
+                Text {
+                    id: hotPlayTitle
+                    width: hotPlayRow.width - 24
+                    x: 12
+                    y: hotPlayCover.height + 10
+                    height: 38
+                    text: hotPlayRow.title
+                    font.bold: true
+                    color: Theme.fontColor
+                    font.pixelSize: Style.textmain
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignTop
+                }
+                Text {
+                    width: hotPlayRow.width - 24
+                    x: 12
+                    anchors.top: hotPlayTitle.bottom
+                    text: hotPlayRow.album
+                    color: Theme.textColor
+                    font.pixelSize: Style.text
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+                // 底栏：播放量 + 曲目数
+                Rectangle {
+                    width: hotPlayRow.width
+                    anchors.bottom: parent.bottom
+                    height: 30
+                    color: Theme.secondaryColor
+                    bottomLeftRadius: Style.labelRadius
+                    bottomRightRadius: Style.labelRadius
+                    Text {
+                        x: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf0cb"
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                    }
+                    Text {
+                        x: 32
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: hotPlayRow.playcountText
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                    }
+                    Text {
+                        x: parent.width - dt2Text.width - 32
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf098"
+                        font.family: Fonts.icon
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                    }
+                    Text {
+                        id: dt2Text
+                        x: parent.width - width - 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: hotPlayRow.durationText
+                        font.pixelSize: Style.textTip
+                        color: Theme.textColor
+                    }
+                }
+                // 悬停描边画在最上层，不会被封面盖住
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Style.labelRadius
+                    color: "transparent"
+                    border.width: 2
+                    border.color: Theme.themeColor
+                    opacity: hotPlayRow.hovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                }
             }
         }
     }

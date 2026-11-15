@@ -2,7 +2,6 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Effects
 import QueMusic 1.0
 
 Item {

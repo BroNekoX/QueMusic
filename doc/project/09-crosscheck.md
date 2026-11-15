@@ -43,6 +43,7 @@
 | `WebDav`（`WebDavStore`） | `WebDavPage(14)`、`Playback(5)`、`FilePage(4)`、`main.qml(1)`、`PlayList(1)` |
 | `WebDavCache` | `Playback(2)`、`main.qml(1)` |
 | `Plugins` | `main.qml`（pluginLayer）、`PlayerMaxCenter(5)`、`SettingsView(1)`、`PluginManager` |
+| `PluginMarket` | `MarketPage`（市场页数据源） |
 | `Songs` | `FilePage(22)`、`FavouritePage(2)`、`SettingsView(1)` |
 | `MyFolders` / `LocalFolders` | 各仅 `FilePage(5)` |
 | `FavoriteSongs` | `PlayerControl(7)`、`FavouritePage(7)`、`PlayList(3)`、`QListView(3)` |

@@ -23,6 +23,7 @@ struct OnlineModels
     OnlineListModel *playlistMenu = nullptr;
     OnlineListModel *playlistSongs = nullptr;
     OnlineListModel *hotPlaylists = nullptr;
+    OnlineListModel *recommendPlaylists = nullptr;
     OnlineListModel *hotlistMenu = nullptr;
     OnlineListModel *musicToplist = nullptr;
     OnlineListModel *toplistList = nullptr;
@@ -30,6 +31,9 @@ struct OnlineModels
     OnlineListModel *personalFm = nullptr;
     OnlineListModel *personalRadar = nullptr;
     OnlineListModel *comments = nullptr;
+    OnlineListModel *userPlaylists = nullptr;
+    OnlineListModel *userFavoriteSongs = nullptr;
+    OnlineListModel *followedArtists = nullptr;
 };
 
 class ApiResultRouter : public QObject

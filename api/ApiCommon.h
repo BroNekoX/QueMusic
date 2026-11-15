@@ -5,9 +5,12 @@
 #define APICOMMON_H
 
 #include <QJsonObject>
+#include <QList>
+#include <QRegularExpression>
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <algorithm>
 #include <initializer_list>
 #include <utility>
 
@@ -60,6 +63,51 @@ inline QVariantMap comment(QString user, QString avatar, QString content, qint64
 {
     return {{"user", std::move(user)}, {"avatar", std::move(avatar)}, {"content", std::move(content)},
             {"time", time}, {"liked", liked}, {"replies", replies}};
+}
+
+// 标准 LRC：一行可以带多个时间戳，[mm:ss.xx] 与 [mm:ss.xxx] 都接受。
+inline QVariantList parseLrc(const QString &text)
+{
+    static const QRegularExpression timestamp(
+        "\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?\\]");
+
+    QVariantList result;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    for (const QString &raw : lines) {
+        const QString line = raw.trimmed();
+        if (line.isEmpty())
+            continue;
+
+        QList<qlonglong> times;
+        int end = 0;
+        QRegularExpressionMatchIterator it = timestamp.globalMatch(line);
+        while (it.hasNext()) {
+            const QRegularExpressionMatch match = it.next();
+            int ms = 0;
+            const QString fraction = match.captured(3);
+            if (fraction.size() == 1)
+                ms = fraction.toInt() * 100;
+            else if (fraction.size() == 2)
+                ms = fraction.toInt() * 10;
+            else if (!fraction.isEmpty())
+                ms = fraction.left(3).toInt();
+            times << (match.captured(1).toLongLong() * 60 + match.captured(2).toLongLong()) * 1000 + ms;
+            end = match.capturedEnd();
+        }
+        if (times.isEmpty())
+            continue;
+
+        const QString lyric = line.mid(end).trimmed();
+        if (lyric.isEmpty())
+            continue;
+        for (qlonglong time : std::as_const(times))
+            result << QVariantMap{{"time", time}, {"text", lyric}};
+    }
+
+    std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value("time").toLongLong() < b.toMap().value("time").toLongLong();
+    });
+    return result;
 }
 
 inline bool hasValue(const QVariantMap &map, const QString &key)

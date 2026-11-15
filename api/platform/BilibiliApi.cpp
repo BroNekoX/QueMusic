@@ -125,6 +125,66 @@ QString BilibiliApi::mixinKey(const QString &imgKey, const QString &subKey)
     return out;
 }
 
+void BilibiliApi::withUid(const std::function<void(const QString &)> &done)
+{
+    if (!m_uid.isEmpty()) {
+        done(m_uid);
+        return;
+    }
+    get("https://api.bilibili.com/x/web-interface/nav", [this, done](const QJsonObject &json) {
+        m_uid = QString::number(json.value("data").toObject()
+                                    .value("mid").toVariant().toLongLong());
+        done(m_uid);
+    });
+}
+
+void BilibiliApi::onUserPlaylists(int page, int pageSize)
+{
+    withUid([this, page, pageSize](const QString &mid) {
+        if (mid.isEmpty() || mid == QLatin1String("0")) {
+            emitList(ApiAction::UserPlaylists, {});
+            return;
+        }
+        get(kApi + "/x/v3/fav/folder/created/list-all?up_mid=" + mid,
+            [this, page, pageSize](const QJsonObject &json) {
+                const QJsonArray list = json.value("data").toObject().value("list").toArray();
+                const int start = (qMax(1, page) - 1) * pageSize;
+                QVariantList info;
+                for (int i = start; i < list.size() && i < start + pageSize; ++i) {
+                    const QJsonObject folder = list.at(i).toObject();
+                    info << ApiCommon::song(folder.value("title").toString(), QString(),
+                                            httpsUrl(folder.value("cover").toString()),
+                                            QString::number(folder.value("id").toVariant().toLongLong()),
+                                            folder.value("media_count").toInt());
+                }
+                emitList(ApiAction::UserPlaylists, info);
+            });
+    });
+}
+
+void BilibiliApi::onFollowedArtists(int page, int pageSize)
+{
+    withUid([this, page, pageSize](const QString &mid) {
+        if (mid.isEmpty() || mid == QLatin1String("0")) {
+            emitList(ApiAction::FollowedArtists, {});
+            return;
+        }
+        get(kApi + QString("/x/relation/followings?vmid=%1&pn=%2&ps=%3")
+                     .arg(mid, QString::number(qMax(1, page)), QString::number(pageSize)),
+            [this](const QJsonObject &json) {
+                QVariantList info;
+                for (const QJsonValue &value : json.value("data").toObject().value("list").toArray()) {
+                    const QJsonObject up = value.toObject();
+                    const QString upMid = QString::number(up.value("mid").toVariant().toLongLong());
+                    const QString name = up.value("uname").toString();
+                    rememberUpName(upMid, name);
+                    info << ApiCommon::song(name, QString(), httpsUrl(up.value("face").toString()), upMid);
+                }
+                emitList(ApiAction::FollowedArtists, info);
+            });
+    });
+}
+
 void BilibiliApi::onComments(const QString &hash, int page, int pageSize)
 {
 
@@ -195,12 +255,15 @@ void BilibiliApi::onComments(const QString &hash, int page, int pageSize)
 void BilibiliApi::get(const QString &url, const Callback &cb, bool withCookie)
 {
     QByteArray cookie;
-    if (withCookie && !m_buvid3.isEmpty()) {
-        cookie = QString("buvid3=%1; buvid4=%2").arg(m_buvid3, m_buvid4).toUtf8();
-        if (!m_loginCookie.isEmpty()) {
-            cookie += ';';
-            cookie += m_loginCookie.toUtf8();
+    if (withCookie) {
+        QStringList parts;
+        if (!m_buvid3.isEmpty()) {
+            parts << QStringLiteral("buvid3=%1").arg(m_buvid3);
+            parts << QStringLiteral("buvid4=%1").arg(m_buvid4);
         }
+        if (!m_loginCookie.isEmpty())
+            parts << m_loginCookie;
+        cookie = parts.join(QStringLiteral("; ")).toUtf8();
     }
     ApiHttp::getJson(m_nam, this, QUrl(url), kUa, "https://www.bilibili.com", cookie, cb);
 }
@@ -584,6 +647,17 @@ void BilibiliApi::onHotPlaylistMenu(int type)
                             {"cover", QString()}};
     }
     emitList("getHotPlaylistMenu", info);
+}
+
+void BilibiliApi::onRecommendPlaylists(int page, int pageSize)
+{
+    static const QStringList kKeywords{
+        QStringLiteral("华语"), QStringLiteral("古风"), QStringLiteral("治愈"),
+        QStringLiteral("摇滚"), QStringLiteral("纯音乐"), QStringLiteral("说唱"),
+        QStringLiteral("电音"), QStringLiteral("民谣")};
+    if (page <= 1)
+        m_recommendKeyword = kKeywords.at(QRandomGenerator::global()->bounded(int(kKeywords.size())));
+    searchPlaylists(m_recommendKeyword, page, pageSize, ApiAction::RecommendPlaylists);
 }
 
 void BilibiliApi::onHotPlaylists(int page, int pageSize)

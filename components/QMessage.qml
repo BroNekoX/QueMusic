@@ -3,9 +3,9 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QueMusic 1.0
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 import QtQuick.Effects
+import QueMusic 1.0
 
 ListView {
     id: tipview
@@ -99,7 +99,6 @@ ListView {
             color: Theme.shadowColor
         }
 
-
         Rectangle {
             x: 24
             y: 24
@@ -164,8 +163,6 @@ ListView {
                 removeAnimation.start();
             }
         }
-
-
 
         MouseArea {
             anchors.fill: parent

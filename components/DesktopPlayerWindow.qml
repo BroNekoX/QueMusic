@@ -2,9 +2,9 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QueMusic 1.0
-import QtQuick.Controls.Basic
 import QtQuick.Effects
+import QueMusic 1.0
+import QtQuick.Templates
 
 Window {
     id: desktopPlayerWindow

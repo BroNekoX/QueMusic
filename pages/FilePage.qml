@@ -3,13 +3,12 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 import QtQuick.Dialogs
 import Qt.labs.folderlistmodel
 import QueMusic 1.0
 Item {
     id: filePage
-
 
     property int folderNumber: 0
     property int setMode: 0
@@ -473,7 +472,6 @@ Item {
                             }
                         }
 
-
                         Text {
                             x: 72
                             y: 0
@@ -735,7 +733,6 @@ Item {
                             }
                         }
 
-
                         Text {
                             x: 72
                             z: 3
@@ -917,17 +914,6 @@ Item {
                 nameRole: "name"
             }
 
-            QMenu {
-                id: songSortMenu
-                model: songSort.options.map(o => o.label)
-                current: songSort.menuIndex
-                onClicked: (i) => {
-                    songSort.selectMenu(i);
-                    songSearchSort.selectMenu(i);
-                    fileView.scrollTop();
-                }
-            }
-
             // 顶栏
             Row {
                 x: 136
@@ -985,7 +971,19 @@ Item {
                     shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "排序方式（再次点击反向）"
-                    onClicked: songSortMenu.popup(songSortBtn, 0, songSortBtn.height + 6)
+                    onClicked: songSortMenu.popup(1, songSortBtn.height + 6)
+
+                    QMenu {
+                        id: songSortMenu
+                        model: songSort.options.map(o => o.label)
+                        parent: songSortBtn
+                        current: songSort.menuIndex
+                        onClicked: (i) => {
+                            songSort.selectMenu(i);
+                            songSearchSort.selectMenu(i);
+                            fileView.scrollTop();
+                        }
+                    }
                 }
             }
 
@@ -1020,7 +1018,7 @@ Item {
                 }
             }
 
-            TextField {
+            QTextField {
                 id: filterInput1
                 x: folderMusic.width - width - 24
                 y: 76
@@ -1309,17 +1307,6 @@ Item {
         content: Item {
             anchors.fill: parent
 
-            QMenu {
-                id: localSortMenu
-                model: filePage.localSortOptions.map(o => o.label)
-                current: filePage.localSortMenuIndex
-                onClicked: (i) => {
-                    filePage.localSortField = filePage.localSortOptions[i].field;
-                    filePage.localSortReversed = filePage.localSortOptions[i].desc;
-                    localFileView.scrollTop();
-                }
-            }
-
             // 顶栏
             Row {
                 x: 136
@@ -1375,8 +1362,19 @@ Item {
                     iconCharacter: "\uf10b"
                     shadowEnabled: false
                     buttonColor: Theme.sideColor
-                    tipText: "排序方式（再次点击反向）"
-                    onClicked: localSortMenu.popup(localSortBtn, 0, localSortBtn.height + 6)
+                    tipText: "排序方式"
+                    onClicked: localSortMenu.popup(1, localSortBtn.height + 6)
+                    QMenu {
+                        id: localSortMenu
+                        model: filePage.localSortOptions.map(o => o.label)
+                        current: filePage.localSortMenuIndex
+                        parent: localSortBtn
+                        onClicked: (i) => {
+                            filePage.localSortField = filePage.localSortOptions[i].field;
+                            filePage.localSortReversed = filePage.localSortOptions[i].desc;
+                            localFileView.scrollTop();
+                        }
+                    }
                 }
             }
 
@@ -1411,7 +1409,7 @@ Item {
                 }
             }
 
-            TextField {
+            QTextField {
                 id: filterInput2
                 x: localFolderMusic.width - width - 24
                 y: 76
@@ -1576,7 +1574,6 @@ Item {
                         z: 1
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
-
 
                     Text {
                         height: 60

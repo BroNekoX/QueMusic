@@ -8,6 +8,7 @@ Item {
     property list<Item> pageList: []
     property int lastIndex: 0
     function stack(index: int): void {
+        if(pageOutAnime.target) pageOutAnime.target.visible = false;
         pageInAnime.running = false;
         pageOutAnime.running = false;
         pageInAnime.target = root.pageList[index];

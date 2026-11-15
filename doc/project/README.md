@@ -121,6 +121,7 @@
 | 功能插件（单例 `Plugins.activeFunctions`） | `main.qml` 的 `pluginLayer`（`Repeater` + `Loader`）+ `components/PluginContext.qml` |
 | 歌词界面插件（单例 `Plugins.lyrics`） | 同一份 `cpp/plugins/PluginStore.{h,cpp}`，`layout/PlayerMaxCenter.qml` 消费 |
 | 插件管理界面 | `components/PluginManager.qml`（设置页内，按 `pluginType` 切类型） |
+| 插件市场（拉取/下载/安装） | `cpp/plugins/PluginMarket.{h,cpp}`、`cpp/plugins/ZipReader.{h,cpp}`、`components/MarketPage.qml`、`tools/market/build_market.py` |
 | 插件目录与实例参考 | `%APPDATA%\BroNekoX\QueMusic\plugins\<名字>\`（旧版 `plugins\{lyrics,function}\<名字>\` 仍识别；`info.json` 的 `type` 决定类型） |
 
 ### 0.8 构建 / 发布

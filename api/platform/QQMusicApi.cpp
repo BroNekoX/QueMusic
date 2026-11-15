@@ -167,17 +167,37 @@ QQMusicApi::QQMusicApi(QObject *parent)
 void QQMusicApi::applyCredentials(const SourceCredentials &credentials)
 {
     m_quality = qBound(0, credentials.quality, 3);
+    if (m_cookie == credentials.cookie)
+        return;
+    m_cookie = credentials.cookie;
+    m_uin = uinOf(m_cookie);
+}
+
+QString QQMusicApi::uinOf(const QString &cookie)
+{
+    static const QRegularExpression re(QStringLiteral("(?:^|;\\s*)(?:uin|wxuin|p_uin)=([^;]+)"));
+    const QRegularExpressionMatch match = re.match(cookie);
+    if (!match.hasMatch())
+        return {};
+    QString value = match.captured(1).trimmed();
+    while (!value.isEmpty() && QStringLiteral("oOpP").contains(value.at(0)))
+        value.remove(0, 1);
+    while (value.size() > 1 && value.startsWith(QLatin1Char('0')))
+        value.remove(0, 1);
+    bool ok = false;
+    const qlonglong id = value.toLongLong(&ok);
+    return ok && id > 0 ? QString::number(id) : QString();
 }
 
 void QQMusicApi::getJson(const QUrl &url, const JsonCallback &callback)
 {
-    ApiHttp::getJson(m_nam, this, url, kUa, kReferer, {}, callback);
+    ApiHttp::getJson(m_nam, this, url, kUa, kReferer, m_cookie.toUtf8(), callback);
 }
 
 void QQMusicApi::postJson(const QUrl &url, const QJsonObject &body, const JsonCallback &callback)
 {
     ApiHttp::postJson(m_nam, this, url, QJsonDocument(body).toJson(QJsonDocument::Compact),
-                      kUa, kReferer, {}, callback);
+                      kUa, kReferer, m_cookie.toUtf8(), callback);
 }
 
 void QQMusicApi::emitList(const QString &action, const QVariantList &info, const QJsonObject &json)
@@ -402,12 +422,20 @@ void QQMusicApi::onHotPlaylists(int page, int pageSize)
     requestPlaylists("10000000", page, pageSize, ApiAction::HotPlaylists);
 }
 
+void QQMusicApi::onRecommendPlaylists(int page, int pageSize)
+{
+    if (page <= 1)
+        m_recommendOffset = QRandomGenerator::global()->bounded(0, 20) * qMax(pageSize, 1);
+    requestPlaylists("10000000", page, pageSize, ApiAction::RecommendPlaylists,
+                     m_recommendOffset);
+}
+
 void QQMusicApi::requestPlaylists(const QString &categoryId, int page, int pageSize,
-                                  const QString &action)
+                                  const QString &action, int startOffset)
 {
     const QString id = categoryId.isEmpty() ? "10000000" : categoryId;
     const int size = qBound(1, pageSize, 50);
-    const int start = (qMax(1, page) - 1) * size;
+    const int start = startOffset + (qMax(1, page) - 1) * size;
 
     QUrl url("https://c.y.qq.com/splcloud/fcgi-bin/fcg_get_diss_by_tag.fcg");
     QUrlQuery query;
@@ -659,11 +687,12 @@ void QQMusicApi::requestPlayUrl(const QString &mid, int type, const SongDetail &
         songtypes.append(0);
     }
 
+    const QString uin = m_uin.isEmpty() ? QStringLiteral("0") : m_uin;
     const QJsonObject body{{"req_1", QJsonObject{{"module", "vkey.GetVkeyServer"}, {"method", "CgiGetVkey"},
                                                   {"param", QJsonObject{{"filename", filenames}, {"guid", "10000"}, {"songmid", songmids},
-                                                                        {"songtype", songtypes}, {"uin", "0"}, {"loginflag", 1}, {"platform", "20"}}}}},
-                           {"loginUin", "0"},
-                           {"comm", QJsonObject{{"uin", "0"}, {"format", "json"}, {"ct", 24}, {"cv", 0}}}};
+                                                                        {"songtype", songtypes}, {"uin", uin}, {"loginflag", 1}, {"platform", "20"}}}}},
+                           {"loginUin", uin},
+                           {"comm", QJsonObject{{"uin", uin}, {"format", "json"}, {"ct", 24}, {"cv", 0}}}};
 
     auto fallback = [this, mid, type, detail](const QString &reason, const QJsonValue &error = {}) {
         QVariantMap data{{"url", QString()}, {"backup_url", QString()}, {"songName", detail.name.isEmpty() ? mid : detail.name},
@@ -730,6 +759,33 @@ void QQMusicApi::onMusicInfo(const QString &hash, int type)
     });
 }
 
+void QQMusicApi::onUserPlaylists(int page, int pageSize)
+{
+    if (m_uin.isEmpty()) {
+        emit resultReady(ApiAction::UserPlaylists, ApiCommon::listResult({}), Source);
+        return;
+    }
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"uin", m_uin}}},
+        {"req", QJsonObject{{"module", "music.musicasset.PlaylistBaseRead"},
+                            {"method", "GetPlaylistByUin"},
+                            {"param", QJsonObject{{"uin", m_uin}}}}}};
+    postJson(QUrl(kApi), body, [this, page, pageSize](const QJsonObject &json) {
+        const QJsonArray list = json.value("req").toObject().value("data").toObject()
+                                    .value("v_playlist").toArray();
+        const int start = (qMax(1, page) - 1) * pageSize;
+        QVariantList info;
+        for (int i = start; i < list.size() && i < start + pageSize; ++i) {
+            const QJsonObject item = list.at(i).toObject();
+            info << ApiCommon::song(item.value("dirName").toString(), QString(),
+                                    httpsUrl(item.value("picUrl").toString()),
+                                    QString::number(item.value("tid").toVariant().toLongLong()),
+                                    item.value("songNum").toInt());
+        }
+        emit resultReady(ApiAction::UserPlaylists, ApiCommon::listResult(info), Source);
+    });
+}
+
 void QQMusicApi::onLyricInfo(const QString &hash, int duration)
 {
     Q_UNUSED(duration)
@@ -755,7 +811,7 @@ void QQMusicApi::onLyricInfo(const QString &hash, int duration)
             return text;
         };
 
-        const QVariantList lyrics = parseLrc(plain(json.value("lyric").toString()));
+        const QVariantList lyrics = ApiCommon::parseLrc(plain(json.value("lyric").toString()));
         const QVariantList translate = alignedTranslations(lyrics, plain(json.value("trans").toString()));
         QVariantMap data{{"info", lyrics}, {"translate", translate}, {"hash", mid}};
         if (json.contains("error")) data.insert("error", json.value("error"));
@@ -807,60 +863,13 @@ void QQMusicApi::onComments(const QString &hash, int page, int pageSize)
     });
 }
 
-QVariantList QQMusicApi::parseLrc(const QString &text)
-{
-    static const QRegularExpression timestamp(
-        "\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?\\]");
-
-    QVariantList result;
-    const QStringList lines = text.split(QLatin1Char('\n'));
-    for (const QString &raw : lines) {
-        const QString line = raw.trimmed();
-        if (line.isEmpty())
-            continue;
-
-        QList<qlonglong> times;
-        int end = 0;
-        QRegularExpressionMatchIterator it = timestamp.globalMatch(line);
-        while (it.hasNext()) {
-            const QRegularExpressionMatch match = it.next();
-            int ms = 0;
-            const QString fraction = match.captured(3);
-            if (fraction.size() == 1)
-                ms = fraction.toInt() * 100;
-            else if (fraction.size() == 2)
-                ms = fraction.toInt() * 10;
-            else if (!fraction.isEmpty())
-                ms = fraction.left(3).toInt();
-            times << (match.captured(1).toLongLong() * 60
-                      + match.captured(2).toLongLong()) * 1000 + ms;
-            end = match.capturedEnd();
-        }
-        if (times.isEmpty())
-            continue;
-
-        const QString lyric = line.mid(end).trimmed();
-        if (lyric.isEmpty())
-            continue;
-        for (qlonglong time : std::as_const(times)) {
-            result << QVariantMap{{"time", time},
-                                  {"text", lyric}};
-        }
-    }
-
-    std::sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value("time").toLongLong()
-               < b.toMap().value("time").toLongLong();
-    });
-    return result;
-}
 
 QVariantList QQMusicApi::alignedTranslations(const QVariantList &lyrics, const QString &text)
 {
     if (text.trimmed().isEmpty() || lyrics.isEmpty())
         return {};
 
-    const QVariantList translations = parseLrc(text);
+    const QVariantList translations = ApiCommon::parseLrc(text);
     if (translations.isEmpty())
         return {};
 

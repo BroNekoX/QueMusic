@@ -71,6 +71,8 @@ protected:
     { Q_UNUSED(type) unsupported(ApiAction::HotPlaylistMenu); }
     virtual void onHotPlaylists(int page, int pageSize)
     { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::HotPlaylists); }
+    virtual void onRecommendPlaylists(int page, int pageSize)
+    { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::RecommendPlaylists); }
     virtual void onNewSongs(int type, int page, int pageSize)
     { Q_UNUSED(type) Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::NewSongs); }
     virtual void onAllToplist() { unsupported(ApiAction::AllToplist); }
@@ -92,6 +94,12 @@ protected:
     { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::PersonalFm); }
     virtual void onPersonalRadar(int page, int pageSize)
     { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::PersonalRadar); }
+    virtual void onUserPlaylists(int page, int pageSize)
+    { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::UserPlaylists); }
+    virtual void onUserFavoriteSongs(int page, int pageSize)
+    { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::UserFavoriteSongs); }
+    virtual void onFollowedArtists(int page, int pageSize)
+    { Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::FollowedArtists); }
 
     void deliver(const QString &action, const QVariant &data, int source);
     void deliverError(const QString &action, int source, int code,

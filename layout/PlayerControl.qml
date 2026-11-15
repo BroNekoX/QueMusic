@@ -2,7 +2,7 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 import QtQuick.Effects
 import QueMusic 1.0
 
@@ -27,7 +27,6 @@ Rectangle {
         GradientStop { position: 0.8; color: musicControlMin.secondColor }
     }
 
-
     // 秒级中间层：position 以 20Hz 刷新，直接绑到文本会每秒重建字符串 20 次
     readonly property int posSec: Math.floor(Playback.player.position / 1000)
 
@@ -35,8 +34,6 @@ Rectangle {
         const seconds = posSec % 60;
         return Math.floor(posSec / 60) + ':' + (seconds < 10 ? '0' + seconds : seconds);
     }
-
-
 
     function parseArtists(raw: string): var {
         const parts = raw.split(/\s*[\/、,，&;&；]\s*/);
@@ -572,8 +569,8 @@ Rectangle {
 
     ToolTip {
         id: volumeControl
-        margins: 0
         parent: Overlay.overlay
+        margins: 0
         width: 180
         height: 40
         verticalPadding: 5

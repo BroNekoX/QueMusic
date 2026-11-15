@@ -5,7 +5,6 @@
 // 收藏 / 加入播放列表 / 下一首 / 下载 / 信息弹窗在此内部完成，页面只接 onClicked 与 onEnded。
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Effects
 import QueMusic 1.0
 
@@ -155,68 +154,10 @@ ListView {
             font.pixelSize: Style.text
         }
     }
-    Menu {
+    QMenu {
         id: menu
-        title: "Menu"
-        parent: Overlay.overlay
-        property int index
-        readonly property int displayIndex: visible ? index : -1
-
-        background: Rectangle {
-            implicitWidth: 160
-            implicitHeight: 40
-            color: Theme.primaryColor
-            radius: Style.labelRadius
-            RectangularShadow {
-                anchors.fill: parent
-                z: -1
-                offset.x: 0
-                offset.y: 5
-                radius: parent.radius
-                blur: 20
-                spread: 0
-                color: Theme.shadowColor
-            }
-        }
-
-        Instantiator {
-            model: view.menuModel
-            onObjectAdded: (i, obj) => menu.insertItem(i, obj)
-            onObjectRemoved: (i, obj) => menu.removeItem(obj)
-            delegate: MenuItem {
-                id: menuItem
-                required property string modelData
-                required property int index
-                background: Rectangle {
-                    implicitWidth: 146
-                    implicitHeight: 36
-                    x: 2
-                    y: 2
-                    radius: Style.labelRadius - 2
-                    width: menuItem.width - 4
-                    height: menuItem.height - 4
-                    color: menuItem.hovered ? Theme.hoverColor : "transparent"
-                    Behavior on color { ColorAnimation { duration: 80 } }
-                }
-                text: modelData
-                contentItem: Text {
-                    text: menuItem.text
-                    color: Theme.fontColor
-                    font.pixelSize: Style.textmain
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: 12
-                    elide: Text.ElideRight
-                }
-                onTriggered: view.runMenuAction(index)
-            }
-        }
-
-        enter: Transition {
-            NumberAnimation { property: "opacity"; duration: 160; from: 0; to: 1 }
-        }
-        exit: Transition {
-            NumberAnimation { property: "opacity"; duration: 120; to: 0 }
-        }
+        model: view.menuModel
+        onClicked: (i) => view.runMenuAction(i)
     }
 
     // 收藏结果由模型回执：成功才提示已收藏，失败直接把原因显示出来
@@ -229,7 +170,7 @@ ListView {
         function onErrorOccurred(message: string): void { Options.warned(message, 0) }
     }
 
-    ScrollBar.vertical: ScrollBar {
+    QScrollBar.vertical: QScrollBar {
         id: viewBar
         parent: view
         anchors.top: view.top
@@ -241,7 +182,7 @@ ListView {
     }
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Theme.wheelStep
         readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin + view.originY
         onWheel: (event) => {
             listViewAnime.running = false;

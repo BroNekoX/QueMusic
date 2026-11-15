@@ -4,12 +4,11 @@
 // WebDAV 分页：服务器列表 + 目录浏览（视觉与「我的文件夹 / 本地文件夹」一致）
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+
 import QueMusic 1.0
 
 Item {
     id: root
-
 
     property bool browsing: false        // false = 服务器列表，true = 目录浏览
     property string serverName: ""
@@ -170,7 +169,7 @@ Item {
                 }
             }
 
-            Label {
+            Text {
                 x: 80
                 z: 3
                 width: parent.width / 2 - 108
@@ -182,7 +181,7 @@ Item {
                 font.pixelSize: Style.textmain
                 verticalAlignment: Text.AlignVCenter
             }
-            Label {
+            Text {
                 x: parent.width / 2 - 24
                 z: 2
                 width: parent.width / 2 - 120
@@ -233,7 +232,7 @@ Item {
             }
         }
 
-        Label {
+        Text {
             anchors.centerIn: parent
             visible: WebDav.servers.length === 0
             text: "还没有 WebDAV 服务器，点右上角「新建服务器」接入网盘音乐目录"
@@ -330,7 +329,7 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 80 } }
             }
 
-            Label {
+            Text {
                 height: 60
                 x: 80
                 z: 3
@@ -342,7 +341,7 @@ Item {
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
-            Label {
+            Text {
                 x: parent.width / 2 - 24
                 height: 60
                 z: 2
@@ -402,7 +401,7 @@ Item {
             }
         }
 
-        Label {
+        Text {
             anchors.centerIn: parent
             visible: !browser.busy && browser.count === 0
             text: browser.error !== "" ? browser.error : "该目录下没有音频"

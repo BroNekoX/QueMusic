@@ -5,7 +5,8 @@
 // 数据由宿主经下方注入属性提供，改样式一律经 request（宿主白名单），因此可用同接口插件替换。
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+import QtQuick.Templates
+
 import QtQuick.Shapes
 import QtQuick.Effects
 import QueMusic 1.0
@@ -365,7 +366,7 @@ Item {
             for (let i = 0; i < lyricRep.count; i++) {
                 arr.push(sum);
                 const it = lyricRep.itemAt(i);
-                if (it) it.stopAnime();
+                if (it) lyricRep.itemAt(i).stopAnime();
                 const h = it ? it.height : 0;
                 heights[i] = h;
                 sum += h; // 累加下一行起点
@@ -649,7 +650,7 @@ Item {
             onWheel: (event) => {
                 lyricContent.isUserScrolling = true;
                 scrollAnime.running = false;
-                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * 0.25 * Application.styleHints.wheelScrollLines,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
+                const to = Math.max(Math.min(scrollAnime.to + event.angleDelta.y * Theme.wheelStep,lyricContent.prefixSum[lyricContent.currentLine]),lyricContent.prefixSum[lyricContent.currentLine] - lyricContent.prefixSum[lyricRep.count - 1]);
                 scrollAnime.to = to;
                 scrollAnime.running = true;
                 event.accepted = true;

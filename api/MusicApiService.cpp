@@ -95,6 +95,7 @@ MusicApiService::MusicApiService(QObject *parent)
     models.playlistMenu = &m_allPlaylistMenu;
     models.playlistSongs = &m_playlistSong;
     models.hotPlaylists = &m_hotPlayLists;
+    models.recommendPlaylists = &m_recommendPlaylists;
     models.hotlistMenu = &m_getHotlistMenu;
     models.musicToplist = &m_musicToplist;
     models.toplistList = &m_toplistList;
@@ -102,6 +103,9 @@ MusicApiService::MusicApiService(QObject *parent)
     models.personalFm = &m_personalFm;
     models.personalRadar = &m_personalRadar;
     models.comments = &m_comments;
+    models.userPlaylists = &m_userPlaylists;
+    models.userFavoriteSongs = &m_userFavoriteSongs;
+    models.followedArtists = &m_followedArtists;
 
     m_router = std::make_unique<ApiResultRouter>(models, m_qualityCache.get(), this);
     m_playback = std::make_unique<PlaybackCoordinator>(m_qualityCache.get(), this);
@@ -248,8 +252,13 @@ void MusicApiService::setAccountManager(AccountManager *am)
             if (!m_account->isSpotifyLoggedIn() && m_source == ApiSource::Spotify) setSongSource(ApiSource::Kugou);
         });
         connect(m_account, &AccountManager::appleLoginChanged, this, [this] {
+            refreshCredentials();
             if (!m_account->isAppleLoggedIn() && m_source == ApiSource::AppleMusic) setSongSource(ApiSource::Kugou);
         });
+        connect(m_account, &AccountManager::bilibiliLoginChanged, this,
+                &MusicApiService::refreshCredentials);
+        connect(m_account, &AccountManager::qqLoginChanged, this,
+                &MusicApiService::refreshCredentials);
     }
     refreshAccountState();
 }
@@ -286,6 +295,25 @@ void MusicApiService::refreshCredentials()
         spotify.loggedIn = m_account->isSpotifyLoggedIn();
         spotify.quality = m_soundQuality;
         m_credentials.insert(ApiSource::Spotify, spotify);
+
+        SourceCredentials bilibili;
+        bilibili.cookie = m_account->bilibiliCookie();
+        bilibili.loggedIn = m_account->isBilibiliLoggedIn();
+        bilibili.quality = m_soundQuality;
+        m_credentials.insert(ApiSource::Bilibili, bilibili);
+
+        SourceCredentials qq;
+        qq.cookie = m_account->qqCookie();
+        qq.loggedIn = m_account->isQQLoggedIn();
+        qq.quality = m_soundQuality;
+        m_credentials.insert(ApiSource::QQMusic, qq);
+
+        SourceCredentials apple;
+        apple.cookie = m_account->appleUserToken();
+        apple.accessToken = m_account->appleDeveloperToken();
+        apple.loggedIn = m_account->isAppleLoggedIn();
+        apple.quality = m_soundQuality;
+        m_credentials.insert(ApiSource::AppleMusic, apple);
     }
 
     SourceCredentials fallback;
@@ -434,6 +462,15 @@ void MusicApiService::sendResolved(const QString &action, const QVariantMap &arg
     if (tracked)
         beginRequest(action);
 
+    if (ApiAction::isAccountAction(action) && ApiSource::isBuiltin(resolvedSource)
+        && !m_credentials.value(resolvedSource).loggedIn) {
+        emit warned(QStringLiteral("请先登录%1").arg(sourceNameOf(resolvedSource)), 2);
+        m_router->route(action, ApiCommon::listResult({}), resolvedSource);
+        if (tracked)
+            endRequest(action);
+        return;
+    }
+
     MusicSource *provider = m_registry.source(resolvedSource);
     if (!provider) {
         qWarning() << "[api] 音源不可用:" << resolvedSource << "action:" << action;
@@ -477,6 +514,21 @@ void MusicApiService::getRecommendSongs(int page, int pageSize, int source)
     send(ApiAction::RecommendSongs, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
+void MusicApiService::getUserPlaylists(int page, int pageSize, int source)
+{
+    send(ApiAction::UserPlaylists, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+}
+
+void MusicApiService::getUserFavoriteSongs(int page, int pageSize, int source)
+{
+    send(ApiAction::UserFavoriteSongs, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+}
+
+void MusicApiService::getFollowedArtists(int page, int pageSize, int source)
+{
+    send(ApiAction::FollowedArtists, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+}
+
 void MusicApiService::getHotPlaylistMenu(int type, int source)
 {
     send(ApiAction::HotPlaylistMenu, QVariantMap{{ApiArg::Type, type}}, source);
@@ -485,6 +537,11 @@ void MusicApiService::getHotPlaylistMenu(int type, int source)
 void MusicApiService::getHotPlaylists(int page, int pageSize, int source)
 {
     send(ApiAction::HotPlaylists, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
+}
+
+void MusicApiService::getRecommendPlaylists(int page, int pageSize, int source)
+{
+    send(ApiAction::RecommendPlaylists, {{ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
 void MusicApiService::getNewSongs(int type, int page, int pageSize, int source)

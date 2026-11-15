@@ -38,6 +38,7 @@ inline const QString PlaylistSongs = "getPlaylistSongs";
 inline const QString RecommendSongs = "getRecommendSongs";
 inline const QString HotPlaylistMenu = "getHotPlaylistMenu";
 inline const QString HotPlaylists = "getHotPlaylists";
+inline const QString RecommendPlaylists = "getRecommendPlaylists"; // 随机推荐歌单
 inline const QString NewSongs = "getNewSongs";
 inline const QString AllToplist = "getAllToplist";
 inline const QString MusicToplist = "getMusicToplist";
@@ -50,6 +51,17 @@ inline const QString Comments = "getComments";
 inline const QString PersonalFm = "getPersonalFm";
 inline const QString PersonalRadar = "getPersonalRadar";
 
+// 账号数据（需要登录态）
+inline const QString UserPlaylists = "getUserPlaylists";
+inline const QString UserFavoriteSongs = "getUserFavorites";
+inline const QString FollowedArtists = "getFollowedArtists";
+
+inline bool isAccountAction(const QString &action)
+{
+    return action == UserPlaylists || action == UserFavoriteSongs
+        || action == FollowedArtists;
+}
+
 // 返回 { "info": [...] } 的 action。
 inline bool isListAction(const QString &action)
 {
@@ -57,11 +69,14 @@ inline bool isListAction(const QString &action)
         || action == PlaylistMenu || action == MusicPlaylists
         || action == CategoryPlaylists || action == PlaylistSongs
         || action == RecommendSongs || action == HotPlaylistMenu
-        || action == HotPlaylists || action == NewSongs
+        || action == HotPlaylists || action == RecommendPlaylists
+        || action == NewSongs
         || action == AllToplist || action == MusicToplist
         || action == HotSingers || action == SingerCategory
         || action == SingerSongs || action == Comments
-        || action == PersonalFm || action == PersonalRadar;
+        || action == PersonalFm || action == PersonalRadar
+        || action == UserPlaylists || action == UserFavoriteSongs
+        || action == FollowedArtists;
 }
 
 } // namespace ApiAction

@@ -4,7 +4,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 
 Item {
     id: favouritePage
@@ -26,17 +25,6 @@ Item {
         model: FavoritePlaylists
         options: favouritePage.favSortOptions
         nameRole: "title"
-    }
-    QMenu {
-        id: sortMenu
-        model: favouritePage.favSortOptions.map(o => o.label)
-        current: listSort.menuIndex
-        onClicked: (i) => {
-            listSort.selectMenu(i);
-            favouritePage.setMode = 0;
-            favouritePage.chooseIndex = [];
-            favouritePage.scrollTop;
-        }
     }
 
     // 打开收藏夹：切到该夹歌曲并滑出歌曲窗口
@@ -144,7 +132,19 @@ Item {
                 text: "排序"
                 iconCharacter: "\uf10b"
                 buttonColor: Theme.primaryColor
-                onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 6)
+                onClicked: sortMenu.popup(1, sortBtn.height + 6)
+                QMenu {
+                    id: sortMenu
+                    model: favouritePage.favSortOptions.map(o => o.label)
+                    current: listSort.menuIndex
+                    parent: sortBtn
+                    onClicked: (i) => {
+                        listSort.selectMenu(i);
+                        favouritePage.setMode = 0;
+                        favouritePage.chooseIndex = [];
+                        favouritePage.scrollTop;
+                    }
+                }
             }
             QButton {
                 visible: favouriteChildPage.lastIndex === 3
@@ -553,16 +553,6 @@ Item {
                 nameRole: "title"
             }
 
-            QMenu {
-                id: favSongSortMenu
-                model: favSongSort.options.map(o => o.label)
-                current: favSongSort.menuIndex
-                onClicked: (i) => {
-                    favSongSort.selectMenu(i)
-                    favSongView.scrollTop()
-                }
-            }
-
             // 全部加入播放列表，play=true 时立即播放
             function playAll(play: bool): void {
                 const total = FavoriteSongs.count
@@ -637,7 +627,18 @@ Item {
                     shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "排序方式"
-                    onClicked: favSongSortMenu.popup(favSortBtn, 0, favSortBtn.height + 6)
+                    onClicked: favSongSortMenu.popup(1, favSortBtn.height + 6)
+
+                    QMenu {
+                        id: favSongSortMenu
+                        model: favSongSort.options.map(o => o.label)
+                        current: favSongSort.menuIndex
+                        parent: favSortBtn
+                        onClicked: (i) => {
+                            favSongSort.selectMenu(i)
+                            favSongView.scrollTop()
+                        }
+                    }
                 }
             }
 
@@ -664,7 +665,7 @@ Item {
                 }
             }
 
-            TextField {
+            QTextField {
                 id: favSearchInput
                 x: songFavListMusic.width - width - 24
                 y: 76

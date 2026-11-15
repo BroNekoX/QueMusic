@@ -2,7 +2,7 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 import QtQuick
-import QtQuick.Controls.Basic
+import QueMusic 1.0
 
 GridView {
     id: view
@@ -22,7 +22,7 @@ GridView {
         contentY = view.originY - view.topMargin;
     }
 
-    ScrollBar.vertical: ScrollBar {
+    QScrollBar.vertical: QScrollBar {
         id: viewBar
         parent: view
         anchors.top: view.top
@@ -35,7 +35,7 @@ GridView {
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: view.enabled
-        readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
+        readonly property real wheelHeightCount: Theme.wheelStep
         readonly property int scrollBottom: view.contentHeight - view.height + view.bottomMargin + view.originY
         onWheel: (event) => {
             listViewAnime.running = false;

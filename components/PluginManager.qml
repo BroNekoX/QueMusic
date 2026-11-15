@@ -14,7 +14,7 @@ Item {
     readonly property bool multi: pluginType !== "lyrics"
     readonly property var plugins: pluginType === "lyrics" ? Plugins.lyrics : Plugins.functions
     readonly property string pluginKind: pluginType === "lyrics" ? "歌词界面插件" : "功能插件"
-    readonly property bool compact: width < 648
+    readonly property bool compact: width < 748
 
     Row {
         id: toolbar
@@ -25,7 +25,7 @@ Item {
         QButton {
             height: 36
             text: manager.compact ? "" : "重新扫描"
-            iconCharacter: "\\uf021"
+            iconCharacter: "\uf021"
             buttonColor: Theme.secondaryColor
             borderColor: Theme.sideColor
             borderWidth: 1
@@ -33,14 +33,14 @@ Item {
         }
         QButton {
             height: 36
-            text: manager.compact ? "" : "安装插件"
-            iconCharacter: "\\uf067"
-            onClicked: pluginFolderDialog.open()
+            text: manager.compact ? "" : "导入 ZIP"
+            iconCharacter: "\uf10d"
+            onClicked: pluginZipDialog.open()
         }
         QButton {
             height: 36
             text: manager.compact ? "" : "打开插件目录"
-            iconCharacter: "\\uf0f5"
+            iconCharacter: "\uf0f5"
             buttonColor: Theme.secondaryColor
             borderColor: Theme.sideColor
             borderWidth: 1
@@ -148,7 +148,7 @@ Item {
                     height: 34
                     text: row.isOn ? "使用中" : "启用"
                     enabled: !row.isOn
-                    iconCharacter: "\\uf0e7"
+                    iconCharacter: "\uf0e7"
                     onClicked: Plugins.selectLyrics(row.id)
                 }
                 QSwitch {
@@ -159,7 +159,7 @@ Item {
                     onToggled: Plugins.setEnabled(row.id, !row.isOn)
                 }
                 SButton {
-                    iconCharacter: "\\uf0f5"
+                    iconCharacter: "\uf0f5"
                     width: 34
                     height: 34
                     radius: 10
@@ -170,7 +170,7 @@ Item {
                 }
                 SButton {
                     visible: !row.builtin
-                    iconCharacter: "\\uf08e"
+                    iconCharacter: "\uf08e"
                     width: 34
                     height: 34
                     radius: 10
@@ -192,11 +192,12 @@ Item {
         }
     }
 
-    FolderDialog {
-        id: pluginFolderDialog
-        title: "选择" + manager.pluginKind + "文件夹"
+    FileDialog {
+        id: pluginZipDialog
+        title: "选择" + manager.pluginKind + " ZIP 包"
+        nameFilters: ["插件包 (*.zip)", "所有文件 (*)"]
         onAccepted: {
-            const err = Plugins.install(selectedFolder);
+            const err = Plugins.installZip(selectedFile);
             if (err) Options.warned(err, 0);
             else Options.warned(manager.multi ? "插件已安装并启用" : "插件已安装，点「启用」即可使用", 1);
         }

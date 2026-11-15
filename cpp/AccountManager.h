@@ -56,6 +56,17 @@ class AccountManager : public QObject
     Q_PROPERTY(QString appleNickname READ appleNickname NOTIFY appleLoginChanged FINAL)
     Q_PROPERTY(QString appleAvatar READ appleAvatar NOTIFY appleLoginChanged FINAL)
     Q_PROPERTY(QString appleLoginMessage READ appleLoginMessage NOTIFY appleLoginChanged FINAL)
+    Q_PROPERTY(bool bilibiliLoggedIn READ isBilibiliLoggedIn NOTIFY bilibiliLoginChanged FINAL)
+    Q_PROPERTY(QString bilibiliNickname READ bilibiliNickname NOTIFY bilibiliLoginChanged FINAL)
+    Q_PROPERTY(QString bilibiliAvatar READ bilibiliAvatar NOTIFY bilibiliLoginChanged FINAL)
+    Q_PROPERTY(QString bilibiliCookie READ bilibiliCookie NOTIFY bilibiliLoginChanged FINAL)
+    Q_PROPERTY(QString bilibiliQrText READ bilibiliQrText NOTIFY bilibiliQrChanged FINAL)
+    Q_PROPERTY(int bilibiliQrState READ bilibiliQrState NOTIFY bilibiliQrChanged FINAL)
+    Q_PROPERTY(QString bilibiliQrMessage READ bilibiliQrMessage NOTIFY bilibiliQrChanged FINAL)
+    Q_PROPERTY(bool qqLoggedIn READ isQQLoggedIn NOTIFY qqLoginChanged FINAL)
+    Q_PROPERTY(QString qqNickname READ qqNickname NOTIFY qqLoginChanged FINAL)
+    Q_PROPERTY(QString qqAvatar READ qqAvatar NOTIFY qqLoginChanged FINAL)
+    Q_PROPERTY(QString qqLoginMessage READ qqLoginMessage NOTIFY qqLoginChanged FINAL)
 
 public:
     // QML 单例工厂；main.cpp 提前调用一次保证初始化时序
@@ -116,6 +127,22 @@ public:
     QString appleNickname() const { return m_appleNickname; }
     QString appleAvatar() const { return m_appleAvatar; }
     QString appleLoginMessage() const { return m_appleLoginMessage; }
+    QString appleUserToken() const { return m_appleUserToken; }
+    QString appleDeveloperToken() const { return m_appleDeveloperToken; }
+
+    bool isBilibiliLoggedIn() const { return m_bilibiliLoggedIn; }
+    QString bilibiliNickname() const { return m_bilibiliNickname; }
+    QString bilibiliAvatar() const { return m_bilibiliAvatar; }
+    QString bilibiliCookie() const { return m_bilibiliCookie; }
+    QString bilibiliQrText() const { return m_bilibiliQrText; }
+    int bilibiliQrState() const { return m_bilibiliQrState; }
+    QString bilibiliQrMessage() const { return m_bilibiliQrMessage; }
+
+    bool isQQLoggedIn() const { return m_qqLoggedIn; }
+    QString qqNickname() const { return m_qqNickname; }
+    QString qqAvatar() const { return m_qqAvatar; }
+    QString qqCookie() const { return m_qqCookie; }
+    QString qqLoginMessage() const { return m_qqLoginMessage; }
 
     Q_INVOKABLE void loadPersisted(); // 启动时恢复登录态
 
@@ -136,6 +163,14 @@ public slots:
     Q_INVOKABLE void loginAppleWithCookie(const QString &input);
     Q_INVOKABLE void logoutApple();
 
+    Q_INVOKABLE void startBilibiliQrLogin();
+    Q_INVOKABLE void cancelBilibiliQrLogin();
+    Q_INVOKABLE void loginBilibiliWithCookie(const QString &cookie);
+    Q_INVOKABLE void logoutBilibili();
+
+    Q_INVOKABLE void loginQQWithCookie(const QString &cookie);
+    Q_INVOKABLE void logoutQQ();
+
     // 浏览器登录（内嵌 WebView）完成后，由 QML 回填 Cookie / 用户信息
     Q_INVOKABLE void setNeteaseBrowserCookie(const QString &cookie, const QString &nickname,
                                              const QString &avatar);
@@ -154,6 +189,9 @@ signals:
     void kugouQrChanged();
     void spotifyLoginChanged();
     void appleLoginChanged();
+    void bilibiliLoginChanged();
+    void bilibiliQrChanged();
+    void qqLoginChanged();
     // type: 0 普通 / 1 成功 / 2 警告 / 3 错误（对接主窗口气泡提示）
     void message(const QString &text, int type);
 
@@ -191,6 +229,16 @@ private:
     void persistApple();
     void loadSpotify();
     void loadApple();
+    void persistBilibili();
+    void loadBilibili();
+    void persistQQ();
+    void loadQQ();
+    void pollBilibili();
+    void onBilibiliKey(QNetworkReply *reply);
+    void onBilibiliPoll(QNetworkReply *reply);
+    void setBilibiliQr(int state, const QString &msg, const QString &qrText = QString());
+    void validateBilibiliCookie(const QString &cookie);
+    void validateQQCookie(const QString &cookie);
     void browserGet(const QUrl &url, const QByteArray &cookie,
                     const QList<QPair<QByteArray, QByteArray>> &headers,
                     const std::function<void(int, const QByteArray &)> &done);
@@ -220,6 +268,22 @@ private:
     QString m_appleNickname;
     QString m_appleAvatar;
     QString m_appleLoginMessage;
+
+    bool m_bilibiliLoggedIn = false;
+    bool m_qqLoggedIn = false;
+    QString m_bilibiliCookie;
+    QString m_bilibiliNickname;
+    QString m_bilibiliAvatar;
+    QString m_bilibiliQrText;
+    QString m_bilibiliQrMessage;
+    QString m_bilibiliKey;
+    int m_bilibiliQrState = QrWaiting;
+    QTimer *m_bilibiliPollTimer = nullptr;
+    QString m_qqCookie;
+    QString m_qqNickname;
+    QString m_qqAvatar;
+    QString m_qqUin;
+    QString m_qqLoginMessage;
 
     // 网易云客户端身份与扫码登录状态控制
     QString m_neteaseDeviceId;        // 持久化的设备号（Account.ini: Netease/deviceId）

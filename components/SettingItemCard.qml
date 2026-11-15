@@ -27,7 +27,7 @@ Item {
         }
     }
 
-    width: settingStack.standWidth
+    width: parent.width
     height: isBigItem ? 116 : 64
 
     Text {

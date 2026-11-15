@@ -34,6 +34,7 @@ protected:
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
+    void onRecommendPlaylists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -45,6 +46,9 @@ protected:
     void onComments(const QString &hash, int page, int pageSize) override;
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
+    void onUserPlaylists(int page, int pageSize) override;
+    void onUserFavoriteSongs(int page, int pageSize) override;
+    void onFollowedArtists(int page, int pageSize) override;
 
 private:
     using JsonCallback = std::function<void(const QJsonObject &)>;
@@ -65,6 +69,7 @@ private:
     QNetworkAccessManager *m_nam = nullptr;
     QString m_cookie;
     QString m_accessToken;
+    QString m_recommendKeyword;
     QString m_token;
     qint64 m_expiry = 0;
     bool m_tokenPending = false;

@@ -75,8 +75,12 @@ emit resultReady(action, data, sourceId);
 | `getHotSingers` / `getSingerCategory` / `getSingerSongs` | area / singerid, page, pageSize | `{info:[...]}` |
 | `getMusicInfo` | hash, type(0 播放 / 1 下载 / 2 预取) | 扁平 map（url/backup_url/songName/...） |
 | `getLyricInfo` | hash, duration | `{info:[line], translate:[...], hash}` |
+| `getRecommendPlaylists` | page, pageSize | `{info:[playlist]}`（随机推荐） |
 | `getComments` | hash, page, pageSize | `{info:[comment], hasMore}` |
 | `getPersonalFm` / `getPersonalRadar` | page, pageSize | `{info:[song]}` |
+| `getUserPlaylists` | page, pageSize | `{info:[playlist]}`（需登录） |
+| `getUserFavorites` | page, pageSize | `{info:[song]}`（需登录） |
+| `getFollowedArtists` | page, pageSize | `{info:[artist]}`（需登录） |
 
 统一字段见 `ApiCommon.h`；结果会在 `ApiCommon::normalizeItem()` 里补齐
 `title/artist/cover/hash/hashhq/hashsq/duration/album/paytype/playcount`。
@@ -90,6 +94,10 @@ emit resultReady(action, data, sourceId);
 3. 在 `MusicApiService` 构造函数里创建、映射进 `m_registry`、连接
    `resultReady` 到 `handleResult`。
 4. 把 source 加进 `rebuildSources()` 的内置列表；QML 下拉会自动多一项。
+
+账号类 action（`getUserPlaylists` / `getUserFavorites` / `getFollowedArtists`）
+由 `MusicApiService::sendResolved()` 统一按 `credentials.loggedIn` 拦截，未登录
+直接回空列表并提示，不会进到音源；想支持的平台只 override 对应 `onXxx()`。
 
 **不需要改**：`ApiResultRouter`、`OnlineListModel`、QML 页面。
 如果新增的是全新 action，才需要：

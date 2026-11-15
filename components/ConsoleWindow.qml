@@ -3,7 +3,7 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
+import QtQuick.Templates
 import QtQuick.Layouts
 import QueMusic 1.0
 
@@ -222,7 +222,7 @@ Window {
                     model: LogManager.logPreview ? LogManager.logPreview.split("\n") : []
                     spacing: 2
                     onContentHeightChanged: positionViewAtEnd()
-                    ScrollBar.vertical: ScrollBar { }
+                    QScrollBar.vertical: QScrollBar { }
 
                     delegate: Text {
                         required property string modelData
@@ -395,7 +395,7 @@ Window {
                         anchors.bottomMargin: 8
                         clip: true
 
-                        TextArea {
+                        QTextArea {
                             id: editor
                             font.family: commandPage.monoFont
                             font.pixelSize: 13
@@ -461,7 +461,7 @@ Window {
                         clip: true
                         contentWidth: width
                         contentHeight: outputText.implicitHeight + 8
-                        ScrollBar.vertical: ScrollBar { }
+                        QScrollBar.vertical: QScrollBar { }
 
                         Text {
                             id: outputText

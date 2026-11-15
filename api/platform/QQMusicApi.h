@@ -29,6 +29,9 @@ public:
     QString sourceName() const override { return QStringLiteral("QQ音乐"); }
     void applyCredentials(const SourceCredentials &credentials) override;
 
+    // Cookie 里的 uin 形如 o0123456789，取纯数字 QQ 号
+    static QString uinOf(const QString &cookie);
+
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
     void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
@@ -39,6 +42,7 @@ protected:
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
+    void onRecommendPlaylists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -50,6 +54,7 @@ protected:
     void onComments(const QString &hash, int page, int pageSize) override;
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
+    void onUserPlaylists(int page, int pageSize) override;
 
 private:
     using JsonCallback = std::function<void(const QJsonObject &)>;
@@ -71,7 +76,7 @@ private:
     void requestSearch(const QString &keyword, int type, int page, int pageSize,
                        const QString &action);
     void requestPlaylists(const QString &categoryId, int page, int pageSize,
-                          const QString &action);
+                          const QString &action, int startOffset = 0);
     void requestDetail(const QString &mid, const std::function<void(const SongDetail &)> &done);
     void requestTopSongs(int topId, int page, int pageSize, const QString &action);
     void requestSingerList(int area, int page, int pageSize, const QString &action);
@@ -85,11 +90,13 @@ private:
     SongDetail detailFromJson(const QJsonObject &song) const;
     void rememberDetail(const QString &mid, const SongDetail &detail);
     static QString makeSearchId();
-    static QVariantList parseLrc(const QString &text);
     static QVariantList alignedTranslations(const QVariantList &lyrics, const QString &text);
 
     QNetworkAccessManager *m_nam = nullptr;
+    int m_recommendOffset = 0;
     int m_quality = 1;
+    QString m_cookie;
+    QString m_uin;
     QHash<QString, SongDetail> m_details;
     QHash<QString, QVariantList> m_playlistCache;
     QVariantList m_menuCache;

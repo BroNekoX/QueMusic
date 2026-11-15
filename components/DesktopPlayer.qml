@@ -3,14 +3,14 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 
 Popup {
     id: desktopPlayer
+    parent: Overlay.overlay
     padding: 0
     margins: -1
-    parent: Overlay.overlay
     width: 360
     height: parent.height - 180
     x: parent.width - 380

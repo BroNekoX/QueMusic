@@ -125,7 +125,7 @@ QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的�
 
 ## Que Plugins —— 界面里能换的、能加的，都是插件
 
-**一个文件夹就是一个插件**，放进插件目录即被扫描到，不用编译、不用改主程序；设置 → 插件里安装 / 启用 / 删除。
+**一个文件夹就是一个插件**，放进插件目录即被扫描到，不用编译、不用改主程序；设置 → 插件里导入 ZIP / 启用 / 删除。
 `info.json` 里的 `type` 决定用途：`"lyrics"` 或 `"function"`（缺省按旧目录 lyrics / function 推断，旧插件不用改动目录结构）。
 
 - **歌词界面插件** — 换掉沉浸播放页的歌词界面（内置「默认 / 自由 / 3D」也跑在同一套契约上）：
@@ -137,6 +137,10 @@ QueMusic 基于SqueUI组件库，SqueUI拥有极致精简的框架，强大的�
   加载失败自动停用
 - **都写得简单** — `info.json` + 入口 QML 即可；`import QueMusic 1.0` 就能用 `Style` / `Playback` / `SButton`
   这些公开单例与组件（歌词界面插件也支持逐字 `info` 与翻译 `translateModel` 两条数据通道）
+
+- **插件市场** — 设置 → 插件 → 插件市场：从远程 `index.json` 拉列表，按「推荐 / 最新 / 歌词界面 / 功能 / 音乐源」分类浏览，一键下载安装 / 更新；
+  服务器地址在「市场设置」里改，默认 `http://8.133.18.144/`（索引 `…/market/index.json`）。
+  市场目录用 `python tools/market/build_market.py` 从插件仓库生成，见 [tools/market/README.md](tools/market/README.md)
 
 官方插件仓库与开发规范（含可直接安装的示例插件）：
 

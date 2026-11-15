@@ -338,7 +338,7 @@
 | `lyrics` | 内置 3 项 + 已安装歌词界面 |
 | `enabled` / `lyricsId` / `lyricsSource` / `dir` | 启用 id 列表 / 选中的歌词界面 id / 其入口 URL / 插件根目录 |
 | `rescan()` / `setEnabled(id, on)` / `selectLyrics(id)` | 重新扫描 / 功能插件开关 / 歌词界面单选 |
-| `install(folder)` / `remove(id)` / `reveal(id)` | 安装、删除、打开插件目录；返回空串表示成功 |
+| `installZip(path)` / `remove(id)` / `reveal(id)` | 导入 ZIP / 删除 / 打开插件目录；返回空串表示成功 |
 
 内置歌词界面（`builtin.*`，不可卸载）：`builtin.default` → `qrc:/QueMusic/layout/MainLyric.qml`、`builtin.free` → `qrc:/QueMusic/lyricsui/LyricsFree.qml`、`builtin.3d(Beta)` → `qrc:/QueMusic/lyricsui/Lyrics3D.qml`。
 
@@ -350,7 +350,8 @@
 |---|---|
 | 扫描 `load()` | 依次扫 `plugins/`、`plugins/lyrics`、`plugins/function` 与 exe 侧同结构；缺 info.json / 入口不存在 / apiVersion 不匹配都跳过，同 id 去重 |
 | `rescan()` | `load()` + `rebuild()` + 发 `changed` / `enabledChanged` / `lyricsChanged` |
-| `install(folder)` | 必须含 `info.json`；目标 = `plugins/<源目录名>`；禁止把插件装到它自己的子目录；已存在同名则 `removeRecursively()` 后整体复制 |
+| `installZip(path)` / `installArchive(bytes, id)` | 解压到 `AppData/cache/import/run-*`，定位含 `info.json` 的根目录（支持包内一层文件夹或平铺），统一以 id 命名后复用目录安装；解压完自动清理 |
+| 目录安装 `install(folder)`（内部） | 必须含 `info.json`；目标 = `plugins/<目录名>`；禁止把插件装到它自己的子目录；已存在同名则 `removeRecursively()` 后整体复制 |
 | `remove(id)` | 找不到 / `builtin == true` 拒绝；否则删目录后 `rescan()` |
 | `reveal(id)` | `id` 为空打开插件根目录（先 `mkpath`），否则打开该插件目录（`QDesktopServices`） |
 | 查找 `find(id, *info)` | 线性遍历（插件十几个量级，线性比维护 id→下标映射更省） |
@@ -361,6 +362,19 @@
 - 插件根声明 `property QtObject api` 即拿到 `PluginContext`（`components/PluginContext.qml`）：`pluginId` / `pluginName` / `pluginDir` / `pluginUrl`、`hostWindow` / `hostTitleBar` / `hostPlayerBar` / `hostSidebar` / `hostOverlay`、`settings`、`attach()` / `unmount()` / `toast()` / `warn()`。
 - 没有扩展点注册表：宿主容器以对象引用直接注入，插件自己 `api.attach(parent, source, props)`，`source` 可传 `Component` 或 url（后者建异步 `Loader`）。
 - 加载失败（编译错误 / 建不出根对象）→ 提示并 `Plugins.setEnabled(id, false)` 自动停用。
+
+### 2.6.5 插件市场
+
+| 组件 | 作用 |
+|---|---|
+| `cpp/plugins/PluginMarket.*` | QML 单例 `PluginMarket`：拉 `index.json`、解析条目、按 tag 过滤、下载 zip、校验 sha256、解压后交给 `Plugins.install()` |
+| `cpp/plugins/ZipReader.*` | 最小 zip 解包（store / deflate，zlib raw inflate），拒绝绝对路径与 `..`，不支持 zip64 |
+| `components/MarketPage.qml` | 市场页 UI：tag 过滤、卡片列表、安装 / 更新按钮、源地址设置 |
+| `tools/market/build_market.py` | 把插件仓库打包成 `<out>/index.json + packages/*.zip + preview/*`，本地起个静态服务器即可试 |
+
+- 索引地址 = `Config.pluginServer`（默认 `http://8.133.18.144/`）去掉尾斜杠 + `/market/index.json`；地址以 `.json` 结尾时直接使用。
+- 下载走 `QNetworkAccessManager`，`transferTimeout` 索引 8s / 包 120s；解压目录在 `AppData/cache/market/run-*`，安装完自动清理。
+- 市场安装与本地导入共用 `PluginStore::installArchive()`：下载 / 选中的 zip 走同一套解压、校验、落盘逻辑。
 
 ---
 

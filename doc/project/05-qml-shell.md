@@ -514,13 +514,14 @@ Item {                       // 不是 Page/Dialog；由 main.qml 的 Loader 承
 `actionDefs`（`SettingsView.qml:1852-1867`）与 `ShortCut.qml` 的 13 个属性一一对应，`defau` 字段仅用于展示默认值。
 `globalPropertyName(actionName)` = `"globalShortcut" + actionName[0].toUpperCase() + actionName.slice(1)`（`SettingsView.qml:1772`）—— 与 `main.qml:194` 拼 `flag` 的逻辑完全同构，**两边必须同步改**。
 
-**页面 5「插件」`modset`**：`property int tabIndex`（0 歌词界面 / 1 功能 / 2 音乐源）+ `QBlurTapBar model: ["歌词界面","功能","音乐源"]` + `QPages pageList: [uiMod, toolMod, musicMod]`。
+**页面 5「插件」`modset`**：`property int tabIndex`（0 歌词界面 / 1 功能 / 2 音乐源 / 3 插件市场）+ `QBlurTapBar model: ["歌词界面","功能","音乐源","插件市场"]` + `QPages pageList: [uiMod, toolMod, musicMod, modShop]`。
 
 | 子页 | 内容 |
 |---|---|
 | `uiMod` | `PluginManager { pluginType: "lyrics" }` |
 | `toolMod` | `PluginManager { pluginType: "function" }` |
 | `musicMod` | 占位提示「音乐源插件还未开发完成，等待开发者更新喵」 |
+| `modShop` | `MarketPage`：远程 `index.json` + tag 过滤 + 下载安装；右上角「市场设置」改 `Config.pluginServer` |
 
 **页面 6「关于」`aboutset`**
 

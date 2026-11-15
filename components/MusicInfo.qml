@@ -3,15 +3,15 @@
 //
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Templates
 import QueMusic 1.0
-import QtQuick.Controls.Basic
 
 // 音乐详情侧栏：封面与标题固定在顶部，下方按分页切换（本地音乐没有评论页）
 Popup {
     id: root
+    parent: Overlay.overlay
     padding: 0
     margins: -1
-    parent: Overlay.overlay
     width: 360
     height: parent.height - 180
     x: parent.width - 380
@@ -157,7 +157,7 @@ Popup {
             boundsBehavior: Flickable.StopAtBounds
             clip: true
             synchronousDrag: true
-            ScrollBar.vertical: ScrollBar {
+            QScrollBar.vertical: QScrollBar {
                 anchors.right: view.right
                 anchors.top: view.top
                 anchors.bottom: view.bottom
@@ -312,7 +312,7 @@ Popup {
             boundsBehavior: Flickable.StopAtBounds
             property int scrollToY: commentView.contentY
             property bool isEnd: false
-            ScrollBar.vertical: ScrollBar {
+            QScrollBar.vertical: QScrollBar {
                 id: viewBar
                 anchors.right: commentView.right
                 anchors.top: commentView.top
@@ -333,7 +333,7 @@ Popup {
             }
             WheelHandler {
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                readonly property real wheelHeightCount: Application.styleHints.wheelScrollLines * 0.25
+                readonly property real wheelHeightCount: Theme.wheelStep
                 readonly property int scrollBottom: commentView.contentHeight - commentView.height + commentView.bottomMargin + commentView.originY
                 onWheel: (event) => {
                     listViewAnime.running = false;

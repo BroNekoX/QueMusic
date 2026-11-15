@@ -10,7 +10,7 @@ Item {
     property int controlWidth: 160
     property bool isBigItem: false
 
-    width: settingStack.standWidth
+    width: parent.width
     height: isBigItem ? 76 : 36
 
     Text {

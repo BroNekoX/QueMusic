@@ -55,6 +55,7 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel *allPlaylistMenu READ allPlaylistMenu CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *playlistSong READ playlistSong CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *hotPlayLists READ hotPlayLists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *recommendPlaylists READ recommendPlaylists CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *getHotlistMenu READ getHotlistMenu CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *musicToplist READ musicToplist CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *toplistList READ toplistList CONSTANT FINAL)
@@ -62,6 +63,9 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel *personalFm READ personalFm CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *personalRadar READ personalRadar CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *comments READ comments CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *userPlaylists READ userPlaylists CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *userFavoriteSongs READ userFavoriteSongs CONSTANT FINAL)
+    Q_PROPERTY(OnlineListModel *followedArtists READ followedArtists CONSTANT FINAL)
     Q_PROPERTY(bool commentsHasMore READ commentsHasMore NOTIFY commentsHasMoreChanged FINAL)
 
     Q_PROPERTY(QVariantList lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
@@ -111,6 +115,7 @@ public:
     OnlineListModel *musicPlaylists() { return &m_musicPlaylists; }
     OnlineListModel *playlistSong() { return &m_playlistSong; }
     OnlineListModel *hotPlayLists() { return &m_hotPlayLists; }
+    OnlineListModel *recommendPlaylists() { return &m_recommendPlaylists; }
     OnlineListModel *getHotlistMenu() { return &m_getHotlistMenu; }
     OnlineListModel *musicToplist() { return &m_musicToplist; }
     OnlineListModel *toplistList() { return &m_toplistList; }
@@ -118,6 +123,9 @@ public:
     OnlineListModel *personalFm() { return &m_personalFm; }
     OnlineListModel *personalRadar() { return &m_personalRadar; }
     OnlineListModel *comments() { return &m_comments; }
+    OnlineListModel *userPlaylists() { return &m_userPlaylists; }
+    OnlineListModel *userFavoriteSongs() { return &m_userFavoriteSongs; }
+    OnlineListModel *followedArtists() { return &m_followedArtists; }
     bool commentsHasMore() const { return m_commentsHasMore; }
     void setCommentsHasMore(bool hasMore);
 
@@ -162,6 +170,7 @@ public:
     Q_INVOKABLE void getRecommendSongs(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getHotPlaylistMenu(int type, int source = -1);
     Q_INVOKABLE void getHotPlaylists(int page = 1, int pageSize = 20, int source = -1);
+    Q_INVOKABLE void getRecommendPlaylists(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getNewSongs(int type, int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getAllToplist(int source = -1);
     Q_INVOKABLE void getMusicToplist(int page, int pageSize, int rankid, int source = -1);
@@ -178,6 +187,9 @@ public:
     Q_INVOKABLE void getPersonalRadar(int page = 1, int pageSize = 20, int source = -1);
     Q_INVOKABLE void getComments(const QString &hash, int page = 1, int pageSize = 30,
                                  int source = -1);
+    Q_INVOKABLE void getUserPlaylists(int page = 1, int pageSize = 20, int source = -1);
+    Q_INVOKABLE void getUserFavoriteSongs(int page = 1, int pageSize = 20, int source = -1);
+    Q_INVOKABLE void getFollowedArtists(int page = 1, int pageSize = 20, int source = -1);
 
     Q_INVOKABLE bool playSong(const QVariantMap &song, int source = -1);
     Q_INVOKABLE bool downloadSong(const QVariantMap &song, int source = -1);
@@ -287,6 +299,7 @@ private:
     OnlineListModel m_musicPlaylists;
     OnlineListModel m_playlistSong;
     OnlineListModel m_hotPlayLists;
+    OnlineListModel m_recommendPlaylists;
     OnlineListModel m_getHotlistMenu;
     OnlineListModel m_musicToplist;
     OnlineListModel m_toplistList;
@@ -294,6 +307,9 @@ private:
     OnlineListModel m_personalFm;
     OnlineListModel m_personalRadar;
     OnlineListModel m_comments;
+    OnlineListModel m_userPlaylists;
+    OnlineListModel m_userFavoriteSongs;
+    OnlineListModel m_followedArtists;
     bool m_commentsHasMore = false;
 
     bool m_loadState = false;

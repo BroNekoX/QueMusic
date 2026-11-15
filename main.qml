@@ -203,7 +203,7 @@ Window {
                 Component.onCompleted: windowAgent.setHitTestVisible(returnButton, true);
             }
 
-            TextField {
+            QTextField {
                 id: mainSearchInput
                 x: 20
                 y: 0

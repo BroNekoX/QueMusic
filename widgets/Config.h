@@ -82,7 +82,9 @@ public:
     set(int, cycleIndex, 0) \
     set(bool, logEnabled, true) \
     set(int, logLevel, 1) \
-    set(bool, isFirst, true)
+    set(bool, isFirst, true) \
+    set(QString, pluginServer, QStringLiteral("http://8.133.18.144/")) \
+    set(bool, autoPluginUpdate, false)
 
 #define QUE_MUSIC_OPTION(TYPE, NAME, DEFAULT) \
     Q_PROPERTY(TYPE NAME READ NAME WRITE set_##NAME NOTIFY NAME##Changed FINAL) \

@@ -47,6 +47,7 @@ protected:
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
+    void onRecommendPlaylists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -58,6 +59,8 @@ protected:
     void onComments(const QString &hash, int page, int pageSize) override;
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
+    void onUserPlaylists(int page, int pageSize) override;
+    void onFollowedArtists(int page, int pageSize) override;
 
 private:
     using Callback = std::function<void(const QJsonObject &)>;
@@ -93,6 +96,7 @@ private:
     QVariantMap toSong(const QJsonObject &v, const QString &fallbackArtist = QString());
 
     static QString mixinKey(const QString &imgKey, const QString &subKey);
+    void withUid(const std::function<void(const QString &)> &done);
 
     QNetworkAccessManager *m_nam = nullptr;
     QString m_mixinKey;
@@ -107,6 +111,8 @@ private:
     bool m_keyRequesting = false;
     QList<Task> m_keyWaiters;
     QHash<QString, QString> m_upNames;
+    QString m_uid;
+    QString m_recommendKeyword;
 };
 
 #endif
