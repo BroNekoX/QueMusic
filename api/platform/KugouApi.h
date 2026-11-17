@@ -49,9 +49,14 @@ public:
 
     void setQuality(int quality) { m_quality = qBound(0, quality, 3); }
 
-    static QByteArray kugouWebSignature(const QJsonObject &params);
+
     static QString randomGuid();
     static QString kugouMidFromGuid(const QString &guid);
+
+    // 登录/网关共用：md5(salt + 排序后的 k=v + body + salt)
+    static QByteArray signature(const QVariantMap &params, const QByteArray &salt,
+                                const QByteArray &body = QByteArray());
+    static inline const QByteArray SaltWeb{"NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt"};
 
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
@@ -64,6 +69,8 @@ protected:
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
     void onRecommendPlaylists(int page, int pageSize) override;
+    void onUserFavoriteSongs(int page, int pageSize) override;
+    void onFollowedArtists(int page, int pageSize) override;
     void onNewSongs(int type, int page, int pageSize) override;
     void onAllToplist() override;
     void onMusicToplist(int page, int pageSize, int rankid) override;
@@ -84,13 +91,14 @@ private:
 
     QString cookieValue(const QStringList &keys) const;
 
-    static QByteArray kugouAndroidSignature(const QVariantMap &params);
-
     QJsonObject songInfoBaseParams() const;
     QVariantMap liteBaseParams() const;
 
     // 列表接口的公共解析 / 请求（合并了原先各写一遍的重复实现）。
     void searchSpecial(const QString &keyword, int page, int pageSize, const QString &action);
+    void requestUserLists(const std::function<void(const QJsonArray &)> &done);
+    void requestCollectionTracks(const QString &gid, int page, int pageSize, const QString &action);
+    QString rsaEncryptPayload(const QString &payload) const;
     void performSearch(const QString &keyword, int type, int page, int pageSize,
                        const QString &resultAction);
     void requestRankSongs(int rankid, int page, int pageSize, const QString &action);

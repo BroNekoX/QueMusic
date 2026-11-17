@@ -5,7 +5,7 @@ import QtQuick
 import QueMusic 1.0
 import QtQuick.Templates
 
-Button {
+AbstractButton {
     id: root
     width: 36
     height: 36

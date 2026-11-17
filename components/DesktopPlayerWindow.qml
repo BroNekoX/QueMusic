@@ -18,7 +18,7 @@ Window {
     color: "transparent"
     title: "QueMusic桌面播放器"
     transientParent: null
-    flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property bool topWindow: true
     property int bw: 0
     readonly property bool isSmall: height < 132
@@ -194,15 +194,12 @@ Window {
             y: desktopPlayerWindow.isSmall ? wcover.y + 2 : parent.height - 52
             x: desktopPlayerWindow.isSmall ? desktopPlayerWindow.width - width - 44 : (desktopPlayerWindow.width - width) / 2
             height: desktopPlayerWindow.isSmall ? 28 : 36
-            SButton {
+            SOriginButton {
                 iconCharacter: Playback.cycleIcon
                 width: parent.height
                 height: parent.height
                 radius: 18
                 buttonColor: "transparent"
-                hoverColor: Theme.hoverColor
-                iconColor: Theme.textColor
-                shadowEnabled: false
                 iconSize: Style.texticon - 2
                 onClicked: {
                     Playback.cycleIndex = Playback.cycleIndex < 3 ? Playback.cycleIndex + 1 : 0;
@@ -210,7 +207,7 @@ Window {
                 tipText: "播放顺序"
             }
 
-            SButton {
+            SOriginButton {
                 id: lastButton
                 width: parent.height
                 height: parent.height
@@ -218,13 +215,10 @@ Window {
                 iconCharacter: "\uf0dc"
                 iconSize: Style.texticon
                 buttonColor: "transparent"
-                hoverColor: Theme.hoverColor
-                iconColor: Theme.textColor
-                shadowEnabled: false
                 onClicked: Playback.previous()
                 tipText: "上一首"
             }
-            SButton {
+            SOriginButton {
                 id: playButton
                 width: parent.height
                 height: parent.height
@@ -232,13 +226,10 @@ Window {
                 iconCharacter: Playback.inplay ? "\uf02f" : "\uf00e"
                 iconSize: Style.texticon + 2
                 buttonColor: Theme.secondaryBlurColor
-                hoverColor: Theme.hoverColor
-                iconColor: Theme.textColor
-                shadowEnabled: false
                 onClicked: Playback.togglePlay()
                 tipText: Playback.inplay ? "暂停" : "播放"
             }
-            SButton {
+            SOriginButton {
                 id: nextButton
                 width: parent.height
                 height: parent.height
@@ -246,13 +237,10 @@ Window {
                 iconCharacter: "\uf0d9"
                 iconSize: Style.texticon
                 buttonColor: "transparent"
-                hoverColor: Theme.hoverColor
-                iconColor: Theme.textColor
-                shadowEnabled: false
                 onClicked: Playback.next(false)
                 tipText: "下一首"
             }
-            SButton {
+            SOriginButton {
                 id: playListButton
                 width: parent.height
                 height: parent.height
@@ -260,15 +248,12 @@ Window {
                 iconCharacter: desktopPlayerWindow.topWindow ? "\uf003" : "\uf05c"
                 iconSize: Style.texticon - 2
                 buttonColor: "transparent"
-                hoverColor: Theme.hoverColor
-                iconColor: Theme.textColor
-                shadowEnabled: false
                 onClicked: {
                     if(desktopPlayerWindow.topWindow) {
-                        desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint;
+                        desktopPlayerWindow.flags = Qt.FramelessWindowHint;
                         desktopPlayerWindow.topWindow = false;
                     } else {
-                        desktopPlayerWindow.flags = Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint;
+                        desktopPlayerWindow.flags = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint;
                         desktopPlayerWindow.topWindow = true;
                     }
                 }
@@ -276,7 +261,7 @@ Window {
             }
         }
 
-        SButton {
+        SOriginButton {
             id: closeButton
             x: playerCard.width - 44
             y: desktopPlayerWindow.isSmall ? wcover.y + 2 : 12
@@ -286,9 +271,7 @@ Window {
             iconCharacter: "\uf025"
             iconSize: Style.texticon
             buttonColor: "transparent"
-            hoverColor: Qt.rgba(1.0, 0.4, 0.4, 0.4)
-            iconColor: Theme.textColor
-            shadowEnabled: false
+            hoverColor: "#88fd7777"
             onClicked: desktopPlayerWindow.close()
 
             tipText: "关闭"

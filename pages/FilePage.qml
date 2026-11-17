@@ -534,7 +534,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    shadowEnabled: false
                                     tipText: listfolder.path ? "打开文件夹位置" : "应用逻辑文件夹（无磁盘路径）"
                                     onClicked: {
                                         if (listfolder.path) {
@@ -550,7 +549,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    shadowEnabled: false
                                     tipText: "重命名文件夹"
 
                                     onClicked: {
@@ -570,7 +568,6 @@ Item {
                                     radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: "#dcff9999"
-                                    shadowEnabled: false
                                     tipText: "删除文件夹"
                                     onClicked: {
                                         if(listfolder.folderId !== 1) {
@@ -805,7 +802,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    shadowEnabled: false
                                     tipText: "打开文件夹位置"
                                     onClicked: {
                                         if (listLocalfolder.path) {
@@ -821,7 +817,6 @@ Item {
                                     height: 36
                                     radius: 18
                                     buttonColor: "transparent"
-                                    shadowEnabled: false
                                     tipText: "重命名文件夹"
 
                                     onClicked: {
@@ -837,7 +832,6 @@ Item {
                                     radius: 18
                                     buttonColor: "transparent"
                                     hoverColor: "#dcff9999"
-                                    shadowEnabled: false
                                     tipText: "删除文件夹"
                                     onClicked: {
                                         Options.dialog.openSimpleDialog("删除", "这将移除本文件夹，是否删除？",
@@ -937,7 +931,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf095"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "全部加入播放列表"
                     onClicked: {
@@ -949,7 +942,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf10c"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "重新解析标签并刷新"
                     onClicked: {
@@ -968,7 +960,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf10b"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "排序方式（再次点击反向）"
                     onClicked: songSortMenu.popup(1, songSortBtn.height + 6)
@@ -1050,7 +1041,6 @@ Item {
                     iconCharacter: "\uf025"
                     iconSize: 15
                     buttonColor: "transparent"
-                    shadowEnabled: false
                     onClicked: {
                         filterInput1.text = "";
                         Songs.clearSearch();
@@ -1173,10 +1163,7 @@ Item {
                         width: 44
                         height: 44
                         image: listfile.coverUrl
-                        radius1: 10
-                        radius2: 10
-                        radius3: 10
-                        radius4: 10
+                        radius: 10
                     }
 
                     Text {
@@ -1217,79 +1204,74 @@ Item {
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: Text.AlignHCenter
                     }
-                    MouseArea {
-                        id: fileArea
+                    Rectangle {
                         width: listfile.width
                         height: 60
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: (mouse) => {
-                            if (mouse.button === Qt.LeftButton) {
-                                if(filePage.setMode === 3) {
-                                    filePage.toggleChoose(listfile.songId);
-                                    return;
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
+                        opacity: fileArea.hovered ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onTapped: (a,button) => {
+                                if (button === Qt.LeftButton) {
+                                    if(filePage.setMode === 3) {
+                                        filePage.toggleChoose(listfile.songId);
+                                    } else {
+                                        filePage.playLocalEntry(listfile.path, listfile.songTitle, listfile.artistName);
+                                    }
+                                } else {
+                                    fileView.menu.index = listfile.index;
+                                    filePage.menuRow = { path: listfile.path, title: listfile.songTitle, artist: listfile.artistName, songId: listfile.songId };
+                                    fileView.menu.popup();
                                 }
-                                filePage.playLocalEntry(listfile.path, listfile.songTitle, listfile.artistName);
-                            } else {
-                                fileView.menu.index = listfile.index;
-                                filePage.menuRow = { path: listfile.path, title: listfile.songTitle,
-                                                     artist: listfile.artistName, songId: listfile.songId };
-                                fileView.menu.popup();
+                                filePage.forceActiveFocus();
                             }
-                            forceActiveFocus();
                         }
-                        Rectangle {
-                            width: listfile.width
-                            height: 60
-                            radius: Style.labelRadius
-                            color: Theme.hoverColor
-                            opacity: fileArea.containsMouse ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
-                            SButton {
-                                id: fileListAdd
-                                iconCharacter: "\uf095"
-                                x: fileView.toolX
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                shadowEnabled: false
-                                tipText: "加入播放列表"
-                                onClicked: filePage.enqueueLocalEntry(listfile.path, listfile.songTitle,
-                                                                      listfile.artistName)
+                        HoverHandler {
+                            id: fileArea
+                        }
+                        SButton {
+                            id: fileListAdd
+                            iconCharacter: "\uf095"
+                            x: fileView.toolX
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            tipText: "加入播放列表"
+                            onClicked: filePage.enqueueLocalEntry(listfile.path, listfile.songTitle,
+                                                                  listfile.artistName)
+                        }
+                        SButton {
+                            id: fileOpen
+                            iconCharacter: "\uf107"
+                            x: fileView.toolX + 38
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            tipText: "打开所在文件夹"
+                            onClicked: {
+                                filePage.openSongFolder(listfile.path);
                             }
-                            SButton {
-                                id: fileOpen
-                                iconCharacter: "\uf107"
-                                x: fileView.toolX + 38
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                shadowEnabled: false
-                                tipText: "打开所在文件夹"
-                                onClicked: {
-                                    filePage.openSongFolder(listfile.path);
-                                }
-                            }
-                            SButton {
-                                id: fileDelete
-                                iconCharacter: "\uf08e"
-                                x: fileView.toolX + 76
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                hoverColor: "#dcff9999"
-                                shadowEnabled: false
-                                tipText: "从当前文件夹移除"
-                                onClicked: {
-                                    Songs.deleteSong(listfile.songId);
-                                    Options.warned("已从文件夹移除", 1);
-                                }
+                        }
+                        SButton {
+                            id: fileDelete
+                            iconCharacter: "\uf08e"
+                            x: fileView.toolX + 76
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            hoverColor: "#dcff9999"
+                            tipText: "从当前文件夹移除"
+                            onClicked: {
+                                Songs.deleteSong(listfile.songId);
+                                Options.warned("已从文件夹移除", 1);
                             }
                         }
                     }
@@ -1318,7 +1300,6 @@ Item {
                     radius: Style.labelRadius
                     iconCharacter: "\uf00e"
                     text: "播放"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "播放当前文件夹全部歌曲"
                     onClicked: {
@@ -1330,7 +1311,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf095"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "全部加入播放列表"
                     onClicked: {
@@ -1342,7 +1322,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf10c"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "刷新当前文件夹"
                     onClicked: {
@@ -1360,7 +1339,6 @@ Item {
                     height: 36
                     radius: Style.labelRadius
                     iconCharacter: "\uf10b"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "排序方式"
                     onClicked: localSortMenu.popup(1, localSortBtn.height + 6)
@@ -1441,7 +1419,6 @@ Item {
                     iconCharacter: "\uf025"
                     iconSize: 15
                     buttonColor: "transparent"
-                    shadowEnabled: false
                     onClicked: {
                         filterInput2.text = "";
                         localFileModel.clearSearch();
@@ -1566,15 +1543,6 @@ Item {
                         radius4: 10
                     }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Style.labelRadius
-                        color: Theme.hoverColor
-                        opacity: localFileArea.containsMouse ? 1 : 0
-                        z: 1
-                        Behavior on opacity { NumberAnimation { duration: 80 } }
-                    }
-
                     Text {
                         height: 60
                         x: 72
@@ -1614,71 +1582,66 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                     }
 
-                    MouseArea {
-                        id: localFileArea
+                    Rectangle {
                         width: listLocalFile.width
                         height: 60
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: (mouse) => {
-                            if (mouse.button === Qt.LeftButton) {
-                                if(filePage.setMode === 4) {
-                                    filePage.toggleChoose(listLocalFile.fileUrl.toString());
-                                    return;
+                        radius: Style.labelRadius
+                        color: Theme.hoverColor
+                        opacity: localFileArea.hovered ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onTapped: (a,button) => {
+                                if (button === Qt.LeftButton) {
+                                    if(filePage.setMode === 4) {
+                                        filePage.toggleChoose(listLocalFile.fileUrl.toString());
+                                    } else {
+                                        filePage.playLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName);
+                                    }
+                                } else {
+                                    localFileView.menu.index = listLocalFile.index;
+                                    filePage.menuRow = { path: listLocalFile.fileUrl.toString(), title: listLocalFile.songTitle, artist: listLocalFile.artistName, songId: -1 };
+                                    localFileView.menu.popup();
                                 }
-                                filePage.playLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName);
-                            } else {
-                                localFileView.menu.index = listLocalFile.index;
-                                filePage.menuRow = { path: listLocalFile.fileUrl.toString(), title: listLocalFile.songTitle,
-                                                     artist: listLocalFile.artistName, songId: -1 };
-                                localFileView.menu.popup();
+                                filePage.forceActiveFocus();
                             }
-                            forceActiveFocus();
                         }
-                        Rectangle {
-                            width: listLocalFile.width
-                            height: 60
-                            radius: Style.labelRadius
-                            color: Theme.hoverColor
-                            opacity: localFileArea.containsMouse ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
-                            SButton {
-                                iconCharacter: "\uf095"
-                                x: localFileView.toolX
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                shadowEnabled: false
-                                tipText: "加入播放列表"
-                                onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName)
-                            }
-                            SButton {
-                                iconCharacter: "\uf107"
-                                x: localFileView.toolX + 38
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                shadowEnabled: false
-                                tipText: "打开所在文件夹"
-                                onClicked: filePage.openSongFolder(listLocalFile.fileUrl.toString());
-                            }
-                            SButton {
-                                iconCharacter: "\uf08e"
-                                x: localFileView.toolX + 76
-                                y: 12
-                                width: 36
-                                height: 36
-                                radius: 18
-                                buttonColor: "transparent"
-                                hoverColor: "#dcff9999"
-                                shadowEnabled: false
-                                tipText: "从本地文件夹移除（移入回收站）"
-                                onClicked: filePage.deleteLocalFile(listLocalFile.fileUrl.toString(), listLocalFile.fileName)
-                            }
+                        HoverHandler {
+                            id: localFileArea
+                        }
+                        SButton {
+                            iconCharacter: "\uf095"
+                            x: localFileView.toolX
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            tipText: "加入播放列表"
+                            onClicked: filePage.enqueueLocalEntry(listLocalFile.fileUrl.toString(), listLocalFile.songTitle, listLocalFile.artistName)
+                        }
+                        SButton {
+                            iconCharacter: "\uf107"
+                            x: localFileView.toolX + 38
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            tipText: "打开所在文件夹"
+                            onClicked: filePage.openSongFolder(listLocalFile.fileUrl.toString());
+                        }
+                        SButton {
+                            iconCharacter: "\uf08e"
+                            x: localFileView.toolX + 76
+                            y: 12
+                            width: 36
+                            height: 36
+                            radius: 18
+                            buttonColor: "transparent"
+                            hoverColor: "#dcff9999"
+                            tipText: "从本地文件夹移除（移入回收站）"
+                            onClicked: filePage.deleteLocalFile(listLocalFile.fileUrl.toString(), listLocalFile.fileName)
                         }
                     }
                 }

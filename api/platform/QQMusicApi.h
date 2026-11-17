@@ -39,6 +39,8 @@ protected:
     void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
     void onCategoryPlaylists(const QString &categoryid, int page, int pageSize) override;
     void onPlaylistSongs(const QString &listid, int page, int pageSize) override;
+    void onUserFavoriteSongs(int page, int pageSize) override;
+    void onFollowedArtists(int page, int pageSize) override;
     void onRecommendSongs(int page, int pageSize) override;
     void onHotPlaylistMenu(int type) override;
     void onHotPlaylists(int page, int pageSize) override;
@@ -72,6 +74,9 @@ private:
 
     void getJson(const QUrl &url, const JsonCallback &callback);
     void postJson(const QUrl &url, const QJsonObject &body, const JsonCallback &callback);
+    void postCgi(const QString &module, const QString &method, const QJsonObject &param,
+                 std::function<void(const QJsonObject &)> done);
+    static QString euinOf(const QString &cookie);
 
     void requestSearch(const QString &keyword, int type, int page, int pageSize,
                        const QString &action);
@@ -81,7 +86,8 @@ private:
     void requestTopSongs(int topId, int page, int pageSize, const QString &action);
     void requestSingerList(int area, int page, int pageSize, const QString &action);
     void requestPlayUrl(const QString &mid, int type, const SongDetail &detail);
-    void emitList(const QString &action, const QVariantList &info, const QJsonObject &json);
+    void emitList(const QString &action, const QVariantList &info,
+                  const QJsonObject &json = {});
 
     QVariantMap parseSong(const QJsonObject &song, const QString &fallbackArtist = QString());
     QVariantMap parsePlaylist(const QJsonObject &playlist) const;
@@ -97,6 +103,7 @@ private:
     int m_quality = 1;
     QString m_cookie;
     QString m_uin;
+    QString m_euin;
     QHash<QString, SongDetail> m_details;
     QHash<QString, QVariantList> m_playlistCache;
     QVariantList m_menuCache;

@@ -60,6 +60,7 @@ protected:
     void onPersonalFm(int page, int pageSize) override;
     void onPersonalRadar(int page, int pageSize) override;
     void onUserPlaylists(int page, int pageSize) override;
+    void onUserFavoriteSongs(int page, int pageSize) override;
     void onFollowedArtists(int page, int pageSize) override;
 
 private:
@@ -97,6 +98,8 @@ private:
 
     static QString mixinKey(const QString &imgKey, const QString &subKey);
     void withUid(const std::function<void(const QString &)> &done);
+    void requestFavResources(const QString &mediaId, int page, int pageSize,
+                             const QString &action);
 
     QNetworkAccessManager *m_nam = nullptr;
     QString m_mixinKey;
@@ -113,6 +116,7 @@ private:
     QHash<QString, QString> m_upNames;
     QString m_uid;
     QString m_recommendKeyword;
+    QString m_defaultFavId;
 };
 
 #endif

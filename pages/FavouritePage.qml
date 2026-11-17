@@ -261,8 +261,6 @@ Item {
                                 iconCharacter: "\uf005"
                                 width: 36; height: 36; radius: 18
                                 buttonColor: "transparent"
-                                hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
-                                shadowEnabled: false
                                 tipText: "重命名收藏夹"
                                 onClicked: {
                                     if (favFolderRow.isDefault) { Options.warned("无法修改默认收藏夹名称", 0); return }
@@ -276,7 +274,6 @@ Item {
                                 width: 36; height: 36; radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
-                                shadowEnabled: false
                                 tipText: "删除收藏夹"
                                 onClicked: {
                                     if (favFolderRow.isDefault) { Options.warned("无法删除默认收藏夹", 0); return }
@@ -603,7 +600,6 @@ Item {
                 SButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf095"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "全部加入播放列表"
                     onClicked: playAll(false)
@@ -611,7 +607,6 @@ Item {
                 SButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf10c"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "刷新收藏夹"
                     onClicked: {
@@ -624,7 +619,6 @@ Item {
                     id: favSortBtn
                     width: 48; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf10b"
-                    shadowEnabled: false
                     buttonColor: Theme.sideColor
                     tipText: "排序方式"
                     onClicked: favSongSortMenu.popup(1, favSortBtn.height + 6)
@@ -702,7 +696,6 @@ Item {
                     iconCharacter: "\uf025"
                     iconSize: 15
                     buttonColor: "transparent"
-                    shadowEnabled: false
                     onClicked: favSearchInput.text = ""
                 }
             }

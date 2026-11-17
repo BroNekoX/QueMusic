@@ -15,7 +15,7 @@ Window {
     color: "transparent"
     title: "QueMusic 桌面歌词"
     transientParent: null
-    flags: Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     property int lyricSize: height / 4 - 18
 
 
@@ -209,38 +209,35 @@ Window {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 6
 
-                SButton {
+                SOriginButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf0dc"
                     iconSize: 15
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
-                    shadowEnabled: false
                     onClicked: Playback.previous()
                     tipText: "上一首"
                 }
 
-                SButton {
+                SOriginButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: Playback.inplay ? "\uf02f" : "\uf00e"
                     iconSize: 16
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
-                    shadowEnabled: false
                     onClicked: Playback.togglePlay()
                     tipText: Playback.inplay ? "暂停" : "播放"
                 }
 
-                SButton {
+                SOriginButton {
                     width: 36; height: 36; radius: Style.labelRadius
                     iconCharacter: "\uf0d9"
                     iconSize: 15
                     buttonColor: "transparent"
                     hoverColor: "#66fafafa"
                     iconColor: "#fffdfdfd"
-                    shadowEnabled: false
                     onClicked: Playback.next(false)
                     tipText: "下一首"
                 }
@@ -254,7 +251,7 @@ Window {
                 verticalAlignment: Text.AlignVCenter
                 color: "#fffdfdfd"
             }
-            SButton {
+            SOriginButton {
                 id: closeButton
                 x: desktopLyricsWindow.width - 54
                 y: 12
@@ -264,7 +261,6 @@ Window {
                 buttonColor: "transparent"
                 hoverColor: "#66fafafa"
                 iconColor: "#fffdfdfd"
-                shadowEnabled: false
                 onClicked: desktopLyricsWindow.close()
                 tipText: "关闭"
             }

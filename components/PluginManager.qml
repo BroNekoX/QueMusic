@@ -164,7 +164,6 @@ Item {
                     height: 34
                     radius: 10
                     buttonColor: "transparent"
-                    shadowEnabled: false
                     tipText: "打开插件目录"
                     onClicked: Plugins.reveal(row.id)
                 }
@@ -176,7 +175,6 @@ Item {
                     radius: 10
                     buttonColor: "transparent"
                     hoverColor: Qt.rgba(1.0, 0.5, 0.5, 0.8)
-                    shadowEnabled: false
                     tipText: "删除插件"
                     onClicked: {
                         const pluginId = row.id;

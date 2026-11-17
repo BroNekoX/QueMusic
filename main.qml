@@ -6,7 +6,6 @@ import QtQuick
 import QueMusic 1.0
 import QtCore
 import QWindowKit 1.0
-import QtQuick.Controls.Basic
 
 Window {
     id: window
@@ -32,6 +31,7 @@ Window {
         Options.settingOutAnime = settingOutAnime
         Options.mainSearchInput = mainSearchInput
         Options.musicpic = picWidget
+        Options.mainTip = mainTip
         windowAgent.setup(window);
         windowAgent.setTitleBar(titleBar);
         // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
@@ -90,7 +90,6 @@ Window {
         onTriggered: window.silentUpdateCheck()
     }
 
-
     // 标题栏是窗口拖拽区：插件挂进去的对象要标记可命中，否则点击会被拖拽吞掉
     function syncTitleBarHitTest(): void {
         const kids = barRightWidgets.children;
@@ -101,7 +100,7 @@ Window {
     function doSearch(text: string): void {
         Options.searchText = text;
         MusicApi.searchSongsResults.clear();
-        mainContent.contentIndexed(5);
+        mainContent.contentIndexed(6);
         Config.searchList = [text].concat(Config.searchList.filter(value => value !== text));
         MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
         Options.reSearch();
@@ -441,7 +440,7 @@ Window {
             property int pageHeight: height - 60
 
             // 页面顺序 = 侧边栏导航下标：首页 0 / 分类 1 / 收藏 2 / 本地 3 / 下载 4 / 搜索 5
-            property list<Component> pageItem: [homePage, playlistPage, favouritePage, filePage, downloadPage, searchPage]
+            property list<Component> pageItem: [homePage, playlistPage, favouritePage, filePage, downloadPage, accountPage, searchPage]
             property int pageIndex: 0
 
             function contentIndexed(choice: int): void {
@@ -493,6 +492,7 @@ Window {
             Component { id: favouritePage; FavouritePage {} }
             Component { id: filePage; FilePage {} }
             Component { id: downloadPage; DownloadPage {} }
+            Component { id: accountPage; AccountPage {} }
             Component { id: searchPage; SearchPage {} }
         }
 
@@ -753,12 +753,6 @@ Window {
             }
         }
     }
-    QMessage {
-        id: mainMessage
-        function openSimpleDialog(title: string, text: string, callBack: var): void {
-            mainMessage.dialog(title,text,"\uf11a");
-        }
-    }
     QOptionDialog {
         id: picWatch
         property string source: "qrc:/QueMusic/resources/app/musicpic.png"
@@ -879,11 +873,15 @@ Window {
         }
     }
 
+    QTip {
+        id: mainTip
+        delay: 480
+    }
+
     Rectangle {
         id: picWidget
         width: 256
         height: 256
-        radius: 24
         color: Theme.containColor
         visible: false
         layer.enabled: true
@@ -896,4 +894,5 @@ Window {
             font.family: Fonts.icon
         }
     }
+
 }

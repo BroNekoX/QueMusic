@@ -141,7 +141,12 @@ public:
     bool isQQLoggedIn() const { return m_qqLoggedIn; }
     QString qqNickname() const { return m_qqNickname; }
     QString qqAvatar() const { return m_qqAvatar; }
-    QString qqCookie() const { return m_qqCookie; }
+    QString qqCookie() const
+    {
+        if (m_qqEuIn.isEmpty() || m_qqCookie.contains(QLatin1String("euin=")))
+            return m_qqCookie;
+        return m_qqCookie + QStringLiteral("; euin=") + m_qqEuIn;
+    }
     QString qqLoginMessage() const { return m_qqLoginMessage; }
 
     Q_INVOKABLE void loadPersisted(); // 启动时恢复登录态
@@ -169,6 +174,8 @@ public slots:
     Q_INVOKABLE void logoutBilibili();
 
     Q_INVOKABLE void loginQQWithCookie(const QString &cookie);
+    Q_INVOKABLE void requestQQSmsCode(const QString &phone);
+    Q_INVOKABLE void loginQQWithCode(const QString &phone, const QString &code);
     Q_INVOKABLE void logoutQQ();
 
     // 浏览器登录（内嵌 WebView）完成后，由 QML 回填 Cookie / 用户信息
@@ -239,6 +246,8 @@ private:
     void setBilibiliQr(int state, const QString &msg, const QString &qrText = QString());
     void validateBilibiliCookie(const QString &cookie);
     void validateQQCookie(const QString &cookie);
+    void postQQCgi(const QJsonObject &body, std::function<void(const QJsonObject &)> done);
+    void finishQQLogin(const QJsonObject &data);
     void browserGet(const QUrl &url, const QByteArray &cookie,
                     const QList<QPair<QByteArray, QByteArray>> &headers,
                     const std::function<void(int, const QByteArray &)> &done);
@@ -281,6 +290,7 @@ private:
     QTimer *m_bilibiliPollTimer = nullptr;
     QString m_qqCookie;
     QString m_qqNickname;
+    QString m_qqEuIn;
     QString m_qqAvatar;
     QString m_qqUin;
     QString m_qqLoginMessage;

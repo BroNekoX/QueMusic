@@ -577,7 +577,7 @@ Window {
             { label: "缓冲", value: infoPage.value(Playback.player.bufferMs, " ms") },
             { label: "音量", value: Math.round(Playback.volume * 100) + "%" },
             { label: "倍速", value: Playback.player.playbackRate.toFixed(2) + "×" },
-            { label: "版本", value: "v" + Options.version },
+            { label: "版本", value: "v" + Application.version + " (" + Options.versionCode + ")" },
             { label: "日志文件", value: LogManager.currentLogFile || "—", mono: true }
         ]
 

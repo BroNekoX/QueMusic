@@ -151,7 +151,6 @@ Rectangle {
         buttonColor: "transparent"
         hoverColor: Qt.rgba(0, 0, 0, 0.2)
         iconColor: "#eeeeee"
-        shadowEnabled: false
         x: 20
         y: Options.isMacOS ? 40 - musicControlMax.hideHeight * 2 : 10 - musicControlMax.hideHeight
         iconCharacter: "\uf096"
@@ -170,7 +169,6 @@ Rectangle {
         buttonColor: "transparent"
         hoverColor: Qt.rgba(0, 0, 0, 0.2)
         iconColor: "#eeeeee"
-        shadowEnabled: false
         x: 62
         y: playerminedButton.y
         iconCharacter: "\uf116"
@@ -186,7 +184,6 @@ Rectangle {
         buttonColor: "transparent"
         hoverColor: Qt.rgba(0, 0, 0, 0.2)
         iconColor: "#eeeeee"
-        shadowEnabled: false
         x: 104
         y: playerminedButton.y
         iconCharacter: "\uf005"
@@ -208,7 +205,6 @@ Rectangle {
         borderColor: "#66ffffff"
         borderWidth: 1
         iconSize: Style.texticon
-        shadowEnabled: false
         tipText: "翻译"
         onClicked: {
             musicControlMax.lyricTranslateOpen = !musicControlMax.lyricTranslateOpen;

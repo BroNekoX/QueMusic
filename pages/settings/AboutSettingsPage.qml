@@ -157,7 +157,6 @@ QScrollView {
                         buttonColor: Theme.themeColor
                         textColor: Theme.primaryColor
                         iconColor: Theme.primaryColor
-                        shadowEnabled: false
                         onClicked: {
                             updater.checkForUpdate();
                         }
@@ -202,7 +201,6 @@ QScrollView {
                 radius: 18
                 iconSize: Style.texticon
                 buttonColor: "transparent"
-                shadowEnabled: false
                 onClicked: {
                     parent.visible = false;
                 }
@@ -245,7 +243,6 @@ QScrollView {
                 radius: 18
                 iconSize: Style.texticon
                 buttonColor: "transparent"
-                shadowEnabled: false
                 onClicked: {
                     parent.visible = false;
                 }

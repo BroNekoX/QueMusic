@@ -71,13 +71,6 @@ QString coverUrl(const QString &albumMid, int size)
     return QString("https://y.gtimg.cn/music/photo_new/T002R%1x%1M000%2.jpg").arg(size).arg(albumMid);
 }
 
-QString httpsUrl(QString url)
-{
-    if (url.startsWith(QLatin1String("//"))) return "https:" + url;
-    if (url.startsWith(QLatin1String("http://"))) url.replace(0, 7, "https://");
-    return url;
-}
-
 QString stripHtml(QString text)
 {
     static const QRegularExpression tag("<[^>]*>");
@@ -164,6 +157,70 @@ QQMusicApi::QQMusicApi(QObject *parent)
 {
 }
 
+
+void QQMusicApi::postCgi(const QString &module, const QString &method, const QJsonObject &param,
+                         std::function<void(const QJsonObject &)> done)
+{
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"uin", m_uin}}},
+        {"req", QJsonObject{{"module", module}, {"method", method}, {"param", param}}}};
+    postJson(QUrl("https://u.y.qq.com/cgi-bin/musicu.fcg"), body,
+             [done = std::move(done)](const QJsonObject &json) {
+                 done(json.value("req").toObject().value("data").toObject());
+             });
+}
+
+void QQMusicApi::onUserFavoriteSongs(int page, int pageSize)
+{
+    if (m_uin.isEmpty() || m_euin.isEmpty()) {
+        emitList(ApiAction::UserFavoriteSongs, {});
+        return;
+    }
+    const int size = qBound(1, pageSize, 50);
+    const QJsonObject param{{"disstid", 0}, {"dirid", 201}, {"tag", true},
+                            {"song_begin", (qMax(1, page) - 1) * size}, {"song_num", size},
+                            {"userinfo", true}, {"orderlist", true},
+                            {"enc_host_uin", m_euin}};
+    postCgi(QStringLiteral("music.srfDissInfo.DissInfo"), QStringLiteral("CgiGetDiss"), param,
+            [this](const QJsonObject &data) {
+                QVariantList info;
+                for (const QJsonValue &value : data.value("songlist").toArray()) {
+                    const QVariantMap item = parseSong(value.toObject());
+                    if (!item.isEmpty())
+                        info << item;
+                }
+                emitList(ApiAction::UserFavoriteSongs, info);
+            });
+}
+
+void QQMusicApi::onFollowedArtists(int page, int pageSize)
+{
+    if (m_euin.isEmpty()) {
+        emitList(ApiAction::FollowedArtists, {});
+        return;
+    }
+    const int size = qBound(1, pageSize, 50);
+    const QJsonObject param{{"HostUin", m_euin},
+                            {"From", (qMax(1, page) - 1) * size},
+                            {"Size", size}};
+    postCgi(QStringLiteral("music.concern.RelationList"),
+            QStringLiteral("GetFollowSingerList"), param,
+            [this](const QJsonObject &data) {
+                QVariantList info;
+                for (const QJsonValue &value : data.value("users").toArray()) {
+                    const QJsonObject user = value.toObject();
+                    const QString name = pickString(user, {"nick", "name", "singerName", "title"});
+                    if (name.isEmpty())
+                        continue;
+                    info << ApiCommon::song(
+                        name, QString(),
+                        pickString(user, {"avatar", "avatarUrl", "pic"}),
+                        pickString(user, {"encryptUin", "uin", "singerMid", "id"}));
+                }
+                emitList(ApiAction::FollowedArtists, info);
+            });
+}
+
 void QQMusicApi::applyCredentials(const SourceCredentials &credentials)
 {
     m_quality = qBound(0, credentials.quality, 3);
@@ -171,6 +228,16 @@ void QQMusicApi::applyCredentials(const SourceCredentials &credentials)
         return;
     m_cookie = credentials.cookie;
     m_uin = uinOf(m_cookie);
+    const QString euin = euinOf(m_cookie);
+    if (!euin.isEmpty())
+        m_euin = euin;
+}
+
+QString QQMusicApi::euinOf(const QString &cookie)
+{
+    static const QRegularExpression re(QStringLiteral("(?:^|;\\s*)euin=([^;]+)"));
+    const QRegularExpressionMatch match = re.match(cookie);
+    return match.hasMatch() ? match.captured(1).trimmed() : QString();
 }
 
 QString QQMusicApi::uinOf(const QString &cookie)
@@ -274,7 +341,7 @@ QVariantMap QQMusicApi::parseSong(const QJsonObject &song, const QString &fallba
     const SongDetail detail = detailFromJson(song);
     const QString artist = detail.artist.isEmpty() ? fallbackArtist : detail.artist;
     QString cover = coverUrl(detail.albumMid, 300);
-    if (cover.isEmpty()) cover = httpsUrl(pickString(song, {"pic", "cover"}));
+    if (cover.isEmpty()) cover = ApiCommon::httpsUrl(pickString(song, {"pic", "cover"}));
 
     QString album = pickString(song.value("album").toObject(), {"name", "title"});
     if (album.isEmpty()) album = pickString(song, {"albumname", "albumName"});
@@ -292,7 +359,7 @@ QVariantMap QQMusicApi::parsePlaylist(const QJsonObject &playlist) const
 
     QString author = pickString(playlist, {"nickname"});
     if (author.isEmpty()) author = pickString(playlist.value("creator").toObject(), {"name"});
-    const QString cover = httpsUrl(pickString(playlist, {"logo", "imgurl", "img"}));
+    const QString cover = ApiCommon::httpsUrl(pickString(playlist, {"logo", "imgurl", "img"}));
     QVariantMap item = ApiCommon::song(stripHtml(title), stripHtml(author), cover, id, 0,
                                        stripHtml(pickString(playlist, {"description"})), QString(), QString(), 0, playCountOf(playlist));
     item.insert("id", id);
@@ -308,7 +375,7 @@ QVariantMap QQMusicApi::parseAlbum(const QJsonObject &album) const
 
     QString singer = pickString(album, {"singer"});
     if (singer.isEmpty()) singer = singerNames(album.value("singer_list"));
-    const QString cover = httpsUrl(pickString(album, {"pic", "cover"}));
+    const QString cover = ApiCommon::httpsUrl(pickString(album, {"pic", "cover"}));
     QVariantMap item = ApiCommon::song(stripHtml(title), stripHtml(singer), cover, id, 0,
                                        stripHtml(pickString(album, {"description"})), QString(), QString(), 0, playCountOf(album));
     item.insert("id", id);
@@ -566,7 +633,7 @@ void QQMusicApi::onAllToplist()
                 const QString title = stripHtml(pickString(top, {"title"}));
                 if (id <= 0 || title.isEmpty()) continue;
                 const QString cover = pickString(top, {"headPicUrl", "frontPicUrl", "mbFrontPicUrl", "mbHeadPicUrl"});
-                info << ApiCommon::song(title, groupName, httpsUrl(cover), QString::number(id), 0,
+                info << ApiCommon::song(title, groupName, ApiCommon::httpsUrl(cover), QString::number(id), 0,
                                         stripHtml(pickString(top, {"intro"})), QString(), QString(), 0, playCountOf(top));
             }
         }
@@ -602,7 +669,7 @@ void QQMusicApi::requestSingerList(int area, int page, int pageSize, const QStri
             const QString mid = pickString(singer, {"singer_mid", "mid"});
             const QString name = stripHtml(pickString(singer, {"singer_name", "name"}));
             if (mid.isEmpty() || name.isEmpty()) continue;
-            QString pic = httpsUrl(pickString(singer, {"singer_pic", "pic"}));
+            QString pic = ApiCommon::httpsUrl(pickString(singer, {"singer_pic", "pic"}));
             if (pic.endsWith(QLatin1String(".webp"))) pic.replace(pic.size() - 5, 5, ".jpg");
             info << ApiCommon::song(name, QString(), pic, mid);
             if (info.size() >= size) break;
@@ -725,7 +792,7 @@ void QQMusicApi::requestPlayUrl(const QString &mid, int type, const SongDetail &
 
             QString ext = info.value("filename").toString().section(QLatin1Char('.'), -1);
             if (ext.isEmpty() && i < candidates.size()) ext = QString::fromLatin1(candidates.at(i).ext);
-            const QString url = httpsUrl(purl.startsWith(QLatin1String("http")) ? purl : sip + purl);
+            const QString url = ApiCommon::httpsUrl(purl.startsWith(QLatin1String("http")) ? purl : sip + purl);
 
             QVariantMap result{{"url", url}, {"backup_url", url}, {"songName", detail.name.isEmpty() ? mid : detail.name},
                                {"author_name", detail.artist}, {"singer_img", coverUrl(detail.albumMid, 300)},
@@ -778,7 +845,7 @@ void QQMusicApi::onUserPlaylists(int page, int pageSize)
         for (int i = start; i < list.size() && i < start + pageSize; ++i) {
             const QJsonObject item = list.at(i).toObject();
             info << ApiCommon::song(item.value("dirName").toString(), QString(),
-                                    httpsUrl(item.value("picUrl").toString()),
+                                    ApiCommon::httpsUrl(item.value("picUrl").toString()),
                                     QString::number(item.value("tid").toVariant().toLongLong()),
                                     item.value("songNum").toInt());
         }
@@ -849,7 +916,7 @@ void QQMusicApi::onComments(const QString &hash, int page, int pageSize)
             for (const QJsonValue &entry : comment.value("commentlist").toArray()) {
                 const QJsonObject item = entry.toObject();
                 info << ApiCommon::comment(pickString(item, {"nick", "username"}),
-                                           httpsUrl(pickString(item, {"avatarurl", "avatar"})),
+                                           ApiCommon::httpsUrl(pickString(item, {"avatarurl", "avatar"})),
                                            pickString(item, {"rootcommentcontent", "content", "middlecommentcontent"}),
                                            pickInt(item, {"time", "commenttime"}),
                                            pickInt(item, {"praisenum", "liked"}),

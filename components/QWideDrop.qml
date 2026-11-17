@@ -33,7 +33,7 @@ Item {
                 color: Theme.hoverColor
                 anchors.fill: parent
                 radius: parent.radius
-                opacity: 0
+                opacity: hoverArea.hovered ? 1 : 0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 80 } }
             }
@@ -45,14 +45,13 @@ Item {
                 font.pixelSize: Style.textmain
                 color: root.choice === del.index ? Theme.primaryColor : Theme.textColor
             }
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                onEntered: hover.opacity = 1
-                onExited: hover.opacity = 0
-                onClicked: {
+            TapHandler {
+                onTapped: {
                     root.transformed(del.index)
                 }
+            }
+            HoverHandler {
+                id: hoverArea
             }
         }
     }

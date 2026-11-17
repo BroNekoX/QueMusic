@@ -53,7 +53,7 @@ Rectangle {
         MusicApi.searchSongsResults.clear();
         Options.mainSearchInput.text = name;
         MusicApi.nowIndex = 0;
-        mainContent.contentIndexed(5);
+        mainContent.contentIndexed(6);
         MusicApi.searchSongs(name, MusicApi.nowIndex, 1, 20);
         Options.exitIndex = 1;
     }
@@ -207,27 +207,27 @@ Rectangle {
             font.bold: true
             font.pixelSize: 15
             verticalAlignment: Text.AlignVCenter
-            color: titleDisplayMouse.containsMouse ? Theme.themeColor : musicControlMin.iconColor
+            color: titleDisplayHover.hovered ? Theme.themeColor : musicControlMin.iconColor
 
-            MouseArea {
-                id: titleDisplayMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+            QTip {
+                visible: titleDisplayHover.hovered
+                text: "右键搜索"
+            }
+            TapHandler {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) {
+                onTapped: (a,button) => {
+                    if (button === Qt.RightButton) {
                         // 右键保留原有搜索菜单
                         if(!Playback.musicTitle)  return;
                         titleMenu.popup();
-                        return;
+                    } else {
+                        musicControlMin.centerChange();
                     }
-                    musicControlMin.centerChange();
                 }
-                QTip {
-                    visible: titleDisplayMouse.containsMouse
-                    text: "右键搜索"
-                }
+            }
+            HoverHandler {
+                id: titleDisplayHover
+                cursorShape: Qt.PointingHandCursor
             }
             // 右键弹出菜单再搜索，左键直接打开全屏播放器
             QMenu {
@@ -249,29 +249,29 @@ Rectangle {
             font.bold: false
             font.pixelSize: 13
             verticalAlignment: Text.AlignVCenter
-            color: artistDisplayMouse.containsMouse ? Theme.themeColor : musicControlMin.iconColor
+            color: artistDisplayHover.hovered ? Theme.themeColor : musicControlMin.iconColor
 
-            MouseArea {
-                id: artistDisplayMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+            QTip {
+                visible: artistDisplayHover.hovered
+                text: "右键搜索"
+            }
+            TapHandler {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) {
+                onTapped: (a,button) => {
+                    if (button === Qt.RightButton) {
                         // 右键保留原有搜索菜单（多歌手选择）
                         if(!Playback.musicArtist)  return; //本地音乐没有歌手信息时，忽略
                         const artists = musicControlMin.parseArtists(Playback.musicArtist);
                         artistMenu.model = artists;// 多歌手,弹菜单
                         artistMenu.popup();
-                        return;
+                    } else {
+                        musicControlMin.centerChange();
                     }
-                    musicControlMin.centerChange();
                 }
-                QTip {
-                    visible: artistDisplayMouse.containsMouse
-                    text: "右键搜索"
-                }
+            }
+            HoverHandler {
+                id: artistDisplayHover
+                cursorShape: Qt.PointingHandCursor
             }
             //多位歌手时，显示菜单
             QMenu {
@@ -306,7 +306,6 @@ Rectangle {
                 const e = q.get(i)
                 return e && FavoriteSongs.isFavorite(e.path, "song") ? Theme.themeColor : musicControlMin.iconColor
             }
-            shadowEnabled: false
             onClicked: {
                 const i = Options.queue.playListIndex
                 if (i < 0 || i >= Options.queue.count) return
@@ -329,7 +328,6 @@ Rectangle {
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
-            shadowEnabled: false
             visible: Options.queue.count > 0 && Options.queue.playListIndex >= 0
                      && Options.queue.playListIndex < Options.queue.count
                      && Options.queue.get(Options.queue.playListIndex).source !== -1
@@ -358,7 +356,6 @@ Rectangle {
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
-            shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
                 Playback.cycleIndex = Playback.cycleIndex < 3 ? Playback.cycleIndex + 1 : 0;
@@ -374,7 +371,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
-            shadowEnabled: false
             onClicked: Playback.previous()
             tipText: "上一首"
         }
@@ -387,7 +383,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
-            shadowEnabled: false
             onClicked: Playback.togglePlay()
             tipText: Playback.inplay ? "暂停" : "播放"
         }
@@ -400,7 +395,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticonH
-            shadowEnabled: false
             onClicked: Playback.next(false)
             tipText: "下一首"
         }
@@ -413,7 +407,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 1
-            shadowEnabled: false
             onClicked: musicControlMin.openPlayerOptions()
             tipText: "播放器控制"
         }
@@ -450,7 +443,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 1
-            shadowEnabled: false
             onClicked: {
                 if(musicInfo.visible) {
                     musicInfo.close();
@@ -469,7 +461,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 2
-            shadowEnabled: false
             onHoveredChanged: {
                 if(hovered) {
                     vcTimer.restart();
@@ -500,7 +491,6 @@ Rectangle {
             buttonColor: "transparent"
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
-            shadowEnabled: false
             iconSize: Style.texticon + 1
             onClicked: {
                 if(Options.desktop.visible) {
@@ -520,7 +510,6 @@ Rectangle {
             hoverColor: Theme.hoverColor
             iconColor: musicControlMin.iconColor
             iconSize: Style.texticon + 2
-            shadowEnabled: false
             onClicked: {
                 if(playList.visible) {
                     playList.close();
@@ -532,12 +521,8 @@ Rectangle {
         }
     }
 
-    MouseArea {
-        z: 0
-        anchors.fill: parent
-        onClicked: {
-            musicControlMin.centerChange();
-        }
+    TapHandler {
+        onTapped: musicControlMin.centerChange();
     }
 
     // 收藏当前曲目：弹收藏夹选择

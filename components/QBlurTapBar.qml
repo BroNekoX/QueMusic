@@ -116,7 +116,7 @@ Item {
                 z: 0
                 anchors.fill: navMusic
                 radius: root.borderRadius
-                opacity: indexArea.containsMouse && !navMusic.isSelected ? 1 : 0
+                opacity: hoverArea.hovered && !navMusic.isSelected ? 1 : 0
                 color: Theme.hoverColor
                 Behavior on opacity { NumberAnimation { duration: 100 } }
             }
@@ -132,18 +132,17 @@ Item {
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
 
-
-            MouseArea {
-                id: indexArea
-                anchors.fill: navMusic
-                hoverEnabled: true
-                onClicked: {
+            TapHandler {
+                onTapped: {
                     if(root.choiceIndex !== navMusic.index) {
                         root.tabChange(navMusic.index);
                     }
                     root.choiceIndex = navMusic.index;
-                    forceActiveFocus();
+                    root.forceActiveFocus();
                 }
+            }
+            HoverHandler {
+                id: hoverArea
             }
         }
     }

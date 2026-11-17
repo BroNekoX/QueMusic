@@ -390,72 +390,68 @@ ListView {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignHCenter
         }
-
-        MouseArea {
-            id: listArea
+        Rectangle {
             width: listDel.width
             height: 60
-            hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.LeftButton) {
-                    view.clicked(listDel.index);
-                } else {
-                    menu.index = listDel.index;
-                    view.menu.popup();
-                }
-                forceActiveFocus();
-            }
-            Rectangle {
-                width: listDel.width
-                height: 60
-                radius: Style.labelRadius
-                color: Theme.hoverColor
-                opacity: listArea.containsMouse || menu.displayIndex === listDel.index ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
-                SButton {
-                    iconCharacter: "\uf050"
-                    x: view.toolX
-                    y: 12
-                    width: 36
-                    height: 36
-                    radius: 18
-                    buttonColor: "transparent"
-                    hoverColor: Theme.hoverColor
-                    shadowEnabled: false
-                    tipText: "更多"
-                    onClicked: {
-                        menu.index = listDel.index
-                        view.menu.popup()
+            radius: Style.labelRadius
+            color: Theme.hoverColor
+            opacity: hoverArea.hovered || menu.displayIndex === listDel.index ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
+            TapHandler {
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onTapped: (a, button) => {
+                    if (button === Qt.LeftButton) {
+                        view.clicked(listDel.index);
+                    } else {
+                        menu.index = listDel.index;
+                        view.menu.popup();
                     }
+                    listDel.forceActiveFocus();
                 }
-                SButton {
-                    iconCharacter: view.toolText1 // 图标固定
-                    iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
-                    x: view.toolX + 38
-                    y: 12
-                    width: 36
-                    height: 36
-                    radius: 18
-                    buttonColor: "transparent"
-                    hoverColor: Theme.hoverColor
-                    shadowEnabled: false
-                    tipText: "收藏"
-                    onClicked: view.toggleFavorite(listDel.index)
+            }
+            HoverHandler {
+                id: hoverArea
+            }
+
+            SButton {
+                iconCharacter: "\uf050"
+                x: view.toolX
+                y: 12
+                width: 36
+                height: 36
+                radius: 18
+                buttonColor: "transparent"
+                hoverColor: Theme.hoverColor
+                tipText: "更多"
+                onClicked: {
+                    menu.index = listDel.index
+                    view.menu.popup()
                 }
-                SButton {
-                    iconCharacter: view.toolText0
-                    x: view.toolX + 76
-                    y: 12
-                    width: 36
-                    height: 36
-                    radius: 18
-                    buttonColor: "transparent"
-                    hoverColor: Theme.hoverColor
-                    shadowEnabled: false
-                    tipText: view.isList ? "歌单信息" : "加入播放列表"
-                    onClicked: view.runToolAction(listDel.index, 0)
-                }
+            }
+            SButton {
+                iconCharacter: view.toolText1 // 图标固定
+                iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
+                x: view.toolX + 38
+                y: 12
+                width: 36
+                height: 36
+                radius: 18
+                buttonColor: "transparent"
+                hoverColor: Theme.hoverColor
+                tipText: "收藏"
+                onClicked: view.toggleFavorite(listDel.index)
+            }
+            SButton {
+                iconCharacter: view.toolText0
+                x: view.toolX + 76
+                y: 12
+                width: 36
+                height: 36
+                radius: 18
+                buttonColor: "transparent"
+                hoverColor: Theme.hoverColor
+                tipText: view.isList ? "歌单信息" : "加入播放列表"
+                onClicked: view.runToolAction(listDel.index, 0)
             }
         }
     }

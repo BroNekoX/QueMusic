@@ -3,6 +3,8 @@
 
 #include "MusicSource.h"
 
+#include "ApiCommon.h"
+
 MusicSource::MusicSource(int sourceId, QObject *parent)
     : QObject(parent), m_sourceId(sourceId)
 {
@@ -69,6 +71,11 @@ void MusicSource::request(int sourceId, const QString &action, const QVariantMap
 
 void MusicSource::unsupported(const QString &action)
 {
+    // 列表类 action 未实现时按"空列表"处理，避免页面误报请求失败
+    if (ApiAction::isListAction(action)) {
+        emit resultReady(action, ApiCommon::listResult({}), m_sourceId);
+        return;
+    }
     deliverError(action, m_sourceId, -1, "unsupported action");
 }
 

@@ -154,7 +154,7 @@ Item {
         Rectangle {
             id: maskpic
             anchors.fill: musicpic
-            color: "#ff000000"
+            color: "#000000"
             radius: 24
             layer.enabled: true
             visible: false

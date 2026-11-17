@@ -6,7 +6,7 @@ import QueMusic 1.0
 import QtQuick.Templates
 import QtQuick.Effects
 
-Button {
+AbstractButton {
     id: root
 
     // ==== 外部接口 ====

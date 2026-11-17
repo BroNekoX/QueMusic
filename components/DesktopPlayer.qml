@@ -48,7 +48,6 @@ Popup {
             radius: 36
             iconSize: Style.texticon + 2
             buttonColor: "transparent"
-            shadowEnabled: false
             onClicked: {
                 desktopPlayer.close()
             }

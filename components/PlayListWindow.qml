@@ -363,9 +363,27 @@ Item {
                 height: 36
                 radius: Style.labelRadius
                 iconCharacter: "\uf095"
-                shadowEnabled: false
                 buttonColor: Theme.sideColor
+                tipText: "全部加入播放列表"
                 onClicked: {
+                    const total = MusicApi.playlistSong.count
+                    if (total === 0) {
+                        Options.warned("还没有加载歌曲", 0)
+                        return
+                    }
+                    const rows = []
+                    for (let i = 0; i < total; i++) {
+                        const item = MusicApi.playlistSong.get(i)
+                        if (!item || !item.hash)
+                            continue
+                        rows.push({ name: item.title, path: item.hash,
+                                    songer: item.artist, source: item.source || root.songSource })
+                    }
+                    const added = rows.length > 0 ? Options.queue.appendBatch(rows) : 0
+                    if (added === 0)
+                        Options.warned("这些歌曲都已在播放列表中", 0)
+                    else
+                        Options.warned("已加入播放列表 " + added + " 首", 1)
                 }
             }
             SButton {
@@ -375,8 +393,8 @@ Item {
                 radius: Style.labelRadius
                 iconCharacter: "\uf0c8"
                 iconColor: Theme.textColor
-                shadowEnabled: false
                 buttonColor: Theme.sideColor
+                tipText: "收藏"
                 onClicked: {
                     if (FavoritePlaylists.isFavorite(root.id, "playlist")) {
                         FavoritePlaylists.removeFavorite(root.id, "playlist");

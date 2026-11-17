@@ -14,6 +14,7 @@ Popup {
     property alias model: playListView.model
     property bool edit: false
     property int previewId: -1
+    property int pendingPlayIndex: -1
     readonly property bool previewing: previewId >= 0
     property string previewName: ""
 
@@ -166,7 +167,7 @@ Popup {
                 rightMargin: 12
                 bottomMargin: 8
                 boundsBehavior: Flickable.StopAtBounds
-                reuseItems: true
+                //reuseItems: true
                 model: Options.queue ? Options.queue.savedPlaylists : null
                 QScrollBar.vertical: QScrollBar {
                     parent: listSaveView
@@ -236,7 +237,6 @@ Popup {
                                 radius: 16
                                 iconSize: 14
                                 buttonColor: "transparent"
-                                shadowEnabled: false
                                 iconCharacter: "\uf0e7"
                                 tipText: "加载"
                                 onClicked: playList.loadSaved(savedListRow.playlistId)
@@ -247,7 +247,6 @@ Popup {
                                 radius: 16
                                 iconSize: 14
                                 buttonColor: "transparent"
-                                shadowEnabled: false
                                 iconCharacter: "\uf005"
                                 tipText: "重命名"
                                 onClicked: {
@@ -262,7 +261,6 @@ Popup {
                                 radius: 16
                                 iconSize: 14
                                 buttonColor: "transparent"
-                                shadowEnabled: false
                                 iconCharacter: "\uf08e"
                                 hoverColor: "#cdfd8888"
                                 tipText: "删除"
@@ -310,6 +308,7 @@ Popup {
     }
     onAboutToHide: {
         playList.edit = false;
+        playList.pendingPlayIndex = -1;
         playList.exitPreview();
     }
 
@@ -321,6 +320,12 @@ Popup {
         function onPlaylistLoaded(listId, listName, listCount) {
             playList.exitPreview();
             Playback.saveQueue();
+            if (playList.pendingPlayIndex >= 0) {
+                const target = playList.pendingPlayIndex;
+                playList.pendingPlayIndex = -1;
+                if (target < Options.queue.count)
+                    Playback.playIndex(target);
+            }
             Options.warned("已加载播放列表「" + listName + "」，共 " + listCount + " 首", 1);
         }
         function onPlaylistRenamed(listId, listName) {
@@ -408,7 +413,6 @@ Popup {
             visible: !playList.previewing
             buttonColor: "transparent"
             tipText: "刷新与定位"
-            shadowEnabled: false
             onClicked: {
                 playListView.model = [];
                 playListView.model = Options.queue;
@@ -426,7 +430,6 @@ Popup {
             radius: 18
             buttonColor: playList.edit ? Theme.containColor : "transparent"
             tipText: "管理播放列表"
-            shadowEnabled: false
             onClicked: {
                 playList.edit = !playList.edit
             }
@@ -440,7 +443,6 @@ Popup {
             radius: 18
             iconSize: Style.texticon + 2
             buttonColor: "transparent"
-            shadowEnabled: false
             onClicked: {
                 playList.close();
             }
@@ -539,8 +541,7 @@ Popup {
                 Row {
                     anchors.right: parent.right
                     anchors.rightMargin: 10
-                    opacity: playList.previewing ? 1
-                             : (playListArea.containsMouse || playDelete.hovered ? 0 : 1)
+                    opacity: playList.previewing ? 1 : (hoverArea.hovered ? 0 : 1)
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                     spacing: 5
                     z: 3
@@ -557,88 +558,82 @@ Popup {
                     }
                 }
 
-                MouseArea {
-                    z: 1
-                    id: playListArea
+                Rectangle {
+                    id: listHover
                     anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: listHover.opacity = 1
-                    onExited: listHover.opacity = 0
-                    // 本地/在线/WebDAV 统一由 Playback 判定
-                    onClicked: {
-                        if (playList.previewing) return
-                        Options.queue.playListIndex = listfile.index
-                        Playback.playIndex(listfile.index)
+                    radius: Style.labelRadius
+                    color: Theme.hoverColor
+                    opacity: hoverArea.hovered ? 1 : 0
+                    z: 2
+                    Behavior on opacity { NumberAnimation { duration: 80 } }
+                    TapHandler {
+                        onTapped: {
+                            // 预览态：点哪首就加载对应保存列表并播放该位置
+                            if (playList.previewing) {
+                                playList.pendingPlayIndex = listfile.index;
+                                playList.loadSaved(playList.previewId);
+                                return;
+                            }
+                            Options.queue.playListIndex = listfile.index;
+                            Playback.playIndex(listfile.index);
+                        }
                     }
-
-                    Rectangle {
-                        id: listHover
-                        anchors.fill: parent
-                        radius: Style.labelRadius
-                        color: Theme.hoverColor
-                        opacity: 0
-                        visible: opacity > 0
-                        z: 2
-                        Behavior on opacity { NumberAnimation { duration: 80 } }
-                        SButton {
-                            id: playNext
-                            visible: !playList.previewing
-                            iconCharacter: "\uf0d9"
-                            x: parent.width - 132
-                            y: 12
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Qt.rgba(0.5, 0.5, 0.5, 0.5)
-                            shadowEnabled: false
-                            tipText: "下一首播放"
-                            onClicked: {
-                                const cur = Options.queue.playListIndex
-                                if (listfile.index === cur) return
-                                // 已在队列里就走移动，moveTo 会收紧越界下标并带着当前播放行一起挪
-                                Options.queue.moveTo(listfile.index, cur + 1)
-                                Options.warned("已设为下一首", 1)
-                            }
+                    HoverHandler {
+                        id: hoverArea
+                    }
+                    SButton {
+                        id: playNext
+                        visible: !playList.previewing
+                        iconCharacter: "\uf0d9"
+                        x: parent.width - 132
+                        y: 12
+                        width: 36
+                        height: 36
+                        radius: 36
+                        buttonColor: "transparent"
+                        tipText: "下一首播放"
+                        onClicked: {
+                            const cur = Options.queue.playListIndex
+                            if (listfile.index === cur) return
+                            // 已在队列里就走移动，moveTo 会收紧越界下标并带着当前播放行一起挪
+                            Options.queue.moveTo(listfile.index, cur + 1)
+                            Options.warned("已设为下一首", 1)
                         }
-                        SButton {
-                            id: playMenu
-                            visible: !playList.previewing
-                            iconCharacter: "\uf0c8"
-                            x: parent.width - 94
-                            y: 12
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Qt.rgba(0.5, 0.5, 0.5, 0.5)
-                            shadowEnabled: false
-                            tipText: "收藏"
-                            onClicked: {
-                                if (listfile.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
-                                Options.favPicker.show({ id: listfile.path, title: listfile.name,
-                                                         artist: listfile.songer, cover: "",
-                                                         source: listfile.source, duration: 0 })
-                            }
+                    }
+                    SButton {
+                        id: playMenu
+                        visible: !playList.previewing
+                        iconCharacter: "\uf0c8"
+                        x: parent.width - 94
+                        y: 12
+                        width: 36
+                        height: 36
+                        radius: 36
+                        buttonColor: "transparent"
+                        tipText: "收藏"
+                        onClicked: {
+                            if (listfile.source === -1) { Options.warned("本地歌曲请使用本地收藏", 0); return }
+                            Options.favPicker.show({ id: listfile.path, title: listfile.name,
+                                                     artist: listfile.songer, cover: "",
+                                                     source: listfile.source, duration: 0 })
                         }
-                        SButton {
-                            id: playDelete
-                            visible: !playList.previewing
-                            iconCharacter: "\uf08e"
-                            x: parent.width - 56
-                            y: 12
-                            width: 36
-                            height: 36
-                            radius: 36
-                            buttonColor: "transparent"
-                            hoverColor: Qt.rgba(1.0, 0.5, 0.5, 0.8)
-                            shadowEnabled: false
-                            tipText: "移除"
-                            onClicked: {
-                                // 下标由模型自己维护，这里不再手动加减
-                                if (Options.queue.playListIndex !== listfile.index)
-                                    Options.queue.remove(listfile.index, 1);
-                            }
+                    }
+                    SButton {
+                        id: playDelete
+                        visible: !playList.previewing
+                        iconCharacter: "\uf08e"
+                        x: parent.width - 56
+                        y: 12
+                        width: 36
+                        height: 36
+                        radius: 36
+                        buttonColor: "transparent"
+                        hoverColor: Qt.rgba(1.0, 0.5, 0.5, 0.8)
+                        tipText: "移除"
+                        onClicked: {
+                            // 下标由模型自己维护，这里不再手动加减
+                            if (Options.queue.playListIndex !== listfile.index)
+                                Options.queue.remove(listfile.index, 1);
                         }
                     }
                 }

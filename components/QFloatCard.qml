@@ -14,10 +14,9 @@ Rectangle {
     border.color: Theme.sideColor
     border.width: 1
     signal clicked()
-    property alias controlItem: cardArea.data
     transform: Translate {
         id: translateTransform
-        y: 0
+        y: hoverArea.hovered ? -4 : 0
         Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
     }
     RectangularShadow {
@@ -27,23 +26,15 @@ Rectangle {
         offset.x: 0
         offset.y: 4 - translateTransform.y
         radius: Style.cubeRadius
-        blur: 14
+        blur: hoverArea.hovered ? 28 : 14
         spread: 0
         color: Theme.shadowColor
         Behavior on blur { NumberAnimation { duration: 240 } }
     }
-    MouseArea {
-        id: cardArea
-        anchors.fill: parent
-        hoverEnabled: true
-        onEntered: {
-            cardShadow.blur = 28;
-            translateTransform.y = -4;
-        }
-        onExited: {
-            cardShadow.blur = 14;
-            translateTransform.y = 0;
-        }
-        onClicked: root.clicked();
+    TapHandler {
+        onTapped: root.clicked();
+    }
+    HoverHandler {
+        id: hoverArea
     }
 }

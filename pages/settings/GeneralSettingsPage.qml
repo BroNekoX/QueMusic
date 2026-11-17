@@ -144,7 +144,60 @@ QScrollView {
                 wrapMode: Text.WordWrap
                 color: Theme.textColor
                 font.pixelSize: Style.textmain - 1
-                text: "在浏览器打开 y.qq.com 登录后，复制含 uin 与 qqmusic_key 的 Cookie 粘贴到下方。"
+                text: "手机号 + 短信验证码登录（推荐）。"
+            }
+
+            Row {
+                width: parent.width
+                spacing: 10
+                QTextField {
+                    id: qqPhoneInput
+                    width: parent.width - 150
+                    height: 38
+                    leftPadding: 12
+                    placeholderText: "手机号"
+                    color: Theme.textColor
+                    font.pixelSize: Style.textmain
+                    background: Rectangle {
+                        radius: 8
+                        color: Theme.primaryColor
+                        border.color: Theme.secondaryColor
+                        border.width: 1
+                    }
+                }
+                QButton {
+                    width: 140
+                    height: 38
+                    radius: 19
+                    text: "发送验证码"
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
+                    onClicked: AccountManager.requestQQSmsCode(qqPhoneInput.text)
+                }
+            }
+
+            QTextField {
+                id: qqCodeInput
+                width: parent.width
+                height: 38
+                leftPadding: 12
+                placeholderText: "短信验证码"
+                color: Theme.textColor
+                font.pixelSize: Style.textmain
+                background: Rectangle {
+                    radius: 8
+                    color: Theme.primaryColor
+                    border.color: Theme.secondaryColor
+                    border.width: 1
+                }
+            }
+
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                color: Theme.textColor
+                font.pixelSize: Style.textmain - 1
+                text: "或者：在浏览器打开 y.qq.com 登录后，复制含 uin 与 qqmusic_key 的 Cookie。"
             }
 
             QTextField {
@@ -173,15 +226,28 @@ QScrollView {
                 wrapMode: Text.WordWrap
             }
 
-            QButton {
-                width: 150
-                height: 34
-                radius: 17
-                shadowEnabled: false
-                text: "完成登录"
-                buttonColor: Theme.themeColor
-                textColor: Theme.primaryColor
-                onClicked: AccountManager.loginQQWithCookie(qqLoginDialog.cookieText)
+            Row {
+                spacing: 10
+                QButton {
+                    width: 150
+                    height: 34
+                    radius: 17
+                    shadowEnabled: false
+                    text: "验证码登录"
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
+                    onClicked: AccountManager.loginQQWithCode(qqPhoneInput.text, qqCodeInput.text)
+                }
+                QButton {
+                    width: 150
+                    height: 34
+                    radius: 17
+                    shadowEnabled: false
+                    text: "Cookie 登录"
+                    buttonColor: Theme.themeColor
+                    textColor: Theme.primaryColor
+                    onClicked: AccountManager.loginQQWithCookie(qqLoginDialog.cookieText)
+                }
             }
         }
     }

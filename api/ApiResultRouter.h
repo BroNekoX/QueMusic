@@ -6,6 +6,7 @@
 #ifndef APIRESULTROUTER_H
 #define APIRESULTROUTER_H
 
+#include <QHash>
 #include <QObject>
 #include <QVariant>
 #include <QVariantList>
@@ -58,9 +59,18 @@ signals:
     void lyricSearchReady(const QVariant &info, int source, bool failed);
 
 private:
+    struct Target
+    {
+        OnlineListModel *model = nullptr;
+        bool songs = false;          // 走 songList()（含付费过滤）
+        bool replace = false;        // 先清空再追加
+        bool emptyOnFailure = false; // 失败时清空当前页
+    };
+
     QVariantList songList(const QVariant &value) const;
 
     OnlineModels m_models;
+    QHash<QString, Target> m_targets;
     QualityHashCache *m_qualityCache = nullptr;
     int m_songFilter = 0;
 };

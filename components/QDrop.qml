@@ -30,7 +30,7 @@ Rectangle {
         anchors.fill: parent
         color: Theme.hoverColor
         radius: root.radius
-        opacity: mouseArea.containsMouse ? 1 : 0
+        opacity: hoverArea.hovered ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 80 } }
     }
     Text {
@@ -58,20 +58,19 @@ Rectangle {
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
     }
-    
-    MouseArea {
-        id: mouseArea
-        z: 2
-        anchors.fill: root
+
+    TapHandler {
         enabled: root.enabled
-        hoverEnabled: true
-        onClicked: {
+        onTapped: {
             if(popmenu.visible) {
                 popmenu.close();
             } else {
                 popmenu.open();
             }
         }
+    }
+    HoverHandler {
+        id: hoverArea
     }
    
     // 弹出菜单
@@ -139,20 +138,18 @@ Rectangle {
                         color: Theme.hoverColor
                         anchors.fill: parent
                         radius: root.cardRadius
-                        opacity: 0
+                        opacity: delArea.hovered ? 1 : 0
                         visible: opacity > 0
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
-            
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onEntered: hover.opacity = 1
-                        onExited: hover.opacity = 0
-                        onClicked: {
+                    TapHandler {
+                        onTapped: {
                             root.transformed(dropDele.index);
                             popmenu.close();
                         }
+                    }
+                    HoverHandler {
+                        id: delArea
                     }
                 }
             }

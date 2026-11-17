@@ -39,11 +39,10 @@ Popup {
     parent: Overlay.overlay
 
     implicitWidth: 160
-    height: menuColumn.height + 4
+    implicitHeight: menuColumn.implicitHeight + 4
 
     contentItem: Column {
         id: menuColumn
-        height: implicitHeight
         Repeater {
             model: dialog.model
             delegate: Rectangle {
@@ -77,8 +76,6 @@ Popup {
     }
 
     background: Rectangle {
-        implicitWidth: 148
-        height: dialog.height
         color: Theme.primaryColor
         radius: Style.labelRadius
         RectangularShadow {

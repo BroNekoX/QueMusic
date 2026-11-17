@@ -59,15 +59,6 @@ QString cleanTitle(QString t)
     return t.trimmed();
 }
 
-QString httpsUrl(QString u)
-{
-    if (u.startsWith(QLatin1String("//")))
-        return "https:" + u;
-    if (u.startsWith(QLatin1String("http://")))
-        u.replace(0, 7, "https://");
-    return u;
-}
-
 int durationSeconds(const QJsonValue &v)
 {
     if (v.isDouble())
@@ -153,8 +144,8 @@ void BilibiliApi::onUserPlaylists(int page, int pageSize)
                 for (int i = start; i < list.size() && i < start + pageSize; ++i) {
                     const QJsonObject folder = list.at(i).toObject();
                     info << ApiCommon::song(folder.value("title").toString(), QString(),
-                                            httpsUrl(folder.value("cover").toString()),
-                                            QString::number(folder.value("id").toVariant().toLongLong()),
+                                            ApiCommon::httpsUrl(folder.value("cover").toString()),
+                                            QStringLiteral("fav:%1").arg(folder.value("id").toVariant().toLongLong()),
                                             folder.value("media_count").toInt());
                 }
                 emitList(ApiAction::UserPlaylists, info);
@@ -178,7 +169,7 @@ void BilibiliApi::onFollowedArtists(int page, int pageSize)
                     const QString upMid = QString::number(up.value("mid").toVariant().toLongLong());
                     const QString name = up.value("uname").toString();
                     rememberUpName(upMid, name);
-                    info << ApiCommon::song(name, QString(), httpsUrl(up.value("face").toString()), upMid);
+                    info << ApiCommon::song(name, QString(), ApiCommon::httpsUrl(up.value("face").toString()), upMid);
                 }
                 emitList(ApiAction::FollowedArtists, info);
             });
@@ -363,7 +354,7 @@ QVariantMap BilibiliApi::toSong(const QJsonObject &v, const QString &fallbackArt
     if (!artist.isEmpty())
         rememberUpName(mid, artist);
     return ApiCommon::song(cleanTitle(v.value("title").toString()), artist,
-                           httpsUrl(v.value("pic").toString()),
+                           ApiCommon::httpsUrl(v.value("pic").toString()),
                            v.value("bvid").toString(),
                            durationSeconds(v.value("duration")),
                            QString(), QString(), QString(), 0, play);
@@ -480,7 +471,7 @@ void BilibiliApi::fetchSeasons(const QString &mid, const QSharedPointer<Playlist
                 st->seen.insert(sid);
                 st->items << ApiCommon::song(
                     meta.value("name").toString(), m_upNames.value(mid),
-                    httpsUrl(meta.value("cover").toString()),
+                    ApiCommon::httpsUrl(meta.value("cover").toString()),
                     QString("season:%1:%2").arg(sid, mid), total,
                     meta.value("description").toString());
             }
@@ -554,7 +545,7 @@ void BilibiliApi::rankingUsers(const QString &action, int limit)
                 const QString name = owner.value("name").toString();
                 rememberUpName(mid, name);
                 info << ApiCommon::song(name, QString(),
-                                        httpsUrl(owner.value("face").toString()),
+                                        ApiCommon::httpsUrl(owner.value("face").toString()),
                                         mid);
                 if (limit > 0 && info.size() >= limit)
                     break;
@@ -609,8 +600,82 @@ void BilibiliApi::onCategoryPlaylists(const QString &id, int page, int pageSize)
     onMusicPlaylists(id, page, pageSize);
 }
 
+void BilibiliApi::requestFavResources(const QString &mediaId, int page, int pageSize,
+                                      const QString &action)
+{
+    QUrlQuery query;
+    query.addQueryItem("media_id", mediaId);
+    query.addQueryItem("pn", QString::number(qMax(1, page)));
+    query.addQueryItem("ps", QString::number(qBound(1, pageSize, 20)));
+    query.addQueryItem("order", "mtime");
+    query.addQueryItem("type", "0");
+    query.addQueryItem("tid", "0");
+    query.addQueryItem("platform", "web");
+    get(kApi + "/x/v3/fav/resource/list?" + query.toString(),
+        [this, action](const QJsonObject &json) {
+            QVariantList info;
+            for (const QJsonValue &value : json.value("data").toObject()
+                                               .value("medias").toArray()) {
+                const QJsonObject media = value.toObject();
+                const QJsonObject upper = media.value("upper").toObject();
+                const QString name = upper.value("name").toString();
+                rememberUpName(upper.value("mid").toVariant().toString(), name);
+                info << ApiCommon::song(cleanTitle(media.value("title").toString()), name,
+                                        ApiCommon::httpsUrl(media.value("cover").toString()),
+                                        media.value("bvid").toString(),
+                                        media.value("duration").toInt(),
+                                        QString(), QString(), QString(), 0,
+                                        media.value("cnt_info").toObject()
+                                            .value("play").toVariant().toLongLong());
+            }
+            emitList(action, info);
+        });
+}
+
+void BilibiliApi::onUserFavoriteSongs(int page, int pageSize)
+{
+    const auto fetch = [this, page, pageSize](const QString &mediaId) {
+        requestFavResources(mediaId, page, pageSize, ApiAction::UserFavoriteSongs);
+    };
+    if (!m_defaultFavId.isEmpty()) {
+        fetch(m_defaultFavId);
+        return;
+    }
+    withUid([this, fetch](const QString &mid) {
+        if (mid.isEmpty() || mid == QLatin1String("0")) {
+            emitList(ApiAction::UserFavoriteSongs, {});
+            return;
+        }
+        get(kApi + "/x/v3/fav/folder/created/list-all?up_mid=" + mid,
+            [this, fetch](const QJsonObject &json) {
+                QString mediaId;
+                for (const QJsonValue &value : json.value("data").toObject()
+                                                   .value("list").toArray()) {
+                    const QJsonObject folder = value.toObject();
+                    const QString id = QString::number(folder.value("id").toVariant().toLongLong());
+                    if (mediaId.isEmpty())
+                        mediaId = id;
+                    if (folder.value("title").toString().contains(QStringLiteral("默认"))) {
+                        mediaId = id;
+                        break;
+                    }
+                }
+                m_defaultFavId = mediaId;
+                if (mediaId.isEmpty())
+                    emitList(ApiAction::UserFavoriteSongs, {});
+                else
+                    fetch(mediaId);
+            });
+    });
+}
+
 void BilibiliApi::onPlaylistSongs(const QString &listid, int page, int pageSize)
 {
+    // 账户页的收藏夹
+    if (listid.startsWith(QLatin1String("fav:"))) {
+        requestFavResources(listid.mid(4), page, pageSize, "getPlaylistSongs");
+        return;
+    }
     const QStringList parts = listid.split(QLatin1Char(':'));
     if (parts.size() == 3 && parts.first() == QLatin1String("season")) {
         seasonSongs(parts.at(1), parts.at(2), page, pageSize);
@@ -782,14 +847,14 @@ void BilibiliApi::onMusicInfo(const QString &hash, int type)
                     bool fromDurl = false;
                     if (!audios.isEmpty()) {
                         const QJsonObject best = pickAudio(audios, m_quality);
-                        url = httpsUrl(best.value("baseUrl").toString());
+                        url = ApiCommon::httpsUrl(best.value("baseUrl").toString());
                         if (url.isEmpty())
-                            url = httpsUrl(best.value("base_url").toString());
+                            url = ApiCommon::httpsUrl(best.value("base_url").toString());
                     }
                     if (url.isEmpty()) {
                         const QJsonArray durl = pd.value("durl").toArray();
                         if (!durl.isEmpty()) {
-                            url = httpsUrl(durl.first().toObject()
+                            url = ApiCommon::httpsUrl(durl.first().toObject()
                                                .value("url").toString());
                             fromDurl = !url.isEmpty();
                         }
@@ -810,9 +875,9 @@ void BilibiliApi::onMusicInfo(const QString &hash, int type)
                             {"author_name",
                              owner.value("name").toString()},
                             {"singer_img",
-                             httpsUrl(owner.value("face").toString())},
+                             ApiCommon::httpsUrl(owner.value("face").toString())},
                             {"album_img",
-                             httpsUrl(d.value("pic").toString())},
+                             ApiCommon::httpsUrl(d.value("pic").toString())},
                             {"timeLength",
                              d.value("duration").toInt()},
                             {"fileName",
@@ -851,7 +916,7 @@ void BilibiliApi::onLyricInfo(const QString &hash, int duration)
                         const QString u = v.toObject()
                                               .value("subtitle_url").toString();
                         if (!u.isEmpty()) {
-                            subUrl = httpsUrl(u);
+                            subUrl = ApiCommon::httpsUrl(u);
                             break;
                         }
                     }

@@ -4,9 +4,8 @@
 import QtQuick
 import QueMusic 1.0
 import QtQuick.Templates
-import QtQuick.Effects
 
-Button {
+AbstractButton {
     id: root
     padding: 0
 
@@ -14,15 +13,14 @@ Button {
     property string iconCharacter: ""          // 图标字符 (FontAwesome 等)
     property string iconFontFamily: Fonts.icon    // 图标字体
     property string tipText: ""                // 鼠标悬停提示文字（为空则不显示）
+    readonly property bool tipEnabled: tipText !== ""
 
     // ==== 样式 ====
     property color iconColor: Theme.textColor
-    property bool shadowEnabled: false              // 是否显示阴影
     property int borderWidth: 0   // 边框大小，0即无
     property color borderColor: Theme.sideColor   // 边框颜色
     property int radius: Style.noControlRadius ? Style.labelRadius : 20
     property real pressedScale: 0.92                 // 按下缩放比例
-    property color shadowColor: Theme.shadowColor    // 阴影颜色
     property color hoverColor: Theme.hoverColor
     property color buttonColor: Theme.secondaryColor
     property int iconSize: Style.texticon
@@ -30,6 +28,16 @@ Button {
     // ==== 尺寸控制 ====
     implicitHeight: 40
     implicitWidth: 40
+
+    onHoveredChanged: {
+        if(hovered && tipEnabled) {
+            Options.mainTip.parent = root;
+            Options.mainTip.text = root.tipText;
+            Options.mainTip.visible = true;
+        } else {
+            Options.mainTip.visible = false;
+        }
+    }
     
     background: Rectangle {
         width: root.width
@@ -38,17 +46,6 @@ Button {
         radius: root.radius
         border.width: root.borderWidth
         border.color: root.borderColor
-        RectangularShadow {
-            anchors.fill: parent
-            z: -1
-            offset.x: 0
-            offset.y: 4
-            radius: root.radius
-            blur: 16
-            spread: 0
-            color: root.shadowColor
-            visible: root.shadowEnabled
-        }
         Rectangle {
             anchors.fill: parent
             color: root.hoverColor
@@ -68,11 +65,5 @@ Button {
         font.family: root.iconFontFamily
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
-    }
-
-    QTip {
-        visible: root.tipText !== "" && root.hovered
-        text: root.tipText
-        delay: 480
     }
 }

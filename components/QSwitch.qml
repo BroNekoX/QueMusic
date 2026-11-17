@@ -62,10 +62,7 @@ Rectangle {
         }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: {
-            root.toggled(root.switchTrue)
-        }
+    TapHandler {
+        onTapped: root.toggled(root.switchTrue);
     }
 }

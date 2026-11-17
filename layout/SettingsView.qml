@@ -705,7 +705,7 @@ Item {
                 required property int index
                 required property var model
 
-                scale: 1.0
+                scale: tapArea.pressed ? 0.96 : 1.0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
 
@@ -713,7 +713,7 @@ Item {
                     anchors.fill: parent
                     radius: Style.labelRadius
                     color: Theme.hoverColor
-                    opacity: barMouse.containsMouse ? 1 : 0
+                    opacity: hoverArea.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                 }
 
@@ -745,19 +745,15 @@ Item {
                     font.pixelSize: Style.textmain
                     verticalAlignment: Text.AlignVCenter
                 }
-
-                MouseArea {
-                    id: barMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-
-                    onPressed: navDelegateSettings.scale = 0.96
-                    onReleased: navDelegateSettings.scale = 1.0
-                    onCanceled: navDelegateSettings.scale = 1.0
-                    onClicked: {
+                TapHandler {
+                    id: tapArea
+                    onTapped: {
                         leftSidebarSettings.index1ed(navDelegateSettings.index)
                         leftSidebarSettings.setChoiceIndex = navDelegateSettings.index
                     }
+                }
+                HoverHandler {
+                    id: hoverArea
                 }
             }
         }

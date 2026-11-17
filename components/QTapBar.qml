@@ -67,9 +67,8 @@ Item {
                     font.bold: tabs.index === tabItem.index
                     color: tabs.index === tabItem.index ? tabs.activeColor : tabs.textColor
                 }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
+                TapHandler {
+                    onTapped: {
                         barAnime.running = false;
                         tabs.index = tabItem.index;
                     }

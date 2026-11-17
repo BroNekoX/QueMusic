@@ -524,7 +524,6 @@ Item {
         hoverColor: "#42000000"
         borderColor: "#66ffffff"
         borderWidth: 1
-        shadowEnabled: false
         onClicked: diyPanel.visible = !diyPanel.visible
     }
 

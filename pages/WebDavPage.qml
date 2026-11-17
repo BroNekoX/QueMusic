@@ -212,8 +212,6 @@ Item {
                         height: 36
                         radius: 18
                         buttonColor: "transparent"
-                        hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
-                        shadowEnabled: false
                         tipText: "编辑服务器"
                         onClicked: root.openForm(listServer.modelData)
                     }
@@ -224,7 +222,6 @@ Item {
                         radius: 18
                         buttonColor: "transparent"
                         hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
-                        shadowEnabled: false
                         tipText: "删除服务器"
                         onClicked: root.deleteServer(listServer.modelData)
                     }
@@ -386,8 +383,6 @@ Item {
                         radius: 18
                         visible: !listDir.isDir
                         buttonColor: "transparent"
-                        hoverColor: Qt.rgba(0.5,0.5,0.5,0.2)
-                        shadowEnabled: false
                         tipText: "加入播放列表"
                         onClicked: {
                             const row = browser.at(listDir.index)

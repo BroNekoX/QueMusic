@@ -42,6 +42,16 @@ inline QVariantMap song(QString title, QString artist, QString cover, QString ha
             {kAlbum, std::move(album)}, {kPlaycount, playcount}};
 }
 
+// 平台头像/封面常见 //host 和 http:// 两种写法，统一成 https。
+inline QString httpsUrl(QString url)
+{
+    if (url.startsWith(QLatin1String("//")))
+        return QLatin1String("https:") + url;
+    if (url.startsWith(QLatin1String("http://")))
+        url.replace(0, 7, QLatin1String("https://"));
+    return url;
+}
+
 inline QVariantMap listResult(QVariantList items)
 {
     return {{"info", std::move(items)}};

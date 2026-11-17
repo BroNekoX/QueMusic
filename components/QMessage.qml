@@ -158,7 +158,6 @@ ListView {
             radius: 8
             buttonColor: "transparent"
             hoverColor: Qt.rgba(0,0,0,0.2)
-            shadowEnabled: false
             onClicked: {
                 removeAnimation.start();
             }

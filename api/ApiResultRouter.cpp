@@ -14,6 +14,27 @@ ApiResultRouter::ApiResultRouter(const OnlineModels &models, QualityHashCache *q
                                  QObject *parent)
     : QObject(parent), m_models(models), m_qualityCache(qualityCache)
 {
+    const auto add = [this](const QString &action, OnlineListModel *model, bool songs = false,
+                            bool replace = false, bool emptyOnFailure = false) {
+        m_targets.insert(action, Target{model, songs, replace, emptyOnFailure});
+    };
+
+    add(ApiAction::SearchSongs, m_models.searchResults);
+    add(ApiAction::MusicPlaylists, m_models.musicPlaylists);
+    add(ApiAction::CategoryPlaylists, m_models.musicPlaylists);
+    add(ApiAction::PlaylistSongs, m_models.playlistSongs, true);
+    add(ApiAction::MusicToplist, m_models.playlistSongs, true);
+    add(ApiAction::SingerSongs, m_models.playlistSongs, true);
+    add(ApiAction::RecommendSongs, m_models.recommendSongs);
+    add(ApiAction::HotPlaylistMenu, m_models.hotlistMenu, false, true);
+    add(ApiAction::HotPlaylists, m_models.hotPlaylists);
+    add(ApiAction::RecommendPlaylists, m_models.recommendPlaylists);
+    add(ApiAction::NewSongs, m_models.newSongs, true);
+    add(ApiAction::HotSingers, m_models.singers);
+    add(ApiAction::SingerCategory, m_models.singers);
+    add(ApiAction::UserPlaylists, m_models.userPlaylists, false, false, true);
+    add(ApiAction::UserFavoriteSongs, m_models.userFavoriteSongs, true, false, true);
+    add(ApiAction::FollowedArtists, m_models.followedArtists, false, false, true);
 }
 
 QVariantList ApiResultRouter::songList(const QVariant &value) const
@@ -43,39 +64,34 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
     if (info.typeId() == QMetaType::QVariantList && action != ApiAction::Comments)
         m_qualityCache->remember(info.toList());
 
-    if (action == ApiAction::SearchSongs) {
-        m_models.searchResults->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::SearchLyrics) {
+    // 需要额外信号 / 改写的 action 单独处理，其余走 m_targets 表。
+    if (action == ApiAction::SearchLyrics) {
         emit lyricSearchReady(info, source, failed);
-    } else if (action == ApiAction::PlaylistMenu) {
+        return true;
+    }
+    if (action == ApiAction::MusicInfo) {
+        emit musicInfoReady(message, source);
+        return true;
+    }
+    if (action == ApiAction::LyricInfo) {
+        emit lyricInfoReady(message, source);
+        return true;
+    }
+    if (action == ApiAction::PlaylistMenu) {
         QVariantList menu;
         const QVariantList items = info.toList();
         menu.reserve(items.size());
         for (const QVariant &value : items) {
             const QVariantMap item = ApiCommon::normalizeItem(value.toMap());
-            menu << QVariantMap{{"title", item.value(ApiCommon::kTitle)}, {"category", item.value("category")}, {"id", item.value("id")}};
+            menu << QVariantMap{{"title", item.value(ApiCommon::kTitle)},
+                                {"category", item.value("category")},
+                                {"id", item.value("id")}};
         }
         m_models.playlistMenu->clear();
         m_models.playlistMenu->append(menu);
-    } else if (action == ApiAction::MusicPlaylists
-               || action == ApiAction::CategoryPlaylists) {
-        m_models.musicPlaylists->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::PlaylistSongs
-               || action == ApiAction::MusicToplist
-               || action == ApiAction::SingerSongs) {
-        m_models.playlistSongs->append(songList(info));
-    } else if (action == ApiAction::RecommendSongs) {
-        m_models.recommendSongs->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::HotPlaylistMenu) {
-        m_models.hotlistMenu->clear();
-        m_models.hotlistMenu->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::HotPlaylists) {
-        m_models.hotPlaylists->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::RecommendPlaylists) {
-        m_models.recommendPlaylists->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::NewSongs) {
-        m_models.newSongs->append(songList(info));
-    } else if (action == ApiAction::AllToplist) {
+        return true;
+    }
+    if (action == ApiAction::AllToplist) {
         const QVariantList normalized = ApiCommon::normalizeList(info);
         m_models.musicToplist->clear();
         m_models.musicToplist->append(normalized);
@@ -88,11 +104,9 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
             withSource.append(item);
         }
         m_models.toplistList->append(withSource);
-    } else if (action == ApiAction::HotSingers
-               || action == ApiAction::SingerCategory) {
-        m_models.singers->append(ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::PersonalFm
-               || action == ApiAction::PersonalRadar) {
+        return true;
+    }
+    if (action == ApiAction::PersonalFm || action == ApiAction::PersonalRadar) {
         const bool fm = action == ApiAction::PersonalFm;
         const QVariantList items = info.toList();
         if (items.isEmpty() && !failed) {
@@ -102,21 +116,24 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
             (fm ? m_models.personalFm : m_models.personalRadar)
                 ->append(ApiCommon::normalizeList(items));
         }
-    } else if (action == ApiAction::MusicInfo) {
-        emit musicInfoReady(message, source);
-    } else if (action == ApiAction::LyricInfo) {
-        emit lyricInfoReady(message, source);
-    } else if (action == ApiAction::Comments) {
+        return true;
+    }
+    if (action == ApiAction::Comments) {
         m_models.comments->append(failed ? QVariantList() : info.toList());
         emit commentsHasMoreChanged(!failed && message.value("hasMore").toBool());
-    } else if (action == ApiAction::UserPlaylists) {
-        m_models.userPlaylists->append(failed ? QVariantList() : ApiCommon::normalizeList(info));
-    } else if (action == ApiAction::UserFavoriteSongs) {
-        m_models.userFavoriteSongs->append(failed ? QVariantList() : songList(info));
-    } else if (action == ApiAction::FollowedArtists) {
-        m_models.followedArtists->append(failed ? QVariantList() : ApiCommon::normalizeList(info));
-    } else {
-        return false;
+        return true;
     }
+
+    const auto it = m_targets.constFind(action);
+    if (it == m_targets.constEnd())
+        return false;
+
+    const Target &target = it.value();
+    QVariantList items = target.songs ? songList(info) : ApiCommon::normalizeList(info);
+    if (target.emptyOnFailure && failed)
+        items.clear();
+    if (target.replace)
+        target.model->clear();
+    target.model->append(items);
     return true;
 }

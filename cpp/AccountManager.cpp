@@ -2,6 +2,8 @@
 // Copyright (c) 2026 QueMusic Contributors
 //
 #include "AccountManager.h"
+
+#include "../api/ApiHttp.h"
 #include "platform/KugouApi.h"
 #include "platform/QQMusicApi.h"
 #include "apihelper.h"
@@ -338,7 +340,7 @@ void AccountManager::kugouGet(const QString &baseUrl, const QString &path,
     for (const QString &k : customKeys)
         params.insert(k, customParams.value(k).toVariant().toString());
 
-    QByteArray sig = KugouApi::kugouWebSignature(params);
+    QByteArray sig = KugouApi::signature(params.toVariantMap(), KugouApi::SaltWeb);
     params.insert(QStringLiteral("signature"), QString::fromLatin1(sig));
 
     QUrlQuery query;
@@ -1274,6 +1276,93 @@ void AccountManager::loginQQWithCookie(const QString &cookie)
     validateQQCookie(text);
 }
 
+void AccountManager::postQQCgi(const QJsonObject &body,
+                               std::function<void(const QJsonObject &)> done)
+{
+    ApiHttp::postJson(m_nam, this, QUrl("https://u.y.qq.com/cgi-bin/musicu.fcg"),
+                      QJsonDocument(body).toJson(QJsonDocument::Compact), kUa,
+                      "https://y.qq.com/", m_qqCookie.toUtf8(), std::move(done));
+}
+
+void AccountManager::requestQQSmsCode(const QString &phone)
+{
+    const QString number = phone.trimmed();
+    if (number.isEmpty()) {
+        m_qqLoginMessage = QStringLiteral("请输入手机号");
+        emit qqLoginChanged();
+        return;
+    }
+    m_qqLoginMessage = QStringLiteral("正在发送验证码…");
+    emit qqLoginChanged();
+
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"format", "json"},
+                             {"tmeLoginMethod", 3}, {"tmeLoginType", 0}}},
+        {"req", QJsonObject{{"module", "music.login.LoginServer"},
+                            {"method", "SendPhoneAuthCode"},
+                            {"param", QJsonObject{{"tmeAppid", "qqmusic"},
+                                                  {"areaCode", "86"},
+                                                  {"phoneNo", number}}}}}};
+    postQQCgi(body, [this](const QJsonObject &json) {
+        const QJsonObject req = json.value("req").toObject();
+        const int code = req.value("code").toInt();
+        m_qqLoginMessage = code == 0 ? QStringLiteral("验证码已发送，请查收短信")
+                                     : QStringLiteral("验证码发送失败（%1）").arg(code);
+        emit qqLoginChanged();
+    });
+}
+
+void AccountManager::loginQQWithCode(const QString &phone, const QString &code)
+{
+    const QString number = phone.trimmed();
+    const QString sms = code.trimmed();
+    if (number.isEmpty() || sms.isEmpty()) {
+        m_qqLoginMessage = QStringLiteral("请输入手机号和验证码");
+        emit qqLoginChanged();
+        return;
+    }
+    m_qqLoginMessage = QStringLiteral("正在登录…");
+    emit qqLoginChanged();
+
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"format", "json"},
+                             {"tmeLoginMethod", 3}, {"tmeLoginType", 0}}},
+        {"req", QJsonObject{{"module", "music.login.LoginServer"},
+                            {"method", "Login"},
+                            {"param", QJsonObject{{"code", sms},
+                                                  {"loginMode", 1},
+                                                  {"phoneNo", number}}}}}};
+    postQQCgi(body, [this](const QJsonObject &json) {
+        const QJsonObject req = json.value("req").toObject();
+        finishQQLogin(req.value("data").toObject());
+    });
+}
+
+void AccountManager::finishQQLogin(const QJsonObject &data)
+{
+    const QString musicid = QString::number(data.value("musicid").toVariant().toLongLong());
+    const QString key = data.value("musickey").toString();
+    if (musicid.isEmpty() || key.isEmpty()) {
+        m_qqLoginMessage = QStringLiteral("登录失败，请重试");
+        emit qqLoginChanged();
+        return;
+    }
+    m_qqCookie = QStringLiteral("uin=%1; qqmusic_key=%2").arg(musicid, key);
+    m_qqUin = musicid;
+    m_qqEuIn = data.value("encryptUin").toString();
+    const QString nick = data.value("nick").toString();
+    if (!nick.isEmpty())
+        m_qqNickname = nick;
+    if (m_qqNickname.isEmpty())
+        m_qqNickname = QStringLiteral("QQ 音乐用户");
+    m_qqAvatar = data.value("avatarUrl").toString();
+    m_qqLoggedIn = true;
+    m_qqLoginMessage = QStringLiteral("已保存 QQ 音乐登录态");
+    persistQQ();
+    emit qqLoginChanged();
+    validateQQCookie(m_qqCookie);
+}
+
 void AccountManager::validateQQCookie(const QString &cookie)
 {
     if (m_qqUin.isEmpty())
@@ -1283,18 +1372,7 @@ void AccountManager::validateQQCookie(const QString &cookie)
         {"req", QJsonObject{{"module", "music.UserInfo.userInfo"},
                             {"method", "GetUserInfo"},
                             {"param", QJsonObject{{"uin", m_qqUin}}}}}};
-    QNetworkRequest request(QUrl("https://u.y.qq.com/cgi-bin/musicu.fcg"));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json;charset=UTF-8");
-    request.setRawHeader("User-Agent", kUa);
-    request.setRawHeader("Referer", "https://y.qq.com/");
-    request.setRawHeader("Cookie", cookie.toUtf8());
-    request.setTransferTimeout(15000);
-    QNetworkReply *reply = m_nam->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError)
-            return;
-        const QJsonObject json = QJsonDocument::fromJson(reply->readAll()).object();
+    postQQCgi(body, [this](const QJsonObject &json) {
         const QJsonObject req = json.value("req").toObject();
         if (json.value("code").toInt() != 0 || req.value("code").toInt() != 0)
             return;
@@ -1332,6 +1410,7 @@ void AccountManager::persistQQ()
     s.setValue("QQMusic", "nickname", m_qqNickname);
     s.setValue("QQMusic", "avatar", m_qqAvatar);
     s.setValue("QQMusic", "uin", m_qqUin);
+    s.setValue("QQMusic", "euin", m_qqEuIn);
     s.sync();
 }
 
@@ -1342,6 +1421,7 @@ void AccountManager::loadQQ()
     m_qqNickname = s.value("QQMusic", "nickname").toString();
     m_qqAvatar = s.value("QQMusic", "avatar").toString();
     m_qqUin = s.value("QQMusic", "uin").toString();
+    m_qqEuIn = s.value("QQMusic", "euin").toString();
     if (m_qqUin.isEmpty())
         m_qqUin = QQMusicApi::uinOf(m_qqCookie);
     m_qqLoggedIn = !m_qqCookie.isEmpty() && !m_qqUin.isEmpty();

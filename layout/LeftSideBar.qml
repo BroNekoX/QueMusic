@@ -33,7 +33,7 @@ Rectangle {
             }
         }
         function onExit(): void {
-            if(sidebar.mainCont.pageIndex === 5 && Options.exitIndex <= 1 ) {
+            if(sidebar.mainCont.pageIndex === 6 && Options.exitIndex <= 1 ) {
                 sidebar.mainCont.contentIndexed(sidebar.choiceIndex)
                 MusicApi.searchSongsResults.clear()
             }
@@ -185,6 +185,7 @@ Rectangle {
         ListElement { display: "收藏"; iconChar: "\uf0c1" }
         ListElement { display: "本地"; iconChar: "\uf0f5" }
         ListElement { display: "下载"; iconChar: "\uf00f" }
+        ListElement { display: "账户"; iconChar: "\uf055" }
     }
 
     Repeater {
@@ -209,7 +210,7 @@ Rectangle {
 
             readonly property bool isSelected: sidebar.choiceIndex === index
 
-            scale: 1.0
+            scale: tapArea.pressed ? 0.96 : 1.0
             Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutCubic } }
             Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
             //Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
@@ -220,7 +221,7 @@ Rectangle {
                 anchors.fill: parent
                 radius: Style.labelRadius
                 color: Theme.hoverColor
-                opacity: barMouse.containsMouse ? 1 : 0
+                opacity: hoverArea.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 80 } }
             }
 
@@ -253,19 +254,16 @@ Rectangle {
                 verticalAlignment: Text.AlignVCenter
             }
 
-
-            MouseArea {
-                id: barMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onPressed: navDelegate.scale = 0.96
-                onReleased: navDelegate.scale = 1.0
-                onCanceled: navDelegate.scale = 1.0
-                onClicked: {
+            TapHandler {
+                id: tapArea
+                onTapped: {
                     sidebar.indexed(navDelegate.index);
                     sidebar.mainCont.contentIndexed(navDelegate.index);
-                    forceActiveFocus();
+                    sidebar.forceActiveFocus();
                 }
+            }
+            HoverHandler {
+                id: hoverArea
             }
         }
     }

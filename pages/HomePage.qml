@@ -210,8 +210,6 @@ Item {
                         iconCharacter: "\uf025"
                         iconSize: Style.textmain
                         buttonColor: "transparent"
-                        hoverColor: Theme.hoverColor
-                        shadowEnabled: false
                         tipText: "关闭提示"
                         onClicked: parent.visible = false
                     }
@@ -466,7 +464,6 @@ Item {
                 required property real duration
                 required property var model
 
-                readonly property bool hovered: recomPlayListsArea.containsMouse
                 readonly property string playcountText: recomPlayRow.playcount >= 10000 ? (recomPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(recomPlayRow.playcount).toString()
                 readonly property string durationText: recomPlayRow.duration > 0 ? Math.round(recomPlayRow.duration) + " 首" : ""
 
@@ -481,7 +478,7 @@ Item {
 
                 // 悬停只做位移，不改 scale/blur，避免整块卡片重绘
                 transform: Translate {
-                    y: recomPlayRow.hovered ? -4 : 0
+                    y: recomPlayListsArea.hovered ? -4 : 0
                     Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                 }
                 RectangularShadow {
@@ -494,12 +491,8 @@ Item {
                     spread: 0
                     color: Theme.shadowColor
                 }
-                MouseArea {
-                    id: recomPlayListsArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
+                TapHandler {
+                    onTapped: {
                         hotlistsWindow.mainTarget = homeMain
                         MusicApi.playlistSong.clear()
                         MusicApi.globalid = recomPlayRow.hash
@@ -508,9 +501,15 @@ Item {
                         Options.exitIndex = 1
                     }
                 }
+                HoverHandler {
+                    id: recomPlayListsArea
+                    cursorShape: Qt.PointingHandCursor
+                }
                 MultiEffect {
                     id: recomPlayCover
-                    source: Image {
+                    source: recomPlayImage.status === Image.Ready ? recomPlayImage : Options.musicpic
+                    Image {
+                        id: recomPlayImage
                         source: (recomPlayRow.cover || "").replace("{size}", "256")
                         width: recomPlayRow.width
                         height: width
@@ -533,7 +532,7 @@ Item {
                     topLeftRadius: Style.labelRadius
                     topRightRadius: Style.labelRadius
                     color: "#30000000"
-                    opacity: recomPlayRow.hovered ? 1 : 0
+                    opacity: recomPlayListsArea.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
                 // 标题固定占两行，同一行卡片的信息区始终对齐
@@ -609,7 +608,7 @@ Item {
                     color: "transparent"
                     border.width: 2
                     border.color: Theme.themeColor
-                    opacity: recomPlayRow.hovered ? 1 : 0
+                    opacity: recomPlayListsArea.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
             }
@@ -734,7 +733,6 @@ Item {
                 required property real duration
                 required property var model
 
-                readonly property bool hovered: hotPlayListsArea.containsMouse
                 readonly property string playcountText: hotPlayRow.playcount >= 10000 ? (hotPlayRow.playcount / 10000).toFixed(1) + "万" : Math.round(hotPlayRow.playcount).toString()
                 readonly property string durationText: hotPlayRow.duration > 0 ? Math.round(hotPlayRow.duration) + " 首" : ""
 
@@ -749,7 +747,7 @@ Item {
 
                 // 悬停只做位移，不改 scale/blur，避免整块卡片重绘
                 transform: Translate {
-                    y: hotPlayRow.hovered ? -4 : 0
+                    y: hotPlayListsArea.hovered ? -4 : 0
                     Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                 }
                 RectangularShadow {
@@ -762,12 +760,8 @@ Item {
                     spread: 0
                     color: Theme.shadowColor
                 }
-                MouseArea {
-                    id: hotPlayListsArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
+                TapHandler {
+                    onTapped: {
                         hotlistsWindow.mainTarget = hotPlayWindow
                         MusicApi.playlistSong.clear()
                         MusicApi.globalid = hotPlayRow.hash
@@ -776,9 +770,15 @@ Item {
                         Options.exitIndex = 2
                     }
                 }
+                HoverHandler {
+                    id: hotPlayListsArea
+                    cursorShape: Qt.PointingHandCursor
+                }
                 MultiEffect {
                     id: hotPlayCover
-                    source: Image {
+                    source: hotPlayImage.status === Image.Ready ? hotPlayImage : Options.musicpic
+                    Image {
+                        id: hotPlayImage
                         source: (hotPlayRow.cover || "").replace("{size}", "256")
                         width: hotPlayRow.width
                         height: width
@@ -801,7 +801,7 @@ Item {
                     topLeftRadius: Style.labelRadius
                     topRightRadius: Style.labelRadius
                     color: "#30000000"
-                    opacity: hotPlayRow.hovered ? 1 : 0
+                    opacity: hotPlayListsArea.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
                 // 标题固定占两行，同一行卡片的信息区始终对齐
@@ -877,7 +877,7 @@ Item {
                     color: "transparent"
                     border.width: 2
                     border.color: Theme.themeColor
-                    opacity: hotPlayRow.hovered ? 1 : 0
+                    opacity: hotPlayListsArea.hovered ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                 }
             }

@@ -375,7 +375,6 @@ Item {
                                 radius: 36
                                 buttonColor: "transparent"
                                 hoverColor: Theme.hoverColor
-                                shadowEnabled: false
                                 onClicked: MusicApi.downloader.removeTask(activeDel.taskId)
                             }
                             // 重试
@@ -387,7 +386,6 @@ Item {
                                 radius: 36
                                 buttonColor: "transparent"
                                 hoverColor: Theme.hoverColor
-                                shadowEnabled: false
                                 visible: activeDel.status === 3
                                 onClicked: MusicApi.downloader.retryTask(activeDel.taskId)
                             }
@@ -513,7 +511,6 @@ Item {
                                 radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Theme.hoverColor
-                                shadowEnabled: false
                                 tipText: "加入播放列表"
                                 onClicked: downloadPage.enqueueRow(row.index)
                             }
@@ -526,7 +523,6 @@ Item {
                                 radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: Theme.hoverColor
-                                shadowEnabled: false
                                 tipText: "打开所在文件夹"
                                 onClicked: downloadPage.revealRow(row.index)
                             }
@@ -539,7 +535,6 @@ Item {
                                 radius: 18
                                 buttonColor: "transparent"
                                 hoverColor: "#dcff9999"
-                                shadowEnabled: false
                                 tipText: "删除文件"
                                 onClicked: downloadPage.removeRow(row.index)
                             }
