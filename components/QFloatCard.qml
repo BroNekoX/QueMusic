@@ -10,7 +10,7 @@ Rectangle {
     width: 240
     height: 120
     radius: Style.cubeRadius
-    color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
+    color: Options.cardColor
     border.color: Theme.sideColor
     border.width: 1
     signal clicked()
@@ -32,6 +32,7 @@ Rectangle {
         Behavior on blur { NumberAnimation { duration: 240 } }
     }
     TapHandler {
+        gesturePolicy: TapHandler.WithinBounds
         onTapped: root.clicked();
     }
     HoverHandler {

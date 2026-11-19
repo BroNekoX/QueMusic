@@ -25,7 +25,7 @@ Item {
         QButton {
             height: 36
             text: manager.compact ? "" : "重新扫描"
-            iconCharacter: "\uf021"
+            iconCharacter: "\uf10c"
             buttonColor: Theme.secondaryColor
             borderColor: Theme.sideColor
             borderWidth: 1
@@ -65,15 +65,48 @@ Item {
 
     ListView {
         id: listView
-        anchors.top: hintText.bottom
-        anchors.topMargin: 12
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 24
+        x: 0
+        y: hintText.y + hintText.height + 8
+        width: parent.width + 18
+        height: parent.height - y
+        rightMargin: 18
+        bottomMargin: 24
         clip: true
         spacing: 8
         model: manager.plugins
+        property int scrollToY: listView.contentY
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            readonly property real wheelHeightCount: Theme.wheelStep
+            readonly property int scrollBottom: listView.contentHeight - listView.height + listView.bottomMargin + listView.originY
+            onWheel: (event) => {
+                listViewAnime.running = false;
+                listView.scrollToY = Math.max(listView.originY - listView.topMargin, Math.min( listView.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
+                viewBar.active = true;
+                event.accepted = true;
+                listViewAnime.running = true;
+            }
+        }
+
+        NumberAnimation {
+            id: listViewAnime
+            target: listView
+            property: "contentY"
+            duration: 240
+            to: listView.scrollToY
+            easing.type: Easing.OutCubic
+            onFinished: viewBar.active = false
+        }
+        QScrollBar.vertical: QScrollBar {
+            id: viewBar
+            parent: listView
+            anchors.top: listView.top
+            anchors.right: listView.right
+            anchors.bottom: listView.bottom
+            onPressedChanged: {
+                listView.scrollToY = listView.contentY
+            }
+        }
 
         delegate: Rectangle {
             id: row
@@ -84,7 +117,7 @@ Item {
             required property string description
             required property string author
             required property string version
-            width: listView.width
+            width: ListView.view.width - 18
             height: 92
             radius: Style.cubeRadius
             color: row.isOn ? Theme.containColor : Theme.primaryColor

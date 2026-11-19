@@ -12,6 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(QUEMUSIC_ENABLE_LTO "Release 构建启用 LTO/IPO" ON)
 option(QUEMUSIC_QML_LINT "构建时对 QML 执行 qmllint" ON)
 option(QUEMUSIC_ENABLE_QMLTC "启用 qmltc 类型编译（实验性）" OFF)
+option(QUEMUSIC_STRIP_SYMBOLS "Release 剥离可执行文件符号表" ON)
+option(QUEMUSIC_SLIM_RUNTIME "部署时精简 Qt 运行时" ON)
 
 # 统一输出目录：可执行文件与动态库放 bin/，静态库放 lib/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -66,6 +68,12 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
 if(NOT MSVC AND NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     target_compile_options(${PROJECT_NAME} PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+endif()
+
+# 剥离符号表（MinGW Release 默认带完整 COFF 符号表，约占 exe 37%）
+if(QUEMUSIC_STRIP_SYMBOLS AND NOT MSVC AND NOT APPLE)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "$<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:-Wl,-s>")
 endif()
 
 # LTO：合并本工程各翻译单元（Qt 动态库不参与）

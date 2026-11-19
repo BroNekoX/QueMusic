@@ -3,6 +3,8 @@
 
 #include "MusicApiService.h"
 
+#include "AppSettings.h"
+
 #include "ApiActions.h"
 #include "ApiCommon.h"
 #include "ApiResultRouter.h"
@@ -24,7 +26,9 @@
 #include "Config.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
+#include <QDesktopServices>
 #include <QDir>
 #include <QJSEngine>
 #include <QQmlEngine>
@@ -124,8 +128,10 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(m_spotify.get(), &SpotifyApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_apple.get(), &AppleMusicApi::resultReady, this, &MusicApiService::handleResult);
     connect(m_scripts.get(), &ScriptSourceHost::resultReady, this, &MusicApiService::handleResult);
-    connect(m_scripts.get(), &ScriptSourceHost::pluginsChanged, this,
-            &MusicApiService::rebuildSources);
+    connect(m_scripts.get(), &ScriptSourceHost::pluginsChanged, this, [this] {
+        rebuildSources();
+        refreshSourcePlugins();
+    });
 
     connect(m_router.get(), &ApiResultRouter::commentsHasMoreChanged, this,
             &MusicApiService::setCommentsHasMore);
@@ -162,6 +168,11 @@ MusicApiService::MusicApiService(QObject *parent)
     connect(m_playback.get(), &PlaybackCoordinator::searchRequested, this,
             [this](const QString &action, const QVariantMap &args, int source) {
                 send(action, args, source, true);
+            });
+    m_playback->setSoundQuality(m_soundQuality);
+    connect(m_playback.get(), &PlaybackCoordinator::lowQualityRequested, this,
+            [this](const QString &hash, int source) {
+                getMusicInfoAtQuality(hash, 0, source, 0);
             });
     connect(m_playback.get(), &PlaybackCoordinator::downloadRequested, this,
             [this](const QString &url, const QString &fileName, const QVariantMap &meta) {
@@ -205,6 +216,7 @@ MusicApiService::MusicApiService(QObject *parent)
     });
 
     const QString sourcesDir = appConfigPath() + "/QueMusic/sources";
+    m_sourcesDir = sourcesDir;
     QDir().mkpath(sourcesDir);
     m_scripts->setPluginDir(sourcesDir);
     rebuildSources();
@@ -363,6 +375,7 @@ void MusicApiService::setSoundQuality(int quality)
     if (m_soundQuality != bounded) {
         m_soundQuality = bounded;
         Config::instance()->set_soundQuality(bounded);
+        m_playback->setSoundQuality(bounded);
         refreshCredentials();
         emit soundQualityChanged();
     }
@@ -412,7 +425,6 @@ void MusicApiService::rebuildSources()
                       builtin(ApiSource::QQMusic, QStringLiteral("QQ音乐")),
                       builtin(ApiSource::Spotify, "Spotify"),
                       builtin(ApiSource::AppleMusic, "Apple Music")};
-    list += m_scripts->plugins();
 
     m_sourceList = list;
     m_sourceNames.clear();
@@ -477,6 +489,23 @@ void MusicApiService::sendResolved(const QString &action, const QVariantMap &arg
         if (tracked) endRequest(action);
         return;
     }
+
+    // 同一请求在途时丢弃重复（页面反复进出、滚动抖动）
+    const QString prefix = action + QLatin1Char('|') + QString::number(resolvedSource) + QLatin1Char('|');
+    QStringList argParts;
+    for (auto it = args.cbegin(); it != args.cend(); ++it)
+        argParts << it.key() + QLatin1Char('=') + it.value().toString();
+    argParts.sort();
+    const QString key = prefix + QString::number(qHash(argParts.join(QLatin1Char('&'))));
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (m_inflight.value(key, 0) > now - 3000) {
+        if (tracked)
+            endRequest(action);
+        return;
+    }
+    if (m_inflight.size() > 64)
+        m_inflight.clear();
+    m_inflight.insert(key, now);
 
     provider->request(resolvedSource, action, args);
 }
@@ -585,6 +614,88 @@ void MusicApiService::getMusicInfo(const QString &hash, int type, int source)
     sendResolved(ApiAction::MusicInfo, {{ApiArg::Hash, playHash}, {ApiArg::Id, playHash}, {ApiArg::Type, type}}, resolved, type != 2);
 }
 
+void MusicApiService::refreshSourcePlugins()
+{
+    m_sourcePluginList.clear();
+    QList<int> ids;
+    const QVariantList plugins = m_scripts->plugins();
+    m_sourcePluginList.reserve(plugins.size());
+    for (const QVariant &entry : plugins) {
+        QVariantMap map = entry.toMap();
+        const int id = map.value("id").toInt();
+        const bool enabled = AppSettings::value("Plugins/source", QString::number(id), true).toBool();
+        map.insert("enabled", enabled);
+        m_sourcePluginList << map;
+        if (enabled && id > 0)
+            ids << id;
+    }
+    m_playback->setSourcePlugins(ids);
+    emit sourcePluginsChanged();
+}
+
+void MusicApiService::setSourcePluginEnabled(int id, bool on)
+{
+    AppSettings::setValue(QStringLiteral("Plugins/source"), QString::number(id), on);
+    refreshSourcePlugins();
+}
+
+QString MusicApiService::importSourcePlugin(const QUrl &path)
+{
+    const QFileInfo info(path.toLocalFile());
+    if (!info.exists() || info.suffix().compare(QLatin1String("js"), Qt::CaseInsensitive) != 0)
+        return QStringLiteral("只能导入 .js 音源文件");
+    const QString dest = m_sourcesDir + QLatin1Char('/') + info.fileName();
+    QFile::remove(dest);
+    if (!QFile::copy(info.absoluteFilePath(), dest))
+        return QStringLiteral("导入失败");
+    m_scripts->reload();
+    return QString();
+}
+
+QString MusicApiService::removeSourcePlugin(int id)
+{
+    const QVariantList plugins = m_scripts->plugins();
+    for (const QVariant &entry : plugins) {
+        const QVariantMap map = entry.toMap();
+        if (map.value("id").toInt() != id)
+            continue;
+        const QString file = m_sourcesDir + QLatin1Char('/') + map.value("file").toString();
+        if (!QFile::remove(file))
+            return QStringLiteral("删除失败");
+        AppSettings::setValue(QStringLiteral("Plugins/source"), QString::number(id), true);
+        m_scripts->reload();
+        return QString();
+    }
+    return QStringLiteral("插件不存在");
+}
+
+void MusicApiService::revealSourcePlugins()
+{
+    if (!m_sourcesDir.isEmpty())
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_sourcesDir));
+}
+
+void MusicApiService::getMusicInfoAtQuality(const QString &hash, int type, int source,
+                                            int quality)
+{
+    const int resolved = resolveSource(source);
+    const int bounded = qBound(0, quality, 3);
+    SourceCredentials credentials = m_credentials.value(resolved);
+    credentials.quality = bounded;
+    if (MusicSource *provider = m_registry.source(resolved))
+        provider->applyCredentials(credentials);
+
+    const QString playHash = resolved == ApiSource::Kugou
+                                 ? m_qualityCache->resolve(hash, bounded)
+                                 : hash;
+    sendResolved(ApiAction::MusicInfo,
+                 {{ApiArg::Hash, playHash}, {ApiArg::Id, playHash}, {ApiArg::Type, type}},
+                 resolved, type != 2);
+
+    if (MusicSource *provider = m_registry.source(resolved))
+        provider->applyCredentials(m_credentials.value(resolved));
+}
+
 void MusicApiService::prefetchMusicInfo(const QString &hash, int source)
 {
     if (hash.isEmpty()) return;
@@ -665,13 +776,21 @@ bool MusicApiService::downloadSong(const QVariantMap &song, int source)
 
 void MusicApiService::handleResult(const QString &action, const QVariant &data, int source)
 {
+    const QString prefix = action + QLatin1Char('|') + QString::number(source) + QLatin1Char('|');
+    for (auto it = m_inflight.begin(); it != m_inflight.end();) {
+        if (it.key().startsWith(prefix))
+            it = m_inflight.erase(it);
+        else
+            ++it;
+    }
+
     const QVariantMap message = data.toMap();
     const bool prefetch = action == ApiAction::MusicInfo
                           && message.value(ApiArg::Type).toInt() == 2;
     if (!prefetch)
         endRequest(action);
 
-    if (message.contains("error")) {
+    if (message.contains("error") && message.value("error").toInt() != 0) {
         qWarning() << "[api] 请求失败:" << action
                    << "error:" << message.value("error").toInt()
                    << "source:" << source;

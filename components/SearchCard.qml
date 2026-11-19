@@ -50,12 +50,13 @@ Popup {
             text: "清理"
             visible: Config.searchList.length > 0
             font.pixelSize: Style.textTip
-            color: clearArea.containsMouse ? Theme.fontColor : Theme.textColor
-            MouseArea {
+            color: clearArea.hovered ? Theme.fontColor : Theme.textColor
+            TapHandler {
+                onTapped: titleMenu.popup();
+            }
+            HoverHandler {
                 id: clearArea
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: titleMenu.popup();
+                cursorShape: Qt.PointingHandCursor
             }
             QMenu {
                 id: titleMenu
@@ -100,7 +101,7 @@ Popup {
                         radius: parent.radius
                         anchors.fill: parent
                         color: Theme.hoverColor
-                        opacity: searchArea.containsMouse ? 1 : 0
+                        opacity: searchArea.hovered ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
 
@@ -118,11 +119,13 @@ Popup {
                         color: Theme.fontColor
                         font.pixelSize: Style.text
                     }
-                    MouseArea {
+                    TapHandler {
+                        gesturePolicy: TapHandler.ReleaseWithinBounds
+                        onTapped: dialog.searchIndex(cardDel.index);
+                    }
+                    HoverHandler {
                         id: searchArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: dialog.searchIndex(cardDel.index);
+                        cursorShape: Qt.PointingHandCursor
                     }
                 }
             }

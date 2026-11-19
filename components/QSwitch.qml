@@ -63,6 +63,7 @@ Rectangle {
     }
 
     TapHandler {
+        gesturePolicy: TapHandler.WithinBounds
         onTapped: root.toggled(root.switchTrue);
     }
 }

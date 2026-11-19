@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QDebug>
+#include <QTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -21,7 +22,8 @@ inline void request(QNetworkAccessManager *nam, QObject *context, const QUrl &ur
                     const QByteArray &cookie, QNetworkAccessManager::Operation operation,
                     const QByteArray &body,
                     std::function<void(const QByteArray &, QNetworkReply::NetworkError)> done,
-                    const QList<QPair<QByteArray, QByteArray>> &extraHeaders = {})
+                    const QList<QPair<QByteArray, QByteArray>> &extraHeaders = {},
+                    int attempt = 0)
 {
     QNetworkRequest networkRequest(url);
     networkRequest.setRawHeader("User-Agent", userAgent);
@@ -43,11 +45,18 @@ inline void request(QNetworkAccessManager *nam, QObject *context, const QUrl &ur
     QObject::connect(context, &QObject::destroyed, reply, &QNetworkReply::abort);
     QObject::connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
     QObject::connect(reply, &QNetworkReply::finished, context,
-                     [reply, done = std::move(done)] {
+                     [=, done = std::move(done)] {
         const QNetworkReply::NetworkError error = reply->error();
         const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray response = reply->readAll();
         const bool accepted = error == QNetworkReply::NoError || (httpStatus >= 200 && httpStatus < 300 && !response.isEmpty());
+        if (!accepted && attempt == 0 && operation == QNetworkAccessManager::GetOperation) {
+            QTimer::singleShot(300, context, [=]() {
+                request(nam, context, url, userAgent, referer, cookie, operation, body, done,
+                        extraHeaders, 1);
+            });
+            return;
+        }
         if (!accepted) {
             QUrl clean = reply->url();
             clean.setQuery(QString());

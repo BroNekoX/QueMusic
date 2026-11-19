@@ -16,10 +16,27 @@ Item {
 
     WebDavModel { id: browser }
 
+    Connections {
+        target: WebDav
+        function onTestFinished(id, ok, message) {
+            Options.warned(message, ok ? 1 : 2)
+        }
+    }
+
+    Connections {
+        target: browser
+        function onStateChanged() {
+            if (browser.serverId && browser.dirUrl)
+                WebDav.rememberDir(browser.serverId, browser.dirUrl)
+        }
+    }
+
     function openServer(server: var): void {
         root.serverName = server.name || server.url;
         root.browsing = true;
-        browser.openServer(server.id, WebDav.authHeader(server.id), server.url);
+        const last = WebDav.lastDir(server.id)
+        browser.openServer(server.id, WebDav.authHeader(server.id), server.url,
+                           last && last.indexOf(server.url) === 0 ? last : "");
     }
 
     function openForm(server: var): void {
@@ -206,6 +223,15 @@ Item {
                     z: 2
                     y: 12
                     height: 36
+                    SButton {
+                        iconCharacter: "\uf13e"
+                        width: 36
+                        height: 36
+                        radius: 18
+                        buttonColor: "transparent"
+                        tipText: "测试连接"
+                        onClicked: WebDav.testServer(listServer.modelData.id)
+                    }
                     SButton {
                         iconCharacter: "\uf005"
                         width: 36

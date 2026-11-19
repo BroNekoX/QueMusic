@@ -68,6 +68,7 @@ Item {
                     color: tabs.index === tabItem.index ? tabs.activeColor : tabs.textColor
                 }
                 TapHandler {
+                    gesturePolicy: TapHandler.WithinBounds
                     onTapped: {
                         barAnime.running = false;
                         tabs.index = tabItem.index;

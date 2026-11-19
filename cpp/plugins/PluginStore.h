@@ -17,7 +17,6 @@ class PluginStore : public QObject
     Q_PROPERTY(QVariantList functions READ functions NOTIFY changed FINAL)
     Q_PROPERTY(QVariantList activeFunctions READ activeFunctions NOTIFY enabledChanged FINAL)
     Q_PROPERTY(QVariantList lyrics READ lyrics NOTIFY changed FINAL)
-    Q_PROPERTY(QVariantList sources READ sources NOTIFY changed FINAL)
     Q_PROPERTY(QStringList enabled READ enabled NOTIFY enabledChanged FINAL)
     Q_PROPERTY(QString lyricsId READ lyricsId NOTIFY lyricsChanged FINAL)
     Q_PROPERTY(QString lyricsSource READ lyricsSource NOTIFY lyricsChanged FINAL)
@@ -31,7 +30,6 @@ public:
     QVariantList functions() const { return m_functions; }
     QVariantList activeFunctions() const { return m_active; }
     QVariantList lyrics() const { return m_lyrics; }
-    QVariantList sources() const { return m_sources; }
     QStringList enabled() const { return m_enabled; }
     QString lyricsId() const { return m_lyricsId; }
     QString lyricsSource() const { return m_lyricsSource; }
@@ -61,7 +59,6 @@ private:
     QVariantList m_functions;
     QVariantList m_active;
     QVariantList m_lyrics;
-    QVariantList m_sources;
     QStringList m_enabled;
     QString m_lyricsId;
     QString m_lyricsSource;

@@ -164,6 +164,19 @@ inline QVariantList normalizeList(const QVariant &value)
     return result;
 }
 
+// 平台返回的“试听片段”：有地址但只有 30 秒，视同无地址走音源链
+inline bool isTrial(const QVariantMap &map)
+{
+    if (map.contains("freeTrialInfo") && !map.value("freeTrialInfo").isNull())
+        return true;
+    for (const char *key : {"trial", "is_trial", "try_begin"}) {
+        const QVariant value = map.value(QLatin1String(key));
+        if (value.isValid() && value.toLongLong() > 0)
+            return true;
+    }
+    return map.value("size_try").toLongLong() > 0;
+}
+
 inline QString firstNonEmpty(const QVariantMap &map, std::initializer_list<const char *> keys)
 {
     for (const char *key : keys) {

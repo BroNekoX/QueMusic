@@ -85,7 +85,6 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        propagateComposedEvents: false  // 阻止事件穿透
         acceptedButtons: Qt.AllButtons
         onPositionChanged: {
             if(Style.lyricHideGui) {

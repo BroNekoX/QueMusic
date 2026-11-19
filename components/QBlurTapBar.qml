@@ -133,6 +133,7 @@ Item {
             }
 
             TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
                 onTapped: {
                     if(root.choiceIndex !== navMusic.index) {
                         root.tabChange(navMusic.index);

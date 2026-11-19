@@ -11,7 +11,7 @@ QScrollView {
     property int standWidth: 0
     property int containWidth: 0
     property int containX: 0
-    property color cardColor: Theme.primaryColor
+    property color cardColor: Options.cardColor
     property Item blurSource: null
 
     y: 60

@@ -6,13 +6,17 @@
 #ifndef PLAYBACKCOORDINATOR_H
 #define PLAYBACKCOORDINATOR_H
 
+#include <QDebug>
 #include <QHash>
+#include <QList>
+#include <QSet>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
 
 class QualityHashCache;
+class QTimer;
 
 class PlaybackCoordinator : public QObject
 {
@@ -24,6 +28,8 @@ public:
 
     void setDefaultSource(int source) { m_defaultSource = source; }
     void setKugouLoggedIn(bool loggedIn) { m_kugouLoggedIn = loggedIn; }
+    void setSoundQuality(int quality) { m_soundQuality = quality; }
+    void setSourcePlugins(const QList<int> &ids) { m_sourcePlugins = ids; }
 
     // 播放代次：type 0 的 getMusicInfo 发起时调用，用来源 hash 判定过期响应。
     void beginPlay(const QString &hash, int source);
@@ -44,6 +50,7 @@ signals:
     void playUrlReady(const QString &hash, const QString &url, const QString &title,
                       const QString &artist, const QString &cover, int duration, int source);
     void playFailed(const QString &hash, int source);
+    void lowQualityRequested(const QString &hash, int source);
     void warned(const QString &text, int type);
 
     void lyricsReady(const QVariantList &lyrics, const QVariantList &translate);
@@ -76,6 +83,11 @@ private:
     int resolveSource(int source) const { return source < 0 ? m_defaultSource : source; }
     bool isStalePlayResponse(const QString &playHash, int source) const;
     void findOnlineLyrics(const QString &title, const QString &artist, int duration);
+    void startChain(const QVariantMap &data, const QString &hash, int source);
+    void finishChain();
+    void stopChain();
+    void playResolved(const QVariantMap &payload, int source, const QString &hash, int type);
+    void failPlay(const QVariantMap &data, const QString &hash, int source);
     static QString keywordOf(const QString &title, const QString &artist);
 
     QualityHashCache *m_qualityCache = nullptr;
@@ -85,6 +97,17 @@ private:
     int m_playGeneration = 0;
     QString m_playHash;
     int m_playSource = -1;
+
+    int m_soundQuality = 2;
+    QList<int> m_sourcePlugins;
+    bool m_chainActive = false;
+    bool m_chainLow = false;
+    QSet<int> m_chainPending;
+    QTimer *m_chainTimer = nullptr;
+    QString m_chainHash;
+    QString m_chainTrialUrl;
+    QVariantMap m_chainData;
+    int m_chainSource = -1;
 
     int m_localLyricsGeneration = 0;
     QHash<int, LyricSearch> m_localLyricSearches;   // 本地文件搜词（结果回填文件）

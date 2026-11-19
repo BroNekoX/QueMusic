@@ -34,7 +34,7 @@ QOptionDialog {
         filePath = path
         source = src
         coverPick = ""
-        embeddedCover = path !== "" ? (Options.coverHelper.findEmbeddedCover(path) || "") : ""
+        embeddedCover = path !== "" ? (Playback.coverHelper.findEmbeddedCover(path) || "") : ""
         values = {
             title: info.title || info.fileName.replace(/\.[^.]+$/, ""),
             artist: info.artist || "",

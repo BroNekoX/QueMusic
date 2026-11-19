@@ -136,9 +136,7 @@ Item {
     }
 
     function copyText(text: string): void {
-        clipboardHelper.text = text;
-        clipboardHelper.selectAll();
-        clipboardHelper.copy();
+        App.copyText(text);
         Options.warned("已复制", 1);
     }
 
@@ -657,13 +655,6 @@ Item {
             }
         }
     }
-    }
-
-    TextEdit {
-        id: clipboardHelper
-        visible: false
-        width: 0
-        height: 0
     }
 
     // 歌单内歌曲

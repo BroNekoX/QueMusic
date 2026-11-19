@@ -202,6 +202,10 @@ clone 时忘了带子模块就补一句 `git submodule update --init --recursive
 
 用到的东西：Qt 6.10.3、C++20、QML、FFmpeg、TagLib、SQLite、Crypto++、QWindowKit。Release 开了 LTO 和 PCH，QML 走 `qmlcachegen` 预编译。
 
+### 发布包体积
+
+Release 默认剥离 exe 符号表（`QUEMUSIC_STRIP_SYMBOLS`）并精简 Qt 运行时（`QUEMUSIC_SLIM_RUNTIME`，清单见 [cmake/slim_deployment.cmake](cmake/slim_deployment.cmake)），Windows 下 150 MB → 107 MB。调试其它 Controls 样式或需要保留符号时，配置里关掉对应开关。
+
 ## 目录
 
 ```

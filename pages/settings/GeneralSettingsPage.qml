@@ -14,7 +14,7 @@ QScrollView {
     property int standWidth: 0
     property int containWidth: 0
     property int containX: 0
-    property color cardColor: Theme.primaryColor
+    property color cardColor: Options.cardColor
     property Item blurSource: null
 
     y: 60
@@ -713,7 +713,7 @@ QScrollView {
                             if (p.indexOf("file:///") === 0)
                                 p = p.substring(8);
                             Config.cacheUrl = p;
-                            Options.coverHelper.setCacheDir(p);
+                            Playback.coverHelper.setCacheDir(p);
                             Options.warned("已设置封面缓存目录", 1);
                         }
                     }
@@ -739,7 +739,7 @@ QScrollView {
                         borderWidth: 2
                         text: "清理"
                         onClicked: {
-                            Options.coverHelper.clearCache();
+                            Playback.coverHelper.clearCache();
                             // 清缓存时 DB 引用已作废，重载列表以丢弃界面上的死链路径
                             Songs.reload();
                             Options.warned("已清除图片缓存", 1);

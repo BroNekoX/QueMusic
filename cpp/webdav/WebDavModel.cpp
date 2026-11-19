@@ -132,13 +132,13 @@ QVariantMap WebDavModel::at(int row) const
 }
 
 void WebDavModel::openServer(const QString &serverId, const QString &authHeader,
-                             const QString &rootUrl)
+                             const QString &rootUrl, const QString &startUrl)
 {
     m_serverId = serverId;
     m_rootUrl = rootUrl;
     m_cache.clear();
     setAuthHeader(authHeader);
-    list(rootUrl, true);
+    list(startUrl.isEmpty() ? rootUrl : startUrl, true);
     emit stateChanged();
 }
 

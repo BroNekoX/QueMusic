@@ -129,11 +129,6 @@ QString PluginMarket::localVersion(const QString &id) const
             return map.value(QStringLiteral("version")).toString();
         }
     }
-    for (const QVariant &v : PluginStore::instance()->sources()) {
-        const QVariantMap map = v.toMap();
-        if (map.value(QStringLiteral("id")).toString() == id)
-            return map.value(QStringLiteral("version")).toString();
-    }
     return QString();
 }
 

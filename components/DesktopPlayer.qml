@@ -77,7 +77,7 @@ Popup {
                         radius: parent.radius
                         anchors.fill: parent
                         color: Theme.hoverColor
-                        opacity: modeArea.containsMouse ? 1 : 0
+                        opacity: modeArea.hovered ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
 
@@ -97,13 +97,15 @@ Popup {
                         visible: Desktop.playerMode === widgetButton.index
                         color: Theme.secondaryColor
                     }
-                    MouseArea {
-                        id: modeArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
+                    TapHandler {
+                        gesturePolicy: TapHandler.WithinBounds
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onTapped: {
                             desktopPlayer.changeDesktopPlayerMode(widgetButton.index);
                         }
+                    }
+                    HoverHandler {
+                        id: modeArea
                     }
                 }
             }

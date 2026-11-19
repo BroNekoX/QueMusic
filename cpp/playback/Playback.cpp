@@ -279,8 +279,7 @@ void Playback::openLocal(const QueueTrack &track, const QString &localPath)
     }
     m_onlinePending = false;
     setLocalLyricsRequestPath(path);
-    // 真实封面异步解析，先清掉上一首的 SMTC 缩略图。
-    m_engine.setUrlStr(QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png"));
+    //m_engine.setUrlStr(QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png"));
     m_engine.playSource(QUrl::fromLocalFile(path), {}, m_fadeEnabled ? m_fadeMs : 0);
     if (m_api)
         m_api->readLocalMetadataAsync(path);
@@ -928,9 +927,7 @@ void Playback::onUrlplay(const QString &playurl, const QString &title, const QSt
     setLocalLyricsRequestPath(QString());
     m_engine.setNoTitle(title);
     m_jsonCover.clear();
-    m_engine.setUrlStr(cover.isEmpty()
-                          ? QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png")
-                          : cover);
+    m_engine.setUrlStr(cover.isEmpty() ? QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png") : cover);
     m_engine.setSourceHeaders({});
     if (m_api) {
         m_api->setLyricsData({});

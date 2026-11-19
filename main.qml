@@ -6,6 +6,7 @@ import QtQuick
 import QueMusic 1.0
 import QtCore
 import QWindowKit 1.0
+import QtQuick.Templates
 
 Window {
     id: window
@@ -17,10 +18,8 @@ Window {
     title: "QueMusic"
 
     Component.onCompleted: {
-        Options.queue = Playback.queue
         Options.dialog = globalDialog
         Options.desktop = desktopPlayer
-        Options.coverHelper = Playback.coverHelper
         Options.mainLayout = mainLayout
         Options.getWave = getWave
         Options.textWatch = textWatch
@@ -108,8 +107,9 @@ Window {
     }
 
     onClosing: (close) => {
-        close.accepted = false
-        App.requestClose()
+        close.accepted = false;
+        Playback.coverHelper.clearCache();
+        App.requestClose();
     }
 
     Shortcut {
@@ -207,7 +207,7 @@ Window {
                 x: 20
                 y: 0
                 height: 36
-                width: 160
+                width: 200
                 leftPadding: 16
                 placeholderText: "搜索"
                 color: Theme.textColor
@@ -215,6 +215,7 @@ Window {
                 verticalAlignment: Text.AlignVCenter
                 selectionColor: Theme.containColor
                 focus: false
+                rightPadding: 40
                 onReleased: searchCard.open();
                 onAccepted: {
                     if(text.trim() === "") {
@@ -226,28 +227,27 @@ Window {
                 }
                 Component.onCompleted: windowAgent.setHitTestVisible(mainSearchInput, true);
                 background: Rectangle {
-                    height: 36
-                    width: 201
                     radius: 18
                     color: Theme.primaryColor
                 }
-            }
-            SButton {
-                id: searchButton
-                width: 36
-                height: 36
-                radius: 18
-                iconCharacter: "\uf100"
-                buttonColor: "transparent"
-                onClicked: {
-                    if(mainSearchInput.text.trim() === "") {
-                        mainWarn.tiped("请输入搜索内容", 0);
-                        return;
+                SButton {
+                    id: searchButton
+                    x: 163
+                    width: 36
+                    height: 36
+                    radius: 18
+                    iconCharacter: "\uf100"
+                    buttonColor: "transparent"
+                    onClicked: {
+                        if(mainSearchInput.text.trim() === "") {
+                            mainWarn.tiped("请输入搜索内容", 0);
+                            return;
+                        }
+                        window.doSearch(mainSearchInput.text);
+                        searchCard.close();
                     }
-                    window.doSearch(mainSearchInput.text);
-                    searchCard.close();
+                    //Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
                 }
-                Component.onCompleted: windowAgent.setHitTestVisible(searchButton, true);
             }
         }
 
@@ -772,9 +772,9 @@ Window {
                 mainWarn.tiped("图片尚未加载完成，请稍候", 0);
             }
         }
-        function dialog(_source: string, _title: string): void {
-            source = _source;
-            fileName = _title + ".png";
+        function dialog(source: string, title: string): void {
+            source = source;
+            fileName = title + ".png";
             picWatch.open();
         }
 

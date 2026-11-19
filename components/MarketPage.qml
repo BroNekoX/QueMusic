@@ -109,17 +109,50 @@ Item {
         id: listView
         anchors.top: chipsRow.bottom
         anchors.topMargin: 12
-        anchors.left: parent.left
-        anchors.right: parent.right
+        width: parent.width + 18
+        rightMargin: 18
+        bottomMargin: 24
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 24
         clip: true
         spacing: 8
         model: PluginMarket.list
+        property int scrollToY: listView.contentY
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            readonly property real wheelHeightCount: Theme.wheelStep
+            readonly property int scrollBottom: listView.contentHeight - listView.height + listView.bottomMargin + listView.originY
+            onWheel: (event) => {
+                listViewAnime.running = false;
+                listView.scrollToY = Math.max(listView.originY - listView.topMargin, Math.min( listView.scrollToY - (event.angleDelta.y * wheelHeightCount), scrollBottom));
+                viewBar.active = true;
+                event.accepted = true;
+                listViewAnime.running = true;
+            }
+        }
+
+        NumberAnimation {
+            id: listViewAnime
+            target: listView
+            property: "contentY"
+            duration: 240
+            to: listView.scrollToY
+            easing.type: Easing.OutCubic
+            onFinished: viewBar.active = false
+        }
+        QScrollBar.vertical: QScrollBar {
+            id: viewBar
+            parent: listView
+            anchors.top: listView.top
+            anchors.right: listView.right
+            anchors.bottom: listView.bottom
+            onPressedChanged: {
+                listView.scrollToY = listView.contentY
+            }
+        }
 
         delegate: Rectangle {
             id: card
-            width: listView.width
+            width: ListView.view.width - 18
             required property var modelData
 
             readonly property bool installed: modelData.installed

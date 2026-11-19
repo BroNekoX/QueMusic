@@ -46,6 +46,7 @@ Item {
                 color: root.choice === del.index ? Theme.primaryColor : Theme.textColor
             }
             TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
                 onTapped: {
                     root.transformed(del.index)
                 }

@@ -11,9 +11,10 @@ Item {
     property int standWidth: 0
     property int containWidth: 0
     property int containX: 0
-    property color cardColor: Theme.primaryColor
+    property color cardColor: Options.cardColor
     property int contentY: 0
     property int scrollToY: 0
+    property Item blurSource
 
     y: 60
     width: parent ? parent.width : 0
@@ -66,48 +67,12 @@ Item {
             height: downloadChildPage.height
             pluginType: "function"
         }
-        Item {
+        SourcePluginManager {
             id: musicMod
             visible: false
             width: downloadChildPage.width
             height: downloadChildPage.height
-            Rectangle {
-                y: 64
-                width: page.standWidth
-                height: warnModText.implicitHeight + 48
-                color: Theme.containColor
-                radius: Style.cubeRadius
-                border.color: Theme.sideColor
-                border.width: 1
-                Text {
-                    x: 24
-                    y: 24
-                    font.family: Fonts.icon
-                    height: warnModText.implicitHeight
-                    text: "\uf11a"
-                    color: Theme.themeColor
-                    font.pixelSize: Style.texticon
-                }
-                Text {
-                    id: warnModText
-                    x: 48
-                    y: 24
-                    width: parent.width - 64
-                    text: "音乐源插件还未开发完成，等待开发者更新喵"
-                    wrapMode: Text.Wrap
-                    color: Theme.textColor
-                    font.bold: false
-                    font.pixelSize: Style.textmain
-                }
-            }
-            Text {
-                anchors.fill: parent
-                text: "音乐源"
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: Theme.textColor
-                font.pixelSize: 14
-            }
+            blurSource: page.blurSource
         }
         MarketPage {
             id: modShop

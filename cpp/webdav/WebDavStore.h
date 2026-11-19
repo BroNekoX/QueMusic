@@ -50,14 +50,22 @@ public:
     Q_INVOKABLE QVariantMap sidecarsOf(const QString &audioUrl) const;
     Q_INVOKABLE QString userOf(const QString &id) const;
 
+    // 测试连接：列一次根目录，结果走 testFinished
+    Q_INVOKABLE void testServer(const QString &id);
+    // 记住每台服务器上次浏览的目录
+    Q_INVOKABLE QString lastDir(const QString &id) const;
+    Q_INVOKABLE void rememberDir(const QString &id, const QString &url);
+
 signals:
     void serversChanged();
+    void testFinished(const QString &id, bool ok, const QString &message);
 
 private:
     void load();
     void save() const;
     int indexOf(const QString &id) const;
     inline static WebDavStore *s_instance = nullptr;
+    class WebDavClient *m_client = nullptr;
     QVariantList m_servers;
     // servers() 读得频繁：缓存剥掉密码的副本，配置变更时置脏
     mutable QVariantList m_publicServers;

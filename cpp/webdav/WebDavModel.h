@@ -56,7 +56,7 @@ public:
     bool canGoUp() const;
 
     Q_INVOKABLE void openServer(const QString &serverId, const QString &authHeader,
-                                const QString &rootUrl);
+                                const QString &rootUrl, const QString &startUrl = {});
     Q_INVOKABLE void list(const QString &url);
     Q_INVOKABLE void enter(int row);
     Q_INVOKABLE void goUp();

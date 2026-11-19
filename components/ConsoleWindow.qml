@@ -164,9 +164,7 @@ Window {
         }
 
         function copyLogs() {
-            clipboard.text = LogManager.logPreview
-            clipboard.selectAll()
-            clipboard.copy()
+            App.copyText(LogManager.logPreview);
         }
 
         ColumnLayout {
@@ -287,9 +285,7 @@ Window {
         }
 
         function copyOutput() {
-            clipboard.text = commandPage.output
-            clipboard.selectAll()
-            clipboard.copy()
+            App.copyText(commandPage.output);
         }
 
         ColumnLayout {
@@ -585,9 +581,7 @@ Window {
             let text = infoPage.title() + " - " + infoPage.artist() + "\n"
             for (let i = 0; i < infoPage.rows.length; ++i)
                 text += infoPage.rows[i].label + ": " + infoPage.rows[i].value + "\n"
-            clipboard.text = text
-            clipboard.selectAll()
-            clipboard.copy()
+            App.copyText(text);
         }
 
         ColumnLayout {
@@ -712,7 +706,5 @@ Window {
                 }
             }
         }
-
-        TextEdit { id: clipboard; visible: false }
     }
 }

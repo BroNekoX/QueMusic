@@ -11,6 +11,7 @@
 #include <QStringList>
 #include <QTimer>
 #include <QVariant>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQmlIntegration/qqmlintegration.h>
@@ -47,6 +48,7 @@ class MusicApiService : public QObject
     Q_PROPERTY(QStringList sourceNames READ sourceNames NOTIFY sourcesChanged FINAL)
     Q_PROPERTY(QVariantList sourceIds READ sourceIds NOTIFY sourcesChanged FINAL)
     Q_PROPERTY(int soundQuality READ soundQuality WRITE setSoundQuality NOTIFY soundQualityChanged FINAL)
+    Q_PROPERTY(QVariantList sourcePlugins READ sourcePlugins NOTIFY sourcePluginsChanged FINAL)
 
     Q_PROPERTY(OnlineListModel *searchSongsResults READ searchSongsResults CONSTANT FINAL)
     Q_PROPERTY(OnlineListModel *newSongs READ newSongs CONSTANT FINAL)
@@ -180,6 +182,13 @@ public:
     Q_INVOKABLE void getSingerSongs(const QString &singerid, int page = 1, int pageSize = 20,
                                     int source = -1);
     Q_INVOKABLE void getMusicInfo(const QString &hash, int type = 0, int source = -1);
+    QVariantList sourcePlugins() const { return m_sourcePluginList; }
+    Q_INVOKABLE void setSourcePluginEnabled(int id, bool on);
+    Q_INVOKABLE QString importSourcePlugin(const QUrl &path);
+    Q_INVOKABLE QString removeSourcePlugin(int id);
+    Q_INVOKABLE void revealSourcePlugins();
+    Q_INVOKABLE void getMusicInfoAtQuality(const QString &hash, int type, int source,
+                                           int quality);
     Q_INVOKABLE void prefetchMusicInfo(const QString &hash, int source = -1);
     void invalidatePlayRequest();
     Q_INVOKABLE void getLyricInfo(const QString &hash, int duration, int source = -1);
@@ -218,6 +227,7 @@ signals:
     void playFailed(const QString &hash, int source);
     void songSourceChanged();
     void soundQualityChanged();
+    void sourcePluginsChanged();
     void sourcesChanged();
     void lyricsDataChanged();
     void lyricsTranslateChanged();
@@ -253,6 +263,7 @@ private:
 
     void rebuildSources();
     void rebuildPluginMappings();
+    void refreshSourcePlugins();
     void refreshAccountState();
 
     void beginRequest(const QString &action);
@@ -285,6 +296,8 @@ private:
     AccountManager *m_account = nullptr;
     QHash<int, SourceCredentials> m_credentials;
     QList<int> m_pluginSourceIds;
+    QString m_sourcesDir;
+    QVariantList m_sourcePluginList;
 
     QVariantList m_sourceList;
     QStringList m_sourceNames;
@@ -315,6 +328,7 @@ private:
     bool m_loadState = false;
     QHash<QString, int> m_pendingByAction;
     int m_pendingRequests = 0;
+    QHash<QString, qint64> m_inflight;
     QTimer m_requestWatchdog;
 
     QTimer m_lyricTimer;

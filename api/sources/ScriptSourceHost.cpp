@@ -40,23 +40,40 @@ public:
         return doc.isArray() ? doc.toVariant() : QVariant(doc.object().toVariantMap());
     }
 
+    Q_INVOKABLE QString post(const QString &url, const QString &body,
+                             const QVariantMap &headers = {})
+    {
+        return QString::fromUtf8(fetch(url, headers, body.toUtf8()));
+    }
+
+    Q_INVOKABLE QVariant postJson(const QString &url, const QString &body,
+                                  const QVariantMap &headers = {})
+    {
+        const QJsonDocument doc = QJsonDocument::fromJson(fetch(url, headers, body.toUtf8()));
+        return doc.isArray() ? doc.toVariant() : QVariant(doc.object().toVariantMap());
+    }
+
 private:
-    QByteArray fetch(const QString &url, const QVariantMap &headers)
+    QByteArray fetch(const QString &url, const QVariantMap &headers,
+                     const QByteArray &payload = {})
     {
         QNetworkRequest request{QUrl(url)};
-        request.setTransferTimeout(12000);
+        request.setTransferTimeout(5000);
         request.setRawHeader("User-Agent", "QueMusic/1.0");
+        if (!payload.isEmpty())
+            request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         for (auto it = headers.cbegin(); it != headers.cend(); ++it)
             request.setRawHeader(it.key().toUtf8(), it.value().toString().toUtf8());
 
-        QNetworkReply *reply = m_nam->get(request);
+        QNetworkReply *reply = payload.isEmpty() ? m_nam->get(request)
+                                                 : m_nam->post(request, payload);
         QEventLoop loop;
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         if (!reply->isFinished())
             loop.exec(QEventLoop::ExcludeUserInputEvents);
-        const QByteArray body = reply->readAll();
+        const QByteArray response = reply->readAll();
         reply->deleteLater();
-        return body;
+        return response;
     }
 
     QNetworkAccessManager *m_nam;

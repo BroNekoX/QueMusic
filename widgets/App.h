@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QGuiApplication>
+#include <QClipboard>
 #include <QObject>
 #include <QPointer>
 #include <QRect>
@@ -63,4 +65,12 @@ private:
     bool m_quitting = false;
     bool m_showPending = false;
     bool m_trayTipShown = false;
+
+public slots:
+    void copyText(const QString &text) {
+        QGuiApplication::clipboard()->setText(text);
+    }
+    QString pasteText() {
+        return QGuiApplication::clipboard()->text();
+    }
 };

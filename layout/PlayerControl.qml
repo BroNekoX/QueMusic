@@ -214,7 +214,8 @@ Rectangle {
                 text: "右键搜索"
             }
             TapHandler {
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                acceptedButtons: Qt.AllButtons
+                gesturePolicy: TapHandler.ReleaseWithinBounds
                 onTapped: (a,button) => {
                     if (button === Qt.RightButton) {
                         // 右键保留原有搜索菜单
@@ -257,6 +258,7 @@ Rectangle {
             }
             TapHandler {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                gesturePolicy: TapHandler.ReleaseWithinBounds
                 onTapped: (a,button) => {
                     if (button === Qt.RightButton) {
                         // 右键保留原有搜索菜单（多歌手选择）
@@ -522,6 +524,7 @@ Rectangle {
     }
 
     TapHandler {
+        gesturePolicy: TapHandler.ReleaseWithinBounds
         onTapped: musicControlMin.centerChange();
     }
 

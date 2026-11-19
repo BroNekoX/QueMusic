@@ -398,13 +398,14 @@ ListView {
             opacity: hoverArea.hovered || menu.displayIndex === listDel.index ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 128; easing.type: Easing.OutCubic } }
             TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onTapped: (a, button) => {
-                    if (button === Qt.LeftButton) {
-                        view.clicked(listDel.index);
-                    } else {
+                    if (button === Qt.RightButton) {
                         menu.index = listDel.index;
                         view.menu.popup();
+                    } else {
+                        view.clicked(listDel.index);
                     }
                     listDel.forceActiveFocus();
                 }

@@ -251,6 +251,40 @@ QVariantMap WebDavStore::sidecarsOf(const QString &audioUrl) const
     return m_sidecars.value(audioUrl);
 }
 
+void WebDavStore::testServer(const QString &id)
+{
+    const int index = indexOf(id);
+    if (index < 0) {
+        emit testFinished(id, false, QStringLiteral("服务器不存在"));
+        return;
+    }
+    if (!m_client)
+        m_client = new WebDavClient(this);
+    const QVariantMap server = m_servers.at(index).toMap();
+    m_client->listDir(QUrl(field(server, "url")), authHeader(id),
+                      [this, id](const QList<WebDavClient::Entry> &entries, const QString &error) {
+                          emit testFinished(id, error.isEmpty(),
+                                            error.isEmpty()
+                                                ? QStringLiteral("连接成功，目录 %1 项").arg(entries.size())
+                                                : error);
+                      });
+}
+
+QString WebDavStore::lastDir(const QString &id) const
+{
+    return AppSettings::value(QStringLiteral("WebDav"), QStringLiteral("dir_") + id).toString();
+}
+
+void WebDavStore::rememberDir(const QString &id, const QString &url)
+{
+    if (id.isEmpty() || url.isEmpty())
+        return;
+    const QString key = QStringLiteral("dir_") + id;
+    if (AppSettings::value(QStringLiteral("WebDav"), key).toString() == url)
+        return;
+    AppSettings::setValue(QStringLiteral("WebDav"), key, url);
+}
+
 QString WebDavStore::userOf(const QString &id) const
 {
     const int index = indexOf(id);

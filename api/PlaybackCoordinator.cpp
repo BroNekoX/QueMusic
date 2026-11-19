@@ -8,7 +8,9 @@
 #include "LocalLyricsReader.h"
 #include "QualityHashCache.h"
 
+
 #include <QDebug>
+#include <QTimer>
 #include <QFutureWatcher>
 #include <QtConcurrent>
 
@@ -51,6 +53,9 @@ void PlaybackCoordinator::beginPlay(const QString &hash, int source)
     ++m_playGeneration;
     m_playHash = hash;
     m_playSource = source;
+    stopChain();
+    m_chainLow = false;
+    m_chainTrialUrl.clear();
 }
 
 void PlaybackCoordinator::invalidate()
@@ -70,50 +75,80 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
     const int type = data.value("type").toInt();
     const QString playHash = data.value("hash").toString();
     const QString playUrl = ApiCommon::firstNonEmpty(data, {"url", "backup_url"});
+    const bool fromPlugin = source >= ApiSource::PluginBase;
 
-    if (type == 0 && isStalePlayResponse(playHash, source)) {
-        qDebug() << "[api] 丢弃过期播放响应 hash:" << playHash.left(8)
-                 << "当前代次 hash:" << m_playHash.left(8);
+    if (type == 0 && !fromPlugin && isStalePlayResponse(playHash, source))
         return;
-    }
-
-    const QString songName = data.value("songName").toString();
-    const QString author = data.value("author_name").toString();
 
     if (type == 2) {
-        emit playUrlReady(m_qualityCache->baseOf(playHash), playUrl, songName, author,
+        emit playUrlReady(m_qualityCache->baseOf(playHash), playUrl,
+                          data.value("songName").toString(),
+                          data.value("author_name").toString(),
                           sizedCover(data, 512), durationMsOf(data), source);
         return;
     }
 
+    if (fromPlugin) {
+        m_chainPending.remove(source);
+        if (!playUrl.isEmpty()) {
+            stopChain();
+        } else if (m_chainActive && m_chainPending.isEmpty()) {
+            finishChain();
+            return;
+        } else {
+            return;
+        }
+    }
+
+    // 试听片段当作“没有地址”，先让音源插件试；都不行再退回试听
+    const bool trial = type == 0 && ApiCommon::isTrial(data);
+    if (type == 0 && ApiSource::isBuiltin(source) && !m_chainActive && (playUrl.isEmpty() || trial)) {
+        if (m_chainLow) {
+            finishChain();
+            return;
+        }
+        startChain(data, playHash, source);
+        return;
+    }
     if (playUrl.isEmpty()) {
-        const bool networkFailed = data.contains("error");
-        const QString reason = data.value("errReason").toString();
-        const bool kugouNotLoggedIn = source == ApiSource::Kugou && !m_kugouLoggedIn;
-        const QString message = networkFailed ? QStringLiteral("网络请求失败，请检查网络后重试")
-            : reason == QLatin1String("vip")
-                ? (kugouNotLoggedIn ? QStringLiteral("该歌曲需要 VIP 会员，请先登录酷狗账号")
-                                    : QStringLiteral("该歌曲需要 VIP 会员或购买后才能播放"))
-                : kugouNotLoggedIn ? QStringLiteral("该歌曲暂无可用播放地址，可登录酷狗账号后重试")
-                                   : QStringLiteral("该歌曲受版权或会员限制，暂时无法获取播放地址");
-        qDebug() << "[api] 无法播放:" << message << "hash:" << playHash.left(8);
-        emit playFailed(m_qualityCache->baseOf(playHash), source);
-        emit warned(message, 2);
+        failPlay(data, playHash, source);
         return;
     }
 
+    QVariantMap payload = data;
+    int effectiveSource = source;
+    if (fromPlugin) {
+        payload = m_chainData;
+        payload.insert("url", playUrl);
+        payload.insert("backup_url", playUrl);
+        payload.insert("hash", playHash);
+        payload.insert("type", type);
+        payload.remove("errReason");
+        payload.remove("error");
+        effectiveSource = m_chainSource;
+    }
+    playResolved(payload, effectiveSource, playHash, type);
+}
+
+void PlaybackCoordinator::playResolved(const QVariantMap &payload, int source,
+                                       const QString &playHash, int type)
+{
+    const QString playUrl = ApiCommon::firstNonEmpty(payload, {"url", "backup_url"});
+    const QString outName = payload.value("songName").toString();
+    const QString outAuthor = payload.value("author_name").toString();
     const QString identityHash = m_qualityCache->baseOf(playHash);
-    const double timeLength = data.value("timeLength").toDouble();
+    const double timeLength = payload.value("timeLength").toDouble();
     const int durationSeconds = int(timeLength);
     const int timeMs = int(timeLength * (timeLength < 1000 ? 1000 : 1));
 
     if (source == ApiSource::Bilibili)
-        m_biliTrack = BiliTrack{playHash, songName, author, durationSeconds};
+        m_biliTrack = BiliTrack{playHash, outName, outAuthor, durationSeconds};
 
     if (type == 0) {
-        QString solve = data.value("album_img").toString();
+        QString solve = payload.value("album_img").toString();
         solve.replace(QLatin1String("{size}"), "128");
-        emit urlplay(playUrl, songName, author, sizedCover(data, 512), solve, identityHash, source);
+        emit urlplay(playUrl, outName, outAuthor, sizedCover(payload, 512), solve, identityHash,
+                     source);
 
         if (m_lyricGenerations.size() > 32) {
             for (auto it = m_lyricGenerations.begin(); it != m_lyricGenerations.end();) {
@@ -127,19 +162,107 @@ void PlaybackCoordinator::handleMusicInfo(const QVariantMap &data, int source)
         emit lyricRequested(playHash, timeMs, source);
     } else if (type == 1) {
         QVariantMap meta;
-        meta.insert("title", songName);
-        meta.insert("artist", author);
-        meta.insert("cover", sizedCover(data, 512));
+        meta.insert("title", outName);
+        meta.insert("artist", outAuthor);
+        meta.insert("cover", sizedCover(payload, 512));
         meta.insert("duration", durationSeconds);
         meta.insert("hash", playHash);
         meta.insert("url", playUrl);
-        meta.insert("fileName", data.value("fileName").toString());
+        meta.insert("fileName", payload.value("fileName").toString());
 
         if (m_pendingDownloads.size() > 32)
             m_pendingDownloads.clear();
         m_pendingDownloads.insert(playHash, meta);
         emit lyricRequested(playHash, timeMs, source);
     }
+}
+
+void PlaybackCoordinator::startChain(const QVariantMap &data, const QString &hash, int source)
+{
+    m_chainData = data;
+    m_chainHash = hash;
+    m_chainSource = source;
+    m_chainActive = true;
+    m_chainLow = false;
+    m_chainTrialUrl = ApiCommon::isTrial(data)
+                          ? ApiCommon::firstNonEmpty(data, {"url", "backup_url"})
+                          : QString();
+
+    m_chainPending.clear();
+    for (int id : std::as_const(m_sourcePlugins)) {
+        if (id > 0)
+            m_chainPending.insert(id);
+    }
+    if (m_chainPending.isEmpty()) {
+        finishChain();
+        return;
+    }
+
+    if (!m_chainTimer) {
+        m_chainTimer = new QTimer(this);
+        m_chainTimer->setSingleShot(true);
+        connect(m_chainTimer, &QTimer::timeout, this, [this] {
+            if (m_chainActive)
+                finishChain();
+        });
+    }
+    m_chainTimer->start(5000);
+
+    const QVariantMap args{{ApiArg::Hash, hash}, {ApiArg::Id, hash}, {ApiArg::Type, 0},
+                           {QStringLiteral("platform"), source},
+                           {QStringLiteral("quality"), m_soundQuality}};
+    const QSet<int> pending = m_chainPending;
+    for (int id : pending)
+        emit searchRequested(ApiAction::MusicInfo, args, id);
+}
+
+void PlaybackCoordinator::stopChain()
+{
+    m_chainActive = false;
+    m_chainPending.clear();
+    if (m_chainTimer)
+        m_chainTimer->stop();
+}
+
+void PlaybackCoordinator::finishChain()
+{
+    stopChain();
+    if (!m_chainLow) {
+        m_chainLow = true;
+        emit lowQualityRequested(m_chainHash, m_chainSource);
+        return;
+    }
+    if (!m_chainTrialUrl.isEmpty()) {
+        QVariantMap payload = m_chainData;
+        payload.insert("url", m_chainTrialUrl);
+        payload.insert("backup_url", m_chainTrialUrl);
+        payload.remove("errReason");
+        playResolved(payload, m_chainSource, m_chainHash, 0);
+        emit warned(QStringLiteral("版权限制，仅能试听 30 秒"), 1);
+        return;
+    }
+    failPlay(m_chainData, m_chainHash, m_chainSource);
+}
+
+void PlaybackCoordinator::failPlay(const QVariantMap &data, const QString &hash, int source)
+{
+    stopChain();
+    m_chainLow = false;
+    const bool networkFailed = data.contains("error");
+    const QString reason = data.value("errReason").toString();
+    const bool kugouNotLoggedIn = source == ApiSource::Kugou && !m_kugouLoggedIn;
+    const QString message = networkFailed
+        ? QStringLiteral("网络请求失败，请检查网络后重试")
+        : reason == QLatin1String("vip")
+            ? (kugouNotLoggedIn
+                   ? QStringLiteral("该歌曲需要 VIP，请登录酷狗或启用音源插件")
+                   : QStringLiteral("该歌曲需要 VIP，可登录对应平台或启用音源插件"))
+            : (kugouNotLoggedIn
+                   ? QStringLiteral("暂无可用播放地址，可登录酷狗或启用音源插件")
+                   : QStringLiteral("该歌曲受版权限制，可启用音源插件后重试"));
+    qDebug() << "[api] 无法播放:" << message << "hash:" << hash.left(8);
+    emit playFailed(m_qualityCache->baseOf(hash), source);
+    emit warned(message, 2);
 }
 
 void PlaybackCoordinator::handleLyricInfo(const QVariantMap &data, int source)

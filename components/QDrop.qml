@@ -60,6 +60,7 @@ Rectangle {
     }
 
     TapHandler {
+        gesturePolicy: TapHandler.WithinBounds
         enabled: root.enabled
         onTapped: {
             if(popmenu.visible) {

@@ -766,7 +766,6 @@ Item {
         height: parent.height
         color: settingsView.mainContentColor
         z: 2
-        property color cardColor: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
         property list<Item> setPages: [
             themeset,
             uiset,
@@ -809,7 +808,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
             blurSource: settingsView
             onNeteaseLoginRequested: {
                 settingsView.neteaseShowLogin = true
@@ -829,7 +827,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
             blurSource: settingsView
         }
 
@@ -838,7 +835,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
         }
 
         AudioSettingsPage {
@@ -846,7 +842,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
         }
 
         ShortcutSettingsPage {
@@ -854,7 +849,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
         }
 
         PluginSettingsPage {
@@ -862,7 +856,7 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
+            blurSource: settingsView
         }
 
         AboutSettingsPage {
@@ -870,7 +864,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
             blurSource: settingsView
         }
 
@@ -879,7 +872,6 @@ Item {
             standWidth: settingStack.standWidth
             containWidth: settingStack.containWidth
             containX: settingStack.containX
-            cardColor: settingStack.cardColor
         }
     }
 }

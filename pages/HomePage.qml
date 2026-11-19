@@ -13,16 +13,6 @@ Item {
     readonly property int pagePadding: 24
     readonly property int pagePaddingRight: 28
 
-    // 平台品牌色集中一处：tint 底色 / line 描边 / ink 文字
-    readonly property var sourceStyle: [
-        { ink: "#0F3975", tint: "#CDE8FF", line: "#4384F5" },
-        { ink: "#750F0F", tint: "#FFCDCD", line: "#F54343" },
-        { ink: "#7A1C3C", tint: "#FFD9E6", line: "#FB7299" },
-        { ink: "#16750F", tint: "#CDFFCD", line: "#4DF543" },
-        { ink: "#756F0F", tint: "#FFFFCD", line: "#F5F543" }
-    ]
-    readonly property var sourceSkin: sourceStyle[Math.max(0, Math.min(MusicApi.songSource, sourceStyle.length - 1))]
-
     property string greeting: homePage.greetingText()
     property var roamTitles: []   // 分类名，QBlurTapBar 只接受字符串数组
     property int roamIndex: 0     // 当前分类下标，与窗口内 tabbar 的选中项同步
@@ -129,14 +119,11 @@ Item {
             QDrop {
                 width: 128
                 height: 36
+                radius: 18
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                radius: 18
                 cardRadius: Style.labelRadius
                 choice: Math.max(0, MusicApi.sourceIds.indexOf(MusicApi.songSource))
-                color: homePage.sourceSkin.tint
-                textColor: homePage.sourceSkin.ink
-                border.color: homePage.sourceSkin.line
                 model: MusicApi.sourceNames
                 onTransformed: (choiced) => {
                     MusicApi.songSource = MusicApi.sourceIdAt(choiced);
@@ -471,7 +458,7 @@ Item {
                 width: homeView.cardWidth
                 height: width + 106
                 radius: Style.labelRadius
-                color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
+                color: Options.cardColor
                 Accessible.role: Accessible.ListItem
                 Accessible.name: recomPlayRow.title
                 Accessible.description: recomPlayRow.album
@@ -740,7 +727,7 @@ Item {
                 width: homeView.cardWidth
                 height: width + 106
                 radius: Style.labelRadius
-                color: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
+                color: Options.cardColor
                 Accessible.role: Accessible.ListItem
                 Accessible.name: hotPlayRow.title
                 Accessible.description: hotPlayRow.album

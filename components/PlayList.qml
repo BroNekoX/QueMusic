@@ -462,7 +462,7 @@ Popup {
             rightMargin: 12
             bottomMargin: 12
             property int scrollToY: playListView.contentY
-            reuseItems: true
+            //reuseItems: true
             move: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
             moveDisplaced: Transition { NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutCubic } }
 
@@ -567,6 +567,7 @@ Popup {
                     z: 2
                     Behavior on opacity { NumberAnimation { duration: 80 } }
                     TapHandler {
+                        gesturePolicy: TapHandler.WithinBounds
                         onTapped: {
                             // 预览态：点哪首就加载对应保存列表并播放该位置
                             if (playList.previewing) {
@@ -574,8 +575,11 @@ Popup {
                                 playList.loadSaved(playList.previewId);
                                 return;
                             }
-                            Options.queue.playListIndex = listfile.index;
-                            Playback.playIndex(listfile.index);
+                            // 按 path 重新查下标，避免 delegate 复用后的 index 过期
+                            const at = Options.queue.indexOfPath(listfile.path)
+                            const target = at >= 0 ? at : listfile.index
+                            Options.queue.playListIndex = target
+                            Playback.playIndex(target);
                         }
                     }
                     HoverHandler {

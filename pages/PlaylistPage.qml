@@ -113,16 +113,12 @@ Item {
                 color: Theme.fontColor
             }
             QDrop {
-                x: parent.width - 120
-                y: 0
-                height: 36; width: 120
-                anchors.right: parent.right
-                choice: Math.max(0, MusicApi.sourceIds.indexOf(MusicApi.songSource))
-                textColor: MusicApi.songSource === 0 ? "#0F3975" : MusicApi.songSource === 1 ? "#750F0F" : MusicApi.songSource === 2 ? "#7A1C3C" : MusicApi.songSource === 3 ? "#16750F" : MusicApi.songSource === 4 ? "#0B5D2E" : "#6B0F18"
-                color: MusicApi.songSource === 0 ? "#CDE8FF" : MusicApi.songSource === 1 ? "#FFCDCD" : MusicApi.songSource === 2 ? "#FFD9E6" : MusicApi.songSource === 3 ? "#CDFFCD" : MusicApi.songSource === 4 ? "#D7F5E3" : "#FFD9DD"
-                border.color: MusicApi.songSource === 0 ? "#4384F5" : MusicApi.songSource === 1 ? "#F54343" : MusicApi.songSource === 2 ? "#FB7299" : MusicApi.songSource === 3 ? "#4DF543" : MusicApi.songSource === 4 ? "#1DB954" : "#FA243C"
+                width: 128
+                height: 36
                 radius: 18
+                anchors.right: parent.right
                 cardRadius: Style.labelRadius
+                choice: Math.max(0, MusicApi.sourceIds.indexOf(MusicApi.songSource))
                 model: MusicApi.sourceNames
                 onTransformed: (choiced) => {
                     MusicApi.songSource = MusicApi.sourceIdAt(choiced);

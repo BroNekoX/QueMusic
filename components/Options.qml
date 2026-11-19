@@ -8,10 +8,11 @@ import QueMusic 1.0
 
 QtObject {
     // 跨文件共享对象：main.qml 启动时注入
-    property QueueModel queue
+    property QueueModel queue: Playback.queue
     property QAlertDialog dialog
     property DesktopPlayer desktop
     readonly property bool isMacOS: Qt.platform.os === "osx"
+    readonly property color cardColor: Style.backmode === 0 ? Theme.primaryColor : Theme.primaryBlurColor
 
     property Item mainLayout
     property GetWave getWave
@@ -19,7 +20,6 @@ QtObject {
     property QOptionDialog picWatch
     property SongInfoDialog songInfo
     property FavoriteFolderDialog favPicker
-    property CoverHelper coverHelper
     property NumberAnimation openMaxLyric
     property NumberAnimation settingOutAnime
     property QTextField mainSearchInput

@@ -18,7 +18,7 @@ TextField {
 
     color: Theme.fontColor
     selectionColor: Theme.themeColor
-    selectedTextColor: Theme.primaryColor
+    selectedTextColor: Theme.fontColor
     placeholderTextColor: Theme.textColor
     verticalAlignment: TextInput.AlignVCenter
     selectByMouse: true

@@ -58,6 +58,7 @@ Popup {
                     id: hoverHandler
                 }
                 TapHandler {
+                    gesturePolicy: TapHandler.WithinBounds
                     onTapped: {
                         dialog.clicked(menuItem.index);
                         dialog.close();

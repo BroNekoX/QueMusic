@@ -186,16 +186,13 @@ void PluginStore::load()
 void PluginStore::rebuild()
 {
     m_functions.clear();
-    m_sources.clear();
     m_lyrics = builtinLyrics();
 
     for (const QVariant &item : std::as_const(m_all)) {
         const QString type = item.toMap().value(QStringLiteral("type")).toString();
         if (type == QStringLiteral("lyrics"))
             m_lyrics << item;
-        else if (type == QStringLiteral("source"))
-            m_sources << item;
-        else
+        else if (type != QStringLiteral("source"))
             m_functions << item;
     }
 
