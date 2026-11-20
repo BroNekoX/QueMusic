@@ -32,7 +32,7 @@ import struct
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageStat
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCES = ROOT / "resources"
@@ -93,26 +93,42 @@ def _mean_diff(a: Image.Image, b: Image.Image) -> float:
 # macOS
 # --------------------------------------------------------------------------
 def body_mask(size: int, radius: float, exponent: float, supersample: int = 4) -> Image.Image:
-    """返回 size×size 的灰度遮罩：中间是半径为 radius 的连续圆角方形。"""
-    import numpy as np
+    """返回 size×size 的灰度遮罩：中间是半径为 radius 的连续圆角方形。
 
-    n = size * supersample
-    coord = (np.arange(n, dtype=np.float64) + 0.5) / supersample
-    x, y = np.meshgrid(coord, coord)
+    纯 Pillow 实现（不依赖 numpy）：在 supersample 倍分辨率上画「十字矩形 + 四个
+    圆角多边形」，再 BOX 降采样，得到和逐像素超采样等价的抗锯齿 alpha。
+    曲线在角部局部坐标里是 x^exponent + y^exponent = 1。
+    """
+    scale = max(1, int(supersample))
+    n = size * scale
+    r = radius * scale
 
-    # 到最近一条边的距离；直边区域不用算圆角
-    cx = np.minimum(x, size - x)
-    cy = np.minimum(y, size - y)
+    mask = Image.new("L", (n, n), 0)
+    draw = ImageDraw.Draw(mask)
 
-    straight = (cx >= radius) | (cy >= radius)
-    tx = np.clip((radius - cx) / radius, 0.0, 1.0)
-    ty = np.clip((radius - cy) / radius, 0.0, 1.0)
-    corner = (tx**exponent + ty**exponent) <= 1.0
-    inside = (straight | corner).astype(np.float64)
+    # 去掉四个角之后的两块矩形
+    draw.rectangle([0, r, n, n - r], fill=255)
+    draw.rectangle([r, 0, n - r, n], fill=255)
 
-    # 4×4 超采样降回目标分辨率，得到抗锯齿的 alpha
-    mask = inside.reshape(size, supersample, size, supersample).mean(axis=(1, 3))
-    return Image.fromarray((mask * 255.0 + 0.5).astype("uint8"), mode="L")
+    # 角部曲线：t 从 0→1，从 (r,0) 走到 (0,r)
+    steps = 256
+    curve = []
+    for i in range(steps + 1):
+        t = i / steps
+        q = (1.0 - t ** exponent) ** (1.0 / exponent)
+        curve.append((r * (1.0 - t), r * (1.0 - q)))
+
+    # 每个角的「内侧」：曲线 + 朝向中心的角点 (r, r)，补上十字矩形没盖住的四块
+    mirrors = (
+        lambda x, y: (x, y),            # 左上
+        lambda x, y: (n - x, y),        # 右上
+        lambda x, y: (x, n - y),        # 左下
+        lambda x, y: (n - x, n - y),    # 右下
+    )
+    for mirror in mirrors:
+        draw.polygon([mirror(x, y) for x, y in curve] + [mirror(r, r)], fill=255)
+
+    return mask.resize((size, size), Image.BOX)
 
 
 def build_macos_canvas(src: Image.Image, canvas: int, body: int, radius: float, exponent: float) -> Image.Image:
