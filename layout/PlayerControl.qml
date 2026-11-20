@@ -138,16 +138,21 @@ Rectangle {
             color: "#ffffff"
             border.color: Theme.themeColor
             border.width: 2.5
-            ToolTip {
-                visible: parent.visible
-                text: musicControlMin.mediaTime
-                horizontalPadding: 10
-                background: Rectangle {
-                    anchors.fill: parent
-                    color: "#fcfdff"
-                    border.width: 2
-                    radius: height
-                    border.color: "#cccdcf"
+            Rectangle {
+                x: Math.max(0, Math.min(progressSlider.width - width, parent.x + parent.width / 2 - width / 2)) - parent.x
+                y: - 32
+                height: 26
+                width: timeText.width + 16
+                color: "#fcfdff"
+                border.width: 2
+                radius: height
+                border.color: "#cccdcf"
+                Text {
+                    id: timeText
+                    anchors.centerIn: parent
+                    text: musicControlMin.mediaTime
+                    font.pixelSize: Style.text
+                    color: "#444547"
                 }
             }
         }
