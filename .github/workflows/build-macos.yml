@@ -85,16 +85,37 @@ jobs:
               MISSING=1
             fi
           }
+          # 工具位置不固定：Qt 6 在 macOS/Linux 把 moc/rcc/uic/qmlimportscanner 这类
+          # 构建工具放在 libexec/，Windows 放在 bin/；macdeployqt 在 bin/。
+          # 两个位置都探测，别再写死 bin（第一次跑就是栽在 bin/moc 上）。
+          check_tool() {
+            local name="$1" p
+            for p in "$QT_PREFIX/bin/$name" "$QT_PREFIX/libexec/$name"; do
+              if [ -x "$p" ]; then
+                echo "  ✅ $name ($p)"
+                return 0
+              fi
+            done
+            echo "  ❌ 缺少 $name：bin/ 和 libexec/ 都没有"
+            MISSING=1
+            return 0
+          }
           check_path "Qt6Multimedia (cmake)"  "$QT_PREFIX/lib/cmake/Qt6Multimedia"
           check_path "Qt6ShaderTools (cmake)" "$QT_PREFIX/lib/cmake/Qt6ShaderTools"
-          check_path "moc (qttools)"          "$QT_PREFIX/bin/moc"
-          check_path "macdeployqt"            "$QT_PREFIX/bin/macdeployqt"
-          # qmlimportscanner 在 Qt 6 里可能放在 bin/ 或 libexec/，缺了只提示不判死：
-          # macdeployqt 自己找不到时会给出明确报错。
-          if [ -x "$QT_PREFIX/bin/qmlimportscanner" ] || [ -x "$QT_PREFIX/libexec/qmlimportscanner" ]; then
-            echo "  ✅ qmlimportscanner"
+          check_tool moc
+          check_tool qmlimportscanner
+
+          # macdeployqt 的位置也记下来给打包步骤用，别在那边再写死一次 bin/。
+          MACDEPLOYQT=""
+          for p in "$QT_PREFIX/bin/macdeployqt" "$QT_PREFIX/libexec/macdeployqt"; do
+            if [ -x "$p" ]; then MACDEPLOYQT="$p"; break; fi
+          done
+          if [ -n "$MACDEPLOYQT" ]; then
+            echo "  ✅ macdeployqt ($MACDEPLOYQT)"
+            echo "MACDEPLOYQT=$MACDEPLOYQT" >> "$GITHUB_ENV"
           else
-            echo "  ⚠️  bin/ 和 libexec/ 下都没看到 qmlimportscanner（macdeployqt -qmldir 需要它）"
+            echo "  ❌ 缺少 macdeployqt：bin/ 和 libexec/ 都没有"
+            MISSING=1
           fi
           check_path "QtQuick.Controls.Basic" "$QT_PREFIX/qml/QtQuick/Controls/Basic"
           check_path "QtQuick.Effects"        "$QT_PREFIX/qml/QtQuick/Effects"
@@ -235,7 +256,7 @@ jobs:
           #   QmlImports = Resources/qml。）
           # 注意：macdeployqt 会顺手把非 Qt 的第三方 dylib（这里就是 Qt 自带的 libav*）
           # 一起拷进 Contents/Frameworks 并改写 install name，所以无需 brew 装 ffmpeg。
-          "$QT_PREFIX/bin/macdeployqt" "$APP_PATH" -qmldir="$PWD/.qmlscan" -always-overwrite
+          "$MACDEPLOYQT" "$APP_PATH" -qmldir="$PWD/.qmlscan" -always-overwrite
 
       # macdeployqt 部署一个 QML 模块时是「整个模块目录一起搬」，所以只要用到
       # QtQuick/Controls，Material/Fusion/Imagine/Universal/FluentWinUI3 五套风格
