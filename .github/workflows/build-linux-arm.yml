@@ -47,7 +47,8 @@ jobs:
             libpulse-dev libpulse0 \
             extra-cmake-modules libx11-dev \
             libwayland-dev libwayland-bin wayland-protocols \
-            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev \
+            zlib1g-dev
           # 说明（与 x86 版一致）：
           #   - 不装 qt6-wayland / fcitx5-frontend-qt6：那是「系统 Qt」的插件，与本项目
           #     aqt 安装的 Qt 6.10.3 ABI 不匹配，相应插件都用同一份 Qt 自行编译

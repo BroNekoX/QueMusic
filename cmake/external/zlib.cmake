@@ -47,4 +47,43 @@ add_library(quemusic::zlib STATIC IMPORTED GLOBAL)
 set_target_properties(quemusic::zlib PROPERTIES
     IMPORTED_LOCATION "${QUEMUSIC_ZLIB_LIBRARY}"
 )
-message(STATUS "[QueMusic] Using zlib: ${QUEMUSIC_ZLIB_LIBRARY}")
+
+# 头文件路径：必须与 libz 配套，且不能把工具链 include 整目录加进搜索路径
+# （Windows 上会遮蔽 libc++ 的 stddef.h/stdint.h）；Windows 只取 zlib.h/zconf.h。
+set(_qm_zlib_include_dir "")
+if(WIN32)
+    get_filename_component(_qm_zlib_libdir "${QUEMUSIC_ZLIB_LIBRARY}" DIRECTORY)
+    get_filename_component(_qm_zlib_sysroot "${_qm_zlib_libdir}" DIRECTORY)
+    set(_qm_zlib_src_include "${_qm_zlib_sysroot}/include")
+    if(EXISTS "${_qm_zlib_src_include}/zlib.h" AND EXISTS "${_qm_zlib_src_include}/zconf.h")
+        set(_qm_zlib_include_dir "${CMAKE_BINARY_DIR}/zlib-include")
+        file(MAKE_DIRECTORY "${_qm_zlib_include_dir}")
+        configure_file("${_qm_zlib_src_include}/zlib.h" "${_qm_zlib_include_dir}/zlib.h" COPYONLY)
+        configure_file("${_qm_zlib_src_include}/zconf.h" "${_qm_zlib_include_dir}/zconf.h" COPYONLY)
+    endif()
+else()
+    get_filename_component(_qm_zlib_libdir "${QUEMUSIC_ZLIB_LIBRARY}" DIRECTORY)
+    get_filename_component(_qm_zlib_prefix "${_qm_zlib_libdir}" DIRECTORY)
+    foreach(_qm_dir IN ITEMS
+            "${ZLIB_ROOT}/include"
+            "$ENV{ZLIB_ROOT}/include"
+            "${_qm_zlib_prefix}/include"
+            "/usr/include"
+            "/usr/local/include")
+        if(EXISTS "${_qm_dir}/zlib.h")
+            set(_qm_zlib_include_dir "${_qm_dir}")
+            break()
+        endif()
+    endforeach()
+endif()
+
+if(NOT _qm_zlib_include_dir)
+    message(FATAL_ERROR
+        "zlib.h not found. Install zlib development headers (e.g. zlib1g-dev on Debian/Ubuntu) "
+        "or configure with -DZLIB_ROOT=<zlib prefix>.")
+endif()
+
+set_target_properties(quemusic::zlib PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${_qm_zlib_include_dir}"
+)
+message(STATUS "[QueMusic] Using zlib: ${QUEMUSIC_ZLIB_LIBRARY} (${_qm_zlib_include_dir})")

@@ -57,7 +57,8 @@ jobs:
             libwayland-dev libwayland-bin wayland-protocols \
             libvulkan1 libvulkan-dev \
             libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev \
-            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev \
+            zlib1g-dev
 
       - name: Install Qt (aqtinstall)
         run: |

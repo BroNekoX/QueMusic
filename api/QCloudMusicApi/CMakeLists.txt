@@ -21,9 +21,13 @@ endif()
 
 add_library(cryptopp STATIC ${CRYPTOPP_SOURCES})
 add_library(cryptopp::cryptopp ALIAS cryptopp)
-target_include_directories(cryptopp PUBLIC
-    ${CRYPTOPP_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty)
+# ${CRYPTOPP_DIR} 只给 cryptopp 自己用：它的 zlib.h 会遮蔽系统 <zlib.h>
+target_include_directories(cryptopp
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty
+    PRIVATE
+        ${CRYPTOPP_DIR}
+)
 set_target_properties(cryptopp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # 纯 C++ 实现：不依赖每文件 SIMD 开关，各平台同一套配置
 target_compile_definitions(cryptopp PUBLIC CRYPTOPP_DISABLE_ASM=1)

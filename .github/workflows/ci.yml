@@ -39,7 +39,7 @@ jobs:
             libxcb-randr0-dev libxcb-shape0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev libegl1-mesa-dev \
             libpulse-dev libx11-dev extra-cmake-modules ninja-build wget file \
-            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev zlib1g-dev
 
       - name: 安装 Qt
         run: |

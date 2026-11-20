@@ -29,8 +29,8 @@ QtObject {
     property int exitIndex: 0          // 要求主界面切到的页
     property bool homeLoaded: false    // 首页是否已加载
     property bool recordingShortCut: false
-    readonly property int versionCode: 72
-    readonly property int pluginApi: 10
+    readonly property int versionCode: 80
+    readonly property int pluginApi: 20
     property string searchText: ""
     property bool isSmall: Style.leftBarMode === 0 ? (mainLayout ? mainLayout.width < 1080 : false) : Style.leftBarMode === 1 ? false : true
     property real barWidth: isSmall ? 74 : 210

@@ -51,7 +51,7 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgl1-mesa-dev libegl1-mesa-dev libx11-dev \
             libpulse-dev libpulse0 \
-            extra-cmake-modules ninja-build cmake wget file patchelf binutils
+            extra-cmake-modules ninja-build cmake wget file patchelf binutils zlib1g-dev
           # libpulse-dev/libpulse0 是必须的：Qt 官方 libQt6Multimedia.so 的 DT_NEEDED 里有
           # libpulse.so.0，链接期找不到它就会报一长串 pa_*@PULSE_0 未定义（和 x86 AppImage
           # / arm64 流程保持一致）。运行期这个库由用户机器提供（装了 Qt 6.10 就有）。

@@ -7,7 +7,7 @@
 #include <QFileInfo>
 #include <QtEndian>
 
-#include <QtZlib/zlib.h>
+#include <zlib.h>
 
 namespace {
 
