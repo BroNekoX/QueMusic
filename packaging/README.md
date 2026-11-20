@@ -94,7 +94,13 @@ macOS 用户首次打开若提示"无法验证开发者"：
 > 未来若想消除提示，需要注册 Apple Developer（$99/年）并配置签名与公证。
 
 ### 想只出 Apple Silicon 版？
-编辑 `.github/workflows/build-macos.yml`，把 matrix 里的 `macos-13` 删掉即可。
+编辑 `.github/workflows/build-macos.yml`，把 matrix 里的 `macos-15-intel` 删掉即可。
+
+> 矩阵用的是 `macos-15`（arm64）和 `macos-15-intel`（x86_64）两个**固定**标签。
+> GitHub 会整代下线 macOS runner 镜像（macos-13 于 2025-11、macos-14 于 2026-11-02 退役），
+> 标签失效时 job 会在 0 步时被取消并报
+> `The configuration 'macos-14-arm64-us-default' is not supported`。
+> 遇到这种报错先查 <https://github.com/actions/runner-images> 当前可用的 YAML 标签，改 matrix 即可。
 
 ## 三、Linux AppImage 打包
 
