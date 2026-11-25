@@ -34,12 +34,12 @@ Popup {
         dialog.open()
     }
 
-    padding: 2
+    padding: 3
 
     parent: Overlay.overlay
 
     implicitWidth: 160
-    implicitHeight: menuColumn.implicitHeight + 4
+    implicitHeight: menuColumn.implicitHeight + 6
 
     contentItem: Column {
         id: menuColumn
@@ -47,7 +47,7 @@ Popup {
             model: dialog.model
             delegate: Rectangle {
                 id: menuItem
-                implicitWidth: dialog.width - 4
+                implicitWidth: dialog.width - 6
                 implicitHeight: 36
                 radius: Style.labelRadius - 2
                 color: menuItem.index === dialog.current ? Theme.containColor : hoverHandler.hovered ? Theme.hoverColor : "transparent"

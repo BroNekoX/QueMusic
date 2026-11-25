@@ -6,8 +6,6 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // 滚轮一格的滚动量：Qt.styleHints.wheelScrollLines（行）× 0.25。
-    // 集中在这里，既去掉各文件里的魔法数，也让 qmllint 的 missing-property 只出现在一处。
     readonly property real wheelStep: Qt.styleHints ? Qt.styleHints.wheelScrollLines * 0.25 : 0.75
     //主色
     property color themeColor: "#3481fa"

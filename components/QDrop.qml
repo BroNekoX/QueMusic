@@ -15,7 +15,7 @@ Rectangle {
     property color buttonColor: Theme.primaryColor
     color: Theme.primaryColor
     border.width: 2
-    border.color: Theme.borderColor
+    border.color: popmenu.visible ? Theme.themeColor : Theme.borderColor
     property string text: (model && choice >= 0 && choice < model.length) ? String(model[choice]) : ""
     property string icon: "\uf096"
     property var model: ["Click1","Click2"]
@@ -81,16 +81,16 @@ Rectangle {
         y: root.height + 6
         z: 10
         width: root.width
-        height: root.model.length * 36 + 4
-        padding: 0
+        height: root.model.length * 36 + 6
+        padding: 3
         margins: 0
         enter: Transition {
             NumberAnimation { property: "opacity"; duration: 240; from: 0.0; to: 1.0; easing.type: Easing.OutExpo }
-            NumberAnimation { property: "scale"; duration: 240; from: 0.5; to: 1.0; easing.type: Easing.OutExpo }
+            NumberAnimation { property: "scale"; duration: 240; from: 0.6; to: 1.0; easing.type: Easing.OutExpo }
         }
         exit: Transition {
             NumberAnimation { property: "opacity"; duration: 120; to: 0.0 }
-            NumberAnimation { property: "scale"; duration: 120; to: 0.7 }
+            NumberAnimation { property: "scale"; duration: 120; to: 0.8 }
         }
         transformOrigin: Popup.Top
 
@@ -111,9 +111,7 @@ Rectangle {
         }
 
         contentItem: Column {
-            id: dropList 
-            anchors.fill: parent
-            anchors.margins: 2
+            id: dropList
             Repeater {
                 model: root.model
                 delegate: Rectangle {
@@ -122,16 +120,15 @@ Rectangle {
                     width: dropList.width
                     height: 36
                     color: root.choice === dropDele.index ? Theme.themeColor : "transparent"
-                    radius: root.cardRadius
+                    radius: root.cardRadius - 2
                     required property string modelData
                     required property int index
                     Text {
-                        anchors.fill: parent
                         text: dropDele.modelData
                         color: root.choice === dropDele.index ? Theme.primaryColor : Theme.textColor
                         font.pixelSize: Style.textmain
-                        verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: Text.AlignHCenter
+                        anchors.verticalCenter: dropDele.verticalCenter
+                        x: 16
                     }
                 
                     Rectangle {

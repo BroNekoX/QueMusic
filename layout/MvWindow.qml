@@ -54,8 +54,8 @@ Window {
     Connections {
         target: MusicApi
         function onMvReady(): void {
-            root.show()
-            root.requestActivate()
+            root.show();
+            root.requestActivate();
         }
     }
 
@@ -115,11 +115,14 @@ Window {
     }
 
     Rectangle {
+        id: headTab
         width: parent.width
+        y: root.controlsVisible ? 0 : -72
         height: 72
         z: 10
         color: "#b3000000"
-        visible: root.controlsVisible
+        visible: y !== -72
+        Behavior on y { NumberAnimation { duration: 480; easing.type: Easing.OutExpo } }
 
         Column {
             x: 24
@@ -241,14 +244,28 @@ Window {
             onClicked: MusicApi.retryMv()
         }
     }
+    // 全屏小进度条
+    Rectangle {
+        y: parent.height - 3
+        visible: !headTab.visible
+        z: 8
+        width: parent.width
+        height: 3
+        color: Theme.sideColor
+        Rectangle {
+            height: 3
+            width: parent.width * player.position / progress.to
+            color: Theme.themeColor
+        }
+    }
 
     Rectangle {
-        anchors.bottom: parent.bottom
+        y: parent.height - 110 - headTab.y * 1.6
         width: parent.width
         height: 110
         z: 10
         color: "#b3000000"
-        visible: root.controlsVisible
+        visible: headTab.visible
 
         T.Slider {
             id: progress

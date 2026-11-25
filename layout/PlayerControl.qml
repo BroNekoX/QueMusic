@@ -386,9 +386,9 @@ Rectangle {
             width: 46
             height: 46
             radius: 46
-            buttonColor: Theme.sideBlurColor
+            buttonColor: Style.coverColorControl && Style.noOpacityControl ? Theme.sideBlurColor : Theme.themeColor
             hoverColor: Theme.hoverColor
-            iconColor: musicControlMin.iconColor
+            iconColor: Style.coverColorControl && Style.noOpacityControl ? musicControlMin.iconColor : Theme.secondaryColor
             iconSize: Style.texticonH
             onClicked: Playback.togglePlay()
             tipText: Playback.inplay ? "暂停" : "播放"
