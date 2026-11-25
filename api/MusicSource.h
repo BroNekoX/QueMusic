@@ -57,6 +57,10 @@ protected:
     { Q_UNUSED(keyword) Q_UNUSED(type) Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::SearchSongs); }
     virtual void onSearchLyrics(const QString &keyword, int page, int pageSize)
     { Q_UNUSED(keyword) Q_UNUSED(page) Q_UNUSED(pageSize) unsupported(ApiAction::SearchLyrics); }
+    virtual void onSearchMvs(const QString &keyword, int page, int pageSize, const QString &action)
+    { Q_UNUSED(keyword) Q_UNUSED(page) Q_UNUSED(pageSize) Q_UNUSED(action) unsupported(ApiAction::SearchMvs); }
+    virtual void onMvInfo(const QString &mvid)
+    { Q_UNUSED(mvid) unsupported(ApiAction::MvInfo); }
     virtual void onPlaylistMenu(int type)
     { Q_UNUSED(type) unsupported(ApiAction::PlaylistMenu); }
     virtual void onMusicPlaylists(const QString &tagid, int page, int pageSize)

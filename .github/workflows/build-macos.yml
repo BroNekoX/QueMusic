@@ -16,6 +16,10 @@ on:
         required: false
       APPLE_TEAM_ID:
         required: false
+      APPLE_CERT_P12:
+        required: false
+      APPLE_CERT_PASSWORD:
+        required: false
 
 jobs:
   build-macos:
@@ -37,6 +41,9 @@ jobs:
     env:
       # 配了 Developer ID 证书就走正式签名 + 公证；没配则退回 ad-hoc（用户首次打开需手动放行）
       APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+      # .p12（base64）与导出密码；用于把证书导入临时 keychain
+      APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -452,6 +459,26 @@ jobs:
 
           [ "$MISSING" -eq 0 ] || { echo "::error::bundle 校验未通过，终止打包"; exit 1; }
           echo "🎉 bundle 校验通过"
+
+      # GitHub 的 macOS runner 是干净环境，证书不会自动存在。
+      # 把仓库 Secret 里的 base64 .p12 导入临时 keychain，codesign 才能找到身份。
+      - name: Import Developer ID certificate
+        if: env.APPLE_CERT_P12 != ''
+        env:
+          CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          printf '%s' "$CERT_P12" | openssl base64 -d -out "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p actions "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN"             -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign:             -s -k actions "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN"             $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/cert.p12"
 
       # 代码签名：由内向外逐层签，不用已废弃的 --deep。
       # Qt 应用有大量嵌套 framework/plugin，--deep 常留下无法验证的签名，

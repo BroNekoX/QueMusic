@@ -302,6 +302,9 @@ Microsoft Store 对“帮助用户获取受版权保护内容”的应用有明�
 后续因投诉下架；这类下架会污染开发者账号。**不要用“仅供学习”当免责声明**——
 审核会把它当作“非生产用途”的证据。
 
+> 签名（Windows SmartScreen / macOS 公证 / Linux 分发渠道）单独写在
+> [code-signing.md](code-signing.md)，包含证书类型、费用与 CI 配置。
+
 ---
 
 ## 6. 关键决策：是否做“商店版”

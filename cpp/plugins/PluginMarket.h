@@ -59,7 +59,7 @@ private:
     void rebuild();
     void markInstalled(QVariantMap &item) const;
     void syncInstalled();
-    QString localVersion(const QString &id) const;
+    void abortReply();
 
     QNetworkAccessManager m_net;
     QVariantList m_all;

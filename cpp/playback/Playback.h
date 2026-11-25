@@ -33,6 +33,8 @@ class Playback : public QObject
     Q_PROPERTY(PlaybackHistory *history READ history CONSTANT FINAL)
     Q_PROPERTY(CoverHelper *coverHelper READ coverHelper CONSTANT FINAL)
     Q_PROPERTY(bool inplay READ inplay NOTIFY inplayChanged FINAL)
+    Q_PROPERTY(bool isLoaded READ isLoaded NOTIFY isLoadedChanged FINAL)
+    Q_PROPERTY(bool isLoading READ isLoading NOTIFY isLoadedChanged FINAL)
     Q_PROPERTY(int count READ count NOTIFY countChanged FINAL)
     Q_PROPERTY(int cycleIndex READ cycleIndex WRITE setCycleIndex NOTIFY cycleIndexChanged FINAL)
     Q_PROPERTY(QString cycleIcon READ cycleIcon NOTIFY cycleIndexChanged FINAL)
@@ -68,6 +70,8 @@ public:
 
     int count() const { return m_queue.count(); }
     bool inplay() const { return m_inplay; }
+    bool isLoaded() const { return m_engine.loaded(); }
+    bool isLoading() const { return m_inplay && !m_engine.loaded(); }
     int cycleIndex() const { return m_cycle; }
     void setCycleIndex(int index);
     QString cycleIcon() const;
@@ -92,7 +96,8 @@ public:
     QString musicArtist() const { return m_artist; }
     QString musicHash() const { return m_hash; }
     int musicSource() const { return m_source; }
-    int kSourceWebDav() const { return 3; }
+    // WebDAV 不是在线音源，编号必须避开 ApiSource 的 0-5（3 是 QQ 音乐）
+    int kSourceWebDav() const { return 90; }
 
     Q_INVOKABLE void playIndex(int index);
     Q_INVOKABLE void next(bool random = false);
@@ -123,6 +128,7 @@ public:
 signals:
     void countChanged();
     void inplayChanged();
+    void isLoadedChanged();
     void cycleIndexChanged();
     void volumeChanged();
     void volumeStepChanged();

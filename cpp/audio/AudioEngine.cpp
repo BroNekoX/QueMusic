@@ -22,6 +22,42 @@
 #include <chrono>
 #include <cstring>
 
+#ifdef Q_OS_WIN
+#  include <windows.h>
+#  include <avrt.h>
+
+namespace {
+// 音频渲染线程：交给 MMCSS 的 Audio 类调度，系统忙时优先保证不断音
+void markAudioThread()
+{
+    static thread_local bool marked = false;
+    if (marked)
+        return;
+    marked = true;
+    DWORD taskIndex = 0;
+    if (HANDLE handle = AvSetMmThreadCharacteristicsW(L"Audio", &taskIndex)) {
+        AvSetMmThreadPriority(handle, AVRT_PRIORITY_CRITICAL);
+        return;
+    }
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+}
+
+void markDecodeThread()
+{
+    static thread_local bool marked = false;
+    if (marked)
+        return;
+    marked = true;
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+}
+} // namespace
+#else
+namespace {
+void markAudioThread() {}
+void markDecodeThread() {}
+} // namespace
+#endif
+
 namespace {
 
 constexpr int kRingSeconds = 2;
@@ -32,11 +68,14 @@ constexpr qint64 kSeekThrottleMs = 90;
 
 constexpr int kBufferMsMin = 10;
 constexpr int kBufferMsMax = 100;
-constexpr int kBufferMsDefault = 30;
+constexpr int kBufferMsDefault = 50;
 
-constexpr int kMinBufferFrames = 256;
+constexpr int kMinBufferFrames = 1024;
 
 constexpr int kClickGuardMs = 12;
+constexpr int kResumeFadeMs = 180;
+constexpr int kReconcileMs = 250;
+constexpr int kReconcileLimitMs = 20000;
 
 qint64 steadyMs()
 {
@@ -67,18 +106,18 @@ QString toSourceUrl(const QUrl &url)
     return raw;
 }
 
-int framesForBytes(const QAudioFormat &format, qsizetype bytes)
-{
-    const int frameBytes = format.bytesPerFrame();
-    return frameBytes > 0 ? int(bytes / frameBytes) : 0;
-}
-
 QString deviceIdOf(const QAudioDevice &device)
 {
     return QString::fromUtf8(device.id());
 }
 
 constexpr int kDeviceRefreshMs = 250;
+
+void traceAudio(const QString &text)
+{
+    if (qEnvironmentVariableIsSet("QUEMUSIC_AUDIO_TRACE"))
+        qInfo().noquote() << "[audio]" << text;
+}
 
 }
 
@@ -140,6 +179,11 @@ AudioEngine::AudioEngine(QObject *parent)
     connect(m_deviceTimer, &QTimer::timeout, this, &AudioEngine::refreshDevices);
     connect(&m_devices, &QMediaDevices::audioOutputsChanged,
             this, &AudioEngine::scheduleDeviceRefresh);
+
+    m_reconcileTimer = new QTimer(this);
+    m_reconcileTimer->setSingleShot(true);
+    m_reconcileTimer->setInterval(kReconcileMs);
+    connect(m_reconcileTimer, &QTimer::timeout, this, &AudioEngine::reconcile);
 }
 
 AudioEngine::~AudioEngine()
@@ -333,6 +377,7 @@ void AudioEngine::invokeOnOutput(std::function<void()> fn)
 
 void AudioEngine::teardownSink()
 {
+    m_sinkRunning.store(false, std::memory_order_release);
     if (!m_sink)
         return;
     invokeOnOutput([this] {
@@ -344,22 +389,31 @@ void AudioEngine::teardownSink()
     });
 }
 
-void AudioEngine::startSink()
+void AudioEngine::startSink(bool flush)
 {
     if (!m_sink || !m_io)
         return;
-    invokeOnOutput([this] {
+    invokeOnOutput([this, flush] {
         if (!m_sink || !m_io)
             return;
-        if (m_sink->state() == QAudio::SuspendedState)
-            m_sink->resume();
-        else if (m_sink->state() == QAudio::StoppedState)
+        const QAudio::State state = m_sink->state();
+        if (state == QAudio::StoppedState) {
             m_sink->start(m_io);
+        } else if (flush) {
+            m_sink->stop();
+            m_sink->start(m_io);
+        } else if (state == QAudio::SuspendedState) {
+            m_sink->resume();
+        }
+        const QAudio::State now = m_sink->state();
+        m_sinkRunning.store(now == QAudio::ActiveState || now == QAudio::IdleState,
+                            std::memory_order_release);
     });
 }
 
 void AudioEngine::stopSink()
 {
+    m_sinkRunning.store(false, std::memory_order_release);
     if (!m_sink)
         return;
     invokeOnOutput([this] {
@@ -387,6 +441,13 @@ void AudioEngine::setSource(const QUrl &url)
         return;
     clearNextSource();
     m_autoSwitchPending.store(false, std::memory_order_release);
+    m_wantPlay.store(false, std::memory_order_release);
+    if (m_opening.load(std::memory_order_acquire))
+        m_decoder.abort();
+    m_openRetries = 0;
+    m_reconcileTicks = 0;
+    setLoaded(false);
+    const int epoch = m_sourceEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
     m_source = url;
     emit sourceChanged();
     if (url.isEmpty()) {
@@ -412,6 +473,7 @@ void AudioEngine::setSource(const QUrl &url)
         QMutexLocker lock(&m_pendingUrlMutex);
         m_pendingUrl = url;
         m_pendingHeaders = m_sourceHeaders;
+        m_pendingEpoch = epoch;
     }
     setMediaStatus(LoadingMedia);
     emit durationChanged();
@@ -437,30 +499,107 @@ void AudioEngine::play()
 {
     if (m_source.isEmpty())
         return;
+    m_wantPlay.store(true, std::memory_order_release);
+    if (loaded()) {
+        startPlayback(false);
+        return;
+    }
+    if (!m_opening.load(std::memory_order_acquire) && !m_openRequest.load(std::memory_order_relaxed))
+        ensureOpen();
+    armReconcile();
+}
 
-    if (m_fadeTargetMilli.load(std::memory_order_relaxed) < 1000)
-        fadeInOnNextAudio(180);
+void AudioEngine::startPlayback(bool flush)
+{
+    if (m_source.isEmpty() || !loaded())
+        return;
     if (m_mediaStatus == EndOfMedia) {
         setMediaStatus(LoadedMedia);
         requestSeek(0);
         m_decodeEof.store(false, std::memory_order_relaxed);
     }
     m_drained.store(false, std::memory_order_relaxed);
-    startSink();
+    if (m_playbackState != PlayingState
+        && m_fadeTargetMilli.load(std::memory_order_relaxed) < 1000
+        && m_pendingFadeInFrames.load(std::memory_order_relaxed) == 0)
+        fadeInOnNextAudio(kResumeFadeMs);
+    startSink(flush);
     setPlaybackState(PlayingState);
+    m_openRetries = 0;
+    m_reconcileTicks = 0;
+    armReconcile();
+}
+
+void AudioEngine::beginLoading()
+{
+    m_wantPlay.store(false, std::memory_order_release);
+    setLoaded(false);
+    m_openRetries = 0;
+    m_reconcileTicks = 0;
+    setMediaStatus(LoadingMedia);
+}
+
+void AudioEngine::ensureOpen()
+{
+    {
+        QMutexLocker lock(&m_pendingUrlMutex);
+        m_pendingUrl = m_source;
+        m_pendingHeaders = m_sourceHeaders;
+        m_pendingEpoch = m_sourceEpoch.load(std::memory_order_acquire);
+    }
+    m_openRequest.store(true, std::memory_order_relaxed);
+}
+
+void AudioEngine::armReconcile()
+{
+    if (m_reconcileTimer && !m_reconcileTimer->isActive())
+        m_reconcileTimer->start();
+}
+
+void AudioEngine::reconcile()
+{
+    if (!m_wantPlay.load(std::memory_order_acquire))
+        return;
+
+    if (!loaded()) {
+        m_reconcileTicks += kReconcileMs;
+        if (m_reconcileTicks > kReconcileLimitMs) {
+            m_wantPlay.store(false, std::memory_order_release);
+            if (m_opening.load(std::memory_order_acquire))
+                m_decoder.abort();
+            emitError(2, tr("音频加载超时"));
+            return;
+        }
+        if (!m_opening.load(std::memory_order_acquire)
+            && !m_openRequest.load(std::memory_order_relaxed) && m_openRetries++ < 3)
+            ensureOpen();
+    } else {
+        m_reconcileTicks = 0;
+        const bool stalled = m_playbackState != PlayingState
+                             || !m_sinkRunning.load(std::memory_order_acquire);
+        if (stalled && m_mediaStatus != EndOfMedia && m_mediaStatus != InvalidMedia)
+            startPlayback(false);
+    }
+    armReconcile();
 }
 
 void AudioEngine::pause()
 {
+    m_wantPlay.store(false, std::memory_order_release);
     if (m_playbackState != PlayingState)
         return;
     if (m_sink)
-        invokeOnOutput([this] { if (m_sink) m_sink->suspend(); });
+        invokeOnOutput([this] {
+            if (m_sink)
+                m_sink->suspend();
+            m_sinkRunning.store(false, std::memory_order_release);
+        });
     setPlaybackState(PausedState);
 }
 
 void AudioEngine::stop()
 {
+    m_wantPlay.store(false, std::memory_order_release);
     clearNextSource();
     m_autoSwitchPending.store(false, std::memory_order_release);
     stopSink();
@@ -666,13 +805,16 @@ void AudioEngine::reconfigureOutput()
     {
         QMutexLocker lock(&m_pendingUrlMutex);
         m_pendingUrl = m_source;
+        m_pendingEpoch = m_sourceEpoch.load(std::memory_order_acquire);
     }
     m_positionMs.store(pos, std::memory_order_relaxed);
     m_pendingSeekMs.store(pos, std::memory_order_release);
     m_seekRequest.store(pos, std::memory_order_relaxed);
     m_openRequest.store(true);
-    if (prev == PlayingState)
+    if (prev == PlayingState) {
+        m_wantPlay.store(true, std::memory_order_release);
         startSink();
+    }
     setPlaybackState(prev == PlayingState ? PlayingState
                     : prev == PausedState ? PausedState : StoppedState);
     emit outputFormatChanged();
@@ -753,6 +895,8 @@ void AudioEngine::setPlaybackState(PlaybackState state)
     const bool wasPlaying = (m_playbackState == PlayingState);
     m_playbackState = state;
     m_playingFlag.store(state == PlayingState, std::memory_order_relaxed);
+    traceAudio(QStringLiteral("state=%1 loaded=%2 sink=%3")
+                   .arg(int(state)).arg(loaded()).arg(m_sinkRunning.load()));
     emit playbackStateChanged();
     if (wasPlaying != (state == PlayingState))
         emit playingChanged();
@@ -764,6 +908,14 @@ void AudioEngine::setMediaStatus(MediaStatus status)
         return;
     m_mediaStatus = status;
     emit mediaStatusChanged();
+}
+
+void AudioEngine::setLoaded(bool on)
+{
+    if (m_loaded.exchange(on, std::memory_order_acq_rel) == on)
+        return;
+    traceAudio(QStringLiteral("loaded=%1").arg(on));
+    emit loadedChanged();
 }
 
 void AudioEngine::postToSelf(std::function<void()> fn)
@@ -794,8 +946,10 @@ void AudioEngine::reportSinkError()
     reconfigureOutput();
 }
 
-void AudioEngine::applyMeta(const FfmpegDecoder::Meta &meta)
+void AudioEngine::applyMeta(const FfmpegDecoder::Meta &meta, int epoch)
 {
+    if (epoch != m_sourceEpoch.load(std::memory_order_acquire))
+        return;
     m_meta = meta;
     m_durationMs = meta.durationMs;
     m_rgTrackDb.store(meta.rgTrackDb, std::memory_order_relaxed);
@@ -808,6 +962,10 @@ void AudioEngine::applyMeta(const FfmpegDecoder::Meta &meta)
     emit durationChanged();
     emit metaDataChanged();
     setMediaStatus(LoadedMedia);
+    setLoaded(true);
+    m_openRetries = 0;
+    if (m_wantPlay.load(std::memory_order_acquire))
+        startPlayback(true);
 }
 
 void AudioEngine::pollState()
@@ -872,6 +1030,7 @@ void AudioEngine::applyPendingParams()
 
 qint64 AudioEngine::render(char *data, qint64 maxlen)
 {
+    markAudioThread();
     const int channels = qMax(1, m_outChannels.load(std::memory_order_relaxed));
     const int rate = qMax(8000, m_outSampleRate.load(std::memory_order_relaxed));
     const QAudioFormat::SampleFormat sampleFormat = m_format.sampleFormat();
@@ -885,6 +1044,11 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
         return 0;
     if (frames > kMaxChunkFrames)
         frames = kMaxChunkFrames;
+
+    if (!m_loaded.load(std::memory_order_acquire)) {
+        std::memset(data, 0, size_t(frames) * size_t(frameBytes));
+        return qint64(frames) * frameBytes;
+    }
 
     const int gen = m_ringGen.load(std::memory_order_acquire);
     if (gen != m_localGen) {
@@ -1012,6 +1176,7 @@ qint64 AudioEngine::render(char *data, qint64 maxlen)
                     m_nextHeaders.clear();
                     m_pendingUrl = nextUrl;
                     m_pendingHeaders = nextHeaders;
+                    m_pendingEpoch = m_sourceEpoch.load(std::memory_order_acquire);
                 }
                 if (nextUrl.isEmpty()) {
                     m_drained.store(true, std::memory_order_relaxed);
@@ -1070,6 +1235,7 @@ void AudioEngine::stopThread()
 
 void AudioEngine::decodeLoop()
 {
+    markDecodeThread();
     std::vector<float> buffer(size_t(kMaxChunkFrames) * 2);
 
     while (!m_quit.load(std::memory_order_relaxed)) {
@@ -1082,12 +1248,15 @@ void AudioEngine::decodeLoop()
         m_decodeParked.store(false, std::memory_order_release);
 
         if (m_openRequest.exchange(false, std::memory_order_relaxed)) {
+            QMetaObject::invokeMethod(this, [this] { setLoaded(false); }, Qt::QueuedConnection);
             QUrl url;
             QVariantMap headers;
+            int epoch = 0;
             {
                 QMutexLocker lock(&m_pendingUrlMutex);
                 url = m_pendingUrl;
                 headers = m_pendingHeaders;
+                epoch = m_pendingEpoch;
             }
             const int channels = qMax(1, m_outChannels.load(std::memory_order_relaxed));
             const int rate = qMax(8000, m_outSampleRate.load(std::memory_order_relaxed));
@@ -1099,16 +1268,21 @@ void AudioEngine::decodeLoop()
             QByteArray headerText;
             for (auto it = headers.cbegin(); it != headers.cend(); ++it)
                 headerText += it.key().toUtf8() + ": " + it.value().toString().toUtf8() + "\r\n";
+            m_opening.store(true, std::memory_order_release);
+            m_decoder.clearAbort();
             const bool ok = !url.isEmpty()
                             && m_decoder.open(toSourceUrl(url), &error, headerText);
+            m_opening.store(false, std::memory_order_release);
             const bool autoSwitch = m_autoSwitchPending.exchange(false, std::memory_order_acq_rel);
             if (!ok) {
                 m_decodeActive.store(false, std::memory_order_relaxed);
                 if (autoSwitch)
                     m_drained.store(true, std::memory_order_relaxed);
                 const QString message = error.isEmpty() ? tr("无法打开音频源") : error;
-                QMetaObject::invokeMethod(this, [this, message] { emitError(1, message); },
-                                          Qt::QueuedConnection);
+                QMetaObject::invokeMethod(this, [this, message, epoch] {
+                    if (epoch == m_sourceEpoch.load(std::memory_order_acquire))
+                        emitError(1, message);
+                }, Qt::QueuedConnection);
                 continue;
             }
 
@@ -1120,7 +1294,8 @@ void AudioEngine::decodeLoop()
             m_decodeEof.store(false, std::memory_order_relaxed);
             m_drained.store(false, std::memory_order_relaxed);
             m_decodeActive.store(true, std::memory_order_relaxed);
-            QMetaObject::invokeMethod(this, [this, meta] { applyMeta(meta); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(this, [this, meta, epoch] { applyMeta(meta, epoch); },
+                                      Qt::QueuedConnection);
             continue;
         }
 

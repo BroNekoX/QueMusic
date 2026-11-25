@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     把 QueMusic 的 windeployqt 输出打成可分发的 MSIX。
 

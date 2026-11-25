@@ -10,27 +10,27 @@ Item {
 
     property int searchTab: 0
 
+    Component.onCompleted: Options.searchTab = searchTab
+
     Connections {
         target: Options
         function onReSearch(): void {
-            searchChildPage.pageList[searchChildPage.lastIndex].scrollTop();
+            searchResult.scrollTop();
         }
     }
 
-    QPages {
-        x: 24
-        y: 68
-        width: parent.width - 48
-        height: parent.height - 68
-        id: searchChildPage
-        pageList: [searchSong,searchLists,searchLyrics]
+    Item {
+        id: searchContent
+        x: 0
+        y: 0
+        width: parent.width
+        height: parent.height
 
-        // 顶部栏
         Item {
-            x: 0
-            y: -44
+            x: 24
+            y: 24
+            width: parent.width - 48
             height: 40
-            width: parent.width
             z: 10
             Text {
                 height: 40
@@ -56,109 +56,133 @@ Item {
                 onTransformed: (choiced) => {
                     MusicApi.songSource = MusicApi.sourceIdAt(choiced);
                     MusicApi.searchSongsResults.clear();
-                    MusicApi.searchSongs(Options.searchText,MusicApi.nowIndex,1,20);
+                    if (searchPage.searchTab === 2)
+                        MusicApi.searchMvs(Options.searchText, 1, 20);
+                    else
+                        MusicApi.searchSongs(Options.searchText, MusicApi.nowIndex, 1, 20);
                     Options.exitIndex = 1;
                 }
             }
         }
 
         QBlurTapBar {
-            x: 0
-            y: 12
+            x: 24
+            y: 80
             z: 5
-            model: ["歌曲","歌单","歌词"]
+            model: ["歌曲","歌单","MV","歌词"]
             tabWidth: 75
-            width: 231
+            width: 306
             rectXy: Qt.rect(0, 12, width, 40)
-            blurSource: searchChildPage.pageList[searchChildPage.lastIndex]
+            blurSource: searchResult
             onTabChange: (index) => {
+                searchPage.searchTab = index
+                Options.searchTab = index
                 MusicApi.searchSongsResults.clear()
-                searchChildPage.stack(index)
-                const type = index === 2 ? 3 : index
-                MusicApi.nowIndex = type
-                MusicApi.searchSongs(Options.searchText,type,1,20)
+                searchResult.scrollTop()
+                if (index === 2) {
+                    MusicApi.searchMvs(Options.searchText, 1, 20)
+                    return
+                }
+                MusicApi.nowIndex = index
+                MusicApi.searchSongs(Options.searchText, index, 1, 20)
+            }
+        }
+        // 右侧操作区
+        Row {
+            x: parent.width - width - 24
+            y: 80
+            z: 6
+            // 刷新：重新拉取当前页签 / 当前歌曲列表
+            QButton {
+                id: refreshBtn
+                height: 38
+                text: ""
+                iconCharacter: "\uf11e"
+                buttonColor: Theme.primaryColor
+                tipText: "重新获取当前列表"
+                onClicked: {
+                    MusicApi.searchSongsResults.clear()
+                    searchResult.scrollTop()
+                    if (searchPage.searchTab === 2) {
+                        MusicApi.searchMvs(Options.searchText, 1, 20)
+                        return
+                    }
+                    MusicApi.searchSongs(Options.searchText, searchPage.searchTab, 1, 20)
+                }
             }
         }
 
         QListView {
-            id: searchSong
-            width: searchChildPage.width + 16
-            height: searchChildPage.height
+            id: searchResult
+            x: 24
+            y: 68
+            width: parent.width - 32
+            height: parent.height - 68
             model: MusicApi.searchSongsResults
             clip: true
             topMargin: 72
+            bottomMargin: 24
+            isList: searchPage.searchTab === 1
+            rowActions: searchPage.searchTab !== 2
+            headerModel: searchPage.searchTab === 2
+                         ? ["MV 标题","歌手","时长"]
+                         : (searchResult.isList ? ["标题","创建者","曲目","操作"]
+                                                : ["标题","歌手","时长","操作"])
+            menuModel: searchPage.searchTab === 2
+                       ? ["播放 MV"]
+                       : (searchResult.isList ? ["收藏","歌单信息"]
+                                              : ["下载到本地","下一首播放","添加到列表","收藏","歌曲信息"])
+            menuHandler: searchPage.searchTab === 2
 
-            onEnded: {
-                if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(Options.searchText,0,MusicApi.searchSongsResults.count / 20 + 1,20);
-                    isEnd = false;
-                } else {
-                    if(MusicApi.searchSongsResults.count !== 0) {
-                        isEnd = true;
-                    }
-                }
+            function openMv(index: int): void {
+                const mv = model.get(index)
+                if (mv && MusicApi.playMv(mv))
+                    Desktop.openMv()
             }
 
-            onClicked: (index) => MusicApi.playSong(model.get(index))
-        }
-        QListView {
-            id: searchLists
-            width: searchChildPage.width + 16
-            height: searchChildPage.height
-            // 隐藏页签挂空模型，不建看不见的委托
-            model: visible ? MusicApi.searchSongsResults : null
-            clip: true
-            visible: false
-            topMargin: 72
-            bottomMargin: 24
-            isList: true
-
             onEnded: {
-                if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(Options.searchText,1,MusicApi.searchSongsResults.count / 20 + 1,20);
-                    isEnd = false;
-                } else {
-                    if(MusicApi.searchSongsResults.count !== 0) {
-                        isEnd = true;
-                    }
+                const count = MusicApi.searchSongsResults.count
+                if (count === 0)
+                    return
+                if (count % 20 !== 0) {
+                    isEnd = true
+                    return
                 }
+                const page = count / 20 + 1
+                if (searchPage.searchTab === 2)
+                    MusicApi.searchMvs(Options.searchText, page, 20)
+                else
+                    MusicApi.searchSongs(Options.searchText, searchPage.searchTab, page, 20)
+                isEnd = false
             }
 
             onClicked: (index) => {
-                MusicApi.playlistSong.clear();
-                MusicApi.globalid = model.get(index).hash;
-                MusicApi.getPlaylistSongs(model.get(index).hash,1,20);
-                playListSongsWindow.opened(model.get(index));
-                Options.exitIndex = 2;
-            }
-        }
-        QListView {
-            id: searchLyrics
-            width: searchChildPage.width + 16
-            height: searchChildPage.height
-            model: visible ? MusicApi.searchSongsResults : null
-            clip: true
-            visible: false
-            topMargin: 72
-            bottomMargin: 24
-
-            onEnded: {
-                if(MusicApi.searchSongsResults.count % 20 === 0 && MusicApi.searchSongsResults.count !== 0) {
-                    MusicApi.searchSongs(Options.searchText,3,MusicApi.searchSongsResults.count / 20 + 1,20);
-                    isEnd = false;
+                const item = model.get(index)
+                if (!item)
+                    return
+                if (searchPage.searchTab === 2) {
+                    searchResult.openMv(index)
+                } else if (searchPage.searchTab === 1) {
+                    MusicApi.playlistSong.clear()
+                    MusicApi.globalid = item.hash
+                    MusicApi.getPlaylistSongs(item.hash, 1, 20)
+                    playListSongsWindow.opened(item)
+                    Options.exitIndex = 2
                 } else {
-                    if(MusicApi.searchSongsResults.count !== 0) {
-                        isEnd = true;
-                    }
+                    MusicApi.playSong(item)
                 }
             }
-            onClicked: (index) => MusicApi.playSong(model.get(index))
+
+            onMenuClicked: (choice, index) => {
+                if (searchPage.searchTab === 2)
+                    searchResult.openMv(index)
+            }
         }
     }
 
     PlayListWindow {
         id: playListSongsWindow
-        mainTarget: searchChildPage
+        mainTarget: searchContent
         winIndex: 2
         content: Item {
 

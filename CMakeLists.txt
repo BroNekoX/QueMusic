@@ -129,6 +129,28 @@ file(GLOB_RECURSE PAGE_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPEND
 file(GLOB_RECURSE LYRICS_UI_QML RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "lyricsui/*.qml")
 
 
+# 系统媒体集成（SMTC / MPRIS2 / Now Playing）：一个模块，按平台选后端
+set(QUE_MUSIC_MEDIA_SOURCES
+    cpp/platform/media/MediaSession.h
+    cpp/platform/media/MediaSession.cpp
+    cpp/platform/media/MediaSessionBackend.h
+)
+if(WIN32)
+    list(APPEND QUE_MUSIC_MEDIA_SOURCES
+        cpp/platform/media/WindowsSmtcManager.h
+        cpp/platform/media/WindowsSmtcManager.cpp
+        cpp/platform/media/SmtcMediaSessionBackend.h
+        cpp/platform/media/SmtcMediaSessionBackend.cpp)
+elseif(UNIX AND NOT APPLE)
+    # MPRIS2 依赖 QtDBus；没有该模块时退化为“无系统媒体控制”
+    find_package(Qt6 QUIET COMPONENTS DBus)
+    if(TARGET Qt6::DBus)
+        list(APPEND QUE_MUSIC_MEDIA_SOURCES
+            cpp/platform/media/MprisMediaSessionBackend.h
+            cpp/platform/media/MprisMediaSessionBackend.cpp)
+    endif()
+endif()
+
 # qmltc 白名单 / 跳过清单（QUEMUSIC_ENABLE_QMLTC=ON 且布局满足条件时才真正启用）
 set(QUE_MUSIC_QMLTC_ACTIVE FALSE)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/qmltc.cmake)
@@ -241,14 +263,13 @@ qt6_add_qml_module(${PROJECT_NAME} # 默认导入项目的
         cpp/plugins/ZipReader.h
         cpp/SearchResultModel.cpp
         cpp/SearchResultModel.h
-        widgets/WindowsSmtcManager.cpp
-        widgets/WindowsSmtcManager.h
         cpp/LogManager.cpp
         cpp/LogManager.h
-        widgets/SmtcBridge.cpp
-        widgets/SmtcBridge.h
+        cpp/MvProxy.cpp
+        cpp/MvProxy.h
         widgets/App.cpp
         widgets/App.h
+        ${QUE_MUSIC_MEDIA_SOURCES}
         widgets/SystemTrayManager.cpp
         widgets/SystemTrayManager.h
         cpp/platform/WindowsAppIdentity.cpp
@@ -353,10 +374,31 @@ target_link_libraries(${PROJECT_NAME}
         LyricPvCoreplugin
         QWindowKit::Quick
 )
+
+# 系统媒体集成：按平台编译后端
+if(WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE QUEMUSIC_HAS_SMTC)
+elseif(APPLE)
+    # Now Playing 后端是 Objective-C++，单独成库，避免影响主目标的 PCH
+    enable_language(OBJCXX)
+    add_library(quemusic_media_mac STATIC
+        cpp/platform/media/MacMediaSessionBackend.h
+        cpp/platform/media/MacMediaSessionBackend.mm)
+    target_include_directories(quemusic_media_mac PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/media)
+    target_compile_options(quemusic_media_mac PRIVATE "-fobjc-arc")
+    target_link_libraries(quemusic_media_mac PUBLIC Qt6::Core
+        "-framework MediaPlayer" "-framework AppKit")
+    target_link_libraries(${PROJECT_NAME} PRIVATE quemusic_media_mac)
+elseif(TARGET Qt6::DBus)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE QUEMUSIC_HAS_MPRIS)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::DBus)
+endif()
+
 # Windows：SMTC 互操作（runtimeobject）与应用身份注册（COM / 注册表）
 if(WIN32)
-    # crypt32：WebDAV 密码用 DPAPI 加密存盘
-    target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32 crypt32)
+    # crypt32：WebDAV 密码用 DPAPI 加密存盘；avrt：音频线程走 MMCSS 调度
+    target_link_libraries(${PROJECT_NAME} PRIVATE runtimeobject ole32 shell32 advapi32 crypt32 avrt)
 
     # QWindowKit 的 DLL 输出在 _deps 下，需拷到 exe 同目录，否则运行时找不到 QWKCore/QWKQuick
     # （静态库已链进 exe，无需拷贝，见上方 QUEMUSIC_QWK_RUNTIME_COPY）
@@ -387,13 +429,7 @@ endif()
 if(NOT APPLE AND NOT CMAKE_BUILD_TYPE MATCHES "^[Dd]ebug$")
     qt_deploy_runtime(${PROJECT_NAME})
 
-    # 删掉部署产物里无用的 Qt Multimedia FFmpeg 后端（全项目无 MediaPlayer，省约 1.7MB）；
-    # 解码层要用的 avcodec/avformat/avutil/swresample 保留
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E rm -f
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/multimedia/ffmpegmediaplugin.dll"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/swscale-8.dll"
-        COMMENT "Removing unused Qt Multimedia FFmpeg backend (saves ~1.7MB)...")
+    # MV 需要 QtMultimedia 的 FFmpeg 后端，不能再裁剪 ffmpegmediaplugin.dll / swscale
 
     # 托盘已改回 QtWidgets 原生实现，不再需要 Qt.labs.platform
     if(WIN32)

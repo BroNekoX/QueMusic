@@ -2,7 +2,7 @@
 
 #include "AppSettings.h"
 #include "Config.h"
-#include "SmtcBridge.h"
+#include "platform/media/MediaSession.h"
 #include "Style.h"
 #include "SystemTrayManager.h"
 
@@ -57,8 +57,13 @@ App::App(QQmlEngine *engine)
     if (m_component->isError())
         qWarning() << "[App] main.qml:" << m_component->errors();
 
-    m_smtc = new SmtcBridge(this);
-    connect(m_smtc, &SmtcBridge::availableChanged, this, &App::smtcAvailableChanged);
+    m_media = new MediaSession(this);
+    connect(m_media, &MediaSession::availableChanged,
+            this, &App::mediaControlsAvailableChanged);
+    connect(m_media, &MediaSession::enabledChanged,
+            this, &App::mediaControlsEnabledChanged);
+    connect(m_media, &MediaSession::raiseRequested, this, &App::showMainWindow);
+    connect(m_media, &MediaSession::quitRequested, this, &App::quit);
 
     QTimer::singleShot(400, this, &App::playStartupFile);
 
@@ -73,13 +78,29 @@ App::App(QQmlEngine *engine)
 
 App::~App()
 {
-    if (m_smtc)
-        m_smtc->shutdown();
+    if (m_media)
+        m_media->shutdown();
 }
 
-bool App::smtcAvailable() const
+bool App::mediaControlsAvailable() const
 {
-    return m_smtc && m_smtc->available();
+    return m_media && m_media->available();
+}
+
+bool App::mediaControlsEnabled() const
+{
+    return m_media && m_media->enabled();
+}
+
+void App::setMediaControlsEnabled(bool on)
+{
+    if (m_media)
+        m_media->setEnabled(on);
+}
+
+QString App::mediaControlsName() const
+{
+    return m_media ? m_media->backendName() : QString();
 }
 
 void App::requestClose()
@@ -232,8 +253,8 @@ void App::finalizeQuit()
         playback->flush();
     }
 
-    if (m_smtc)
-        m_smtc->shutdown();
+    if (m_media)
+        m_media->shutdown();
     if (m_tray)
         m_tray->hide();
 

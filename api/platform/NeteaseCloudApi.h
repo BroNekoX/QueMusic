@@ -36,6 +36,8 @@ public slots:
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
     void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
+    void onSearchMvs(const QString &keyword, int page, int pageSize, const QString &action) override;
+    void onMvInfo(const QString &mvid) override;
     void onPlaylistMenu(int type) override;
     void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
     void onCategoryPlaylists(const QString &id, int page, int pageSize) override;

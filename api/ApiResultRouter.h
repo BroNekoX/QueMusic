@@ -57,6 +57,8 @@ signals:
     void musicInfoReady(const QVariantMap &info, int source);
     void lyricInfoReady(const QVariantMap &info, int source);
     void lyricSearchReady(const QVariant &info, int source, bool failed);
+    void mvInfoReady(const QVariantMap &info, int source);
+    void mvCandidatesReady(const QVariantList &items, int source);
 
 private:
     struct Target

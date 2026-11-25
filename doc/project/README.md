@@ -57,7 +57,7 @@
 | 播放控制栏 UI | `layout/PlayerControl.qml` |
 | 播放器选项弹窗（音质/设备/倍速等） | `components/PlayerOptions.qml`、`components/EqualizerPanel.qml` |
 | 桌面歌词窗口 | `components/DesktopLyrics.qml`、`components/DesktopPlayerWindow.qml` |
-| Windows 系统媒体控件（SMTC） | `cpp/WindowsSmtcManager.{h,cpp}` + `layout/SmtcBridge.qml` |
+| 系统媒体控件 / 全局媒体键 | `cpp/platform/media/`：`MediaSession`（统一入口）+ `SmtcMediaSessionBackend`（Windows SMTC）/ `MprisMediaSessionBackend`（Linux MPRIS2）/ `MacMediaSessionBackend`（macOS Now Playing） |
 | 系统托盘 | `cpp/SystemTrayManager.{h,cpp}` |
 
 ### 0.3 在线媒体

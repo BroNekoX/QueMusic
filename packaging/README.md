@@ -1,3 +1,6 @@
+> **代码签名 / 首次运行警告**：Windows SmartScreen、macOS 公证、Linux 分发渠道的完整方案见
+> [`../doc/code-signing.md`](../doc/code-signing.md)。
+>
 > **应用商店上架**：Flathub / AUR / Microsoft Store 的完整流程、清单与政策风险，见
 > [`../doc/store-publishing.md`](../doc/store-publishing.md)。
 > 新增目录：`linux/`（desktop + metainfo）、`flatpak/`（manifest）、`aur/`（PKGBUILD）、

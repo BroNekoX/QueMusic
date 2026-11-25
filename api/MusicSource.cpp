@@ -21,6 +21,10 @@ void MusicSource::request(int sourceId, const QString &action, const QVariantMap
         onSearchSongs(argStr(ApiArg::Keyword), argInt(ApiArg::Type), argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20));
     else if (action == ApiAction::SearchLyrics)
         onSearchLyrics(argStr(ApiArg::Keyword), argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 10));
+    else if (action == ApiAction::SearchMvs || action == ApiAction::SearchMvsCandidates)
+        onSearchMvs(argStr(ApiArg::Keyword), argInt(ApiArg::Page, 1), argInt(ApiArg::PageSize, 20), action);
+    else if (action == ApiAction::MvInfo)
+        onMvInfo(argStr(ApiArg::Hash));
     else if (action == ApiAction::PlaylistMenu)
         onPlaylistMenu(argInt(ApiArg::Type));
     else if (action == ApiAction::MusicPlaylists)

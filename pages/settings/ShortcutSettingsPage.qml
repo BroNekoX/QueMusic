@@ -138,7 +138,7 @@ QScrollView {
         }
 
         // 全局开关
-        QHead { text: "全局快捷键" }
+        QHead { text: "应用快捷键" }
 
         Rectangle {
             width: page.standWidth
@@ -150,8 +150,8 @@ QScrollView {
                 Component.onCompleted: parent.height = height
 
                 SettingItemCard {
-                    label: "启用全局快捷键"
-                    tip: "开启后可在其他窗口用快捷键控制播放"
+                    label: "启用应用快捷键"
+                    tip: "开启后在本应用程序用快捷键控制播放"
                     QSwitch {
                         letRight: true
                         switchTrue: Config.openShortCut

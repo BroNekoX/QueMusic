@@ -24,6 +24,8 @@ public:
 
     Q_INVOKABLE QString findLocalCover(const QString &sourcePath);
     Q_INVOKABLE QString findEmbeddedCover(const QString &sourcePath);
+    // 只读缓存不解析标签，用于播放时立刻显示列表里已提取过的封面
+    QString cachedCover(const QString &sourcePath) const;
     Q_INVOKABLE void findEmbeddedCoverAsync(const QString &sourcePath);
     Q_INVOKABLE void clearCache();
     Q_INVOKABLE void setCacheDir(const QString &path);

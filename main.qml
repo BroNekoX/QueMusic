@@ -18,19 +18,19 @@ Window {
     title: "QueMusic"
 
     Component.onCompleted: {
-        Options.dialog = globalDialog
-        Options.desktop = desktopPlayer
-        Options.mainLayout = mainLayout
-        Options.getWave = getWave
-        Options.textWatch = textWatch
-        Options.picWatch = picWatch
-        Options.songInfo = songInfo
-        Options.favPicker = favPicker
-        Options.openMaxLyric = openMaxLyric
-        Options.settingOutAnime = settingOutAnime
-        Options.mainSearchInput = mainSearchInput
-        Options.musicpic = picWidget
-        Options.mainTip = mainTip
+        Options.dialog = globalDialog;
+        Options.desktop = desktopPlayer;
+        Options.mainLayout = mainLayout;
+        Options.getWave = getWave;
+        Options.textWatch = textWatch;
+        Options.picWatch = picWatch;
+        Options.songInfo = songInfo;
+        Options.favPicker = favPicker;
+        Options.openMaxLyric = openMaxLyric;
+        Options.settingOutAnime = settingOutAnime;
+        Options.mainSearchInput = mainSearchInput;
+        Options.musicpic = picWidget;
+        Options.mainTip = mainTip;
         windowAgent.setup(window);
         windowAgent.setTitleBar(titleBar);
         // dark-mode / extra-margins / title-bar-height 是 Windows 专有属性
@@ -42,12 +42,11 @@ Window {
             }
         }
 
-        const apiCheck = MusicApi.selfCheck()
+        const apiCheck = MusicApi.selfCheck();
         if (!apiCheck.ok) {
-            console.warn("[api self-check]", JSON.stringify(apiCheck.issues))
+            console.warn("[api self-check]", JSON.stringify(apiCheck.issues));
         } else if (Config.debug) {
-            console.log("[api self-check] passed", apiCheck.passed, "checks,",
-                        apiCheck.elapsedMs, "ms")
+            console.log("[api self-check] passed", apiCheck.passed, "checks,", apiCheck.elapsedMs, "ms");
         }
 
         Options.changeUi();
@@ -58,7 +57,7 @@ Window {
             barLeftWidgets.y = -48;
             mainLayout.visible = false;
             settingsView.sourceComponent = null;
-            settingsView.source = "qrc:/QueMusic/layout/StartApp.qml"
+            settingsView.source = "qrc:/QueMusic/layout/StartApp.qml";
             settingsView.active = true;
         }
 
@@ -101,7 +100,10 @@ Window {
         MusicApi.searchSongsResults.clear();
         mainContent.contentIndexed(6);
         Config.searchList = [text].concat(Config.searchList.filter(value => value !== text));
-        MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
+        if (Options.searchTab === 2)
+            MusicApi.searchMvs(text, 1, 20);
+        else
+            MusicApi.searchSongs(text, MusicApi.nowIndex, 1, 20);
         Options.reSearch();
         Options.exitIndex = 1;
     }
@@ -846,14 +848,31 @@ Window {
             asynchronous: true
             z: 30
 
-            // 用初始属性注入 api，插件在 Component.onCompleted 里就能用
-            Component.onCompleted: pluginLoader.setSource(modelData.source, { api: pluginCtx })
+            property string loadedKey: ""
+
+            function activate(): void {
+                const key = pluginLoader.modelData ? pluginLoader.modelData.id : "";
+                if (key === pluginLoader.loadedKey)
+                    return;
+                pluginLoader.loadedKey = key;
+                if (key.length === 0) {
+                    pluginLoader.source = "";
+                    return;
+                }
+                pluginLoader.setSource(pluginLoader.modelData.source, { api: pluginCtx });
+            }
+
+            Component.onCompleted: activate()
+            onModelDataChanged: if (pluginCtx) activate()
 
             onStatusChanged: {
                 if (status !== Loader.Error)
                     return;
-                mainWarn.tiped("插件「" + pluginLoader.modelData.name + "」加载失败", 0);
-                Qt.callLater(() => Plugins.setEnabled(pluginLoader.modelData.id, false));
+                const plugin = pluginLoader.modelData;
+                if (!plugin)
+                    return;
+                mainWarn.tiped("插件「" + plugin.name + "」加载失败", 0);
+                Qt.callLater(() => Plugins.setEnabled(plugin.id, false));
             }
 
             onLoaded: Qt.callLater(window.syncTitleBarHitTest)

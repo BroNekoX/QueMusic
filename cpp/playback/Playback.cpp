@@ -114,6 +114,7 @@ Playback::Playback(QObject *parent)
     connect(&m_engine, &AudioEngine::errorOccurred, this, &Playback::onEngineError);
     connect(&m_engine, &AudioEngine::sourceChanged, this, &Playback::clearAb);
     connect(&m_engine, &AudioEngine::metaDataChanged, this, &Playback::onEngineMetaDataChanged);
+    connect(&m_engine, &AudioEngine::loadedChanged, this, &Playback::isLoadedChanged);
 
     m_engine.setTrackAdvancedCallback([this] { onTrackAdvanced(); });
     QTimer::singleShot(0, this, &Playback::loadQueue);
@@ -279,7 +280,11 @@ void Playback::openLocal(const QueueTrack &track, const QString &localPath)
     }
     m_onlinePending = false;
     setLocalLyricsRequestPath(path);
-    //m_engine.setUrlStr(QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png"));
+    // 列表里已提取过的封面直接复用，避免等异步元数据才有图
+    const QString cachedCover = m_cover->cachedCover(path);
+    m_engine.setUrlStr(cachedCover.isEmpty()
+                           ? QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png")
+                           : cachedCover);
     m_engine.playSource(QUrl::fromLocalFile(path), {}, m_fadeEnabled ? m_fadeMs : 0);
     if (m_api)
         m_api->readLocalMetadataAsync(path);
@@ -302,7 +307,6 @@ void Playback::openOnline(const QueueTrack &track)
     m_engine.beginLoading();
     m_api->setLyricsData({});
     m_api->setLyricsTranslate({});
-    m_engine.fadeOut(m_fadeEnabled ? m_fadeMs : 0);
     m_api->getMusicInfo(track.path, 0, track.source);
 }
 
@@ -449,9 +453,12 @@ void Playback::adoptAuto(int index, const QString &path)
     setMusicHash(track.path);
     setMusicSource(track.source);
     m_engine.setNoTitle(title);
-    m_engine.setUrlStr(cover.isEmpty()
+    QString autoCover = cover;
+    if (autoCover.isEmpty() && track.source < 0)
+        autoCover = m_cover->cachedCover(localFile(track.path));
+    m_engine.setUrlStr(autoCover.isEmpty()
                            ? QStringLiteral("qrc:/QueMusic/resources/app/musicpic.png")
-                           : cover);
+                           : autoCover);
     m_engine.setSourceHeaders({});
 
     if (ready && !m_next.url.isEmpty()) {
@@ -809,8 +816,12 @@ void Playback::onEngineError(int code, const QString &message)
     ++m_autoSkipCount;
     emit warned(QStringLiteral("当前歌曲无法播放，已自动跳过：") + message, 0);
     const int index = m_cursor.takeManual(m_cycle == 2);
-    if (index >= 0)
+    if (index >= 0) {
         playIndex(index);
+    } else {
+        setInplay(false);
+        m_engine.stop();
+    }
 }
 
 void Playback::onEngineMetaDataChanged()
@@ -848,6 +859,18 @@ void Playback::onLocalMetadataReady(const QString &filePath, const QVariantMap &
                                 artist, duration, lyrics.isEmpty());
 
     m_jsonCover = meta.value(QStringLiteral("cover")).toString();
+    if (!m_jsonCover.isEmpty() && !m_jsonCover.contains(QStringLiteral("://"))) {
+        // sidecar 里的封面可能是相对路径或裸路径，统一转成可加载的 file URL
+        QFileInfo coverInfo(m_jsonCover);
+        if (!coverInfo.isAbsolute())
+            coverInfo = QFileInfo(QFileInfo(filePath).absolutePath() + QLatin1Char('/') + m_jsonCover);
+        m_jsonCover = coverInfo.isFile()
+                          ? QUrl::fromLocalFile(coverInfo.absoluteFilePath()).toString()
+                          : QString();
+    } else if (QUrl(m_jsonCover).isLocalFile()
+               && !QFileInfo(QUrl(m_jsonCover).toLocalFile()).isFile()) {
+        m_jsonCover.clear();
+    }
     if (!m_jsonCover.isEmpty())
         m_engine.setUrlStr(m_jsonCover);
     m_cover->findEmbeddedCoverAsync(filePath);
@@ -898,6 +921,8 @@ void Playback::onUrlplay(const QString &playurl, const QString &title, const QSt
     if (playurl.isEmpty() || hash.isEmpty())
         return;
     const bool pending = m_onlinePending && hash == m_current.path;
+    if (m_onlinePending && !pending)
+        return;
     m_onlinePending = false;
     int index = m_queue.indexOfPath(hash);
     if (index < 0) {
@@ -933,14 +958,14 @@ void Playback::onUrlplay(const QString &playurl, const QString &title, const QSt
         m_api->setLyricsData({});
         m_api->setLyricsTranslate({});
     }
-    if (!pending || m_inplay) {
-        m_pauseTimer.stop();
-        setInplay(true);
-        m_engine.playSource(QUrl(playurl), {}, m_fadeEnabled ? m_fadeMs : 0);
-    } else {
+    if (pending && !m_inplay) {
         m_engine.setSource(QUrl(playurl));
         if (!m_pauseTimer.isActive())
             m_engine.pause();
+    } else {
+        m_pauseTimer.stop();
+        setInplay(true);
+        m_engine.playSource(QUrl(playurl), {}, m_fadeEnabled ? m_fadeMs : 0);
     }
     m_next = {};
     recordHistory();

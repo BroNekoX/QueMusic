@@ -27,6 +27,7 @@ class ApiResultRouter;
 class BilibiliApi;
 class KugouApi;
 class LocalMedia;
+class MvProxy;
 class NeteaseCloudApi;
 class AppleMusicApi;
 class PlaybackCoordinator;
@@ -70,6 +71,15 @@ class MusicApiService : public QObject
     Q_PROPERTY(OnlineListModel *followedArtists READ followedArtists CONSTANT FINAL)
     Q_PROPERTY(bool commentsHasMore READ commentsHasMore NOTIFY commentsHasMoreChanged FINAL)
 
+    Q_PROPERTY(QString mvTitle READ mvTitle NOTIFY mvMetaChanged FINAL)
+    Q_PROPERTY(QString mvArtist READ mvArtist NOTIFY mvMetaChanged FINAL)
+    Q_PROPERTY(QString mvCover READ mvCover NOTIFY mvMetaChanged FINAL)
+    Q_PROPERTY(QString mvSourceName READ mvSourceName NOTIFY mvMetaChanged FINAL)
+    Q_PROPERTY(int mvSourceId READ mvSourceId NOTIFY mvMetaChanged FINAL)
+    Q_PROPERTY(QString mvUrl READ mvUrl NOTIFY mvUrlChanged FINAL)
+    Q_PROPERTY(bool mvLoading READ mvLoading NOTIFY mvLoadingChanged FINAL)
+    Q_PROPERTY(QString mvError READ mvError NOTIFY mvErrorChanged FINAL)
+
     Q_PROPERTY(QVariantList lyricsData READ lyricsData WRITE setLyricsData NOTIFY lyricsDataChanged FINAL)
     Q_PROPERTY(QVariantList lyricsTranslate READ lyricsTranslate WRITE setLyricsTranslate NOTIFY lyricsTranslateChanged FINAL)
 
@@ -112,6 +122,15 @@ public:
     Q_INVOKABLE void reloadSources();
 
     OnlineListModel *searchSongsResults() { return &m_searchSongsResults; }
+
+    QString mvTitle() const { return m_mvTitle; }
+    QString mvArtist() const { return m_mvArtist; }
+    QString mvCover() const { return m_mvCover; }
+    QString mvSourceName() const { return sourceNameOf(m_mvSource); }
+    int mvSourceId() const { return m_mvSource; }
+    QString mvUrl() const { return m_mvUrl; }
+    bool mvLoading() const { return m_mvLoading; }
+    QString mvError() const { return m_mvError; }
     OnlineListModel *newSongs() { return &m_newSongs; }
     OnlineListModel *recommendSongs() { return &m_recommendSongs; }
     OnlineListModel *musicPlaylists() { return &m_musicPlaylists; }
@@ -162,6 +181,11 @@ public:
 
     Q_INVOKABLE void searchSongs(const QString &keyword, int type, int page, int pageSize,
                                  int source = -1);
+    Q_INVOKABLE void searchMvs(const QString &keyword, int page = 1, int pageSize = 20,
+                               int source = -1);
+    Q_INVOKABLE bool playMv(const QVariantMap &mv, int source = -1);
+    Q_INVOKABLE void switchMvSource(int source);
+    Q_INVOKABLE void retryMv();
     Q_INVOKABLE void getPlaylistMenu(int type, int source = -1);
     Q_INVOKABLE void getMusicPlaylists(const QString &tagid, int page = 1, int pageSize = 20,
                                        int source = -1);
@@ -226,6 +250,11 @@ signals:
                       const QString &artist, const QString &cover, int duration, int source);
     void playFailed(const QString &hash, int source);
     void songSourceChanged();
+    void mvMetaChanged();
+    void mvUrlChanged();
+    void mvLoadingChanged();
+    void mvErrorChanged();
+    void mvReady();
     void soundQualityChanged();
     void sourcePluginsChanged();
     void sourcesChanged();
@@ -273,6 +302,14 @@ private:
     void rebuildLyricTimes(const QVariantList &list);
     void advanceLyricIndex();
 
+    void setMv(const QVariantMap &mv, int source);
+    void resolveMv();
+    void failMv(const QString &message);
+    void handleMvInfo(const QVariantMap &message, int source);
+    void handleMvCandidates(const QVariantList &items, int source);
+    static QVariantMap pickBestMv(const QVariantList &items, const QString &title,
+                                  const QString &artist);
+
     static AccountManager *s_accountManager;
     static MusicApiService *s_instance;
 
@@ -307,6 +344,20 @@ private:
     QVariantList m_lyricsTranslate;
 
     OnlineListModel m_searchSongsResults;
+
+    std::unique_ptr<MvProxy> m_mvProxy;
+
+    QVariantMap m_mvCurrent;
+    QString m_mvTitle;
+    QString m_mvArtist;
+    QString m_mvCover;
+    QString m_mvUrl;
+    QString m_mvError;
+    QString m_mvSearchTitle;
+    QString m_mvSearchArtist;
+    int m_mvSource = -1;
+    bool m_mvLoading = false;
+    bool m_mvSwitching = false;
     OnlineListModel m_newSongs;
     OnlineListModel m_recommendSongs;
     OnlineListModel m_musicPlaylists;

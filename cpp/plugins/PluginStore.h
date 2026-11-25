@@ -2,9 +2,11 @@
 // Copyright (c) 2025-2026 QueMusic Contributors
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QtQml/qqml.h>
 
 // 一个插件 = 一目录 + info.json；type 区分 function（可多选）与 lyrics（单选）
@@ -35,6 +37,9 @@ public:
     QString lyricsSource() const { return m_lyricsSource; }
     QString dir() const;
 
+    bool installed(const QString &id) const;
+    QString versionOf(const QString &id) const;
+
     Q_INVOKABLE void rescan();
     Q_INVOKABLE void setEnabled(const QString &id, bool on);
     Q_INVOKABLE void selectLyrics(const QString &id);
@@ -51,14 +56,18 @@ signals:
 private:
     void load();
     void rebuild();
+    void recomputeActive();
     void refreshLyrics();
     bool find(const QString &id, QVariantMap *info) const;
-    QString install(const QString &folder);
+    QString installInto(const QString &folder, const QString &id);
+    static QString pluginsRoot();
+    static QString sanitizeId(const QString &raw);
 
     QVariantList m_all;
     QVariantList m_functions;
     QVariantList m_active;
     QVariantList m_lyrics;
+    QHash<QString, QVariantMap> m_byId;
     QStringList m_enabled;
     QString m_lyricsId;
     QString m_lyricsSource;

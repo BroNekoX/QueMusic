@@ -380,7 +380,7 @@ Item {
                 color: Theme.textColor
                 font.pixelSize: Style.textmain - 1
                 text: platformLoginDialog.platform === "Spotify"
-                    ? "在浏览器登录 Spotify，复制含 sp_dc 的 Cookie 后粘贴到下方。"
+                    ? "在浏览器登录 Spotify 后，按 F12 → Application → Cookies → open.spotify.com 复制 sp_dc（或整条 Cookie）粘贴到下方；也可直接粘贴 access token。"
                     : "在浏览器登录 Apple Music，复制含 media-user-token 的 Cookie 后粘贴到下方。"
             }
             Text {
@@ -409,7 +409,7 @@ Item {
                 leftPadding: 12
                 text: platformLoginDialog.cookieText
                 onTextChanged: platformLoginDialog.cookieText = text
-                placeholderText: platformLoginDialog.platform === "Spotify" ? "粘贴含 sp_dc 的 Cookie" : "粘贴含 media-user-token 的 Cookie"
+                placeholderText: platformLoginDialog.platform === "Spotify" ? "粘贴 sp_dc 或完整 Cookie" : "粘贴含 media-user-token 的 Cookie"
                 color: Theme.textColor
                 font.pixelSize: Style.textmain
                 background: Rectangle {

@@ -338,6 +338,11 @@ void DbService::ensureSchema(QSqlDatabase &db)
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_favorites_folder ON favorites(folder_id)"));
     query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_favorites_type_created ON favorites(type, created_at DESC)"));
 
+    // 旧版 WebDAV 播放项复用 source=3，与 QQ 音乐撞号：URL 形态的条目迁到 90
+    query.exec(QStringLiteral(
+        "UPDATE playlist_songs SET source = 90 "
+        "WHERE source = 3 AND (path LIKE 'http://%' OR path LIKE 'https://%')"));
+
     query.prepare(QStringLiteral("SELECT COUNT(*) FROM folders WHERE type='my' AND name='默认文件夹'"));
     if (query.exec() && query.next() && query.value(0).toInt() == 0) {
         query.prepare(QStringLiteral("INSERT INTO folders (name, type) VALUES (:name, :type)"));

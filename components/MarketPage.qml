@@ -16,9 +16,12 @@ Item {
                                       : (PluginMarket.status.length > 0 ? PluginMarket.status
                                                                         : "点右上角刷新获取插件列表")
 
-    Component.onCompleted: {
+    onVisibleChanged: {
+        if (!visible)
+            return;
         PluginMarket.reloadConfig();
-        PluginMarket.refresh();
+        if (PluginMarket.list.length === 0 && !PluginMarket.busy)
+            PluginMarket.refresh();
     }
 
     Connections {

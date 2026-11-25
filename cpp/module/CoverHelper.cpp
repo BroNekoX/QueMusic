@@ -274,6 +274,20 @@ QString CoverHelper::findEmbeddedCover(const QString &sourcePath)
     return readCoverFromTag(localPath, m_cacheDir);
 }
 
+QString CoverHelper::cachedCover(const QString &sourcePath) const
+{
+    const QFileInfo fi(localPathFromSource(sourcePath));
+    if (!fi.isFile())
+        return QString();
+    const QString base = m_cacheDir + QStringLiteral("/cover-") + metadataCacheKey(fi);
+    for (const QString &ext : {QStringLiteral(".jpg"), QStringLiteral(".png")}) {
+        const QString path = base + ext;
+        if (QFileInfo::exists(path))
+            return QUrl::fromLocalFile(path).toString();
+    }
+    return QString();
+}
+
 void CoverHelper::findEmbeddedCoverAsync(const QString &sourcePath)
 {
     const QString localPath = localPathFromSource(sourcePath);

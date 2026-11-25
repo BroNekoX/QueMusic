@@ -11,6 +11,7 @@
 #include "platform/BilibiliApi.h"
 #include "platform/KugouApi.h"
 #include "LocalMedia.h"
+#include "MvProxy.h"
 #include "LyricTimeline.h"
 #include "platform/NeteaseCloudApi.h"
 #include "platform/QQMusicApi.h"
@@ -32,6 +33,7 @@
 #include <QDir>
 #include <QJSEngine>
 #include <QQmlEngine>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QVariant>
@@ -46,6 +48,13 @@ QString appConfigPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
            + "/BroNekoX";
+}
+
+bool sourceSupportsMv(int source)
+{
+    return source == ApiSource::Kugou || source == ApiSource::Netease
+        || source == ApiSource::Bilibili || source == ApiSource::QQMusic
+        || source >= ApiSource::PluginBase;
 }
 } // namespace
 
@@ -83,6 +92,7 @@ MusicApiService::MusicApiService(QObject *parent)
 {
     m_qualityCache = std::make_unique<QualityHashCache>(this);
     m_localMedia = std::make_unique<LocalMedia>(this);
+    m_mvProxy = std::make_unique<MvProxy>(this);
     m_kugou = std::make_unique<KugouApi>(this);
     m_netease = std::make_unique<NeteaseCloudApi>(this);
     m_bilibili = std::make_unique<BilibiliApi>(this);
@@ -143,6 +153,10 @@ MusicApiService::MusicApiService(QObject *parent)
             &PlaybackCoordinator::handleLyricInfo);
     connect(m_router.get(), &ApiResultRouter::lyricSearchReady, m_playback.get(),
             &PlaybackCoordinator::handleLyricSearchResult);
+    connect(m_router.get(), &ApiResultRouter::mvInfoReady, this,
+            &MusicApiService::handleMvInfo);
+    connect(m_router.get(), &ApiResultRouter::mvCandidatesReady, this,
+            &MusicApiService::handleMvCandidates);
 
     connect(m_playback.get(), &PlaybackCoordinator::urlplay, this, &MusicApiService::urlplay);
     connect(m_playback.get(), &PlaybackCoordinator::playUrlReady, this,
@@ -516,6 +530,214 @@ void MusicApiService::searchSongs(const QString &keyword, int type, int page, in
     send(ApiAction::SearchSongs, {{ApiArg::Keyword, keyword}, {ApiArg::Type, type}, {ApiArg::Page, page}, {ApiArg::PageSize, pageSize}}, source);
 }
 
+void MusicApiService::searchMvs(const QString &keyword, int page, int pageSize, int source)
+{
+    if (keyword.trimmed().isEmpty())
+        return;
+
+    const int resolved = resolveSource(source);
+    if (!sourceSupportsMv(resolved)) {
+        emit warned(QStringLiteral("%1 暂不支持 MV，试试酷狗 / 网易云 / QQ音乐 / 哔哩哔哩")
+                        .arg(sourceNameOf(resolved)),
+                    2);
+        return;
+    }
+    send(ApiAction::SearchMvs,
+         {{ApiArg::Keyword, keyword}, {ApiArg::Page, qMax(1, page)},
+          {ApiArg::PageSize, qBound(1, pageSize, 50)}},
+         source);
+}
+
+QVariantMap MusicApiService::pickBestMv(const QVariantList &items, const QString &title,
+                                        const QString &artist)
+{
+    if (items.isEmpty())
+        return {};
+
+    static const QRegularExpression separators(QStringLiteral("[/、,，&;；]"));
+    const QString wantTitle = title.trimmed().toLower();
+    const QString wantArtist = artist.split(separators).first().trimmed().toLower();
+
+    QVariantMap best;
+    int bestScore = -1;
+    for (const QVariant &entry : items) {
+        const QVariantMap item = entry.toMap();
+        if (item.value(ApiCommon::kHash).toString().isEmpty())
+            continue;
+        const QString itemTitle = item.value(ApiCommon::kTitle).toString().trimmed().toLower();
+        const QString itemArtist = item.value(ApiCommon::kArtist).toString().trimmed().toLower();
+        int score = 0;
+        if (!wantTitle.isEmpty() && !itemTitle.isEmpty()) {
+            if (itemTitle == wantTitle)
+                score += 8;
+            else if (itemTitle.contains(wantTitle) || wantTitle.contains(itemTitle))
+                score += 5;
+        }
+        if (!wantArtist.isEmpty() && !itemArtist.isEmpty()) {
+            if (itemArtist == wantArtist)
+                score += 6;
+            else if (itemArtist.contains(wantArtist) || wantArtist.contains(itemArtist))
+                score += 3;
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            best = item;
+        }
+    }
+    return best;
+}
+
+void MusicApiService::setMv(const QVariantMap &mv, int source)
+{
+    m_mvCurrent = mv;
+    m_mvSource = source;
+    m_mvTitle = mv.value(ApiCommon::kTitle).toString();
+    m_mvArtist = mv.value(ApiCommon::kArtist).toString();
+    m_mvCover = ApiCommon::httpsUrl(mv.value(ApiCommon::kCover).toString())
+                    .replace(QLatin1String("{size}"), QStringLiteral("480"));
+    emit mvMetaChanged();
+}
+
+bool MusicApiService::playMv(const QVariantMap &mv, int source)
+{
+    if (mv.isEmpty())
+        return false;
+
+    const QVariant itemSource = mv.value(QStringLiteral("source"));
+    int resolved = source >= 0 ? source
+                               : (itemSource.isValid() ? itemSource.toInt() : m_source);
+    if (resolved < 0)
+        resolved = m_source;
+    if (!m_registry.contains(resolved)) {
+        emit warned(QStringLiteral("音源不可用"), 2);
+        return false;
+    }
+
+    if (source < 0)
+        m_mvSwitching = false;
+    if (!m_mvSwitching) {
+        m_mvSearchTitle = mv.value(ApiCommon::kTitle).toString();
+        m_mvSearchArtist = mv.value(ApiCommon::kArtist).toString();
+    }
+
+    setMv(mv, resolved);
+    m_mvUrl.clear();
+    m_mvError.clear();
+    emit mvUrlChanged();
+    emit mvErrorChanged();
+    emit mvReady();
+
+    if (!sourceSupportsMv(resolved)) {
+        failMv(QStringLiteral("%1 暂不支持 MV 播放").arg(sourceNameOf(resolved)));
+        return true;
+    }
+
+    if (itemSource.isValid() && itemSource.toInt() == resolved) {
+        resolveMv();
+        return true;
+    }
+
+    m_mvSwitching = true;
+    m_mvLoading = true;
+    emit mvLoadingChanged();
+    send(ApiAction::SearchMvsCandidates,
+         {{ApiArg::Keyword, (m_mvSearchTitle + QLatin1Char(' ')
+                             + m_mvSearchArtist).trimmed()},
+          {ApiArg::Page, 1}, {ApiArg::PageSize, 20}},
+         resolved, true);
+    return true;
+}
+
+void MusicApiService::resolveMv()
+{
+    const QString id = m_mvCurrent.value(ApiCommon::kHash).toString();
+    if (id.isEmpty()) {
+        failMv(QStringLiteral("这个平台没有返回可播放的 MV 标识"));
+        return;
+    }
+    m_mvSwitching = false;
+    m_mvLoading = true;
+    emit mvLoadingChanged();
+    send(ApiAction::MvInfo, {{ApiArg::Hash, id}, {ApiArg::Id, id}}, m_mvSource, true);
+}
+
+void MusicApiService::switchMvSource(int source)
+{
+    if (m_mvCurrent.isEmpty()) {
+        emit warned(QStringLiteral("还没有在播放的 MV"), 2);
+        return;
+    }
+    if (source == m_mvSource) {
+        retryMv();
+        return;
+    }
+    m_mvSwitching = true;
+    playMv(m_mvCurrent, source);
+}
+
+void MusicApiService::retryMv()
+{
+    if (m_mvCurrent.isEmpty())
+        return;
+    for (auto it = m_inflight.begin(); it != m_inflight.end();) {
+        if (it.key().startsWith(ApiAction::MvInfo + QLatin1Char('|')))
+            it = m_inflight.erase(it);
+        else
+            ++it;
+    }
+    if (!m_mvUrl.isEmpty()) {
+        m_mvUrl.clear();
+        emit mvUrlChanged();
+    }
+    resolveMv();
+}
+
+void MusicApiService::failMv(const QString &message)
+{
+    m_mvLoading = false;
+    m_mvSwitching = false;
+    m_mvUrl.clear();
+    m_mvError = message.isEmpty()
+        ? QStringLiteral("这个平台暂时拿不到 MV 地址，可以切换到别的平台试试")
+        : message;
+    emit mvUrlChanged();
+    emit mvLoadingChanged();
+    emit mvErrorChanged();
+}
+
+void MusicApiService::handleMvInfo(const QVariantMap &message, int source)
+{
+    Q_UNUSED(source)
+    const QString url = message.value(QStringLiteral("url")).toString();
+    if (url.isEmpty() || message.contains(QStringLiteral("error"))) {
+        failMv(message.value(QStringLiteral("message")).toString());
+        return;
+    }
+    m_mvUrl = url;
+    if (source == ApiSource::Bilibili && m_mvProxy)
+        m_mvUrl = m_mvProxy->playableUrl(url, QStringLiteral("https://www.bilibili.com/"));
+    m_mvLoading = false;
+    m_mvSwitching = false;
+    m_mvError.clear();
+    emit mvUrlChanged();
+    emit mvLoadingChanged();
+    emit mvErrorChanged();
+}
+
+void MusicApiService::handleMvCandidates(const QVariantList &items, int source)
+{
+    if (!m_mvSwitching || source != m_mvSource)
+        return;
+    const QVariantMap best = pickBestMv(items, m_mvSearchTitle, m_mvSearchArtist);
+    if (best.isEmpty()) {
+        failMv(QStringLiteral("%1 没有找到这个 MV，换一个平台再试试")
+                   .arg(sourceNameOf(source)));
+        return;
+    }
+    setMv(best, source);
+    resolveMv();
+}
+
 void MusicApiService::getPlaylistMenu(int type, int source)
 {
     m_allPlaylistMenu.clear();
@@ -662,7 +884,7 @@ QString MusicApiService::removeSourcePlugin(int id)
         const QString file = m_sourcesDir + QLatin1Char('/') + map.value("file").toString();
         if (!QFile::remove(file))
             return QStringLiteral("删除失败");
-        AppSettings::setValue(QStringLiteral("Plugins/source"), QString::number(id), true);
+        AppSettings::remove(QStringLiteral("Plugins/source"), QString::number(id));
         m_scripts->reload();
         return QString();
     }

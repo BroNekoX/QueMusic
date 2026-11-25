@@ -7,9 +7,19 @@
 ;   iscc /DBuildDir="C:\path\to\deployed\bin" packaging\windows\QueMusic.iss
 ;
 ; BuildDir 应是已执行 windeployqt 的目录（包含 QueMusic.exe 与 Qt 运行库）。
+;
+; 签名：先签 build\bin 里的 exe/dll，再编译安装包，最后签安装包。
+;   iscc /DBuildDir="...\bin" /DMyAppVersion=0.6.0 packaging\windows\QueMusic.iss
+;   packaging\windows\sign.ps1 -Path ..\..\dist\QueMusic-0.6.0-win64-setup.exe -Thumbprint ...
+;
+; 若在 Inno IDE / 命令行配置了 SignTool，可启用下面两行让卸载器也带签名：
+; SignTool=signtool
+; SignedUninstaller=yes
 
 #define MyAppName "QueMusic"
-#define MyAppVersion "0.6.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.6.0"
+#endif
 #define MyAppPublisher "BroNekoX"
 #define MyAppURL "https://quemusic.top"
 #define MyAppExeName "QueMusic.exe"

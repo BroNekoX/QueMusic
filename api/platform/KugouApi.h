@@ -61,6 +61,8 @@ public:
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
     void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
+    void onSearchMvs(const QString &keyword, int page, int pageSize, const QString &action) override;
+    void onMvInfo(const QString &hash) override;
     void onPlaylistMenu(int type) override;
     void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
     void onCategoryPlaylists(const QString &categoryid, int page, int pageSize) override;
@@ -87,7 +89,8 @@ protected:
 private:
     using Callback = std::function<void(const QJsonObject &)>;
     void get(const QString &url, const Callback &cb);
-    void getLite(const QString &url, const Callback &cb);
+    // 概念版请求统一走 gateway.kugou.com，目标服务由 x-router 指定
+    void getLite(const QString &url, const Callback &cb, const QByteArray &router = QByteArray());
 
     QString cookieValue(const QStringList &keys) const;
 
@@ -116,6 +119,8 @@ private:
         int trackerRate = 0;
         int trackerStatus = 0;
         bool trackerDone = false;
+        int metaPrivilege = 0;
+        int metaPayType = 0;
 
         QString albumId;
         QString albumAudioId;
@@ -138,6 +143,10 @@ private:
     void requestLiteUrlStep(const QString &hash, int type,
                             const QSharedPointer<PlayRequest> &st, const QString &auth,
                             const QString &openTime, int quality, const QString &reason);
+
+    // 会员曲：/v6/priv_url（标准版 token + vip_token）
+    void requestPrivUrl(const QString &hash, int type,
+                        const QSharedPointer<PlayRequest> &st, const QString &reason);
 
     void requestSignedPlayInfo(const QString &hash, int type,
                                const QSharedPointer<PlayRequest> &st, const QString &reason);

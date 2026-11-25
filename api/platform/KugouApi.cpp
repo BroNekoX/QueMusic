@@ -377,6 +377,8 @@ void KugouApi::applyCredentials(const SourceCredentials &credentials)
     m_credentials = credentials;
     setQuality(credentials.quality);
     setDeviceInfo(credentials.deviceMid, credentials.deviceDfid);
+    if (m_mid.isEmpty())
+        m_mid = kugouMidFromGuid(randomGuid());
     setCookie(credentials.cookie);
 }
 
@@ -464,10 +466,10 @@ void KugouApi::get(const QString &url, const Callback &cb)
                  });
 }
 
-void KugouApi::getLite(const QString &url, const Callback &cb)
+void KugouApi::getLite(const QString &url, const Callback &cb, const QByteArray &router)
 {
     const QByteArray clienttime = QByteArray::number(QDateTime::currentSecsSinceEpoch());
-    const QList<QPair<QByteArray, QByteArray>> headers{
+    QList<QPair<QByteArray, QByteArray>> headers{
         { QByteArrayLiteral("dfid"), m_dfid.toUtf8() },
         { QByteArrayLiteral("clienttime"), clienttime },
         { QByteArrayLiteral("mid"), m_mid.toUtf8() },
@@ -476,6 +478,8 @@ void KugouApi::getLite(const QString &url, const Callback &cb)
         { QByteArrayLiteral("kg-rec"), QByteArrayLiteral("1") },
         { QByteArrayLiteral("kg-rf"), QByteArrayLiteral("B9EDA08A64250DEFFBCADDEE00F8F25F") },
     };
+    if (!router.isEmpty())
+        headers.append({ QByteArrayLiteral("x-router"), router });
     ApiHttp::get(m_nam, this, QUrl(url), kAndroidUa, "https://www.kugou.com/",
                  m_cookie.toUtf8(),
                  [cb](const QByteArray &body, QNetworkReply::NetworkError error) {
@@ -601,6 +605,123 @@ void KugouApi::onSearchSongs(const QString &keyword, int type, int page, int pag
 void KugouApi::onSearchLyrics(const QString &keyword, int page, int pageSize)
 {
     performSearch(keyword, 0, page, qMax(pageSize, 1), ApiAction::SearchLyrics);
+}
+
+void KugouApi::onSearchMvs(const QString &keyword, int page, int pageSize,
+                           const QString &action)
+{
+    QUrl url(QStringLiteral("https://mobileservice.kugou.com/api/v3/search/mv"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("keyword"), keyword);
+    query.addQueryItem(QStringLiteral("page"), QString::number(qMax(1, page)));
+    query.addQueryItem(QStringLiteral("pagesize"), QString::number(qBound(1, pageSize, 50)));
+    url.setQuery(query);
+
+    get(url.toString(), [this, action](const QJsonObject &json) {
+        QVariantList info;
+        const QJsonArray arr = json.value(QStringLiteral("data")).toObject()
+                                   .value(QStringLiteral("info")).toArray();
+        for (const QJsonValue &value : arr) {
+            const QJsonObject mv = value.toObject();
+            const QString hash = mv.value(QStringLiteral("hash")).toString();
+            if (hash.isEmpty())
+                continue;
+            QString cover = ApiCommon::httpsUrl(mv.value(QStringLiteral("imgurl")).toString());
+            cover.replace(QLatin1String("{size}"), QStringLiteral("480"));
+            QVariantMap item = ApiCommon::song(
+                mv.value(QStringLiteral("filename")).toString(),
+                mv.value(QStringLiteral("singername")).toString(), cover, hash,
+                mv.value(QStringLiteral("duration")).toInt(),
+                mv.value(QStringLiteral("album_name")).toString(), QString(), QString(),
+                ApiCommon::kPaytypeFree,
+                mv.value(QStringLiteral("historyheat")).toVariant().toLongLong());
+            info << item;
+        }
+        emit resultReady(action, ApiCommon::listResult(info), Source);
+    });
+}
+
+void KugouApi::onMvInfo(const QString &hash)
+{
+    if (hash.isEmpty()) {
+        emit resultReady(ApiAction::MvInfo,
+                         QVariantMap{{"hash", hash}, {"error", -1}, {"message", "empty mv hash"}},
+                         Source);
+        return;
+    }
+
+    if (m_mid.isEmpty())
+        m_mid = kugouMidFromGuid(randomGuid());
+    if (m_dfid.isEmpty())
+        m_dfid = QStringLiteral("-");
+
+    QVariantMap params;
+    params.insert(QStringLiteral("backupdomain"), QStringLiteral("1"));
+    params.insert(QStringLiteral("cmd"), QStringLiteral("123"));
+    params.insert(QStringLiteral("ext"), QStringLiteral("mp4"));
+    params.insert(QStringLiteral("ismp3"), QStringLiteral("0"));
+    params.insert(QStringLiteral("hash"), hash);
+    params.insert(QStringLiteral("pid"), QStringLiteral("1"));
+    params.insert(QStringLiteral("type"), QStringLiteral("1"));
+    params.insert(QStringLiteral("appid"), QStringLiteral("1005"));
+    params.insert(QStringLiteral("clientver"), QStringLiteral("20489"));
+    params.insert(QStringLiteral("clienttime"),
+                  QString::number(QDateTime::currentSecsSinceEpoch()));
+    params.insert(QStringLiteral("mid"), m_mid);
+    params.insert(QStringLiteral("dfid"), m_dfid);
+    params.insert(QStringLiteral("uuid"), QStringLiteral("-"));
+    // key = md5(hash + salt + appid + mid + userid)
+    params.insert(QStringLiteral("key"),
+                  QString::fromLatin1(
+                      md5Hex((hash + QStringLiteral("57ae12eb6890223e355ccfcb74edf70d")
+                              + QStringLiteral("1005") + m_mid + QStringLiteral("0"))
+                                 .toUtf8())));
+    params.insert(QStringLiteral("signature"),
+                  QString::fromLatin1(signature(params, kSaltAndroid)));
+
+    QUrlQuery query;
+    for (auto it = params.cbegin(); it != params.cend(); ++it)
+        query.addQueryItem(it.key(), it.value().toString());
+    QUrl url(QStringLiteral("https://gateway.kugou.com/v2/interface/index"));
+    url.setQuery(query);
+
+    getLite(url.toString(),
+            [this, hash](const QJsonObject &json) {
+                const auto firstUrl = [](const QJsonArray &list) {
+                    for (const QJsonValue &value : list) {
+                        const QString text = value.toString();
+                        if (!text.isEmpty())
+                            return text;
+                    }
+                    return QString();
+                };
+                QString videoUrl;
+                const QJsonObject data = json.value(QStringLiteral("data")).toObject();
+                const QJsonObject entry = data.value(hash).toObject();
+                if (!entry.isEmpty()) {
+                    videoUrl = entry.value(QStringLiteral("downurl")).toString();
+                    if (videoUrl.isEmpty())
+                        videoUrl = firstUrl(entry.value(QStringLiteral("backupdownurl")).toArray());
+                }
+                if (videoUrl.isEmpty())
+                    videoUrl = json.value(QStringLiteral("url")).toString();
+                if (videoUrl.isEmpty())
+                    videoUrl = firstUrl(json.value(QStringLiteral("url")).toArray());
+                if (videoUrl.isEmpty())
+                    videoUrl = firstUrl(json.value(QStringLiteral("backupurl")).toArray());
+
+                QVariantMap result{{"hash", hash}};
+                if (videoUrl.isEmpty()) {
+                    result.insert(QStringLiteral("error"), json.value(QStringLiteral("error")));
+                    result.insert(QStringLiteral("message"),
+                                  QStringLiteral("酷狗没有返回 MV 视频地址"));
+                } else {
+                    // 酷狗 CDN 只有 http
+                    result.insert(QStringLiteral("url"), videoUrl);
+                }
+                emit resultReady(ApiAction::MvInfo, result, Source);
+            },
+            QByteArrayLiteral("trackermv.kugou.com"));
 }
 
 void KugouApi::performSearch(const QString &keyword, int type, int page, int pageSize,
@@ -1382,6 +1503,8 @@ void KugouApi::requestPlayMeta(const QString &hash, int type, const QSharedPoint
         if (st->albumId.isEmpty())
             st->albumId = d.value("req_albumid").toVariant().toString();
         st->albumAudioId = d.value("album_audio_id").toVariant().toString();
+        st->metaPrivilege = d.value("privilege").toInt();
+        st->metaPayType = d.value("pay_type").toInt();
         st->metaDone = true;
         finishPlayInfo(hash, type, st);
     });
@@ -1466,6 +1589,11 @@ void KugouApi::finishWithFallback(const QString &hash, int type,
 
     if (transportError != 0)
         data.insert("error", transportError);
+    // 有地址但平台标记为无播放权限：多半是 30 秒试听，交给音源插件换完整版本
+    if (!freeUrl.isEmpty() && st->trackerUrl.isEmpty()
+        && (st->metaPrivilege >= 8 || st->metaPayType > 0)) {
+        data.insert("freeTrialInfo", QVariantMap{{"length", 30000}});
+    }
     if (freeUrl.isEmpty()) {
         data.insert("errReason", reason);
         qWarning() << "[kugou] 所有取址通道均无地址（VIP/付费或版权限制）hash:" << hash.left(8);
@@ -1619,27 +1747,28 @@ void KugouApi::requestLitePlayInfo(const QString &hash, int type,
 
     QVariantMap params = liteBaseParams();
     params.insert("module_id", 51);
-    params.insert("signature", QString::fromLatin1(signature(params, kSaltAndroid)));
+    params.insert("signature", QString::fromLatin1(signature(params, kSaltLite)));
 
     QUrlQuery q;
     for (auto it = params.cbegin(); it != params.cend(); ++it)
         q.addQueryItem(it.key(), it.value().toString());
 
-    getLite("http://trackercdngz.kugou.com/v1/user_verify?" + q.toString(),
+    getLite("https://gateway.kugou.com/v1/user_verify?" + q.toString(),
             [this, hash, type, st, reason](const QJsonObject &json) {
                 const QString userAuth = json.value("data").toObject()
                                              .value("auth").toString();
                 if (userAuth.isEmpty()) {
-                    qWarning() << "[kugou] 概念版 user_verify 失败，落回 web 签名 status:"
+                    qWarning() << "[kugou] 概念版 user_verify 失败，尝试会员取址 status:"
                                << json.value("status").toInt()
                                << "err_code:" << json.value("error_code").toInt();
-                    requestSignedPlayInfo(hash, type, st, reason);
+                    requestPrivUrl(hash, type, st, reason);
                     return;
                 }
                 m_liteUserAuth = userAuth;
                 qInfo() << "[kugou] 概念版用户级 auth 已获取，继续取歌曲授权" << hash.left(8);
                 requestLiteSongAuth(hash, type, st, userAuth, reason);
-            });
+            },
+            QByteArrayLiteral("trackercdngz.kugou.com"));
 }
 
 void KugouApi::requestLiteSongAuth(const QString &hash, int type,
@@ -1653,13 +1782,13 @@ void KugouApi::requestLiteSongAuth(const QString &hash, int type,
                   st->albumAudioId.isEmpty() ? 0 : st->albumAudioId.toLongLong());
     params.insert("clientver", 11561);
     params.insert("hash", hash.toLower());
-    params.insert("signature", QString::fromLatin1(signature(params, kSaltAndroid)));
+    params.insert("signature", QString::fromLatin1(signature(params, kSaltLite)));
 
     QUrlQuery q;
     for (auto it = params.cbegin(); it != params.cend(); ++it)
         q.addQueryItem(it.key(), it.value().toString());
 
-    getLite("http://trackercdngz.kugou.com/v1/authorization?" + q.toString(),
+    getLite("https://gateway.kugou.com/v1/authorization?" + q.toString(),
             [this, hash, type, st, reason](const QJsonObject &json) {
                 const QJsonObject d = json.value("data").toObject();
                 const QString auth = d.value("auth").toString();
@@ -1668,15 +1797,16 @@ void KugouApi::requestLiteSongAuth(const QString &hash, int type,
                 if (auth.isEmpty() || openTime.isEmpty()) {
 
                     m_liteUserAuth.clear();
-                    qWarning() << "[kugou] 概念版歌曲授权失败，落回 web 签名 status:"
+                    qWarning() << "[kugou] 概念版歌曲授权失败，尝试会员取址 status:"
                                << json.value("status").toInt()
                                << "err_code:" << json.value("error_code").toInt();
-                    requestSignedPlayInfo(hash, type, st, reason);
+                    requestPrivUrl(hash, type, st, reason);
                     return;
                 }
                 qInfo() << "[kugou] 概念版歌曲授权已获取，换播放地址" << hash.left(8);
                 requestLiteUrlStep(hash, type, st, auth, openTime, m_quality, reason);
-            });
+            },
+            QByteArrayLiteral("trackercdngz.kugou.com"));
 }
 
 void KugouApi::requestLiteUrlStep(const QString &hash, int type,
@@ -1718,7 +1848,7 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
                   liteSignKey(lower, "3116", m_mid,
                               userid.isEmpty() ? "0" : userid));
 
-    params.insert("signature", QString::fromLatin1(signature(params, kSaltAndroid)));
+    params.insert("signature", QString::fromLatin1(signature(params, kSaltLite)));
 
     QUrlQuery q;
     for (auto it = params.cbegin(); it != params.cend(); ++it)
@@ -1754,7 +1884,7 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
                     }
                     qWarning() << "[kugou] 概念版取址无地址 status:" << status
                                << "err_code:" << json.value("error_code").toInt();
-                    requestSignedPlayInfo(hash, type, st, reason);
+                    requestPrivUrl(hash, type, st, reason);
                     return;
                 }
 
@@ -1772,8 +1902,133 @@ void KugouApi::requestLiteUrlStep(const QString &hash, int type,
                 data.insert("backup_url", url);
                 data.insert("hash", hash);
                 data.insert("type", type);
+                if (json.value("is_free_part").toInt() == 1
+                    || dd.value("is_free_part").toInt() == 1)
+                    data.insert("freeTrialInfo", QVariantMap{{"length", 30000}});
                 emit resultReady(ApiAction::MusicInfo, data, Source);
             });
+}
+
+void KugouApi::requestPrivUrl(const QString &hash, int type,
+                              const QSharedPointer<PlayRequest> &st, const QString &reason)
+{
+    const QString lower = hash.toLower();
+    const QString userid = cookieValue({"userid", "user_id", "KugooID"});
+    const QString uid = userid.isEmpty() ? QStringLiteral("0") : userid;
+    const QString vipToken = cookieValue({"vip_token", "viptoken"});
+    const QString vipType = cookieValue({"vip_type", "viptype"});
+    if (vipToken.isEmpty()) {
+        requestSignedPlayInfo(hash, type, st, reason);
+        return;
+    }
+
+    QJsonObject resource;
+    resource.insert("album_audio_id", st->albumAudioId.toLongLong());
+    resource.insert("collect_list_id", "3");
+    resource.insert("collect_time", QDateTime::currentMSecsSinceEpoch());
+    resource.insert("hash", lower);
+    resource.insert("id", 0);
+    resource.insert("page_id", 1);
+    resource.insert("type", "audio");
+
+    QJsonObject tracker;
+    tracker.insert("all_m", 1);
+    tracker.insert("auth", "");
+    tracker.insert("is_free_part", 0);
+    tracker.insert("key", liteSignKey(lower, "3116", m_mid, uid));
+    tracker.insert("module_id", 0);
+    tracker.insert("need_climax", 1);
+    tracker.insert("need_xcdn", 1);
+    tracker.insert("open_time", "");
+    tracker.insert("pid", "411");
+    tracker.insert("pidversion", "3001");
+    tracker.insert("priv_vip_type", "6");
+    tracker.insert("viptoken", vipToken);
+
+    QJsonArray qualities;
+    for (const char *q : {"128", "320", "flac", "high", "multitrack",
+                          "viper_atmos", "viper_tape", "viper_clear", "super"})
+        qualities.append(QLatin1String(q));
+
+    QJsonObject body;
+    body.insert("area_code", "1");
+    body.insert("behavior", "play");
+    body.insert("qualities", qualities);
+    body.insert("resource", resource);
+    body.insert("token", cookieValue({"token", "t"}));
+    body.insert("userid", uid);
+    body.insert("vip", vipType.isEmpty() ? 0 : vipType.toInt());
+    body.insert("tracker_param", tracker);
+
+    const QByteArray clienttime = QByteArray::number(QDateTime::currentSecsSinceEpoch());
+    const QList<QPair<QByteArray, QByteArray>> headers{
+        { QByteArrayLiteral("x-router"), QByteArrayLiteral("tracker.kugou.com") },
+        { QByteArrayLiteral("dfid"), m_dfid.toUtf8() },
+        { QByteArrayLiteral("clienttime"), clienttime },
+        { QByteArrayLiteral("mid"), m_mid.toUtf8() },
+    };
+
+    // 网关要求参数在 query 里签名（签名串还要拼上请求体），body 只放业务数据
+    const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
+    QVariantMap params = liteBaseParams();
+    params.insert("signature", QString::fromLatin1(signature(params, kSaltLite, payload)));
+
+    ApiHttp::postJson(m_nam, this, withQuery(QStringLiteral("https://gateway.kugou.com/v6/priv_url"), params),
+                      payload, kAndroidUa,
+                      "https://www.kugou.com/", m_cookie.toUtf8(),
+                      [this, hash, type, st, reason, lower](const QJsonObject &json) {
+                          QJsonObject data = json.value("data").toObject();
+                          QString url;
+                          const QString preferred =
+                              m_quality >= 2 ? QStringLiteral("flac")
+                                             : (m_quality == 1 ? QStringLiteral("320")
+                                                               : QStringLiteral("128"));
+                          QString fallbackUrl;
+                          const QJsonArray urls = data.value("urls").toArray();
+                          for (const QJsonValue &v : urls) {
+                              const QJsonObject item = v.toObject();
+                              const QString itemUrl = item.value("url").toString();
+                              if (itemUrl.isEmpty())
+                                  continue;
+                              if (fallbackUrl.isEmpty())
+                                  fallbackUrl = itemUrl;
+                              if (itemUrl.contains(preferred))
+                                  url = itemUrl;
+                          }
+                          if (url.isEmpty())
+                              url = fallbackUrl;
+                          if (url.isEmpty()) {
+                              const QJsonValue raw = data.value("url");
+                              if (raw.isString())
+                                  url = raw.toString();
+                              else if (raw.isArray() && !raw.toArray().isEmpty())
+                                  url = raw.toArray().first().toString();
+                          }
+                          if (url.isEmpty()) {
+                              qWarning() << "[kugou] 会员取址无地址 status:"
+                                         << json.value("status").toInt()
+                                         << "err_code:" << json.value("error_code").toInt();
+                              requestSignedPlayInfo(hash, type, st, reason);
+                              return;
+                          }
+
+                          QString ext = data.value("extName").toString();
+                          if (ext.isEmpty())
+                              ext = url.section(QLatin1Char('.'), -1);
+                          QVariantMap out = st->meta;
+                          QString fileName = out.value("fileName").toString();
+                          const int dot = fileName.lastIndexOf(QLatin1Char('.'));
+                          if (!ext.isEmpty() && dot > 0)
+                              fileName = fileName.left(dot) + QLatin1Char('.') + ext;
+                          out.insert("fileName", fileName);
+                          out.insert("url", url);
+                          out.insert("backup_url", url);
+                          out.insert("hash", hash);
+                          out.insert("type", type);
+                          qInfo() << "[kugou] 会员取址成功" << lower.left(8);
+                          emit resultReady(ApiAction::MusicInfo, out, Source);
+                      },
+                      headers);
 }
 
 void KugouApi::onLyricInfo(const QString &hash, int duration)

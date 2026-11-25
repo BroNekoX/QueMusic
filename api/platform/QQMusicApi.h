@@ -35,6 +35,8 @@ public:
 protected:
     void onSearchSongs(const QString &keyword, int type, int page, int pageSize) override;
     void onSearchLyrics(const QString &keyword, int page, int pageSize) override;
+    void onSearchMvs(const QString &keyword, int page, int pageSize, const QString &action) override;
+    void onMvInfo(const QString &vid) override;
     void onPlaylistMenu(int type) override;
     void onMusicPlaylists(const QString &tagid, int page, int pageSize) override;
     void onCategoryPlaylists(const QString &categoryid, int page, int pageSize) override;
@@ -80,6 +82,8 @@ private:
 
     void requestSearch(const QString &keyword, int type, int page, int pageSize,
                        const QString &action);
+    void requestMvSearch(const QString &keyword, int page, int pageSize,
+                         const QString &action);
     void requestPlaylists(const QString &categoryId, int page, int pageSize,
                           const QString &action, int startOffset = 0);
     void requestDetail(const QString &mid, const std::function<void(const SongDetail &)> &done);

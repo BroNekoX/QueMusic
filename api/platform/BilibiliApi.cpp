@@ -806,6 +806,62 @@ void BilibiliApi::onSingerSongs(const QString &singerid, int page, int pageSize)
     });
 }
 
+void BilibiliApi::onSearchMvs(const QString &keyword, int page, int pageSize,
+                             const QString &action)
+{
+    Q_UNUSED(pageSize)
+    searchVideos(keyword, kMusicTid, page, action);
+}
+
+void BilibiliApi::onMvInfo(const QString &bvid)
+{
+    const auto fail = [this, bvid](const QString &message, int error = -1) {
+        emit resultReady(ApiAction::MvInfo,
+                         QVariantMap{{"hash", bvid}, {"error", error}, {"message", message}},
+                         Source);
+    };
+    if (bvid.isEmpty()) {
+        fail(QStringLiteral("空的视频 BV 号"));
+        return;
+    }
+
+    get(kApi + "/x/web-interface/view?bvid=" + bvid,
+        [this, bvid, fail](const QJsonObject &j) {
+            const QJsonObject d = j.value("data").toObject();
+            const QString cid = d.value("cid").toVariant().toString();
+            if (cid.isEmpty()) {
+                fail(QStringLiteral("B 站视频详情不可用"));
+                return;
+            }
+            // html5 源带音轨且不需要 Referer
+            get(kApi + QString("/x/player/playurl?bvid=%1&cid=%2&platform=html5&high_quality=1")
+                          .arg(bvid, cid),
+                [this, bvid, d, fail](const QJsonObject &pj) {
+                    const QJsonObject pd = pj.value("data").toObject();
+                    QString url;
+                    const QJsonArray durl = pd.value("durl").toArray();
+                    if (!durl.isEmpty())
+                        url = durl.first().toObject().value("url").toString();
+                    if (url.isEmpty()) {
+                        const QJsonArray videos = pd.value("dash").toObject()
+                                                      .value("video").toArray();
+                        if (!videos.isEmpty())
+                            url = videos.first().toObject().value("baseUrl").toString();
+                    }
+
+                    QVariantMap result{{"hash", bvid}};
+                    if (url.isEmpty()) {
+                        result.insert(QStringLiteral("error"), -1);
+                        result.insert(QStringLiteral("message"),
+                                      QStringLiteral("B 站没有返回可播放的视频流"));
+                    } else {
+                        result.insert(QStringLiteral("url"), ApiCommon::httpsUrl(url));
+                    }
+                    emit resultReady(ApiAction::MvInfo, result, Source);
+                });
+        });
+}
+
 void BilibiliApi::onMusicInfo(const QString &hash, int type)
 {
     const auto fail = [this, hash, type](int error = 0) {

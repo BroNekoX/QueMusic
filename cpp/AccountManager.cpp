@@ -8,8 +8,11 @@
 #include "platform/QQMusicApi.h"
 #include "apihelper.h"
 #include "AppSettings.h"
+#include "DbService.h"
 
 #include <QCoreApplication>
+#include <QFile>
+#include <QStandardPaths>
 #include <QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
@@ -53,7 +56,28 @@ AccountManager::AccountManager(QObject *parent)
     m_bilibiliPollTimer->setInterval(2500);
     connect(m_bilibiliPollTimer, &QTimer::timeout, this, &AccountManager::pollBilibili);
 
-    m_configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/Account.ini");
+    // Spotify web 凭证约 1 小时过期：定时用 sp_dc 换新
+    m_spotifyTokenTimer = new QTimer(this);
+    m_spotifyTokenTimer->setInterval(40 * 60 * 1000);
+    connect(m_spotifyTokenTimer, &QTimer::timeout, this, &AccountManager::refreshSpotifyToken);
+
+    // 登录态与数据库同目录：AppData 可写时在用户数据目录，便携版落在 exe/data
+    const QString dataDir = DbService::dataDir();
+    m_configPath = dataDir + QStringLiteral("/Account.ini");
+    if (!QFile::exists(m_configPath)) {
+        // 旧版本写在 exe 目录，上一版曾写在 ConfigLocation，两者都迁移一次
+        const QStringList legacy{
+            QCoreApplication::applicationDirPath() + QStringLiteral("/Account.ini"),
+            QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                + QStringLiteral("/BroNekoX/Account.ini"),
+        };
+        for (const QString &path : legacy) {
+            if (path != m_configPath && QFile::exists(path)) {
+                QFile::copy(path, m_configPath);
+                break;
+            }
+        }
+    }
 
     loadPersisted();
 
@@ -609,28 +633,7 @@ void AccountManager::startKugouQrLogin()
     m_kugouPollTimer->stop();
     m_kugouKey.clear();
 
-    // 设备信息（无则生成并持久化）
-    SettingsFile s(m_configPath);
-    m_kugouGuid = s.value(QStringLiteral("Kugou"), QStringLiteral("guid")).toString();
-    m_kugouDfid = s.value(QStringLiteral("Kugou"), QStringLiteral("dfid")).toString();
-    if (m_kugouGuid.isEmpty()) {
-        m_kugouGuid = KugouApi::randomGuid();
-        SettingsFile w(m_configPath);
-        w.setValue(QStringLiteral("Kugou"), QStringLiteral("guid"), m_kugouGuid);
-        w.sync();
-    }
-    if (m_kugouDfid.isEmpty()) {
-        // 酷狗 dfid 通常为 24 位大写字母+数字（与官方客户端一致）
-        static const char *pool = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        QString dfid;
-        for (int i = 0; i < 24; ++i)
-            dfid.append(pool[QRandomGenerator::global()->bounded(36)]);
-        m_kugouDfid = dfid;
-        SettingsFile w(m_configPath);
-        w.setValue(QStringLiteral("Kugou"), QStringLiteral("dfid"), m_kugouDfid);
-        w.sync();
-    }
-    m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
+    ensureKugouDevice();
 
     setKugouQr(QrWaiting, QStringLiteral("正在获取二维码…"));
 
@@ -747,7 +750,16 @@ void AccountManager::onKugouPoll(QNetworkReply *reply)
             setKugouQr(QrError, QStringLiteral("登录失败：未获取到凭证"));
             return;
         }
-        m_kugouCookie = QStringLiteral("token=%1; userid=%2").arg(token, userid);
+        QStringList parts;
+        parts << QStringLiteral("token=%1").arg(token) << QStringLiteral("userid=%1").arg(userid);
+        // 会员取址（/v6/priv_url）依赖 vip_token / vip_type，二维码登录同样会下发
+        const QString vipToken = data.value(QStringLiteral("vip_token")).toString();
+        const int vipType = data.value(QStringLiteral("vip_type")).toInt();
+        if (!vipToken.isEmpty())
+            parts << QStringLiteral("vip_token=%1").arg(vipToken);
+        if (vipType > 0)
+            parts << QStringLiteral("vip_type=%1").arg(vipType);
+        m_kugouCookie = parts.join(QStringLiteral("; "));
         m_kugouNickname = data.value(QStringLiteral("nickname")).toString();
         if (m_kugouNickname.isEmpty())
             m_kugouNickname = QStringLiteral("酷狗用户(%1)").arg(userid);
@@ -783,6 +795,38 @@ void AccountManager::persistNetease()
     s.setValue(QStringLiteral("Netease"), QStringLiteral("nickname"), m_neteaseNickname);
     s.setValue(QStringLiteral("Netease"), QStringLiteral("avatar"), m_neteaseAvatar);
     s.sync();
+}
+
+void AccountManager::ensureKugouDevice()
+{
+    SettingsFile s(m_configPath);
+    if (m_kugouGuid.isEmpty())
+        m_kugouGuid = s.value(QStringLiteral("Kugou"), QStringLiteral("guid")).toString();
+    if (m_kugouDfid.isEmpty())
+        m_kugouDfid = s.value(QStringLiteral("Kugou"), QStringLiteral("dfid")).toString();
+
+    bool dirty = false;
+    if (m_kugouGuid.isEmpty()) {
+        m_kugouGuid = KugouApi::randomGuid();
+        dirty = true;
+    }
+    if (m_kugouDfid.isEmpty()) {
+        // 酷狗 dfid 通常为 24 位大写字母+数字（与官方客户端一致）
+        static const char *pool = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        QString dfid;
+        for (int i = 0; i < 24; ++i)
+            dfid.append(pool[QRandomGenerator::global()->bounded(36)]);
+        m_kugouDfid = dfid;
+        dirty = true;
+    }
+    m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
+
+    if (dirty) {
+        SettingsFile w(m_configPath);
+        w.setValue(QStringLiteral("Kugou"), QStringLiteral("guid"), m_kugouGuid);
+        w.setValue(QStringLiteral("Kugou"), QStringLiteral("dfid"), m_kugouDfid);
+        w.sync();
+    }
 }
 
 void AccountManager::persistKugou()
@@ -831,10 +875,7 @@ void AccountManager::loadKugou()
 
     if (m_kugouCookie.isEmpty())
         return;
-    if (!m_kugouGuid.isEmpty())
-        m_kugouMid = KugouApi::kugouMidFromGuid(m_kugouGuid);
-    if (m_kugouDfid.isEmpty())
-        m_kugouDfid = QStringLiteral("-");
+    ensureKugouDevice();
     m_kugouLoggedIn = true;
 }
 
@@ -859,60 +900,119 @@ void AccountManager::browserGet(const QUrl &url, const QByteArray &cookie,
 
 void AccountManager::startSpotifyBrowserLogin()
 {
-    m_spotifyLoginMessage = "浏览器已打开，登录后复制含 sp_dc 的 Cookie";
+    m_spotifyLoginMessage = QStringLiteral("已打开浏览器：登录后在开发者工具 → Application → Cookies "
+                                           "复制 sp_dc，粘贴到下方输入框");
     emit spotifyLoginChanged();
     QDesktopServices::openUrl(QUrl("https://accounts.spotify.com/en/login"));
 }
 
 void AccountManager::loginSpotifyWithCookie(const QString &input)
 {
-    const QString text = input.trimmed();
+    QString text = input.trimmed();
+    if (text.startsWith(QLatin1String("Cookie:"), Qt::CaseInsensitive))
+        text = text.mid(7).trimmed();
     if (text.isEmpty()) {
-        m_spotifyLoginMessage = "请先粘贴浏览器 Cookie";
+        m_spotifyLoginMessage = QStringLiteral("请先粘贴 sp_dc 或完整 Cookie");
         emit spotifyLoginChanged();
         return;
     }
-    m_spotifyLoginMessage = "正在验证 Spotify 账号…";
-    emit spotifyLoginChanged();
 
-    if (!text.contains("sp_dc") && !text.contains(';')) {
-        validateSpotifyToken(text, QString());
+    // 三种输入：完整 Cookie / 纯 sp_dc 值 / 已有 access token
+    const QRegularExpression spDcPattern(QStringLiteral("sp_dc=([^;\\s]+)"));
+    if (text.contains(QLatin1Char(';')) || spDcPattern.match(text).hasMatch()) {
+        m_spotifyCookie = text;
+    } else if (text.startsWith(QLatin1String("BQ"))) {
+        m_spotifyLoginMessage = QStringLiteral("正在验证 Spotify 账号…");
+        emit spotifyLoginChanged();
+        validateSpotifyToken(text, m_spotifyCookie);
         return;
+    } else {
+        m_spotifyCookie = QStringLiteral("sp_dc=") + text;
     }
 
-    const QUrl url("https://open.spotify.com/get_access_token?reason=transport&productType=web_player");
-    browserGet(url, text.toUtf8(), {{"Origin", "https://open.spotify.com"}, {"Referer", "https://open.spotify.com/"}},
-               [this, text](int status, const QByteArray &body) {
-        const QString token = QJsonDocument::fromJson(body).object().value("accessToken").toString();
-        if (status != 200 || token.isEmpty()) {
-            m_spotifyLoginMessage = "Spotify 验证失败，Cookie 可能已失效";
+    m_spotifyLoginMessage = QStringLiteral("正在验证 Spotify 账号…");
+    emit spotifyLoginChanged();
+    refreshSpotifyToken();
+}
+
+// sp_dc 长期有效，access token 只有约 1 小时：只存 Cookie，凭证过期就换新的
+void AccountManager::refreshSpotifyToken()
+{
+    if (m_spotifyCookie.isEmpty()) {
+        m_spotifyLoginMessage = QStringLiteral("缺少 sp_dc，请重新粘贴浏览器 Cookie");
+        emit spotifyLoginChanged();
+        return;
+    }
+    const QUrl url(QStringLiteral("https://open.spotify.com/get_access_token"
+                                  "?reason=transport&productType=web_player"));
+    browserGet(url, m_spotifyCookie.toUtf8(),
+               {{"Accept", "application/json"},
+                {"app-platform", "WebPlayer"},
+                {"spotify-app-version", "1.2.62.396.g0f4c1e6f"}},
+               [this](int status, const QByteArray &body) {
+        if (status == 0) {
+            m_spotifyLoginMessage = QStringLiteral("无法连接 Spotify，请检查网络或代理");
             emit spotifyLoginChanged();
             return;
         }
-        validateSpotifyToken(token, text);
+        const QJsonObject object = QJsonDocument::fromJson(body).object();
+        const QString token = object.value("accessToken").toString();
+        if (status != 200 || token.isEmpty()) {
+            m_spotifyLoginMessage = status == 401 || status == 403
+                                        ? QStringLiteral("Cookie 已失效，请重新登录 Spotify")
+                                        : QStringLiteral("获取 Spotify 凭证失败（HTTP %1）").arg(status);
+            emit spotifyLoginChanged();
+            return;
+        }
+        if (object.value("isAnonymous").toBool()) {
+            m_spotifyLoginMessage = QStringLiteral("Cookie 无效：拿到的是匿名凭证，请确认复制的是已登录账号的 sp_dc");
+            emit spotifyLoginChanged();
+            return;
+        }
+        validateSpotifyToken(token, m_spotifyCookie);
     });
 }
 
 void AccountManager::validateSpotifyToken(const QString &token, const QString &cookie)
 {
-    browserGet(QUrl("https://api.spotify.com/v1/me"), {}, {{"Authorization", "Bearer " + token.toUtf8()},
-                                                         {"Origin", "https://open.spotify.com"}},
+    browserGet(QUrl(QStringLiteral("https://api.spotify.com/v1/me")), {},
+               {{"Authorization", "Bearer " + token.toUtf8()},
+                {"Accept", "application/json"}},
                [this, token, cookie](int status, const QByteArray &body) {
+        if (status == 0) {
+            m_spotifyLoginMessage = QStringLiteral("无法连接 Spotify，请检查网络或代理");
+            emit spotifyLoginChanged();
+            return;
+        }
         if (status != 200) {
-            m_spotifyLoginMessage = "Spotify 登录失败，账号信息不可用";
+            qWarning().noquote() << QStringLiteral("[spotify] /v1/me 失败 HTTP %1 %2")
+                                        .arg(status)
+                                        .arg(QString::fromUtf8(body.left(200)));
+            m_spotifyLoginMessage = status == 401 || status == 403
+                                        ? QStringLiteral("Spotify 凭证被拒绝，请重新登录")
+                                        : QStringLiteral("获取 Spotify 账号信息失败（HTTP %1）").arg(status);
             emit spotifyLoginChanged();
             return;
         }
         const QJsonObject object = QJsonDocument::fromJson(body).object();
+        if (object.value("id").toString().isEmpty()) {
+            m_spotifyLoginMessage = QStringLiteral("Spotify 返回的账号信息不可用");
+            emit spotifyLoginChanged();
+            return;
+        }
         const QJsonArray images = object.value("images").toArray();
         m_spotifyToken = token;
-        if (!cookie.isEmpty()) m_spotifyCookie = cookie;
+        if (!cookie.isEmpty())
+            m_spotifyCookie = cookie;
         m_spotifyNickname = object.value("display_name").toString();
-        if (m_spotifyNickname.isEmpty()) m_spotifyNickname = object.value("id").toString();
-        m_spotifyAvatar = images.isEmpty() ? QString() : images.first().toObject().value("url").toString();
+        if (m_spotifyNickname.isEmpty())
+            m_spotifyNickname = object.value("id").toString();
+        m_spotifyAvatar = images.isEmpty() ? QString()
+                                           : images.first().toObject().value("url").toString();
         m_spotifyLoggedIn = true;
-        m_spotifyLoginMessage = "Spotify 登录成功";
+        m_spotifyLoginMessage = QStringLiteral("Spotify 登录成功");
         persistSpotify();
+        m_spotifyTokenTimer->start();
         emit spotifyLoginChanged();
         emit message(QStringLiteral("Spotify 账号登录成功"), 1);
     });
@@ -920,6 +1020,7 @@ void AccountManager::validateSpotifyToken(const QString &token, const QString &c
 
 void AccountManager::logoutSpotify()
 {
+    m_spotifyTokenTimer->stop();
     m_spotifyLoggedIn = false;
     m_spotifyCookie.clear();
     m_spotifyToken.clear();
@@ -1063,6 +1164,10 @@ void AccountManager::loadSpotify()
     m_spotifyAvatar = s.value("Spotify", "avatar").toString();
     m_spotifyLoggedIn = !m_spotifyCookie.isEmpty() || !m_spotifyToken.isEmpty();
     if (m_spotifyLoggedIn && m_spotifyNickname.isEmpty()) m_spotifyNickname = "Spotify 用户";
+    if (!m_spotifyCookie.isEmpty()) {
+        m_spotifyTokenTimer->start();
+        QTimer::singleShot(0, this, &AccountManager::refreshSpotifyToken);
+    }
 }
 
 void AccountManager::loadApple()
@@ -1437,6 +1542,12 @@ void AccountManager::loadPersisted()
     loadApple();
     loadBilibili();
     loadQQ();
+    qInfo().noquote() << QStringLiteral("[account] 恢复登录态 网易云:%1 酷狗:%2 哔哩:%3 QQ:%4 Spotify:%5")
+                             .arg(m_neteaseLoggedIn ? QStringLiteral("是") : QStringLiteral("否"))
+                             .arg(m_kugouLoggedIn ? QStringLiteral("是") : QStringLiteral("否"))
+                             .arg(m_bilibiliLoggedIn ? QStringLiteral("是") : QStringLiteral("否"))
+                             .arg(m_qqLoggedIn ? QStringLiteral("是") : QStringLiteral("否"))
+                             .arg(m_spotifyLoggedIn ? QStringLiteral("是") : QStringLiteral("否"));
 }
 
 // 浏览器登录 Cookie 回填（内嵌 WebView 登录完成后调用）
@@ -1465,6 +1576,7 @@ void AccountManager::setKugouBrowserCookie(const QString &cookie, const QString 
     if (cookie.trimmed().isEmpty())
         return;
     m_kugouCookie = cookie.trimmed();
+    ensureKugouDevice();
     m_kugouNickname = nickname.trimmed().isEmpty() ? QStringLiteral("酷狗音乐用户")
                                                    : nickname.trimmed();
     m_kugouAvatar = avatar.trimmed();

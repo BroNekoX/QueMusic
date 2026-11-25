@@ -58,6 +58,7 @@ class AudioEngine : public QObject
     Q_PROPERTY(QString noTitle READ noTitle WRITE setNoTitle NOTIFY noTitleChanged FINAL)
     Q_PROPERTY(QString album READ album WRITE setAlbum NOTIFY albumChanged FINAL)
     Q_PROPERTY(bool onMedia READ onMedia NOTIFY mediaStatusChanged FINAL)
+    Q_PROPERTY(bool loaded READ loaded NOTIFY loadedChanged FINAL)
 
     Q_PROPERTY(QString title READ title NOTIFY metaDataChanged FINAL)
     Q_PROPERTY(QString tagTitle READ tagTitle NOTIFY metaDataChanged FINAL)
@@ -149,6 +150,7 @@ public:
     void setAlbum(const QString &name);
 
     bool onMedia() const { return m_mediaStatus != NoMedia; }
+    bool loaded() const { return m_loaded.load(std::memory_order_acquire); }
 
     QString title() const { return m_meta.title; }
     QString tagTitle() const { return m_meta.tagTitle; }
@@ -213,7 +215,7 @@ public:
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
     void playSource(const QUrl &url, const QVariantMap &headers = {}, int fadeInMs = 0);
-    void beginLoading() { setMediaStatus(LoadingMedia); }
+    void beginLoading();
 
     Q_INVOKABLE void fadeTo(qreal target, int ms);
     Q_INVOKABLE void fadeOut(int ms);
@@ -240,6 +242,7 @@ signals:
     void playingChanged();
     void playbackStateChanged();
     void mediaStatusChanged();
+    void loadedChanged();
     void errorOccurred(int code, const QString &message);
     void metaDataChanged();
     void volumeChanged();
@@ -284,12 +287,15 @@ private:
 
     qint64 render(char *data, qint64 maxlen);
     void decodeLoop();
-    void applyMeta(const FfmpegDecoder::Meta &meta);
+    void applyMeta(const FfmpegDecoder::Meta &meta, int epoch);
     void startThread();
     void stopThread();
     bool setupSink();
     void teardownSink();
     void openOnDecodeThread(const QUrl &url);
+    void ensureOpen();
+    void armReconcile();
+    void reconcile();
     void requestSeek(qint64 ms);
     void beginGeneration(qint64 baseMs);
     void applyPendingParams();
@@ -309,6 +315,8 @@ private:
     void markParamsPending();
     void setPlaybackState(PlaybackState state);
     void setMediaStatus(MediaStatus status);
+    void setLoaded(bool on);
+    void startPlayback(bool flush);
     void emitError(int code, const QString &message);
     void pollState();
     QAudioDevice resolveDevice() const;
@@ -317,7 +325,7 @@ private:
     bool refreshDeviceList();
     void refreshDevices();
     void scheduleDeviceRefresh();
-    void startSink();
+    void startSink(bool flush = false);
     void stopSink();
 
     QUrl m_source;
@@ -332,6 +340,10 @@ private:
     qint64 m_durationMs = 0;
     PlaybackState m_playbackState = StoppedState;
     MediaStatus m_mediaStatus = NoMedia;
+    std::atomic<bool> m_loaded{false};
+    std::atomic<bool> m_wantPlay{false};
+    std::atomic<bool> m_sinkRunning{false};
+    std::atomic<int> m_sourceEpoch{0};
     FfmpegDecoder::Meta m_meta;
 
     qreal m_volume = 1.0;
@@ -396,12 +408,16 @@ private:
     std::thread m_thread;
     std::atomic<bool> m_quit{false};
     std::atomic<bool> m_openRequest{false};
+    std::atomic<bool> m_opening{false};
     QUrl m_pendingUrl;
+    int m_pendingEpoch = 0;
     QMutex m_pendingUrlMutex;
     std::atomic<bool> m_decodeEof{false};
     std::atomic<bool> m_drained{false};
     std::atomic<qint64> m_seekRequest{-1};
 
+    int m_openRetries = 0;
+    int m_reconcileTicks = 0;
     std::atomic<qint64> m_pendingSeekMs{-1};
     std::atomic<qint64> m_lastSeekDoneMs{0};
     std::atomic<bool> m_decodeActive{false};
@@ -412,6 +428,7 @@ private:
     QTimer *m_pollTimer = nullptr;
     QTimer *m_saveTimer = nullptr;
     QTimer *m_deviceTimer = nullptr;
+    QTimer *m_reconcileTimer = nullptr;
 
     QMutex m_spectrumMutex;
     std::shared_ptr<AudioSpectrumSinkHandle> m_spectrumHandle;

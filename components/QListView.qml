@@ -21,6 +21,7 @@ ListView {
     // Set 只在选择态变化时重建一次；delegate 的 color 绑定只做 O(1) 查询。
     readonly property var selectedSet: new Set(selectedIndices)
     property bool isList: false
+    property bool rowActions: true   // 行尾收藏/加入列表按钮（MV 行关闭）
     property int artistX: width / 2 - 32
     property int toolX: width - 210
     property string toolText0: "\uf095"  // 行尾按钮：加入播放列表 / 歌单信息
@@ -415,6 +416,7 @@ ListView {
             }
 
             SButton {
+                visible: view.rowActions
                 iconCharacter: "\uf050"
                 x: view.toolX
                 y: 12
@@ -430,6 +432,7 @@ ListView {
                 }
             }
             SButton {
+                visible: view.rowActions
                 iconCharacter: view.toolText1 // 图标固定
                 iconColor: listDel.isFav ? Theme.themeColor : Theme.textColor
                 x: view.toolX + 38
@@ -443,6 +446,7 @@ ListView {
                 onClicked: view.toggleFavorite(listDel.index)
             }
             SButton {
+                visible: view.rowActions
                 iconCharacter: view.toolText0
                 x: view.toolX + 76
                 y: 12

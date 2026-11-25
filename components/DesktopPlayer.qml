@@ -111,16 +111,19 @@ Popup {
             }
 
             SettingItem {
-                label: "Windows SMTC 播放控制器"
+                label: App.mediaControlsName.length > 0
+                       ? App.mediaControlsName + " 系统媒体控制"
+                       : "系统媒体控制"
                 controlWidth: 120
                 width: parent.width
                 QSwitch {
-                    text: switchTrue ? "工作中" : "不支持"
+                    text: !App.mediaControlsEnabled
+                          ? "已关闭"
+                          : (App.mediaControlsAvailable ? "工作中" : "初始化中")
                     height: 36; width: 120
                     anchors.right: parent.right
-                    switchTrue: App.smtcAvailable
-                    onToggled: {
-                    }
+                    switchTrue: App.mediaControlsEnabled
+                    onToggled: App.mediaControlsEnabled = !App.mediaControlsEnabled
                 }
             }
         }

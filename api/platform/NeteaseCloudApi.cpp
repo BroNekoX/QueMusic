@@ -261,6 +261,7 @@ public slots:
             const int requested = qBound(0, call.value("quality").toInt(), 3);
             QString playUrl;
             bool unavailable = false;
+            QVariant trial;
             for (int level = requested; level >= 0; --level) {
                 QVariantMap urlArg;
                 urlArg.insert("id", arg.value("id"));
@@ -276,15 +277,19 @@ public slots:
                     continue;
                 const QVariantMap first = urlData.first().toMap();
                 playUrl = first.value("url").toString();
-                if (playUrl.isEmpty())
+                if (playUrl.isEmpty()) {
                     unavailable = true;
-                const int fee = first.value("fee").toInt();
-                if (fee > 1 && playUrl.isEmpty())
+                } else {
+                    trial = first.value("freeTrialInfo");
                     break;
-                if (!playUrl.isEmpty())
+                }
+                const int fee = first.value("fee").toInt();
+                if (fee > 1)
                     break;
             }
             effective.insert("play_url", playUrl);
+            if (trial.isValid() && !trial.isNull())
+                effective.insert("freeTrialInfo", trial);
             if (playUrl.isEmpty() && unavailable)
                 effective.insert("url_unavailable", true);
         }
@@ -347,6 +352,34 @@ private:
                                                 album.value("picUrl").toString(), songId(album.value("id")), 0, album.value("name").toString()));
                 }
             }
+        } else if (action == QLatin1String("searchMvs")
+                   || action == QLatin1String("searchMvsCandidates")) {
+            const QVariantMap result = data.value("result").toMap();
+            const QVariantList mvs = result.value("mvs").toList();
+            info.reserve(mvs.size());
+            for (const QVariant &value : mvs) {
+                const QVariantMap mv = value.toMap();
+                QString artist = mv.value("artistName").toString();
+                if (artist.isEmpty()) {
+                    const QVariantList artists = mv.value("artists").toList();
+                    if (!artists.isEmpty())
+                        artist = artists.first().toMap().value("name").toString();
+                }
+                const qint64 duration = mv.value("duration").toLongLong();
+                QVariantMap item = ApiCommon::song(
+                    mv.value("name").toString(), artist, mv.value("cover").toString(),
+                    songId(mv.value("id")), int(duration / 1000), QString(), QString(),
+                    QString(), ApiCommon::kPaytypeFree,
+                    mv.value("playCount").toLongLong());
+                info << item;
+            }
+        } else if (action == QLatin1String("getMvInfo")) {
+            const QVariantMap mv = data.value("data").toMap();
+            QVariantMap out{{"url", mv.value("url").toString()},
+                            {"hash", call.value("arg").toMap().value("id").toString()}};
+            if (transportFailed)
+                out.insert("error", transportError);
+            return out;
         } else if (action == QLatin1String("getPlaylistMenu")) {
             const QVariantMap categories = data.value("categories").toMap();
             const QVariantList subs = data.value("sub").toList();
@@ -446,6 +479,8 @@ private:
                                {"author_name", author}, {"singer_img", singerImg}, {"album_img", albumImg},
                                {"timeLength", dt > 0 ? int(dt / 1000) : int(song.value("duration").toLongLong() / 1000)},
                                {"fileName", (fileName.isEmpty() ? "unknown" : fileName) + ".mp3"}, {"hash", hash}, {"type", type}};
+            if (raw.contains("freeTrialInfo"))
+                detail.insert("freeTrialInfo", raw.value("freeTrialInfo"));
             if (transportFailed) detail.insert("error", transportError);
             return detail;
         } else if (action == QLatin1String("getLyricInfo")) {
@@ -583,6 +618,21 @@ void NeteaseCloudApi::onSearchLyrics(const QString &keyword, int page, int pageS
              {"limit", pageSize},
              {"offset", qMax(0, page - 1) * pageSize}},
             {{"ntype", 1}});
+}
+
+void NeteaseCloudApi::onSearchMvs(const QString &keyword, int page, int pageSize,
+                                const QString &action)
+{
+    enqueue(action, "cloudsearch",
+            {{"keywords", keyword},
+             {"type", 1004},
+             {"limit", pageSize},
+             {"offset", qMax(0, page - 1) * pageSize}});
+}
+
+void NeteaseCloudApi::onMvInfo(const QString &mvid)
+{
+    enqueue(ApiAction::MvInfo, "mv_url", {{"id", mvid}, {"r", 1080}});
 }
 
 void NeteaseCloudApi::onPlaylistMenu(int type)

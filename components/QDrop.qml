@@ -144,6 +144,7 @@ Rectangle {
                         Behavior on opacity { NumberAnimation { duration: 80 } }
                     }
                     TapHandler {
+                        gesturePolicy: TapHandler.WithinBounds
                         onTapped: {
                             root.transformed(dropDele.index);
                             popmenu.close();

@@ -150,6 +150,16 @@ int singerArea(int area)
     }
 }
 
+QString randomGuidHex()
+{
+    static const char *hex = "0123456789abcdef";
+    QString guid;
+    guid.reserve(32);
+    for (int i = 0; i < 32; ++i)
+        guid.append(QLatin1Char(hex[QRandomGenerator::global()->bounded(16)]));
+    return guid;
+}
+
 } // namespace
 
 QQMusicApi::QQMusicApi(QObject *parent)
@@ -421,6 +431,143 @@ void QQMusicApi::requestSearch(const QString &keyword, int type, int page, int p
             }
         }
         emitList(action, info, json);
+    });
+}
+
+void QQMusicApi::onSearchMvs(const QString &keyword, int page, int pageSize,
+                            const QString &action)
+{
+    requestMvSearch(keyword, page, pageSize, action);
+}
+
+void QQMusicApi::requestMvSearch(const QString &keyword, int page, int pageSize,
+                                 const QString &action)
+{
+    if (keyword.trimmed().isEmpty()) {
+        emit resultReady(action, ApiCommon::listResult({}), Source);
+        return;
+    }
+
+    // 4 = MV
+    const QJsonObject comm{{"ct", "11"}, {"cv", "1003006"}, {"v", "1003006"},
+                           {"uin", "0"}, {"format", "json"}, {"platform", "android"}};
+    const QJsonObject param{{"searchid", makeSearchId()},
+                            {"query", keyword},
+                            {"search_type", 4},
+                            {"num_per_page", qBound(1, pageSize, 50)},
+                            {"page_num", qMax(1, page)},
+                            {"highlight", true},
+                            {"grp", true}};
+    const QJsonObject body{
+        {"comm", comm},
+        {"req", QJsonObject{{"module", "music.search.SearchCgiService"},
+                            {"method", "DoSearchForQQMusicMobile"},
+                            {"param", param}}}};
+
+    postJson(QUrl(kApi), body, [this, action](const QJsonObject &json) {
+        QVariantList info;
+        const QJsonObject req = json.value(QStringLiteral("req")).toObject();
+        if (!json.contains("error") && json.value("code").toInt() == 0
+            && req.value("code").toInt() == 0) {
+            const QJsonObject data = req.value("data").toObject()
+                                         .value("body").toObject();
+            for (const QJsonValue &entry : data.value("item_mv").toArray()) {
+                const QJsonObject mv = entry.toObject();
+                QString vid = mv.value("vid").toString();
+                if (vid.isEmpty())
+                    vid = mv.value("id").toVariant().toString();
+                if (vid.isEmpty())
+                    continue;
+                QString title = mv.value("name").toString();
+                if (title.isEmpty())
+                    title = mv.value("title").toString();
+                QString artist = mv.value("singername").toString();
+                if (artist.isEmpty())
+                    artist = singerNames(mv.value("singer"));
+                if (artist.isEmpty())
+                    artist = singerNames(mv.value("singers"));
+                QString cover = mv.value("pic").toString();
+                if (cover.isEmpty())
+                    cover = mv.value("cover_pic").toString();
+                QVariantMap item = ApiCommon::song(
+                    stripHtml(title), stripHtml(artist), ApiCommon::httpsUrl(cover), vid,
+                    mv.value("duration").toInt(), QString(), QString(), QString(),
+                    ApiCommon::kPaytypeFree,
+                    mv.value("play_count").toVariant().toLongLong());
+                info << item;
+            }
+        }
+        emitList(action, info, json);
+    });
+}
+
+void QQMusicApi::onMvInfo(const QString &vid)
+{
+    if (vid.isEmpty()) {
+        emit resultReady(ApiAction::MvInfo,
+                         QVariantMap{{"hash", vid}, {"error", -1}, {"message", "empty mv vid"}},
+                         Source);
+        return;
+    }
+
+    const QString uin = m_uin.isEmpty() ? QStringLiteral("0") : m_uin;
+    const QJsonObject param{
+        {"vids", QJsonArray{vid}},
+        {"request_type", 10003},
+        {"guid", randomGuidHex()},
+        {"videoformat", 1},
+        {"format", 265},
+        {"dolby", 1},
+        {"use_new_domain", 1},
+        {"use_ipv6", 1}};
+    const QJsonObject body{
+        {"comm", QJsonObject{{"ct", 24}, {"cv", 0}, {"uin", uin}}},
+        {"req", QJsonObject{{"module", "music.stream.MvUrlProxy"},
+                            {"method", "GetMvUrls"},
+                            {"param", param}}}};
+
+    postJson(QUrl(kApi), body, [this, vid](const QJsonObject &json) {
+        const auto firstUrl = [](const QJsonArray &list) {
+            for (const QJsonValue &value : list) {
+                const QString text = value.toString();
+                if (!text.isEmpty())
+                    return text;
+            }
+            return QString();
+        };
+
+        QVariantMap result{{"hash", vid}};
+        const QJsonObject data = json.value("req").toObject()
+                                     .value("data").toObject();
+        QJsonObject entry = data.value(vid).toObject();
+        if (entry.isEmpty() && !data.isEmpty())
+            entry = data.begin().value().toObject();
+
+        QString url;
+        for (const QJsonValue &value : entry.value("mp4").toArray()) {
+            const QJsonObject item = value.toObject();
+            url = firstUrl(item.value("freeflow_url").toArray());
+            if (url.isEmpty())
+                url = firstUrl(item.value("url").toArray());
+            if (url.isEmpty())
+                url = firstUrl(item.value("comm_url").toArray());
+            if (!url.isEmpty())
+                break;
+        }
+        if (url.isEmpty()) {
+            const QJsonArray hls = entry.value("hls").toArray();
+            if (!hls.isEmpty())
+                url = hls.first().toObject().value("m3u8").toString();
+        }
+
+        if (url.isEmpty()) {
+            result.insert(QStringLiteral("error"),
+                          json.contains("error") ? json.value("error") : QJsonValue(0));
+            result.insert(QStringLiteral("message"), QStringLiteral("QQ音乐没有返回 MV 地址"));
+        } else {
+            result.insert(QStringLiteral("url"), ApiCommon::httpsUrl(url));
+        }
+        emit resultReady(ApiAction::MvInfo, result, Source);
     });
 }
 

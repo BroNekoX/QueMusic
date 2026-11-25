@@ -32,6 +32,7 @@ QtObject {
     readonly property int versionCode: 80
     readonly property int pluginApi: 20
     property string searchText: ""
+    property int searchTab: 0
     property bool isSmall: Style.leftBarMode === 0 ? (mainLayout ? mainLayout.width < 1080 : false) : Style.leftBarMode === 1 ? false : true
     property real barWidth: isSmall ? 74 : 210
     Behavior on barWidth { NumberAnimation { duration: 240; easing.type: Easing.OutExpo } }
@@ -72,7 +73,7 @@ QtObject {
             Theme.borderColor = darkis ? "#18ffffff" : Qt.hsva(hue, 0.02, 0.97, 1.0);
             Theme.blurOverlayColor = darkis ? Qt.hsva(hue, 0.05, 0.115, 0.65) : Qt.hsva(hue, 0.01, 1.0, 0.55);
             Theme.blurSecondaryColor = darkis ? Qt.hsva(hue, 0.06, 0.185, 0.62) : Qt.hsva(hue, 0.02, 0.97, 0.55);
-            Theme.shadowColor = darkis ? Qt.rgba(0, 0, 0, 0.42) : Qt.hsva(hue, 0.9, 0.2, 0.1);
+            Theme.shadowColor = darkis ? Qt.rgba(0, 0, 0, 0.36) : Qt.hsva(hue, 0.9, 0.2, 0.08);
             Theme.themeShadowColor = darkis ? Qt.hsva(hue, Math.min(seedSat * 0.63, 0.55), 0.96, 0.22) : Qt.hsva(hue, 1.0, 0.6, 0.3);
             break;
 
@@ -124,7 +125,7 @@ QtObject {
                 Theme.blurOverlayColor = Qt.rgba(m3SurfaceDark.r, m3SurfaceDark.g, m3SurfaceDark.b, 0.62);
                 Theme.blurSecondaryColor = Qt.rgba(m3SurfaceContainerDark.r, m3SurfaceContainerDark.g, m3SurfaceContainerDark.b, 0.62);
 
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.45);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.36);
                 Theme.themeShadowColor = Qt.rgba(m3PrimaryDark.r, m3PrimaryDark.g, m3PrimaryDark.b, 0.30);
             } else {
                 // 浅色（保持原逻辑）
@@ -149,7 +150,7 @@ QtObject {
                 Theme.blurOverlayColor = Qt.rgba(m3NeutralLight.r, m3NeutralLight.g, m3NeutralLight.b, 0.55);
                 Theme.blurSecondaryColor = Qt.rgba(m3NeutralVariantLight.r, m3NeutralVariantLight.g, m3NeutralVariantLight.b, 0.55);
 
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.10);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.08);
                 Theme.themeShadowColor = Qt.rgba(m3PrimaryLight.r, m3PrimaryLight.g, m3PrimaryLight.b, 0.30);
             }
             break;
@@ -178,7 +179,7 @@ QtObject {
                 Theme.blurSecondaryColor = Qt.rgba(0.173, 0.173, 0.173, 0.62);
 
                 Theme.containOutColor = accent;
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.35);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.32);
                 Theme.themeShadowColor = Qt.rgba(accent.r, accent.g, accent.b, 0.22);
             } else {
                 // 浅色（保持原逻辑）
@@ -200,7 +201,7 @@ QtObject {
                 Theme.blurSecondaryColor = Qt.rgba(0.98, 0.98, 0.98, 0.55);
 
                 Theme.containOutColor = Qt.hsva(hue, 1.0, 0.72, 1.0);
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.08);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.07);
                 Theme.themeShadowColor = Qt.rgba(0, 0.37, 0.72, 0.20);
             }
             break;
@@ -300,7 +301,7 @@ QtObject {
                 Theme.blurOverlayColor = Qt.rgba(myNeutralDark.r, myNeutralDark.g, myNeutralDark.b, 0.62);
                 Theme.blurSecondaryColor = Qt.rgba(mySurfaceContainerD.r, mySurfaceContainerD.g, mySurfaceContainerD.b, 0.62);
 
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.45);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.36);
                 Theme.themeShadowColor = Qt.rgba(myPrimary.r, myPrimary.g, myPrimary.b, 0.30);
             } else {
                 // 浅色（保持原逻辑）
@@ -325,7 +326,7 @@ QtObject {
                 Theme.blurOverlayColor = Qt.rgba(myNeutralLight.r, myNeutralLight.g, myNeutralLight.b, 0.55);
                 Theme.blurSecondaryColor = Qt.rgba(mySurfaceContainerHL.r, mySurfaceContainerHL.g, mySurfaceContainerHL.b, 0.55);
 
-                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.10);
+                Theme.shadowColor = Qt.rgba(0, 0, 0, 0.08);
                 Theme.themeShadowColor = Qt.rgba(myPrimary.r, myPrimary.g, myPrimary.b, 0.28);
             }
             break;

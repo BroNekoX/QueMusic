@@ -17,6 +17,17 @@ QtObject {
         visible: active
         sourceComponent: DesktopLyrics {}
     }
+    property Loader mvs: Loader {
+        active: false
+        visible: active
+        source: "qrc:/QueMusic/layout/MvWindow.qml"
+    }
+    function openMv() {
+        mvs.active = true;
+    }
+    function closeMv() {
+        mvs.active = false;
+    }
 
     function setMode(mode: int): void {
         playerMode = mode

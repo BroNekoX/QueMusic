@@ -51,6 +51,7 @@ public:
     set(int, sleepMinutes, 30) \
     set(int, historyLimit, 200) \
     set(int, shuffleAvoid, 2) \
+    set(bool, mediaControls, true) \
     set(bool, autoRestoreQueue, true) \
     set(QString, playHistory, QStringLiteral("[]")) \
     set(QString, lastQueue, QStringLiteral("[]")) \

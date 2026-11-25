@@ -31,6 +31,9 @@ namespace ApiAction {
 
 inline const QString SearchSongs = "searchSongs";
 inline const QString SearchLyrics = "searchLyrics";
+inline const QString SearchMvs = "searchMvs";
+inline const QString SearchMvsCandidates = "searchMvsCandidates";
+inline const QString MvInfo = "getMvInfo";
 inline const QString PlaylistMenu = "getPlaylistMenu";
 inline const QString MusicPlaylists = "getMusicPlaylists";
 inline const QString CategoryPlaylists = "getCategoryPlaylists";
@@ -66,6 +69,7 @@ inline bool isAccountAction(const QString &action)
 inline bool isListAction(const QString &action)
 {
     return action == SearchSongs || action == SearchLyrics
+        || action == SearchMvs || action == SearchMvsCandidates
         || action == PlaylistMenu || action == MusicPlaylists
         || action == CategoryPlaylists || action == PlaylistSongs
         || action == RecommendSongs || action == HotPlaylistMenu

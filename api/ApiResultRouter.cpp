@@ -61,10 +61,30 @@ bool ApiResultRouter::route(const QString &action, const QVariant &data, int sou
     const bool failed = message.contains("error");
     const QVariant info = message.contains("info") ? message.value("info") : data;
 
-    if (info.typeId() == QMetaType::QVariantList && action != ApiAction::Comments)
+    if (info.typeId() == QMetaType::QVariantList && action != ApiAction::Comments
+        && action != ApiAction::SearchMvs && action != ApiAction::SearchMvsCandidates)
         m_qualityCache->remember(info.toList());
 
     // 需要额外信号 / 改写的 action 单独处理，其余走 m_targets 表。
+    if (action == ApiAction::SearchMvs || action == ApiAction::SearchMvsCandidates) {
+        QVariantList items = ApiCommon::normalizeList(info);
+        for (QVariant &entry : items) {
+            QVariantMap item = entry.toMap();
+            item.insert("source", source);
+            entry = item;
+        }
+        if (action == ApiAction::SearchMvs) {
+            if (m_models.searchResults)
+                m_models.searchResults->append(items);
+        } else {
+            emit mvCandidatesReady(items, source);
+        }
+        return true;
+    }
+    if (action == ApiAction::MvInfo) {
+        emit mvInfoReady(message, source);
+        return true;
+    }
     if (action == ApiAction::SearchLyrics) {
         emit lyricSearchReady(info, source, failed);
         return true;

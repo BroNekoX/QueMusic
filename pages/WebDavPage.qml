@@ -162,7 +162,7 @@ Item {
                 anchors.fill: parent
                 radius: Style.labelRadius
                 color: Theme.hoverColor
-                opacity: serverArea.containsMouse ? 1 : 0
+                opacity: serverArea.hovered ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
             }
@@ -210,47 +210,48 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
 
-            MouseArea {
+            TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
+                onTapped: root.openServer(listServer.modelData);
+            }
+            HoverHandler {
                 id: serverArea
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: root.openServer(listServer.modelData)
+            }
 
-                Row {
-                    anchors.right: parent.right
-                    anchors.rightMargin: 20
-                    spacing: 2
-                    z: 2
-                    y: 12
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 20
+                spacing: 2
+                z: 2
+                y: 12
+                height: 36
+                SButton {
+                    iconCharacter: "\uf09e"
+                    width: 36
                     height: 36
-                    SButton {
-                        iconCharacter: "\uf13e"
-                        width: 36
-                        height: 36
-                        radius: 18
-                        buttonColor: "transparent"
-                        tipText: "测试连接"
-                        onClicked: WebDav.testServer(listServer.modelData.id)
-                    }
-                    SButton {
-                        iconCharacter: "\uf005"
-                        width: 36
-                        height: 36
-                        radius: 18
-                        buttonColor: "transparent"
-                        tipText: "编辑服务器"
-                        onClicked: root.openForm(listServer.modelData)
-                    }
-                    SButton {
-                        iconCharacter: "\uf08e"
-                        width: 36
-                        height: 36
-                        radius: 18
-                        buttonColor: "transparent"
-                        hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
-                        tipText: "删除服务器"
-                        onClicked: root.deleteServer(listServer.modelData)
-                    }
+                    radius: 18
+                    buttonColor: "transparent"
+                    tipText: "测试连接"
+                    onClicked: WebDav.testServer(listServer.modelData.id)
+                }
+                SButton {
+                    iconCharacter: "\uf005"
+                    width: 36
+                    height: 36
+                    radius: 18
+                    buttonColor: "transparent"
+                    tipText: "编辑服务器"
+                    onClicked: root.openForm(listServer.modelData)
+                }
+                SButton {
+                    iconCharacter: "\uf08e"
+                    width: 36
+                    height: 36
+                    radius: 18
+                    buttonColor: "transparent"
+                    hoverColor: Qt.rgba(1.0,0.5,0.5,0.8)
+                    tipText: "删除服务器"
+                    onClicked: root.deleteServer(listServer.modelData)
                 }
             }
         }
@@ -317,10 +318,7 @@ Item {
                 visible: !listDir.isDir
                 // 落地过就有同目录封面可用；没落地先用占位图（远端封面要带鉴权头，QML 加载不了）
                 image: listDir.localCover
-                radius1: 10
-                radius2: 10
-                radius3: 10
-                radius4: 10
+                radius: 10
             }
 
             Rectangle {
@@ -347,7 +345,7 @@ Item {
                 anchors.fill: parent
                 radius: Style.labelRadius
                 color: Theme.hoverColor
-                opacity: dirArea.containsMouse ? 1 : 0
+                opacity: dirArea.hovered ? 1 : 0
                 z: 1
                 Behavior on opacity { NumberAnimation { duration: 80 } }
             }
@@ -378,45 +376,46 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
 
-            MouseArea {
-                id: dirArea
-                anchors.fill: parent
-                hoverEnabled: true
+            TapHandler {
+                gesturePolicy: TapHandler.WithinBounds
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.LeftButton) {
+                onTapped: (a,button) => {
+                    if (button === Qt.RightButton) {
+                        dirView.menu.index = listDir.index;
+                        dirView.menu.popup();
+                    } else {
                         if (listDir.isDir)
                             browser.enter(listDir.index);
                         else
                             root.playRow(listDir.index);
-                    } else {
-                        dirView.menu.index = listDir.index;
-                        dirView.menu.popup();
                     }
                 }
+            }
+            HoverHandler {
+                id: dirArea
+            }
 
-                Row {
-                    anchors.right: parent.right
-                    anchors.rightMargin: 20
-                    spacing: 2
-                    z: 2
-                    y: 12
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 20
+                spacing: 2
+                z: 2
+                y: 12
+                height: 36
+                SButton {
+                    iconCharacter: "\uf095"
+                    width: 36
                     height: 36
-                    SButton {
-                        iconCharacter: "\uf095"
-                        width: 36
-                        height: 36
-                        radius: 18
-                        visible: !listDir.isDir
-                        buttonColor: "transparent"
-                        tipText: "加入播放列表"
-                        onClicked: {
-                            const row = browser.at(listDir.index)
-                            if (!row.url) return
-                            WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
-                            const added = Playback.enqueue(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
-                            Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
-                        }
+                    radius: 18
+                    visible: !listDir.isDir
+                    buttonColor: "transparent"
+                    tipText: "加入播放列表"
+                    onClicked: {
+                        const row = browser.at(listDir.index)
+                        if (!row.url) return
+                        WebDav.rememberSidecars(row.url, row.lyricsUrl, row.coverUrl)
+                        const added = Playback.enqueue(row.title, row.url, row.artist || "", Playback.kSourceWebDav)
+                        Options.warned(added ? "已加入播放列表" : "已在播放列表中", added ? 1 : 0)
                     }
                 }
             }

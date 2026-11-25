@@ -230,6 +230,7 @@ private:
     void clearLoginSettings(const QString &group);
     void persistNetease();
     void persistKugou();
+    void ensureKugouDevice(); // guid/dfid/mid：签名与取址都依赖，缺一不可
     void loadNetease();
     void loadKugou();
     void persistSpotify();
@@ -252,6 +253,7 @@ private:
                     const QList<QPair<QByteArray, QByteArray>> &headers,
                     const std::function<void(int, const QByteArray &)> &done);
     void validateSpotifyToken(const QString &token, const QString &cookie);
+    void refreshSpotifyToken();
     void validateAppleToken(const QString &userToken, const QString &developerToken);
     void fetchAppleDeveloperToken(const std::function<void(const QString &)> &done);
     void setNeteaseQr(int state, const QString &msg, const QString &qrText = QString());
@@ -315,6 +317,7 @@ private:
     QNetworkCookieJar *m_jar = nullptr;
     QTimer *m_neteasePollTimer = nullptr;
     QTimer *m_kugouPollTimer = nullptr;
+    QTimer *m_spotifyTokenTimer = nullptr;
     QString m_neteaseUnikey;
     QString m_kugouKey;
 

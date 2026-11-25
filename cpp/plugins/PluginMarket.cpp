@@ -6,20 +6,22 @@
 #include "plugins/PluginStore.h"
 
 #include <QCryptographicHash>
-#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRandomGenerator>
+#include <QSet>
 
 #include <algorithm>
-#include <QRandomGenerator>
 #include <utility>
 
 namespace {
 
 const QString kDefaultServer = QStringLiteral("http://8.133.18.144/");
+constexpr qint64 kMaxArchiveBytes = 64LL * 1024 * 1024;
 
 QString indexUrlFromBase(QString base)
 {
@@ -51,6 +53,16 @@ QUrl requestUrl(const QString &raw)
     return QUrl::fromLocalFile(QFileInfo(raw).absoluteFilePath());
 }
 
+QString normalizedType(QString type)
+{
+    type = type.toLower();
+    if (type == QStringLiteral("music") || type == QStringLiteral("sources"))
+        return QStringLiteral("source");
+    if (type != QStringLiteral("lyrics") && type != QStringLiteral("source"))
+        return QStringLiteral("function");
+    return type;
+}
+
 } // namespace
 
 PluginMarket::PluginMarket(QObject *parent)
@@ -74,9 +86,8 @@ QString PluginMarket::defaultSourceUrl() const
 void PluginMarket::reloadConfig()
 {
     const QString url = configuredIndexUrl();
-    if (url == m_sourceUrl)
-        return;
-    m_sourceUrl = url;
+    if (!url.isEmpty())
+        m_sourceUrl = url;
 }
 
 void PluginMarket::setBusy(bool busy, const QString &id)
@@ -84,7 +95,7 @@ void PluginMarket::setBusy(bool busy, const QString &id)
     if (m_busy == busy && m_installingId == id)
         return;
     m_busy = busy;
-    m_installingId = id;
+    m_installingId = busy ? id : QString();
     emit busyChanged();
 }
 
@@ -114,33 +125,28 @@ void PluginMarket::setCategory(int category)
     emit changed();
 }
 
-QString PluginMarket::localVersion(const QString &id) const
+void PluginMarket::abortReply()
 {
-    for (const QVariant &v : PluginStore::instance()->functions()) {
-        const QVariantMap map = v.toMap();
-        if (map.value(QStringLiteral("id")).toString() == id)
-            return map.value(QStringLiteral("version")).toString();
-    }
-    for (const QVariant &v : PluginStore::instance()->lyrics()) {
-        const QVariantMap map = v.toMap();
-        if (map.value(QStringLiteral("id")).toString() == id) {
-            if (map.value(QStringLiteral("builtin")).toBool())
-                return QString();
-            return map.value(QStringLiteral("version")).toString();
-        }
-    }
-    return QString();
+    if (!m_reply)
+        return;
+    QNetworkReply *reply = m_reply;
+    m_reply = nullptr;
+    reply->disconnect(this);
+    reply->abort();
+    reply->deleteLater();
 }
 
 void PluginMarket::markInstalled(QVariantMap &item) const
 {
     const QString id = item.value(QStringLiteral("id")).toString();
-    const QString local = localVersion(id);
-    const bool installed = !local.isEmpty();
+    const PluginStore *store = PluginStore::instance();
+    const bool installed = store->installed(id);
+    const QString local = store->versionOf(id);
     item.insert(QStringLiteral("installed"), installed);
     item.insert(QStringLiteral("localVersion"), local);
     item.insert(QStringLiteral("updatable"),
-                installed && local != item.value(QStringLiteral("version")).toString());
+                installed && !local.isEmpty()
+                    && local != item.value(QStringLiteral("version")).toString());
 }
 
 void PluginMarket::rebuild()
@@ -174,6 +180,7 @@ void PluginMarket::rebuild()
     }
 
     m_list.clear();
+    m_list.reserve(source.size());
     for (const QVariant &v : std::as_const(source)) {
         QVariantMap item = v.toMap();
         markInstalled(item);
@@ -193,19 +200,30 @@ void PluginMarket::refresh()
 {
     if (m_busy)
         return;
+    abortReply();
+
+    const QUrl url = requestUrl(m_sourceUrl);
+    if (url.isEmpty() || !url.isValid()) {
+        setError(QStringLiteral("插件市场地址无效"));
+        setStatus(QString());
+        return;
+    }
 
     setError(QString());
     setBusy(true);
     setStatus(QStringLiteral("获取插件列表…"));
 
-    QNetworkRequest request{requestUrl(m_sourceUrl)};
+    QNetworkRequest request{url};
     request.setTransferTimeout(8000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
 
-    m_reply = m_net.get(request);
-    connect(m_reply, &QNetworkReply::finished, this, [this]() {
-        QNetworkReply *reply = m_reply;
+    QNetworkReply *reply = m_net.get(request);
+    m_reply = reply;
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply != m_reply)
+            return;
         m_reply = nullptr;
         reply->deleteLater();
         setBusy(false);
@@ -237,18 +255,21 @@ void PluginMarket::parseIndex(const QByteArray &data)
     const QJsonArray array = doc.object().value(QStringLiteral("plugins")).toArray();
     const QUrl base = requestUrl(m_sourceUrl);
     QVariantList parsed;
+    parsed.reserve(array.size());
+    QSet<QString> seen;
     for (const QJsonValue &value : array) {
         const QJsonObject obj = value.toObject();
         const QString id = obj.value(QStringLiteral("id")).toString();
-        if (id.isEmpty())
+        if (id.isEmpty() || seen.contains(id))
             continue;
+        seen.insert(id);
 
         QVariantMap item;
         item.insert(QStringLiteral("id"), id);
         item.insert(QStringLiteral("name"),
                     obj.value(QStringLiteral("name")).toString(id));
         item.insert(QStringLiteral("type"),
-                    obj.value(QStringLiteral("type")).toString(QStringLiteral("function")));
+                    normalizedType(obj.value(QStringLiteral("type")).toString()));
         item.insert(QStringLiteral("author"), obj.value(QStringLiteral("author")).toString());
         item.insert(QStringLiteral("version"), obj.value(QStringLiteral("version")).toString());
         item.insert(QStringLiteral("description"), obj.value(QStringLiteral("description")).toString());
@@ -257,7 +278,7 @@ void PluginMarket::parseIndex(const QByteArray &data)
         const QString preview = obj.value(QStringLiteral("preview")).toString();
         const QString download = obj.value(QStringLiteral("download")).toString();
         item.insert(QStringLiteral("preview"), preview.isEmpty() ? QString() : base.resolved(QUrl(preview)).toString());
-        item.insert(QStringLiteral("download"), base.resolved(QUrl(download)).toString());
+        item.insert(QStringLiteral("download"), download.isEmpty() ? QString() : base.resolved(QUrl(download)).toString());
         item.insert(QStringLiteral("sha256"), obj.value(QStringLiteral("sha256")).toString());
         item.insert(QStringLiteral("size"), qint64(obj.value(QStringLiteral("size")).toDouble()));
         item.insert(QStringLiteral("builtin"), false);
@@ -273,6 +294,7 @@ void PluginMarket::parseIndex(const QByteArray &data)
     m_featured = parsed;
     for (int i = m_featured.size() - 1; i > 0; --i)
         m_featured.swapItemsAt(i, QRandomGenerator::global()->bounded(i + 1));
+
     rebuild();
     setStatus(QStringLiteral("共 %1 个插件").arg(m_all.size()));
     emit changed();
@@ -280,7 +302,7 @@ void PluginMarket::parseIndex(const QByteArray &data)
 
 void PluginMarket::install(const QString &id)
 {
-    if (m_busy)
+    if (m_busy || id.isEmpty())
         return;
 
     QVariantMap target;
@@ -291,31 +313,54 @@ void PluginMarket::install(const QString &id)
             break;
         }
     }
-    if (target.isEmpty())
+    if (target.isEmpty()) {
+        const QString text = QStringLiteral("插件不在列表里，请刷新后重试");
+        setError(text);
+        emit failed(id, text);
         return;
+    }
     if (target.value(QStringLiteral("installed")).toBool()
         && !target.value(QStringLiteral("updatable")).toBool()) {
         emit installed(id);
         return;
     }
 
+    const QUrl url(target.value(QStringLiteral("download")).toString());
+    if (url.isEmpty() || !url.isValid()) {
+        const QString text = QStringLiteral("插件包地址无效");
+        setError(text);
+        emit failed(id, text);
+        return;
+    }
+
+    abortReply();
     setError(QString());
     setBusy(true, id);
     setStatus(QStringLiteral("下载中 0%"));
 
-    QNetworkRequest request{QUrl(target.value(QStringLiteral("download")).toString())};
+    QNetworkRequest request{url};
     request.setTransferTimeout(120000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("QueMusic-Market"));
 
-    m_reply = m_net.get(request);
-    connect(m_reply, &QNetworkReply::downloadProgress, this, [this](qint64 done, qint64 total) {
+    QNetworkReply *reply = m_net.get(request);
+    m_reply = reply;
+
+    connect(reply, &QNetworkReply::downloadProgress, this, [this, reply](qint64 done, qint64 total) {
+        if (reply != m_reply)
+            return;
+        if (total > kMaxArchiveBytes || done > kMaxArchiveBytes) {
+            reply->abort();
+            return;
+        }
         if (total > 0)
             setStatus(QStringLiteral("下载中 %1%").arg(int(done * 100 / total)));
     });
-    connect(m_reply, &QNetworkReply::finished, this, [this, id, target]() {
-        QNetworkReply *reply = m_reply;
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, id, target]() {
+        if (reply != m_reply)
+            return;
         m_reply = nullptr;
         reply->deleteLater();
 
@@ -327,11 +372,22 @@ void PluginMarket::install(const QString &id)
         };
 
         if (reply->error() != QNetworkReply::NoError) {
-            fail(QStringLiteral("下载失败：%1").arg(reply->errorString()));
+            fail(reply->error() == QNetworkReply::OperationCanceledError
+                     ? QStringLiteral("插件包超过 64 MB，已取消下载")
+                     : QStringLiteral("下载失败：%1").arg(reply->errorString()));
             return;
         }
 
         const QByteArray archive = reply->readAll();
+        if (archive.isEmpty()) {
+            fail(QStringLiteral("插件包为空"));
+            return;
+        }
+        if (archive.size() > kMaxArchiveBytes) {
+            fail(QStringLiteral("插件包超过 64 MB"));
+            return;
+        }
+
         const QString expectHash = target.value(QStringLiteral("sha256")).toString();
         if (!expectHash.isEmpty()) {
             const QString actual = QString::fromLatin1(
@@ -349,8 +405,8 @@ void PluginMarket::install(const QString &id)
             return;
         }
 
-        setStatus(QStringLiteral("已安装"));
         setBusy(false);
+        setStatus(QStringLiteral("已安装"));
         rebuild();
         emit changed();
         emit installed(id);

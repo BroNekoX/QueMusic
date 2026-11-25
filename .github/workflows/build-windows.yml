@@ -6,6 +6,10 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      # 可选：配置后自动签名；未配置则产出未签名包（仍有 SmartScreen 提示）
+      WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+      WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -34,8 +38,60 @@ jobs:
         shell: pwsh
         run: cmake --build build --parallel
 
-      - name: Upload build artifact
+      # 先签 exe/dll：SmartScreen 看的是用户实际运行的那个 PE 文件，
+      # 只签外层安装包并不能让解压后的 QueMusic.exe 获得发布者身份。
+      - name: Sign binaries
+        if: env.WINDOWS_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
+          try {
+            .\packaging\windows\sign.ps1 -Path .\build\bin -PfxPath $pfx -PfxPassword $env:WINDOWS_PFX_PASSWORD
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          $buildBin = Join-Path (Get-Location).Path 'build\bin'
+          & $iscc "/DBuildDir=$buildBin" 'packaging\windows\QueMusic.iss'
+          if ($LASTEXITCODE -ne 0) { throw "ISCC 失败（$LASTEXITCODE）" }
+          Get-ChildItem dist\*.exe | Select-Object Name, Length
+
+      - name: Sign installer
+        if: env.WINDOWS_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
+          try {
+            Get-ChildItem dist\*.exe | ForEach-Object {
+              .\packaging\windows\sign.ps1 -Path $_.FullName -PfxPath $pfx -PfxPassword $env:WINDOWS_PFX_PASSWORD
+            }
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Signature summary
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem build\bin\QueMusic.exe) + @(Get-ChildItem dist\*.exe -ErrorAction SilentlyContinue)
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            "{0}: {1}" -f $f.Name, $sig.Status
+          } | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: QueMusic-windows-build
-          path: build/bin/QueMusic.exe
+          name: QueMusic-windows
+          path: |
+            build/bin/QueMusic.exe
+            dist/*.exe

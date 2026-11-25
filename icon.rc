@@ -26,7 +26,7 @@ BEGIN
             VALUE "LegalCopyright", "Copyright (c) 2026 QueMusic Contributors"
             VALUE "OriginalFilename", "QueMusic.exe"
             VALUE "ProductName", "QueMusic"
-            VALUE "ProductVersion", "0.1.0.0"
+            VALUE "ProductVersion", "0.8.0.0"
         END
     END
     BLOCK "VarFileInfo"
