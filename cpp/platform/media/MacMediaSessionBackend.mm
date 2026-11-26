@@ -11,6 +11,32 @@
 
 namespace {
 
+// macOS 只有 -initWithBoundsSize:requestHandler:（10.12.2+），没有 iOS 的 -initWithImage:。
+// publish() 会被反复调用，封面按路径缓存，避免每次都从磁盘解码。
+MPMediaItemArtwork *QMMacArtwork(const QUrl &cover)
+{
+    static QString cachedPath;
+    static MPMediaItemArtwork *cachedArtwork = nil;
+
+    const QString path = cover.toLocalFile();
+    if (cachedArtwork && path == cachedPath)
+        return cachedArtwork;
+
+    cachedPath = path;
+    cachedArtwork = nil;
+
+    NSImage *image = [[NSImage alloc] initWithContentsOfFile:path.toNSString()];
+    if (!image)
+        return nil;
+
+    cachedArtwork = [[MPMediaItemArtwork alloc] initWithBoundsSize:image.size
+                                                   requestHandler:^NSImage *(CGSize requestedSize) {
+        Q_UNUSED(requestedSize);
+        return image;
+    }];
+    return cachedArtwork;
+}
+
 void QMMacApplyNowPlaying(const MediaTrackInfo &info, qint64 positionMs, bool playing)
 {
     MPNowPlayingInfoCenter *center = MPNowPlayingInfoCenter.defaultCenter;
@@ -30,9 +56,8 @@ void QMMacApplyNowPlaying(const MediaTrackInfo &info, qint64 positionMs, bool pl
 
     // 只处理本地封面；网络封面交给系统缓存不划算，保持默认图标
     if (info.cover.isLocalFile()) {
-        NSImage *image = [[NSImage alloc] initWithContentsOfFile:info.cover.toLocalFile().toNSString()];
-        if (image)
-            items[MPMediaItemPropertyArtwork] = [[MPMediaItemArtwork alloc] initWithImage:image];
+        if (MPMediaItemArtwork *artwork = QMMacArtwork(info.cover))
+            items[MPMediaItemPropertyArtwork] = artwork;
     }
 
     center.nowPlayingInfo = items;
