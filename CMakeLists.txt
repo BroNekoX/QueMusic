@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(QueMusic VERSION 0.8.1 LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOMOC_PATH_PREFIX ON)
 set(CMAKE_AUTORCC ON)
@@ -379,8 +383,7 @@ target_link_libraries(${PROJECT_NAME}
 if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE QUEMUSIC_HAS_SMTC)
 elseif(APPLE)
-    # Now Playing 后端是 Objective-C++，单独成库，避免影响主目标的 PCH
-    enable_language(OBJCXX)
+    # Now Playing 后端是 Objective-C++（OBJCXX 已在文件顶部启用），单独成库，避免影响主目标的 PCH
     add_library(quemusic_media_mac STATIC
         cpp/platform/media/MacMediaSessionBackend.h
         cpp/platform/media/MacMediaSessionBackend.mm)
