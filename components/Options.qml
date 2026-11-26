@@ -29,7 +29,7 @@ QtObject {
     property int exitIndex: 0          // 要求主界面切到的页
     property bool homeLoaded: false    // 首页是否已加载
     property bool recordingShortCut: false
-    readonly property int versionCode: 80
+    readonly property int versionCode: 81
     readonly property int pluginApi: 20
     property string searchText: ""
     property int searchTab: 0

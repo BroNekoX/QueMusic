@@ -49,7 +49,7 @@ static void applyCoreMetadata(QCoreApplication &application)
     application.setOrganizationName(QStringLiteral("BroNekoX"));
     application.setOrganizationDomain(QStringLiteral("com.bronekox.quemusic"));
     application.setApplicationName(QStringLiteral("QueMusic"));
-    application.setApplicationVersion(QStringLiteral("0.8.0"));
+    application.setApplicationVersion(QStringLiteral("0.8.1"));
 }
 
 static void setupApplicationMetadata(QApplication &application)

@@ -128,7 +128,7 @@ Rectangle {
                         color: root.choice === dropDele.index ? Theme.primaryColor : Theme.textColor
                         font.pixelSize: Style.textmain
                         anchors.verticalCenter: dropDele.verticalCenter
-                        x: 16
+                        x: 12
                     }
                 
                     Rectangle {

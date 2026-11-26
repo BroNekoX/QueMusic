@@ -148,27 +148,6 @@
 - 提高FilePage稳定性，应该可以解决部分设备出现本地文件夹bug的问题
 - 修复Linux tar打包部分环境无法运行
 
-## [未发布]
-
-### 新增
-- **MV 视频**：搜索页的 MV 页签接入真实数据（酷狗 / 网易云 / QQ音乐 / 哔哩哔哩），支持分页与平台切换
-- **单列表搜索页**：歌曲 / 歌单 / MV / 歌词共用 `searchSongsResults` 模型，MV 结果并入同一列表，
-  点击 MV 行直接打开播放窗口
-- **MV 独立窗口**：`Desktop.openMv()` 打开 `layout/MvWindow.qml`，MediaPlayer + VideoOutput 播放，
-  支持播放/暂停、进度拖动、音量/静音、全屏（F11）、空格 / F11 / Esc 快捷键、控制条自动隐藏
-- **换平台播放**：MV 窗口里切换平台时，按「标题 + 歌手」在新平台重新匹配并解析地址；
-  播不了时给出重试与平台快捷切换
-- **本地流代理** `cpp/MvProxy`：B 站视频 CDN 按 UA/Referer 防盗链，代理补齐请求头并透传 Range，
-  因此 MV 里拖动进度条也能正常 seek
-- 新增 MV 接口：`MusicApi.searchMvs()`、`MusicApi.playMv()`、`MusicApi.switchMvSource()`、
-  `mvUrl/mvTitle/mvArtist/mvCover/mvLoading/mvError` 状态
-
-### 修复
-- 部署脚本不再按「全项目无 MediaPlayer」删除 `ffmpegmediaplugin.dll` / `swscale-8.dll`（MV 需要 FFmpeg 后端）
-- MV 页签不再误用歌词搜索（`searchSongs(type=3)`）
-- Loader 创建的 MV 窗口补 `show()`，修复点击 MV 后窗口不显示的问题
-- MV 列表时长改为 `m:ss` 显示，且不再出现收藏 / 加入列表按钮
-
 ## [0.8.0] - 2026-11-20
 
 ### 架构升级
@@ -195,5 +174,26 @@
 - 修复播放列表错乱问题
 - 修复歌词界面封面和背景过渡有时生硬或错乱
 - 修复部分平台应用图标显示异常
+
+## [0.8.1] - 2026-11-26
+
+### 新增
+- **MV 视频**：搜索页的 MV 页签接入真实数据（酷狗 / 网易云 / QQ音乐 / 哔哩哔哩），支持分页与平台切换
+- **MV 独立窗口**：`Desktop.openMv()` 打开 `layout/MvWindow.qml`，MediaPlayer + VideoOutput 播放，
+  支持播放/暂停、进度拖动、音量/静音、全屏（F11）、空格 / F11 / Esc 快捷键、控制条自动隐藏
+
+### 改进
+- 改进一些UI组件布局，美化UI动效
+- 改进在线api系统，有更好的在线功能体验
+- 改进系统媒体控制，接入Windows Linux MacOS媒体控制
+- 优化音频系统，提高进程并且音频播放不易卡顿
+
+### 修复
+- 部署脚本不再按「全项目无 MediaPlayer」删除 `ffmpegmediaplugin.dll` / `swscale-8.dll`（MV 需要 FFmpeg 后端）
+- 修复QQ平台音乐被当成WebDav问题
+- 修复VIP歌曲收听功能残缺
+- 本地歌曲文件封面读取修复，封面规范url以及能够及时使用缓存的taglib封面
+- 修复部分平台无法登录bug
+- 修复一些bug
 
 
