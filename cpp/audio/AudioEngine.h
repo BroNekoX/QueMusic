@@ -292,7 +292,6 @@ private:
     void stopThread();
     bool setupSink();
     void teardownSink();
-    void openOnDecodeThread(const QUrl &url);
     void ensureOpen();
     void armReconcile();
     void reconcile();

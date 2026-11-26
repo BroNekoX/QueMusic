@@ -2,7 +2,6 @@
 // Copyright (c) 2026 QueMusic Contributors
 #include "MacMediaSessionBackend.h"
 
-#include <QtCore/QDebug>
 #include <QtCore/QMetaObject>
 #include <QtCore/QString>
 #include <QtCore/QUrl>
